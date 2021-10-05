@@ -1,0 +1,79 @@
+#!/bin/sh
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+ 
+#export IMA_BUILD_DIRS=(server_utils server_admin server_spidercast server_cluster server_store server_transport server_engine server_monitoring server_protocol server_ismc server_snmp server_main server_mqcbridge server_trace)
+
+#Don't build the mqcbridge so we don't need the mq client etc...
+export IMA_BUILD_DIRS=(server_utils server_admin server_spidercast server_cluster server_store server_transport server_engine server_monitoring server_protocol server_ismc server_snmp server_main server_trace) 
+
+if [ "$SROOT" == "" ]; then
+    echo "No SROOT set"
+    exit 10
+fi
+if [ "$BROOT" == "" ]; then
+    echo "No BROOT set"
+    exit 10
+fi
+
+if [ $# -ne 0 ]; then
+    TARGET=$*
+else
+    TARGET="cov all"
+fi
+
+cpus=`grep -c -P "processor\\s*:\\s*[0-9]+$" /proc/cpuinfo`
+jobs=`expr $cpus + 1`
+
+CURDIR=$PWD
+MAKECMD="make -j$jobs"
+
+#invoke make for each of the directories in turn
+NUM_DIRS=${#IMA_BUILD_DIRS[*]}
+DIR=0
+SKIPPED=0
+
+echo \#TIME Build Start $(date)
+while [ $DIR -lt $NUM_DIRS ]; do
+    BUILD_DIR=$SROOT/${IMA_BUILD_DIRS[$DIR]}
+    if [ -d "$BUILD_DIR" ]; then
+        cd $BUILD_DIR; pwd
+        $MAKECMD -f Makefile $TARGET
+        MAKE_RC=$?
+        if [ $MAKE_RC -ne 0 ]; then
+            DIR=$NUM_DIRS
+        else
+            let DIR++
+        fi
+    else
+        echo "Skipping missing directory" $BUILD_DIR
+        let SKIPPED++
+        let DIR++
+    fi
+done
+
+if [ $SKIPPED -eq $NUM_DIRS ]; then
+   echo "Skipped all dirs....failing build"
+   MAKE_RC=10
+fi
+
+echo \#TIME Build End $(date)
+
+if [ "$BUILD_UID" != "" ]; then
+    uid=`id -u`
+    if [ $uid -ne $BUILD_UID ]; then
+        chown --recursive --quiet $BUILD_UID $BROOT/*
+    fi
+fi
+
+cd $CURDIR
+exit $MAKE_RC

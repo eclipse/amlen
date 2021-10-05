@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>IBM MessageSight Web UI</title>
+	<link rel="stylesheet" href="../js/idx/themes/oneui/oneui.css" />
+	<link rel="stylesheet" href="css/msgDemo.css" />
+	<link rel="stylesheet" href="../template/css/ismSamples.css" />
+
+    <script src="js/jquery.js"></script>
+    <script src="js/ism_mqttws.js"></script>
+	<script src="js/msgDemo.js"></script>
+
+	<script type="text/javascript">
+		function controlChecked(self) {
+			if (self.checked) {
+				if (self.dataset.type == "pub") {
+					controller.addPub(self.dataset.client, self.dataset.topic);
+				}
+				if (self.dataset.type == "sub") {
+					controller.addSub(self.dataset.client, self.dataset.topic);
+				}
+			} else {
+				if (self.dataset.type == "pub") {
+					controller.removePub(self.dataset.client, self.dataset.topic);
+				}
+				if (self.dataset.type == "sub") {
+					controller.removeSub(self.dataset.client, self.dataset.topic);
+				}
+			}
+		}
+
+		function clearChecks(num) {
+			document.getElementById("sub_A_client"+num).checked = false;
+			document.getElementById("sub_B_client"+num).checked = false;
+			document.getElementById("sub_C_client"+num).checked = false;
+			document.getElementById("pub_A_client"+num).checked = false;
+			document.getElementById("pub_B_client"+num).checked = false;
+			document.getElementById("pub_C_client"+num).checked = false;
+		}
+
+		function randomString(length) {
+			var source = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+			var str = "";
+			for (var i = 0; i < length; i++) {
+				str += source[Math.floor(Math.random() * source.length)];
+			}
+			return str;
+		}
+
+		var sessionId;
+
+		function generateSessionId() {
+			sessionId = randomString(5);
+			console.debug("generated new session id: " + sessionId);
+		}
+
+		function quickStart(self) {
+			self.disabled = true;
+			document.getElementById("client1_button").click();
+			document.getElementById("client2_button").click();
+			document.getElementById("client3_button").click();
+			document.getElementById("client4_button").click();
+			document.getElementById("client5_button").click();
+			setTimeout(function() { document.getElementById("sub_A_client4").click(); }, 2500);
+			setTimeout(function() { document.getElementById("sub_B_client5").click(); }, 2500);
+			setTimeout(function() { document.getElementById("sub_C_client5").click(); }, 2500);
+			setTimeout(function() { document.getElementById("pub_A_client1").click(); }, 3000);
+			setTimeout(function() { document.getElementById("pub_B_client2").click(); }, 3300);
+			setTimeout(function() { document.getElementById("pub_C_client3").click(); }, 3600);
+		}
+
+		function cheat() {
+			document.getElementById("client1_button").click();
+			document.getElementById("client2_button").click();
+			document.getElementById("client3_button").click();
+			document.getElementById("client4_button").click();
+			document.getElementById("client5_button").click();
+
+			setTimeout(function() { 
+				var ops = ["pub", "sub"];
+				var topics = ["A", "B", "C"];
+				var clients = ["1", "2", "3", "4", "5"];
+				for (var i in ops) {
+					for (var j in topics) {
+						for (var k in clients) {
+							var id = ops[i] + "_" + topics[j] + "_client" + clients[k];
+							document.getElementById(id).click();
+						}
+					}
+				}
+			}, 2000);
+		}
+
+		var bServerConnected = false;
+		var testConnection = null;
+		var remainingRetries = 2;
+		function initClients() {
+			var html = "";
+			var slideTime = 800;
+
+			testConnection = establishTestConnection();
+
+			controller.server.setImage("css/images/dp9005.jpg");
+			controller.server.pos = { x: 400, y: 80 };
+
+			controller.addClient("Web Client 1", { x: 100, y: 35 }, function() {
+				$("#client1").slideDown(slideTime);
+				//$("#client1_button").attr("disabled", "true");
+				$("#client1_button").hide();
+				clearChecks(1);
+			}, function() {
+				$("#client1").slideUp(slideTime);
+				$("#client1_button").show();
+			});
+			controller.addClient("Web Client 2", { x: 90, y: 190 }, function() {
+				$("#client2").slideDown(slideTime);
+				//$("#client2_button").attr("disabled", "true");
+				$("#client2_button").hide();
+				clearChecks(2);
+			}, function() {
+				$("#client2").slideUp(slideTime);
+				$("#client2_button").show();
+			});
+			controller.addClient("Web Client 3", { x: 100, y: 335 }, function() {
+				$("#client3").slideDown(slideTime);
+				//$("#client3_button").attr("disabled", "true");
+				$("#client3_button").hide();
+				clearChecks(3);
+			}, function() {
+				$("#client3").slideUp(slideTime);
+				$("#client3_button").show();
+			});
+			controller.addClient("Web Client 4", { x: 420, y: 305 }, function() {
+				$("#client4").slideDown(slideTime);
+				//$("#client4_button").attr("disabled", "true");
+				$("#client4_button").hide();
+				clearChecks(4);
+			}, function() {
+				$("#client4").slideUp(slideTime);
+				$("#client4_button").show();
+			});
+			controller.addClient("Web Client 5", { x: 500, y: 285 }, function() {
+				$("#client5").slideDown(slideTime);
+				//$("#client5_button").attr("disabled", "true");
+				$("#client5_button").hide();
+				clearChecks(5);
+			}, function() {
+				$("#client5").slideUp(slideTime);
+				$("#client5_button").show();
+			});
+			controller.getClientByName("Web Client 1").setImage("css/images/webclient.png");
+			controller.getClientByName("Web Client 2").setImage("css/images/webclient.png");
+			controller.getClientByName("Web Client 3").setImage("css/images/webclient.png");
+			controller.getClientByName("Web Client 4").setImage("css/images/webclient.png");
+			controller.getClientByName("Web Client 5").setImage("css/images/webclient.png");
+
+			controller.getClientByName("Web Client 1").setPaths({
+				connectionPath: { start: { x: 130, y: 40 }, end: { x: 300, y: 55 } }
+			});
+			controller.getClientByName("Web Client 2").setPaths({
+				connectionPath: { start: { x: 115, y: 175 }, end: { x: 300, y: 113 } }
+			});
+			controller.getClientByName("Web Client 3").setPaths({
+				connectionPath: { start: { x: 130, y: 310 }, end: { x: 340, y: 125 } }
+			});
+			controller.getClientByName("Web Client 4").setPaths({
+				connectionPath: { start: { x: 415, y: 250 }, end: { x: 405, y: 125 } }
+			});
+			controller.getClientByName("Web Client 5").setPaths({
+				connectionPath: { start: { x: 480, y: 240 }, end: { x: 445, y: 122 } }
+			});
+
+			// build HTML controls
+			for (var i in controller.clients) {
+				var clientName = "client"+(Math.round(i) + 1);
+				var displayName = controller.clients[i].name;
+				html += "<div class='clientControl' id='"+clientName+"_controls'>";
+				html += "<center><p><b>"+displayName+"</b></p>";
+				html += "<input class='connectButton' type='button' id='"+clientName+"_button' value='Connect' onclick='controller.connectClient(\""+displayName+"\");' disabled /></center>";
+				html += "<div class='controls' id='"+clientName+"' style='display: none'>";
+				html += "<table>";
+				html += "<tr><td>Pub</td><td></td><td>Sub</td></tr>";
+				for (var j in Topics) {
+					var topicName = Topics[j].name;
+					html += "<tr>";
+					html += "<td><input id='pub_"+topicName+"_"+clientName+"' data-type='pub' data-topic='"+topicName+"' data-client='"+displayName+"' onclick='controlChecked(this)' type='checkbox' /></td>";
+					html += "<td><span class='topic"+topicName+"'>Topic "+topicName+"</span></td>";
+					html += "<td><input id='sub_"+topicName+"_"+clientName+"' data-type='sub' data-topic='"+topicName+"' data-client='"+displayName+"' onclick='controlChecked(this)' type='checkbox' /></td>";
+					html += "</tr>";
+				}
+				html += "</table>";
+				html += "</div>";
+				html += "<span id='"+clientName+"_stats'></span>";
+				html += "</div>";
+			}
+			document.getElementById("controls").innerHTML = html;
+
+			updateStats(0, 0);
+		}
+
+		function establishTestConnection() {
+			var clientId = randomString(5) + "_demo_test";
+			generateSessionId();
+			console.log("establishTestConnection: " + clientId);
+			if (document.getElementById("serverStatus").innerHTML == "") {
+				document.getElementById("serverStatus").innerHTML = "<b>Attempting connection...</b><br>" + ismServer + ":" + ismPort;
+			}
+			var test = new MQTT.Client(ismServer, ismPort, clientId);
+			test.onconnect = function() { 
+				document.getElementById("serverStatus").innerHTML = "<b>Connected to server!</b><br>" + ismServer + ":" + ismPort;
+				document.getElementById("client1_button").disabled = false;
+				document.getElementById("client2_button").disabled = false;
+				document.getElementById("client3_button").disabled = false;
+				document.getElementById("client4_button").disabled = false;
+				document.getElementById("client5_button").disabled = false;
+				document.getElementById("quickStart_button").disabled = false;
+				bServerConnected = true;
+
+				// start heartbeat	
+				test.subscribe(clientId + "-heartbeat", function(message) {
+//					console.log(message.topic + " received message");
+					test.receivedHeartbeat = true;
+				});
+				var timeout = setInterval(function() {
+					if (!test.receivedHeartbeat) {
+						console.log("test.disconnect()");
+						test.disconnect();
+						test.onconnectionlost();
+						clearInterval(timeout);
+					}
+					var topic = clientId + "-heartbeat";
+					try {
+						test.publish(topic, "something");
+					} catch (e) {
+						// if the network / server goes down, we'll hit the
+						// failure logic above and cancel the interval
+					}
+//					console.log(topic + " sent message");
+					test.receivedHeartbeat = false;
+				}, 2000);
+			}
+			test.onerror = function() { 
+				document.getElementById("serverStatus").innerHTML = "Error";
+				bServerConnected = false;
+			}
+			test.onconnectionlost = function(self, reason) {
+				if (self && self.host != ismServer) {
+					// ignore failures from past test connections
+					return;
+				}
+				remainingRetries = remainingRetries - 1;
+				console.log("demo_test onconnectionlost()", self, reason);
+				if (remainingRetries == 0 && ismServer != document.location.hostname && document.location.hostname != "") {
+					var old = ismServer;
+					ismServer = document.location.hostname;
+					setMessage("<b>WARNING:</b> " + old + " cannot be reached.  The application will use <b>" + ismServer + "</b>");
+				} else if (remainingRetries > 0) {
+				    setMessage("<b>WARNING:</b> " + ismServer + " cannot be reached.  " + remainingRetries + " reconnect attempt(s) remaining." );
+				}
+				document.getElementById("serverStatus").innerHTML = "<b>Connection failed!<br>Attempting to reconnect...</b><br>" + ismServer + ":" + ismPort;
+				document.getElementById("client1_button").disabled = true;
+				document.getElementById("client2_button").disabled = true;
+				document.getElementById("client3_button").disabled = true;
+				document.getElementById("client4_button").disabled = true;
+				document.getElementById("client5_button").disabled = true;
+				document.getElementById("quickStart_button").disabled = true;
+				for (var i in controller.clients) {
+					try {
+						controller.clients[i].close();
+					} catch (e) { }
+				}
+				bServerConnected = false;
+				if (remainingRetries >= 0) {
+					setTimeout(function() { 
+						testConnection = establishTestConnection(); 
+					}, 200);
+				}
+			}
+			setTimeout(function() {
+				if (!bServerConnected) {
+					test.onconnectionlost();	
+				}
+			}, 2000);
+			
+			var opts = {
+				keepAliveInterval: 3600
+			};
+			if (userName) { opts["userName"] = userName; }	
+			if (password) { opts["password"] = password; }	
+			test.connect(opts);
+			test.receivedHeartbeat = true;
+
+			return test;
+		}
+
+		function updateStats(lastSum, count) {
+			var sum = 0;
+			for (var i in controller.clients) {
+				var clientName = "client"+(Math.round(i) + 1);
+				if (controller.clients[i].connected) {
+					//var str = controller.clients[i].recvMsgCount + " in, " + controller.clients[i].sendMsgCount + " out";
+					//document.getElementById(clientName + "_stats").innerHTML = str;
+					sum += controller.clients[i].recvMsgCount + controller.clients[i].sendMsgCount;
+				}
+			}
+
+			if (count % 10 == 0) {
+				document.getElementById("serverThroughput").innerHTML = "Throughput: <b><span id='serverThroughput_val'>" + (sum - lastSum) + "</span></b> msgs/sec";
+				setTimeout(function() { updateStats(sum, count+1); }, 100);
+			} else {
+				setTimeout(function() { updateStats(lastSum, count+1); }, 100);
+			}
+		}
+
+		function setMessage(text) {
+			$("#messageArea")[0].innerHTML = text;
+			$("#messageArea").slideDown(1000);
+		}
+		function hideMessage() {
+			$("#messageArea").slideUp(1000);
+		}
+
+		function getUrlVars() {
+			var vars = {};
+			var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+				vars[key] = value;
+			});
+			return vars;
+		}
+
+		var simVal = getUrlVars()["sim"];
+		if (simVal != null) { 
+			if (simVal == "true") {
+				sim = true;
+			} else {
+				sim = false;
+			}
+		}
+		
+		var ismServer = getUrlVars()["ip"];
+		if (ismServer == undefined || ismServer == "") {
+			ismServer = document.location.hostname;
+		}
+		if (ismServer.match(/[A-Fa-f]/) || ismServer.match(/[:]/)) {
+			ismServer = "[" + ismServer + "]";
+		}
+		console.log("ismserver = |" + ismServer + "|");
+		var ismPort = getUrlVars()["port"];
+		if (document.location.protocol == "https:") {
+			window.ismPortSecure = true;
+		} else {
+			window.ismPortSecure = false;
+		}
+		var userName = getUrlVars()["userName"] == undefined ? null : getUrlVars()["userName"];
+		var password = getUrlVars()["password"] == undefined ? null : getUrlVars()["password"];
+	</script>
+</head>
+<body onload='initClients()'>
+	<div class="demoHeader">
+		<div class="demoHeaderPrimary">
+			<div class="demoHeaderPrimaryInner">
+				<span>
+					<div class="demoHeaderPrimaryTitle">IBM MessageSight</div>
+				</span>
+			</div>
+			<span>
+				<div class="demoHeaderLogoBox">
+					<div class="demoHeaderIBMLogo" alt="IBM�"></div>
+				</div>
+				<div class="demoHeaderHelpLogo" id="help" alt="Help" onclick="help()"></div>
+			</span>
+		</div>
+		<div class="demoBlueLip"></div>
+	</div>
+	<div class="demoTitleContainer">
+		<span class="demoTitle">Messaging Verification</span>
+	</div>
+	<div class="demoGrayLip"></div>
+	<div class="demoContentContainer">
+	<!-- Container with a sidebar on the left -->
+		<div class="demoSLSidebarContainer" id="sidebar">
+			<h2 class='top center'>Instructions</h2>
+			<p>This application allows you to verify that the server can
+			accept WebSocket client connections and facilitate messaging between clients.</p>
+			<ol>
+				<li>Click "Quick Start" below, or manually establish one or more client connections (click "Connect").</li>
+				<li>Publish/subscribe to a topic using the client controls.</li>
+				<li>Verify message flow in the system.  Each message is represented by a colored square.</li>
+			</ol>
+			<div style='padding: 5px;'></div>
+			<center><input type="button" id="quickStart_button" onclick="quickStart(this)" value="Quick Start" disabled></input></center>
+			<div style='padding: 15px;'></div>
+			<hr>
+			<h2 class='center'>Statistics</h2>
+			<div id="serverThroughput"></div>
+			<div style="position: relative; height: 100px">
+				<div id="serverStatusContainer">
+					<div id="serverStatus"></div>
+				</div>
+			</div>
+		</div>
+		<div class="demoSLMainContainer" id="mainContent">
+			<div id="controllerView" style="width: 100%">
+				<div class="canvasLayers" style="position: relative; margin: auto; width: 600px; height: 380px">
+					<canvas id="canvas" width="600" height="380" style="position: absolute; top: 0; left: 0">[No canvas support]</canvas>
+					<canvas id="canvas2" width="600" height="380" style="position: absolute; top: 0; left: 0; visibility: 'hidden'">[No canvas support]</canvas>
+					<div style="color: #666; position: absolute; top: 15pt; left: 8pt">Web Client 1</div>
+					<div style="color: #666; position: absolute; top: 133pt; left: 0pt">Web Client 2</div>
+					<div style="color: #666; position: absolute; top: 240pt; left: 8pt">Web Client 3</div>
+					<div style="color: #666; position: absolute; top: 245pt; left: 285pt">Web Client 4</div>
+					<div style="color: #666; position: absolute; top: 230pt; left: 345pt">Web Client 5</div>
+				</div>
+			</div>
+			<div id="controls"></div>
+		</div>
+		<div id="messageArea" style="display: none">
+		</div>
+	<!-- Container with a sidebar on the right -->
+	<!--
+		<div class="demoSRMainContainer" id="mainContent">
+			Main content goes here
+		</div>
+		<div class="demoSRSidebarContainer" id="sidebar">
+			Sidebar content goes here
+		</div>
+	-->
+	<!-- Container with no sidebar -->
+	<!--
+		<div class="demoMainContainer" id="mainContent">
+			Main content goes here
+		</div>
+	-->
+	</div>
+	<div class="demoFooter">
+		<div class="demoBlueLip"></div>
+		<div class="demoFooterContent">
+			&copy; Copyright Contributors to the Eclipse Foundation 2012-2021
+		</div>
+	</div>
+
+	<div id="cheatCode" onclick="cheat()"></div>
+</body>
+</html>

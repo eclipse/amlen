@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_cluster_HA_005-HAfailover" >
+
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_cluster_HA_005-HAfailover</solution>
+    </SyncClient>
+
+
+<!-- A1 publish -->
+      <Action name="A1publish" type="CompositeAction">
+          <Action name="CreateConnectionA1" type="CreateConnection">
+              <ActionParameter name="structure_id">Con1</ActionParameter>
+              <ActionParameter name="connection_id">CF1</ActionParameter>
+              <include>../common/ConnectionType.xml</include>
+              <include>server1.xml</include>
+              <include>../common/MQTT_servers.xml</include>
+              <ApiParameter name="clientId">CHA_005_pub1</ApiParameter>
+              <ApiParameter name="port">20006</ApiParameter>
+              <ApiParameter name="protocol">mqtt</ApiParameter>
+              <ApiParameter name="cleanSession">true</ApiParameter>
+          </Action> 
+  
+          <Action name="CloseConnectionA4" type="CloseConnection">
+              <ActionParameter name="connection_id">CF1</ActionParameter>
+          </Action>            
+
+         <!-- Get service status -->
+        <Action name="restServiceStatusA1" type="RestAPI" thread="2">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/service/status</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+ 
+        <!-- Get HA configuration -->
+        <Action name="restClusterHAconfigA1" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/configuration/HighAvailability</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action> 
+
+        <Action name="CreateConnectionA1P" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server1.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="clientId">CHA_005_pub1</ApiParameter>
+            <ApiParameter name="port">20006</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="persistenceDirectory">tmp1</ApiParameter>
+        </Action>
+
+        <Action name="RestartServer" type="ShellAction" thread="2">
+            <dependsOn action_id="restServiceStatusA1" interval="5000"/>
+            <ActionParameter name="command">../scripts/serverControl.sh -a restartServer -i 1</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>   
+
+<!-- 
+        <Action name="sync_components_1" type="SyncComponentAction">
+            <ActionParameter name="component_name">pubA1</ActionParameter>
+            <ActionParameter name="component_list">pubA1;subA4</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action> -->
+
+
+     <!--   <Action name="PublishLoop-q1-1" type="PublishLoop" rc="1" reason="ISMTEST2508">  -->
+<!--         <Action name="PublishLoop-q1-1" type="PublishLoop">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="topic">/CHA_005</ActionParameter>
+            <ActionParameter name="initializeCounter">true</ActionParameter>
+            <ActionParameter name="endIndex">2500</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+            <ActionParameter name="counterID">PQ1</ActionParameter>
+            <ActionParameter name="messageAttach">Loop1</ActionParameter>
+        </Action>
+
+        <Action name="WaitForReconnect" type="WaitForReconnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="waitTime">120</ActionParameter>
+        </Action>
+
+        <Action name="PublishLoop-q1-2" type="PublishLoop">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="topic">/CHA_005</ActionParameter>
+            <ActionParameter name="initializeCounter">false</ActionParameter>
+            <ActionParameter name="endIndex">2500</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="counterID">PQ1</ActionParameter>
+            <ActionParameter name="messageAttach">Loop2</ActionParameter>
+        </Action> -->
+
+
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">publoopmsg</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: publoop Message number: </ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+
+        <Action name="PubLoop" type="CompositeAction" repeat="2500" atleast="50" repeat_interval="0">
+            <Action name="SendMessage" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg</ActionParameter>
+                <ActionParameter name="topic">/CHA_005</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+
+            <Action name="CheckConnection" type="CheckConnection">
+                <dependsOn action_id="SendMessage" interval="0"/>
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+            </Action>    
+
+        </Action> 
+
+        <Action name="WaitForReconnect" type="WaitForReconnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="waitTime">120</ActionParameter>
+        </Action> 
+
+        <Action name="Publoop2" type="PublishLoop">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="topic">/CHA_005</ActionParameter>
+            <ActionParameter name="initializeCounter">true</ActionParameter>
+            <ActionParameter name="endIndex">2500</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="counterID">PQ1</ActionParameter>
+            <ActionParameter name="messageAttach">Loop2</ActionParameter>
+            <!-- <ActionParameter name="message_id">publoopmsg</ActionParameter> -->
+        </Action> 
+
+
+
+        <Action name="CloseConnectionA1P" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action> 
+    </Action>
+    <!-- End A1 Publish -->
+
+</IsmWSTest>
+                

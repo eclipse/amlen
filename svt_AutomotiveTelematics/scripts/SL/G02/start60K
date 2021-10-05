@@ -1,0 +1,81 @@
+#!/bin/bash
+
+node()
+{
+  if [ -z $1 ]; then
+    echo [node 4-9] [start id] [end id]
+    exit
+  fi
+  if [ -z $2 ]; then
+    echo [node 4-9] [start id] [end id]
+    exit
+  fi
+  if [ -z $3 ]; then
+    echo [node 4-9] [start id] [end id]
+    exit
+  fi
+  
+  #TODO: update to call getclusterserverportlist.py -c green01 -e SVT-IntranetEndpoint
+  #                 and getclusterserverportlist.py -c green01 -e SVT-CarsInternetEndpoint  SERVER[4]=10.113.50.31
+  SERVER[5]=10.113.50.35
+  SERVER[6]=10.113.50.44
+  SERVER[7]=10.113.50.23
+  SERVER[8]=10.113.50.33
+  SERVER[9]=10.113.50.39
+  
+  SERVER1=${SERVER[$1]}
+  b=10.113.50.8
+  
+  t=$2
+  MAX=$3
+  
+  s=20
+  cmd=/niagara/test/svt_atelm/SL/at
+  backend=/niagara/test/svt_atelm/SL/backends
+  
+  echo `date` |tee -a ./start60K.out
+  echo ssh root@$b "${backend}" ${SERVER1} backend$1 |tee -a ./start60K.out
+  ssh root@$b "${backend} ${SERVER1} backend$1 &> ./backend$1.out" &
+  sleep 20s
+  
+  while [ true ]; do
+    for i in `clientlist.py -c green01`; do
+      if [[ "$i" != "$b" ]]; then
+        echo `date` |tee -a ./start60K.out
+        echo ssh root@$i "${cmd} ${SERVER1} $t" |tee -a ./start60K.out
+        ssh root@$i "${cmd} ${SERVER1} $t &> ${t}.out" &
+        sleep ${s}s
+        ((t+=500))
+      fi
+      if [ $t -ge ${MAX} ]; then
+         return
+      fi
+    done
+  
+    if [ $s -lt 10 ]; then
+      ((s+=1))
+    fi
+  
+  done
+  return
+}
+
+
+> ./start60K.out
+
+node 4 0 10000
+sleep 120s
+
+node 5 10000 20000
+sleep 120s
+
+node 6 20000 30000
+sleep 120s
+
+node 7 30000 40000
+sleep 120s
+
+node 8 40000 50000
+sleep 120s
+
+node 9 50000 60000

@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_shared_secUserID_001
+
+  Test Category:  JMS Shared Subscription, Security. 
+  
+  Test Description:
+    
+    Test that MessagingPolicy where Type=Subscription prevents and grants 
+    authorization on shared durable subscriptions in __Shared  namespace.
+    
+    And Test that those policies do not apply to non-durable subscriptions in 
+    the shared namespace, or to subscriptions in the clientId namespace. 
+    
+    This test uses 1 userid's for authorization. (the first four are created in AdminObjs, 
+    the last is created by sssetup.
+    
+    JMSUser8d: Authorized on topic: Destination=SecSubsTopic
+    
+    Messaging Policies: (Type=Topic)
+    create MessagingPolicy Name=JMSSecSharedSubTopicMP1 Destination=SecureTopics* DestinationType=Topic GroupID=Group5a  "ActionList=Publish,Subscribe"
+    
+    Messaging Policies: (Type=Subscription)
+    create MessagingPolicy Name=JMSSecSubMP1 Destination=SecureSub* DestinationType=Subscription GroupID=JMSGroup5a  "ActionList=Control,Receive"
+	create MessagingPolicy Name=JMSSecSubMP2 Destination=SecureSubReceive* DestinationType=Subscription UGroupID=JMSGroup5a "ActionList=Recieve"
+	
+	Endpoint:
+	create Endpoint Name=JMSSharedWildcardEndpoint1 Enabled=True Port=18501 ConnectionPolicies=JMSSharedConnectionPolicy1 MessagingPolicies=JMSSecSubMP1,JMSSecSubMP2
+	JMSSharedSubSubscriptionMP4 MaxMessageSize=4MB 	MessageHub=JMSSharedSubHub
+
+-->    
+
+<ImaJmsTest name="jms_shared_secUserID_001.xml">
+
+	<Action name="cons1" type="CompositeAction">
+
+		<!-- A connection factor without a clientID, used for shared namespaces -->
+		<Action name="Create_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+		</Action>
+		<Action name="SetProps_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="18501"/>
+		</Action>
+
+		<Action name="CreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+			<ApiParameter name="user">JMSUser8d</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+						
+		<!-- Create a session on Connection 1 which was UserID JMSUser8d --> 
+		<Action name="CreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>			
+		
+		<!-- Create a Destination used to create a  shared DurableSubscription toTopic.  -->
+		<Action name="CreateDestination_Secure" type="CreateDestination">
+			<ApiParameter name="name">SecureTopic/#</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">dest_SecureTopicAll</ActionParameter>
+		</Action>                                                                                                            
+		
+	    <!-- Create a Destination to used to create a specific shared DurableSubscription in  the __Shared namespace  -->
+		<Action name="CreateDestination_SecureTopic1" type="CreateDestination">
+			<ApiParameter name="name">SecureTopic1</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">dest_secureTopic1</ActionParameter>
+		</Action>   
+	
+	    <!-- Create a Destination to used to try to create a DurableSubscription in  the __Shared namespace  -->
+		<Action name="CreateDestination_SecureTopicReceiveAll" type="CreateDestination">
+			<ApiParameter name="name">SecureTopic2</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">dest_secureTopicReceive</ActionParameter>
+		</Action>   
+	
+	    <!-- Create a Destination to used to try to create a DurableSubscription in  the __Shared namespace  -->
+		<Action name="CreateDestination_SecureSpecial_noAuth" type="CreateDestination">
+			<ApiParameter name="name">SecureSpecialTopic</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">dest_secureSpecialTopic</ActionParameter>
+		</Action>   								    
+		
+		<!-- Successfully Create 2 consumers -->
+		<Action name="CreateSharedDurableConsumer1_destDurableShared" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer1_SecureSub1</ActionParameter>
+			<ActionParameter name="dest_id">dest_SecureTopicAll</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">SecureSub1</ApiParameter>	
+		</Action>
+		
+		<!-- Action name="ShowSubExists" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=SecureSub1 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+
+		<Action name="ShowSubExists" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SecureSub1&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareSubExists" type="CompareREST">
+        	<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">SecureSub1</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+        	<ObjectProperty name="IsDurable" value="true"/>
+        	<ObjectProperty name="IsShared" value="true"/>
+    	</Action> 		    			 	
+		
+		<Action name="CreateSharedDurableConsumer1b_destDurableShared" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer1b_SecureSub1</ActionParameter>
+			<ActionParameter name="dest_id">dest_SecureTopicAll</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">SecureSub1</ApiParameter>	
+		</Action>
+		
+		<Action name="CloseConsumer1_SecureTopicAll" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1_SecureSub1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConsumer1b_SecureTopicAll" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1b_SecureSub1</ActionParameter>
+		</Action>	
+		
+		<!-- Action name="ShowSubStillExists" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=SecureSub1 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+		<Action name="ShowSubStillExists" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_2</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SecureSub1&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareSubStillExists" type="CompareREST">
+        	<ActionParameter name="structureID">stat_output_2</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">SecureSub1</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+        	<ObjectProperty name="IsDurable" value="true"/>
+        	<ObjectProperty name="IsShared" value="true"/>
+    	</Action> 		    									
+
+		<!-- Try changing the subscription to a non-authorized topic.   -->
+		<Action name="CreateSharedDurableConsumer1_SecureSpecialTopic" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1_dest_secureSpecialTopic</ActionParameter>
+			<ActionParameter name="dest_id">dest_secureSpecialTopic</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">SecureSub1</ApiParameter>		
+		</Action>
+		
+		<!-- By nature of the beast, the above failure, results in an unsubscribe, an unfortunate
+			situation, but how it works. -->
+		
+		<!-- Action name="ShowSubWentPoof" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=SecureSub1 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+		<Action name="ShowSubWentPoof" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_G</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SecureSub1&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareShowSubWentPoof" type="CompareREST" rc="1" reason="ISMTEST3416">
+        	<ActionParameter name="structureID">stat_output_G</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">SecureSub1</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+    	</Action> 		    									
+
+		<!-- Try creating a subscription to a receive only Subscription  
+			And it ALLOWS IT! Defect 38245 -->
+		<!-- Action name="CreateSharedDurableConsumer1_SecureReceiveTopic" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207" -->
+		<Action name="CreateSharedDurableConsumer1_SecureReceiveTopic" type="CreateSharedDurableConsumer">		
+			<ActionParameter name="structure_id">consumer1_dest_secureReceiveTopic</ActionParameter>
+			<ActionParameter name="dest_id">dest_secureTopicReceive</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">SecureSubReceive1</ApiParameter>			
+		</Action>		
+		
+		<!-- except for defect 38245 which was doc'd. and this was created. as strange as it might seem.   -->
+		<!-- Action name="ShowSubnotCreated" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=SecureSubReceive1 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		<!-- except for defect 38245 which was doc'd. and this was created. as strange as it might seem.  -->
+		<Action name="ShowSubnotCreated" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_NC3</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SecureSubReceive1&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareShowSubnotCreated" type="CompareREST" >
+        	<ActionParameter name="structureID">stat_output_NC3</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">SecureSubReceive1</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+    	</Action> 		    		
+		
+		<Action name="CloseConsumer_SecureReceiveTopic" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1_dest_secureReceiveTopic</ActionParameter>
+		</Action>	
+						
+		<Action name="Unsubscribe_secureSubReceive1" type="Unsubscribe">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">SecureSubReceive1</ApiParameter>
+		</Action>														
+				
+		<!-- Try to create a subscription with an unauthorized Subscription name.     -->
+		<Action name="CreateSharedDurableConsumer1_SecureTopic1JanetSub" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1_dest_secureTopic1</ActionParameter>
+			<ActionParameter name="dest_id">dest_secureTopic1</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">JanetSub</ApiParameter>			
+		</Action>		
+		
+		<!-- Action name="ShowJanetSubnotCreated" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=JanetSub ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+		<Action name="ShowJanetSubnotCreated" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_NC4</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=JanetSub&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareShowJanetSubnotCreated" type="CompareREST" rc="1" reason="ISMTEST3416">
+        	<ActionParameter name="structureID">stat_output_NC4</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">JanetSub</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+    	</Action> 		    		
+		
+		<!-- Create a subscription with a valid Subscription name.     -->
+		<Action name="CreateSharedDurableConsumer1_SecureTopic1" type="CreateSharedDurableConsumer" >
+			<ActionParameter name="structure_id">consumer1_dest_secureTopic1</ActionParameter>
+			<ActionParameter name="dest_id">dest_secureTopic1</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">SecureSub2</ApiParameter>			
+		</Action>		
+		
+		<!-- Action name="ShowSubTopic2Created" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=SecureSub2 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+		<Action name="ShowSubTopic2Created" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_NC2</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SecureSub2&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareShowSubTopic2Created" type="CompareREST">
+        	<ActionParameter name="structureID">stat_output_NC2</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">SecureSub2</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+    	</Action> 		
+		
+		<Action name="CloseConsumer_SecureTopicAll" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1_dest_secureTopic1</ActionParameter>
+		</Action>	
+						
+		<Action name="Unsubscribe_secureTopic1" type="Unsubscribe">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">SecureSub2</ApiParameter>
+		</Action>			
+		
+		<!-- Try to create a subscription with an unauthorized Subscription name and unauthorized topic     -->
+		<Action name="CreateSharedDurableConsumer1_allbad" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1_dest_AllBad1</ActionParameter>
+			<ActionParameter name="dest_id">dest_secureSpecialTopic</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">JanetSub</ApiParameter>			
+		</Action>		
+		
+		<!-- Action name="ShowJanet_SpecialSubnotCreated" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=JanetSub ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action --> 
+	
+		<Action name="ShowJanet_SpecialSubnotCreated" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_NC</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=JanetSub&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareShowJanet_SpecialSubnotCreated" type="CompareREST" rc="1" reason="ISMTEST3416">
+        	<ActionParameter name="structureID">stat_output_NC</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">JanetSub</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+    	</Action> 		
+	
+		<Action name="StartConnection_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseSession1_cf1" type="CloseSession">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>		
+		
+		<Action name="CloseConnection_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+        		
+	</Action>		
+
+</ImaJmsTest>

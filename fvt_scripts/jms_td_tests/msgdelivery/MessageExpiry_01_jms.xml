@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_MessageExpiry_01
+
+  Test Category: MessageExpiration
+  
+   simpQ: is used for MQTT QoS=0 (except shared)
+   intermediateQ: is used for MQTT QoS=1 and QoS=1 (except shared)
+   *multiuserQ: is used for *JMS Subscribers, for all *shared subscriptions, and for JMS Queues
+  
+  Test Description:
+  
+	This test is run in three sections: 
+	
+	1.  Durable Subscription setup. (ds_setup)
+	2.  Message Sending. (Pub)
+	3.  Message Receiving. 
+	
+	Between steps 2 and 3, other tests run in order to allow time for 
+	the messages to expire and be discarded. 
+	
+	This test also coordinates with MessageExpiry_01_mqtt.xml, which has the same three
+	sections (plus a collector used for verification.) 
+	
+	ds_setup: 
+	
+		Creates two durable subscriptions, one of which is shared.
+	
+	pub:
+	
+		Sends a variety of messages to various /Expiry/"topic" with different expirations: 
+		
+		a. JMS no expiration ** 
+		b. JMS TTL with a short time.
+		c. JMS TTL with a long time. ** 
+		d. JMS Admin set MaxMessageLife with a short time
+		e. JMS Admin set MaxMessageLife with a long time ** 
+		f. JMS TTL > Admin set MaxMessageLife
+		g. JMS TTL < Admin set MaxMessage life. 
+		
+	
+		Sent from mqtt: 
+		
+		h. MQTT no expiration ** 
+		i. MQTT Admin set MaxMessageLife with a short time
+		j. MQTT  Admin set MaxMessageLife with a long time **
+		
+		** These messages should not expire before the the subscribers get them.  
+				
+	subs: 
+	
+		Wildcard subsribers to /Expiry/* 
+		
+		Receive all the non-expired messages on both subscriptions. 
+		
+		For the SharedSubscriptions, forward the messages to the MQTT Collector to 
+		count that we got them all. 
+  	
+*****************************************************************************/ -->
+<ImaJmsTest name="MessageExpiry_01_jms" >
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>MessageExpiry_01</solution>
+	</SyncClient>
+	
+	<Action name="ds_setup" type="CompositeAction">
+
+		<Action name="CreateFactory_SUB" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_SUB</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>				
+		</Action>
+
+		<Action name="CreateListener_SUB" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>		
+		</Action>
+
+		<Action name="SetFactoryProps_SUB" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_SUB</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="ClientID" value="Message_Expiry_JMS" type="STRING"/>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_SUB" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_SUB</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_SUB</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_SUB" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_SUB</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses_SUB</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_SUB" type="CreateDestination">
+			<ApiParameter name="name">/MessageExpiry_01/+</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX</ActionParameter>
+		</Action>
+	
+		<Action name="CreateDurableSubscription" type="CreateDurableConsumer">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses_SUB</ActionParameter>
+			<ApiParameter name="durableName">Message_Expiry_01_JMS</ApiParameter>	
+		</Action>
+	
+		<Action name="StartConnection_SUB1" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_SUB</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConsumer1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseSession_SUB" type="CloseSession">
+			<ActionParameter name="session_id">Ses_SUB</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_SUB" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_SUB</ActionParameter>
+		</Action>		
+		
+		<Action name="CreateFactory_SUB2" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF2_SUB</ActionParameter>
+            <!-- ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter  -->				
+		</Action>
+
+		<Action name="CreateListener_SUB2" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener2</ActionParameter>		
+		</Action>
+
+		<Action name="SetFactoryProps_SUB2" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF2_SUB</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_SUB2" type="CreateConnection">
+			<ActionParameter name="structure_id">Con2_SUB</ActionParameter>
+		 	<ActionParameter name="factory_id">CF2_SUB</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_SUB2" type="CreateSession">
+			<ActionParameter name="conn_id">Con2_SUB</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses2_SUB</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_SUB2" type="CreateDestination">
+			<ApiParameter name="name">/MessageExpiry_01/+</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX2</ActionParameter>
+		</Action>
+		
+		<Action name="CreateDurableSharedSubscription" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">destRX2</ActionParameter>
+			<ActionParameter name="session_id">Ses2_SUB</ActionParameter>
+			<ApiParameter name="durableName">Message_Expiry_01_JMS_DS</ApiParameter>		
+		</Action>
+	
+		<Action name="StartConnection_SUB2" type="StartConnection">
+			<ActionParameter name="conn_id">Con2_SUB</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConsumer2" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+		</Action>		
+		
+		<!-- signal durable subscriptions are ready --> 
+    	<Action name="SyncJMS_DS_Ready" type="SyncAction">
+            <ActionParameter name="request">set</ActionParameter>
+            <ActionParameter name="condition">JMS_DS_Ready</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+        </Action>
+		
+		<Action name="CloseSession_SUB2" type="CloseSession">
+			<ActionParameter name="session_id">Ses2_SUB</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_SUB2" type="CloseConnection">
+			<ActionParameter name="conn_id">Con2_SUB</ActionParameter>
+		</Action>		
+					
+	</Action>		
+	
+	<Action name="pub" type="CompositeAction">
+	
+		<Action name="CreateFactory_PUB1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_PUB</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener_PUB1" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_PUB1" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_PUB</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+			<ImaProperty name="DisableAck" value="false"/>
+		</Action>
+
+		<Action name="CreateConnection_PUB1" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_PUB</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_PUB</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+		
+		<Action name="CreateDestination_PUB1" type="CreateDestination">
+			<ApiParameter name="name">/MessageExpiry_01/NoAdminTO</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession_PUB1" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_PUB</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses_PUB</ActionParameter>
+		</Action>
+		
+		<Action name="CreateProducer1" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="dest_id">destTX1</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB</ActionParameter>
+		</Action>			
+
+		<!-- Producer two. Uses Endpoint 19501 --> 
+		
+		<Action name="CreateFactory_PUB2" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF2_PUB</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener_PUB2" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener2</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_PUB2" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF2_PUB</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="19501" type="STRING"/>
+			<ImaProperty name="DisableAck" value="false"/>
+		</Action>
+
+		<Action name="CreateConnection_PUB2" type="CreateConnection">
+			<ActionParameter name="structure_id">Con2_PUB</ActionParameter>
+		 	<ActionParameter name="factory_id">CF2_PUB</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener2</ApiParameter>
+		</Action>
+		
+		<Action name="CreateDestination_PUB2" type="CreateDestination">
+			<ApiParameter name="name">/MessageExpiry_01/LongAdminTO</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX2</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession_PUB2" type="CreateSession">
+			<ActionParameter name="conn_id">Con2_PUB</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses_PUB2</ActionParameter>
+		</Action>
+		
+		<Action name="CreateProducer2" type="CreateProducer">
+			<ActionParameter name="structure_id">producer2</ActionParameter>
+			<ActionParameter name="dest_id">destTX2</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB2</ActionParameter>
+		</Action>		
+		
+
+		<!-- Producer three. Uses Endpoint 19502 --> 
+		
+		<Action name="CreateFactory_PUB3" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF3_PUB</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener_PUB3" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener3</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_PUB3" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF3_PUB</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="19502" type="STRING"/>
+			<ImaProperty name="DisableAck" value="false"/>
+		</Action>
+
+		<Action name="CreateConnection_PUB3" type="CreateConnection">
+			<ActionParameter name="structure_id">Con3_PUB</ActionParameter>
+		 	<ActionParameter name="factory_id">CF3_PUB</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener3</ApiParameter>
+		</Action>
+		
+		<Action name="CreateDestination_PUB3" type="CreateDestination">
+			<ApiParameter name="name">/MessageExpiry_01/ShortAdminTO</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX3</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession_PUB3" type="CreateSession">
+			<ActionParameter name="conn_id">Con3_PUB</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses_PUB3</ActionParameter>
+		</Action>
+		
+		<Action name="CreateProducer3" type="CreateProducer">
+			<ActionParameter name="structure_id">producer3</ActionParameter>
+			<ActionParameter name="dest_id">destTX3</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB3</ActionParameter>
+		</Action>
+
+		<Action name="StartConnection_PUB1" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_PUB</ActionParameter>
+		</Action>
+
+		<Action name="StartConnection_PUB2" type="StartConnection">
+			<ActionParameter name="conn_id">Con2_PUB</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnection_PUB3" type="StartConnection">
+			<ActionParameter name="conn_id">Con3_PUB</ActionParameter>
+		</Action>		
+
+		<Action name="CreateMessage_N_16102" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg_N_16102</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ApiParameter>
+		</Action>
+		
+		<Action name="CreateMessage_N_16102_TTL" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg_N_16102_TTL</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">EXPIRING_MESSAGE:  Port: 16102 AdminTTL: Unset MsgTTL: 16000 </ApiParameter>
+		</Action>
+		
+		<Action name="CreateMessage_N_16102_TTL_Long" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg_N_16102_TTL_Long</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: 999999999 </ApiParameter>
+		</Action>		
+		
+		<Action name="CreateMessage_N_19501" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg_N_19501</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB2</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">TO_BE_RECEIVED:  Port: 19501 AdminTTL: Long MsgTTL: Unset </ApiParameter>
+		</Action>
+		
+		<Action name="CreateMessage_N_19501_TTL" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg_N_19501_TTL</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB2</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">EXPIRING_MESSAGE:  Port: 19501 AdminTTL: Long MsgTTL: 14321 </ApiParameter>
+		</Action>
+		
+		<Action name="CreateMessage_N_19502" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg_N_19502</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB3</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">EXPIRING_MESSAGE:  Port: 19502 AdminTTL: 15000 MsgTTL: Unset </ApiParameter>
+		</Action>
+		
+		<Action name="CreateMessage_N_19502_TTL" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg_N_19502_TTL</ActionParameter>
+			<ActionParameter name="session_id">Ses_PUB3</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">EXPIRING_MESSAGE:  Port: 19502 AdminTTL: 15000 MsgTTL: 99999999 </ApiParameter>
+		</Action>
+		
+		<!-- wait for the durable subscriptions to be created --> 
+    	<Action name="SyncJMS_DS_Ready" type="SyncAction">
+            <ActionParameter name="request">wait</ActionParameter>
+            <ActionParameter name="condition">JMS_DS_Ready</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+        
+    	<Action name="SyncMQTT_DS_Ready" type="SyncAction">
+            <ActionParameter name="request">wait</ActionParameter>
+            <ActionParameter name="condition">MQTT_DS_Ready</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>        
+        							
+		<!-- Send the  messages  -->
+		<Action name="SendMessage_N_16102_TTL" type="SendMessage" repeat="3">
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg_N_16102_TTL</ActionParameter>
+			<ApiParameter name="ttl">15000</ApiParameter>
+		</Action>
+		
+		<Action name="SendMessage_N_16102" type="SendMessage" repeat="3" >
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg_N_16102</ActionParameter>
+		</Action>	
+		
+		<Action name="SendMessage_N_16102_TTL_Long" type="SendMessage" repeat="3">
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg_N_16102_TTL_Long</ActionParameter>
+			<ApiParameter name="ttl">9999999999</ApiParameter>
+		</Action>						
+
+		
+		<Action name="SendMessage_N_19501" type="SendMessage" repeat="3" >
+			<ActionParameter name="producer_id">producer2</ActionParameter>
+			<ActionParameter name="message_id">txmsg_N_19501</ActionParameter>
+		</Action>	
+		
+		<Action name="SendMessage_N_19501_TTL" type="SendMessage" repeat="3">
+			<ActionParameter name="producer_id">producer2</ActionParameter>
+			<ActionParameter name="message_id">txmsg_N_19501_TTL</ActionParameter>
+			<ApiParameter name="ttl">15000</ApiParameter>
+		</Action>		
+	
+		<Action name="SendMessage_N_19502" type="SendMessage" repeat="3" >
+			<ActionParameter name="producer_id">producer3</ActionParameter>
+			<ActionParameter name="message_id">txmsg_N_19502</ActionParameter>
+		</Action>	
+		
+		<Action name="SendMessage_N_19502_TTL" type="SendMessage" repeat="3">
+			<ActionParameter name="producer_id">producer3</ActionParameter>
+			<ActionParameter name="message_id">txmsg_N_19502_TTL</ActionParameter>
+			<ApiParameter name="ttl">9999999999</ApiParameter>
+		</Action>		
+
+		<Action name="SendMessageMore_N_16102" type="SendMessage" repeat="3" >
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg_N_16102</ActionParameter>
+		</Action>	
+		
+		<!-- wait for the durable subscriptions to be created --> 
+    	<Action name="SyncJMS_Pub_Done" type="SyncAction">
+            <ActionParameter name="request">set</ActionParameter>
+            <ActionParameter name="condition">JMS_Pub_Done</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+        </Action>		
+	
+		<Action name="CloseSession_PUB1" type="CloseSession">
+			<ActionParameter name="session_id">Ses_PUB</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession_PUB2" type="CloseSession">
+			<ActionParameter name="session_id">Ses_PUB2</ActionParameter>
+		</Action>
+		
+		<Action name="CloseSession_PUB3" type="CloseSession">
+			<ActionParameter name="session_id">Ses_PUB3</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_PUB1" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_PUB</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection_PUB2" type="CloseConnection">
+			<ActionParameter name="conn_id">Con2_PUB</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection_PUB3" type="CloseConnection">
+			<ActionParameter name="conn_id">Con3_PUB</ActionParameter>
+		</Action>
+		
+	</Action>
+	
+	<Action name="subs" type="CompositeAction">
+
+		<Action name="CreateFactory_SUB" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_SUB</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>				
+		</Action>
+
+		<Action name="CreateListener_SUB" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>		
+		</Action>
+
+		<Action name="SetFactoryProps_SUB" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_SUB</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="ClientID" value="Message_Expiry_JMS" type="STRING"/>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_SUB" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_SUB</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_SUB</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_SUB" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_SUB</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses_SUB</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_SUB" type="CreateDestination">
+			<ApiParameter name="name">/MessageExpiry_01/+</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX</ActionParameter>
+		</Action>
+	
+		<Action name="CreateDurableSubscription" type="CreateDurableConsumer">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses_SUB</ActionParameter>
+			<ApiParameter name="durableName">Message_Expiry_01_JMS</ApiParameter>		
+		</Action>
+	
+		<Action name="StartConnection_SUB1" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_SUB</ActionParameter>
+		</Action>
+
+	 	<!-- Receive messages that have not expired, or had no expiration --> 
+		<Action name="CompositeReceive_N_16102" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessage_N_16102" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_16102</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_16102" type="GetMessageText">
+				<dependsOn name="ReceiveMessage_N_16102" interval="0"/>
+				<ActionParameter name="message_id">rxmsg_N_16102</ActionParameter>
+				<ActionParameter name="verifyValue">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>
+		
+		<Action name="CompositeReceive_N_16102_Long" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessage_N_16102_Long" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_16102_Long</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_16102_Long" type="GetMessageText">
+				<dependsOn name="ReceiveMessage_N_16102_Long" interval="0"/>
+				<ActionParameter name="message_id">rxmsg_N_16102_Long</ActionParameter>
+				<ActionParameter name="verifyValue">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: 999999999 </ActionParameter>				
+			</Action>			
+		</Action>			
+				
+		<Action name="CompositeReceive_N_19501" type="CompositeAction" repeat="3"> 	 	
+			<Action name="ReceiveMessage_N_19501" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_19501</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_19501" type="GetMessageText">
+				<dependsOn name="ReceiveMessage_N_19501" interval="0"/>
+				<ActionParameter name="message_id">rxmsg_N_19501</ActionParameter>
+				<ActionParameter name="verifyValue">TO_BE_RECEIVED:  Port: 19501 AdminTTL: Long MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>	
+		
+		<Action name="CompositeReceiveMore_N_16102" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessageMore_N_16102" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgMore_N_16102</ActionParameter>
+				<ApiParameter name="timeout">3000</ApiParameter>
+			</Action>
+			
+			<Action name="GetMessageTextMore_N_16102" type="GetMessageText">
+				<dependsOn name="ReceiveMessageMore_N_16102" interval="0"/>
+				<ActionParameter name="message_id">rxmsgMore_N_16102</ActionParameter>
+				<ActionParameter name="verifyValue">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>
+		
+			<Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">nomore</ActionParameter>
+				<ApiParameter name="timeout">1000</ApiParameter>
+			</Action>
+					
+
+		<Action name="CloseConsumer1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		</Action>
+
+		<Action name="Unsubscribe_SUB" type="Unsubscribe">
+          <ActionParameter name="session_id">Ses_SUB</ActionParameter>
+          <ApiParameter name="durableName">Message_Expiry_01_JMS</ApiParameter>
+        </Action>
+		
+		<Action name="CloseSession_SUB" type="CloseSession">
+			<ActionParameter name="session_id">Ses_SUB</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_SUB" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_SUB</ActionParameter>
+		</Action>				
+		
+		
+		<Action name="CreateFactory_SUB2" type="CreateConnectionFactory" thread="2">
+			<ActionParameter name="structure_id">CF2_SUB</ActionParameter>
+            <!-- ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter  -->				
+		</Action>
+
+		<Action name="CreateListener_SUB2" type="CreateExceptionListener" thread="2">
+			<ActionParameter name="structure_id">listener2</ActionParameter>		
+		</Action>
+
+		<Action name="SetFactoryProps_SUB2" type="FillIsmProps" thread="2">
+			<ActionParameter name="structure_id">CF2_SUB</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_SUB2" type="CreateConnection" thread="2">
+			<ActionParameter name="structure_id">Con2_SUB</ActionParameter>
+		 	<ActionParameter name="factory_id">CF2_SUB</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_SUB2" type="CreateSession" thread="2">
+			<ActionParameter name="conn_id">Con2_SUB</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses2_SUB</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession_SUB3" type="CreateSession" thread="3">
+			<dependsOn name="CreateConnection_SUB2" interval="0"/>
+			<ActionParameter name="conn_id">Con2_SUB</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses2_SUB2</ActionParameter>
+		</Action>		
+
+		<Action name="CreateDestination_SUB2" type="CreateDestination" thread="2">
+			<ApiParameter name="name">/MessageExpiry_01/+</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX2</ActionParameter>
+		</Action>
+		
+		<Action name="CreateDestination_SUB3" type="CreateDestination" thread="3">
+			<ApiParameter name="name">/MessageExpiry_01/+</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX3</ActionParameter>
+		</Action>		
+		
+		<Action name="CreateDurableSharedSubscriber2" type="CreateSharedDurableConsumer" thread="2">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">destRX2</ActionParameter>
+			<ActionParameter name="session_id">Ses2_SUB</ActionParameter>
+			<ApiParameter name="durableName">Message_Expiry_01_JMS_DS</ApiParameter>			
+		</Action>
+		
+		<Action name="Createprod2_ToCollector" type="CreateDestination" thread="2">
+		    <ActionParameter name="structure_id">prod1_cons2</ActionParameter>
+		    <ApiParameter name="name">/MessageExpiry/Collector/JMSShared1</ApiParameter>
+		    <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer2_ToCollector" type="CreateProducer" thread="2">
+		    <ActionParameter name="structure_id">producer2</ActionParameter>
+		    <ActionParameter name="dest_id">prod1_cons2</ActionParameter>
+		    <ActionParameter name="session_id">Ses2_SUB</ActionParameter>
+		</Action>		
+		
+		<Action name="CreateDurableSharedSubscriber3" type="CreateSharedDurableConsumer" thread="3">
+			<ActionParameter name="structure_id">consumer3</ActionParameter>
+			<ActionParameter name="dest_id">destRX3</ActionParameter>
+			<ActionParameter name="session_id">Ses2_SUB2</ActionParameter>
+			<ApiParameter name="durableName">Message_Expiry_01_JMS_DS</ApiParameter>
+		</Action>	
+		
+		<Action name="Createprod3_ToCollector" type="CreateDestination" thread="3">
+		    <ActionParameter name="structure_id">prod1_cons3</ActionParameter>
+		    <ApiParameter name="name">/MessageExpiry/Collector/JMSShared2</ApiParameter>
+		    <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer3_ToCollector" type="CreateProducer" thread="3">
+		    <ActionParameter name="structure_id">producer3</ActionParameter>
+		    <ActionParameter name="dest_id">prod1_cons3</ActionParameter>
+		    <ActionParameter name="session_id">Ses2_SUB2</ActionParameter>
+		</Action>
+	
+		<Action name="StartConnection_SUB2" type="StartConnection" thread="2">
+			<dependsOn name="CreateDurableSharedSubscriber3" interval="0"/>
+			<dependsOn name="CreateDurableSharedSubscriber2" interval="0"/>
+			<ActionParameter name="conn_id">Con2_SUB</ActionParameter>
+		</Action>
+		
+		<!-- signal durable subscriptions are ready so Collector can start receiving--> 
+    	<Action name="SyncJMS_SS_Ready" type="SyncAction" thread="111">
+    		<dependsOn name="StartConnection_SUB2" interval="0" />
+            <ActionParameter name="request">set</ActionParameter>
+            <ActionParameter name="condition">JMS_SS_Ready</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+        </Action>	    		
+
+     	<Action name="CompositeConsume_SUB2" type="CompositeAction" repeat="35" repeat_interval="0" atleast="0" thread="2">
+	    	<Action name="RcvTextMessage_consumer2" type="ReceiveMessage" interval="0" >
+				<ActionParameter name="consumer_id">consumer2</ActionParameter>
+				<ActionParameter name="structure_id">cons2_message</ActionParameter>
+				<ApiParameter name="timeout">3000</ApiParameter>
+	    	</Action> 
+	    
+		    <Action name="SendMessage_to_Collector_consumer2" type="SendMessage" >
+				<dependsOn name="RcvTextMessage_consumer2" interval="0"/>
+	    		<ActionParameter name="producer_id">producer2</ActionParameter>
+	    		<ActionParameter name="message_id">cons2_message</ActionParameter>
+			</Action>	               
+		</Action>
+			
+       	<Action name="CompositeConsume_SUB3" type="CompositeAction" repeat="35" repeat_interval="0" atleast="0" thread="3">
+	    	<Action name="RcvTextMessage_consumer3" type="ReceiveMessage" interval="0" >
+				<ActionParameter name="consumer_id">consumer3</ActionParameter>
+				<ActionParameter name="structure_id">cons3_message</ActionParameter>
+				<ApiParameter name="timeout">3000</ApiParameter>
+	    	</Action> 
+	    
+		    <Action name="SendMessage_to_Collector_consumer3" type="SendMessage" >
+				<dependsOn name="RcvTextMessage_consumer3" interval="0"/>
+	    		<ActionParameter name="producer_id">producer3</ActionParameter>
+	    		<ActionParameter name="message_id">cons3_message</ActionParameter>
+			</Action>	               
+		</Action>
+
+		<Action name="CloseConsumer2" type="CloseConsumer" thread="2">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+		</Action>	
+		
+		<Action name="CloseSession_SUB2" type="CloseSession" thread="2">
+			<ActionParameter name="session_id">Ses2_SUB</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConsumer3" type="CloseConsumer" thread="3">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+		</Action>
+		
+		<Action name="Unsubscribe3" type="Unsubscribe" thread="3">
+		  <dependsOn name="CloseConsumer2" interval="0"/>
+          <ActionParameter name="session_id">Ses2_SUB2</ActionParameter>
+          <ApiParameter name="durableName">Message_Expiry_01_JMS_DS</ApiParameter>
+        </Action>				
+
+		<Action name="CloseSession_SUB3" type="CloseSession" thread="3">
+			<ActionParameter name="session_id">Ses2_SUB2</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_SUB2" type="CloseConnection" thread="2">
+			<dependsOn name="CloseSession_SUB2" interval="0"/>
+			<dependsOn name="CloseSession_SUB3" interval="0"/>
+			<ActionParameter name="conn_id">Con2_SUB</ActionParameter>
+		</Action>							
+	  
+		
+	</Action>	
+</ImaJmsTest>

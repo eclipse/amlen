@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN"
+ "task.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<task id="ad00412_" xml:lang="en-us">
+<title>Bring back the last primary node after the primary and then
+the standby node fails by using the command line</title>
+<shortdesc>In this scenario, the primary node fails and the standby
+node takes over as the new primary node. Before a new backup can be
+setup, the new primary node fails. You must restart a new primary
+node and set up a new standby node.  System administrators can use
+the <ph conref="../TextEntities.dita#TextEntities/imaservercmd"></ph> <cmdname>HighAvailability</cmdname> commands
+on the command line.</shortdesc>
+<taskbody>
+<prereq>The two <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> appliances
+must be physically connected. For more information about connecting
+appliances, see <xref format="dita" href="ad00400_.dita" scope="local"
+type="concept">Configuring the system for High Availability</xref>.
+The administrative state (AdminState) of the two appliances must also
+be enabled. Use the <cmdname>enable ethernet-interface</cmdname> or <cmdname>edit
+ethernet-interface</cmdname> command to enable the administrative
+state of the appliances.</prereq>
+<context><p>You can configure appliances for high availability by
+using the command line or by using the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph>. For more
+information about using the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph> to configure
+appliances for high availability, see <xref href="ad00411_.dita"></xref>.</p><dl>
+<dlentry>
+<dt>Expectations</dt>
+<dd>The content of the store and configuration of Appliance B is preserved.</dd>
+</dlentry></dl></context><?Pub Caret -2?>
+<steps>
+<step><cmd>On Appliance C, enter the following command:</cmd><info><note>The
+command must be capitalized as shown.</note><p><codeph><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> update
+HighAvailability "EnableHA=True" </codeph> <codeph>"Group=<varname>Group</varname>"</codeph> </p><p>Where:<dl>
+<dlentry>
+<dt><varname>Group</varname></dt>
+<dd>Group is used to automatically configure appliances to pair with
+each other. </dd>
+<dd>This value must match the value on Appliance A.</dd>
+<dd>The value can be a maximum of 128 characters.</dd>
+</dlentry></dl></p></info></step>
+<step><cmd>Ensure the high availability parameters on Appliance B
+are correct. Use the <cmdname>imaserver show HighAvailability</cmdname> command.</cmd>
+<info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver show HighAvailability
+EnableHA = True
+StartupMode = AutoDetect
+RemoteDiscoveryNIC = 10.10.2.2
+LocalReplicationNIC = 10.10.12.6
+LocalDiscoveryNIC = 10.10.12.2
+DiscoveryTimeout = 600
+HeartbeatTimeout = 10
+PreferredPrimary = False
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"></ph></codeblock></info>
+</step>
+<step><cmd>If changes are required, use the <cmdname>imaserver update
+HighAvailability</cmdname></cmd><info><p><codeph><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> update
+HighAvailability [ "EnableHA=True" ]</codeph> <codeph> [ "StartupMode=AutoDetect"
+]</codeph> <codeph> [ "PreferredPrimary=True" ]</codeph> <codeph> "RemoteDiscoveryNIC=<varname>remoteDiscIP</varname>"</codeph> <codeph> "LocalDiscoveryNIC=<varname>localDiscIP</varname>"</codeph> <codeph> "LocalReplicationNIC=<varname>localRepIP</varname>"</codeph> <codeph> [
+"DiscoveryTimeout=<varname>discTimeout</varname>" ]</codeph> <codeph> [
+"HeartbeatTimeout=<varname>hbTimeout</varname><cmdname>" ]</cmdname></codeph></p><note
+type="tip">It is recommended, but not required, to set Appliance B
+as PreferredPrimary.</note></info></step>
+<step><cmd>Clean the store on Appliance C only.</cmd><info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> runmode maintenance
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> stop
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> start
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> runmode clean_store
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> stop
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> start</codeblock></info>
+<stepresult>The server will clean the store and will restart automatically
+in maintenance mode.</stepresult></step>
+<step><cmd>Change Appliance C to production mode.</cmd><info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> runmode production</codeblock></info>
+</step>
+<step><cmd>Change Appliance B to production mode.</cmd><info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> runmode production</codeblock></info>
+</step>
+<step><cmd>Stop the <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> server
+for Appliance B.</cmd><info><codeblock>imaserver stop
+</codeblock></info></step>
+<step><cmd>Restart Appliance B and Appliance C.</cmd><info><codeblock>imaserver start
+</codeblock></info></step>
+</steps>
+<result>When the high availability pair is up and running, use the <cmdname>status
+imasever</cmdname> at the command line of each appliance:<ul>
+<li>At Appliance
+B:<codeblock><ph conref="../TextEntities.dita#TextEntities/commandprompt"/> <ph conref="../TextEntities.dita#TextEntities/imaserver"/> status
+Status = Running
+HARole = PRIMARY
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"/> <ph conref="../TextEntities.dita#TextEntities/imaserver"/> harole
+NewRole = PRIMARY
+OldRole = STANDBY
+ActiveNodes = 2
+SyncNodes = 2
+ReasonCode = 0
+ReasonString =</codeblock></li>
+<li>At Appliance
+C:<codeblock><ph conref="../TextEntities.dita#TextEntities/commandprompt"/> <ph conref="../TextEntities.dita#TextEntities/imaserver"/> status
+Status = Standby
+HARole = STANDBY
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"/> <ph conref="../TextEntities.dita#TextEntities/imaserver"/> harole
+NewRole = STANDBY
+OldRole = UNSYNC
+ActiveNodes = 2
+SyncNodes = 2
+ReasonCode = 0
+ReasonString =</codeblock></li>
+</ul></result>
+</taskbody>
+<related-links>
+<link format="dita" href="../Troubleshooting/tr00013_.dita" scope="local"
+type="task"></link>
+<link format="dita" href="../Troubleshooting/tr00007_.dita" scope="local"
+type="task"></link>
+<link format="dita" href="ad00280_.dita" scope="local" type="concept">
+</link>
+</related-links>
+</task>
+<?Pub *0000006535?>

@@ -1,0 +1,88 @@
+#!/bin/bash
+
+if [ -z $1 ]; then
+  echo usage:  $0 (start_id)
+  exit
+fi
+
+
+declare -r server=`getserver`
+declare -ir port=16112
+declare prefix="u"
+declare -i id=$1
+declare -ir batch=500
+
+declare -i maxcount=24
+declare -i mincpu=20
+declare -i minmem=50000
+
+declare -i wait=300
+declare -i count=0
+declare -i paho=0
+declare -i jms=0
+declare -i idle1=0
+declare -i idle2=0
+declare -i start=0
+declare uname
+
+
+while [ ${count} -le ${maxcount} ] ; do
+  unset start
+  while [ -z ${start} ]; do
+     idle=`getidle`
+     printf "idle: %d\n" ${idle:1:2}
+     if [ ${idle:0:2} -ge ${mincpu} ]; then
+        freemem=`getfreemem`
+        printf "freemem: %d\n" ${freemem}
+        if [ ${freemem} -ge ${minmem} ]; then
+          start=1
+        fi
+     fi
+
+     if [ ${start} -eq 1 ]; then
+          printf -v uname "${prefix}%07d" ${id}
+          id=${id}+${batch}
+
+          echo java -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh svt.scale.vehicle.SVTVehicleScale -server ${server} -port ${port} -ssl true -userName ${uname} -password imasvtest -mode connect_once -paho ${batch} -minutes 1 -appid 1 -order false -qos 0 -stats false -listener false -verbose false -vverbose false
+          java -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh svt.scale.vehicle.SVTVehicleScale -server ${server} -port ${port} -ssl true -userName ${uname} -password imasvtest -mode connect_once -paho ${batch} -minutes 1 -appid 1 -order false -qos 0 -stats false -listener false -verbose false -vverbose false > /dev/null &
+
+          paho=${paho}+1
+          printf "%d paho processes and %d jms processes started\n" ${paho} ${jms}
+          count=0
+     else 
+        sleep ${wait}
+        count=${count}+1
+     fi
+  done
+
+  if [ ${count} -le ${maxcount} ] ; then
+    unset start
+    while [ -z ${start} ]; do
+       idle=`getidle`
+       printf "idle: %d\n" ${idle:1:2}
+       if [ ${idle:0:2} -ge ${mincpu} ]; then
+          freemem=`getfreemem`
+          printf "freemem: %d\n" ${freemem}
+          if [ ${freemem} -ge ${minmem} ]; then
+            start=1
+          fi
+       fi
+  
+       if [ ${start} -eq 1 ]; then
+          printf -v uname "${prefix}%07d" ${id}
+          id=${id}+${batch}
+  
+          echo java -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh svt.scale.vehicle.SVTVehicleScale -server ${server} -port ${port} -ssl true -userName ${uname} -password imasvtest -mode connect_once -jms ${batch} -minutes 1 -appid 1 -order false -qos 0 -stats false -listener false -verbose false -vverbose false
+          java -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh svt.scale.vehicle.SVTVehicleScale -server ${server} -port ${port} -ssl true -userName ${uname} -password imasvtest -mode connect_once -jms ${batch} -minutes 1 -appid 1 -order false -qos 0 -stats false -listener false -verbose false -vverbose false > /dev/null &
+  
+          jms=${jms}+1
+          printf "%d paho processes and %d jms processes started\n" ${paho} ${jms}
+          start=1
+          count=0
+       else 
+          sleep ${wait}
+          count=${count}+1
+       fi
+    done
+  fi
+done

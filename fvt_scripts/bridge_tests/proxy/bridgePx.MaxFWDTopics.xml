@@ -1,0 +1,491 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="bridgePx.MaxFWDTopics" >
+
+<!--  MessageSight Bridge
+    Using a Bridge Config with forwarder to same MS Server with 16 TOPICS (Max)
+    forwarded to the A2 Subscriber.
+	21 Topics are actually sent, verify fmt/0, fmt/17 - fmt/20 are not sent.
+    Also tests RETAIN AS PUBLISHED
+-->
+
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>bridgePx.MaxFWDTopics</solution>
+    </SyncClient>
+ 
+
+<!--  ==========  A2Subscriber  ==========  -->
+    <Action name="A2Subscriber" type="CompositeAction">
+    
+    <!-- FAILs with 401, need to pass: -u "admin:admin" like with CURL -->
+        <Action name="GetForwarderStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``B1_HOST``:``B1_BRIDGEPORT``</ActionParameter>
+            <ActionParameter name="path">/admin/forwarder</ActionParameter>
+            <ActionParameter name="userID">``B1_REST_USER``</ActionParameter>
+            <ActionParameter name="password">``B1_REST_PW``</ActionParameter>
+            <ActionParameter name="requireSSL">false</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA1ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA2ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+    
+
+        <Action name="ConnectA2Subscriber" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA2</ActionParameter>
+            <ActionParameter name="connection_id">CFv5</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_serverP2.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">d:orgDestIoT2:P2MaxTopics:Subscriber</ApiParameter>
+            <ApiParameter name="user">d:orgDestIoT2:P2MaxTopics:Subscriber</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+<!--  When MS Servers ONLY in between -->
+        <Action name="SubscribeMS" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv5</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/MaxFWDTopics/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">10</ApiParameter>
+            <!-- QoS:2 + RetainAsPublished:8 -->
+            <ApiParameter name="expectedrc">2</ApiParameter>
+        </Action>
+        
+    
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">A2.1</ActionParameter>
+            <ActionParameter name="component_list">A2.1;A1.1</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveLoop" type="CompositeAction" repeat="16" >
+        
+            <Action name="ReceiveMessage" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CFv5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="compareBody">{"MSG" :{ "clientId":"d:orgSrcIoT2:A1MaxTopics:Publisher" , "Client":"v5 with Properties"}}</ActionParameter>
+                <ActionParameter name="compareQoS">2</ActionParameter>
+                <ActionParameter name="compareRetain">true</ActionParameter> 
+            </Action>
+            
+        </Action>
+
+
+        
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143" >
+            <ActionParameter name="connection_id">CFv5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+        
+<!--
+        <Action name="sync_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">A2.2</ActionParameter>
+            <ActionParameter name="component_list">A2.2;A1.2</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+-->
+
+        
+        <Action name="DisconnectA2Subscriber" type="CloseConnection">
+            <ActionParameter name="connection_id">CFv5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+    </Action>
+    
+    
+    
+<!--  ==========  A1Publisher  ==========  -->
+    <Action name="A1Publisher" type="CompositeAction">
+        
+        <Action name="ConnectA1Publisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">d:orgSrcIoT2:P1MaxTopics:Publisher</ApiParameter>
+            <ApiParameter name="user">d:orgSrcIoT2:P1MaxTopics:Publisher</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage_V5" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg5</ActionParameter>
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"MSG" :{ "clientId":"d:orgSrcIoT2:A1MaxTopics:Publisher" , "Client":"v5 with Properties"}}</ApiParameter>
+            <ApiParameter name="correlationData">69</ApiParameter>
+            <ApiParameter name="payloadFormatIndicator">true</ApiParameter>
+            <ApiParameter name="msgExpire">4294967295</ApiParameter>
+            <ApiParameter name="contentType">json</ApiParameter>
+            <ApiParameter name="responseTopic">reply/to/MaxTopics/topic</ApiParameter>
+            <ApiParameter name="topicAlias">29</ApiParameter>
+            <ApiParameter name="userprop.0">Name=MaxTopicTest</ApiParameter>
+            <ApiParameter name="userprop.1">MaxTopics=16</ApiParameter>
+            <ApiParameter name="userprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+        </Action>
+
+
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">A1.1</ActionParameter>
+            <ActionParameter name="component_list">A2.1;A1.1</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+
+
+        <Action name="PublishLoop" type="CompositeAction" repeat="1" >
+            <!-- Only 1-16 will be forwarded -->
+            <Action name="SendMessage_0-10" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="prefix">iot-2/evt/MaxFWDTopics/fmt/</ActionParameter>
+                <ActionParameter name="qos">2</ActionParameter>
+                <ActionParameter name="startingIndex">0</ActionParameter>
+                <ActionParameter name="endingIndex">10</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+                <ActionParameter name="customMessage">{"MSG" :{ "clientId":"d:orgSrcIoT2:A1MaxTopics:Publisher" , "Client":"v5 with Properties"}}</ActionParameter>
+            </Action>
+            
+<!-- Cause PublishTopicTree appears to limit the Index to : 0-10 -->
+
+            <Action name="SendMessage_11" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/11</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_12" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/12</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_13" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/13</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_14" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/14</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_15" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/15</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_16" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/16</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_17" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/17</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_18" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/18</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_19" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/19</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_20" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/20</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+                <ActionParameter name="RETAIN">true</ActionParameter>
+            </Action>
+<!--  This just Publishes  0 - 10 again , ignored 11-20
+            <Action name="SendMessage_11-16" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="prefix">iot-2/evt/MaxFWDTopics/fmt/</ActionParameter>
+                <ActionParameter name="qos">2</ActionParameter>
+                <ActionParameter name="startingIndex">11</ActionParameter>
+                <ActionParameter name="endingIndex">20</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+                <ActionParameter name="customMessage">{"MSG" :{ "clientId":"d:x:A1:MaxTopicsPublisher" , "Client":"v5 with Properties"}}</ActionParameter>
+            </Action>
+-->
+        </Action>
+        
+        <Action name="DisconnectA1Publisher" type="CloseConnection">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+    
+    </Action>
+
+        
+<!-- workaround for DeleteAllRetainedMessages Action trapping with NPE 216038  -->
+    
+    
+<!--  ==========  A1Publisher  ==========  -->
+    <Action name="A1PublisherCleanRetain" type="CompositeAction">
+    
+        <Action name="GetA1ServerStatsBefore" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA2ServerStatsBefore" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        
+        <Action name="ConnectA1Publisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">d:orgSrcIoT2:P1MaxTopics:Publisher</ApiParameter>
+            <ApiParameter name="user">d:orgSrcIoT2:P1MaxTopics:Publisher</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+
+<!--
+        <Action name="sync_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">A1.2</ActionParameter>
+            <ActionParameter name="component_list">A2.2;A1.2</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+-->
+           
+        <Action name="ClearRetain_0-10" type="PublishTopicTree">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/evt/MaxFWDTopics/fmt/</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+            <ActionParameter name="startingIndex">0</ActionParameter>
+            <ActionParameter name="endingIndex">10</ActionParameter>
+            <ActionParameter name="retained">true</ActionParameter>
+            <ActionParameter name="clearRetained">true</ActionParameter>
+            <ActionParameter name="customMessage"></ActionParameter>
+        </Action>
+
+        <Action name="ClearRetainMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload"></ApiParameter>
+        </Action>
+
+        <Action name="SendMessage_11" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/11</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_12" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/12</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_13" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/13</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_14" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/14</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_15" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/15</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_16" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/16</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_17" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/17</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_18" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/18</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_19" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/19</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_20" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/MaxFWDTopics/fmt/20</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="DisconnectA1Publisher" type="CloseConnection">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+    
+        <Action name="GetA1ServerStatsAfter" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA2ServerStatsAfter" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+
+
+    </Action>           
+
+    
+</IsmWSTest>
+                

@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="tr00027_" xml:lang="en-us">
+<title>High availability problems in clusters</title>
+<!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+<!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+<!--Put your short description next; used for first paragraph and abstract.-->
+<shortdesc>There are several reasons why you might experience problems and unexpected behavior when you configure high availability (HA) in clusters of <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> servers.</shortdesc>
+<conbody>
+<section>
+<p>It is good practice, in the event of problems when configuring and using HA in clusters, to check: <ul>
+<li>The cluster status and server status on both servers in the HA pair.</li>
+<li>The cluster membership configuration on both servers in the HA pair.</li>
+</ul></p>
+</section>
+<section id="scenario1">
+<title>Error scenario 1: Did you attempt to enable clustering on an HA pair, and now one or both of your HA servers are in maintenance mode?</title>
+<p>Check the server status and HA status of your servers. Use the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API GET method with the following <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> service URI:</p>
+<p><codeph>http://&lt;Server-IP:Port>/ima/v1/service/status</codeph></p>
+<p>Check the <codeph>ErrorCode</codeph>, <codeph>ErrorMessage</codeph>, <codeph>ReasonCode</codeph>, and <codeph>ReasonString</codeph> fields in the status information that is returned. The significant fields are highlighted in the following example of status information.  <codeblock>{
+  "Version": "v1",
+  "Server": {
+    "Name": "examplesystem01.com:9089",
+    "UID": "lz3Qj3Kd",
+    "Status": "Running",
+    "State": 9,
+    "StateDescription": "Running (maintenance)",
+    "ServerTime": "2016-04-13T13:32:28.546Z",
+    "UpTimeSeconds": 94,
+    "UpTimeDescription": "0 days 0 hours 1 minutes 34 seconds",
+    "Version": "2.0 20160413-1109",
+    <b>"ErrorCode": 509,</b>
+    <b>"ErrorMessage": "Store High-Availability error."</b>
+  },
+  "Container": {
+    "UUID": "bb41d6d23772d9062d1eb7c7fe6864246bafae565b7ecae32972492e63c61006"
+  },
+  "HighAvailability": {
+    "Status": "Active",
+    "Enabled": true,
+    "Group": "mygroup01",
+    "NewRole": "UNSYNC_ERROR",
+    "OldRole": "UNSYNC",
+    "ActiveNodes": 1,
+    "SyncNodes": 0,
+    "PrimaryLastTime": "",
+    "PctSyncCompletion": -1,
+    <b>"ReasonCode": 1,</b>
+    <b>"ReasonString": "Cluster.EnableClusterMembership - CONFIG_ERROR",</b>
+    "RemoteServerName": ""
+</codeblock></p>
+<p>A possible cause of this error condition is that cluster membership was enabled on the primary server in the HA pair but only one of the servers in the HA pair was restarted. </p>
+<p>Restart both servers in the HA pair at the same time.</p>
+</section>
+<section>
+<title>Error scenario 2: Did you attempt to enable clustering on an HA pair, and now, after restarting servers, your HA servers are in maintenance mode?</title>
+<p>Check the status of your servers. Use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> REST API GET method with the following <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> service URI:</p>
+<p><codeph>http://&lt;Server-IP:Port>/ima/v1/service/status</codeph></p>
+<p>On each server, check the <codeph>ErrorCode</codeph>,  and <codeph>ErrorMessage</codeph> fields in the status information that is returned. The significant fields are highlighted in the following example of status information.  </p>
+<p>On the server that was the primary server in the HA pair:<codeblock>{
+    "Version": "v1",
+    "Server": {
+        "Name": "examplesystem01:9089",
+        "UID": "DnAUsuJb",
+        "Status": "Running",
+        "State": 9,
+        "StateDescription": "Running (maintenance)",
+        "ServerTime": "2016-04-13T13:20:40.702Z",
+        "UpTimeSeconds": 515,
+        "UpTimeDescription": "0 days 0 hours 8 minutes 35 seconds",
+        "Version": "2.0 20160413-1109",
+        <b>"ErrorCode": 509,</b>
+        <b>"ErrorMessage": "Store High-Availability error."</b>
+    },
+    "Container": {
+        "UUID": "bb41d6d23772d9062d1eb7c7fe6864246bafae565b7ecae32972492e63c61006"
+    },
+    "HighAvailability": {
+        "Status": "Active",
+        "Enabled": true,
+        "Group": "mygroup02",
+        "NewRole": "UNSYNC_ERROR",
+        "OldRole": "UNSYNC",
+        "ActiveNodes": 1,
+        "SyncNodes": 0,
+        "PrimaryLastTime": "2016-04-13T13:05:02Z",
+        "PctSyncCompletion": -1,
+        "ReasonCode": 2,
+        "ReasonString": " - DISCOVERY_TIMEOUT",
+        "RemoteServerName": ""
+    },
+    "Cluster": {
+        "Status": "Initializing",
+        "Name": "MyCluster",
+        "Enabled": true,
+        "ConnectedServers": 0,
+        "DisconnectedServers": 0
+    },
+    "Plugin": {
+        "Status": "Inactive",
+        "Enabled": false
+    },
+    "MQConnectivity": {
+        "Status": "Inactive",
+        "Enabled": false
+    },
+    "SNMP": {
+        "Status": "Inactive",
+        "Enabled": false
+    }
+}
+
+</codeblock></p>
+<p>On the standby server:<codeblock>{
+    "Version": "v1",
+    "Server": {
+        "Name": "examplesystem02:9089",
+        "UID": "DnAUsuJb",
+        "Status": "Running",
+        "State": 9,
+        "StateDescription": "Running (maintenance)",
+        "ServerTime": "2016-04-13T19:22:50.403Z",
+        "UpTimeSeconds": 958,
+        "UpTimeDescription": "0 days 0 hours 15 minutes 58 seconds",
+        "Version": "2.0 20160413-1109",
+        <b>"ErrorCode": 112,</b>
+        <b>"ErrorMessage": "The property value is not valid: Property: Cluster.ControlAddress Value: \"NULL\"."</b>
+    },
+    "Container": {
+        "UUID": "b308915aa0525a62eaf70a8f5c08b508153caac4e6d1200eb0cd9d53396c8c62"
+    },
+    "HighAvailability": {
+        "Status": "Active",
+        "Enabled": true,
+        "Group": "mygroup02",
+        "NewRole": "UNSYNC",
+        "OldRole": "UNSYNC",
+        "ActiveNodes": 0,
+        "SyncNodes": 0,
+        "PrimaryLastTime": "",
+        "PctSyncCompletion": 0,
+        "ReasonCode": 0,
+        "RemoteServerName": ""
+    },
+    "Cluster": {
+        "Status": "Unavailable",
+        "Enabled": true
+    },
+    "Plugin": {
+        "Status": "Inactive",
+        "Enabled": false
+    },
+    "MQConnectivity": {
+        "Status": "Inactive",
+        "Enabled": false
+    },
+    "SNMP": {
+        "Status": "Inactive",
+        "Enabled": false
+    }
+}
+</codeblock></p>
+<p>In this scenario, a value for the cluster control address had not been specified on the standby server before the cluster was enabled. A similar error scenario can occur if the cluster messaging address is not specified.</p>
+<p>Ensure that values for control address and messaging address are specified on both members of the HA pair before you enable them for cluster membership.</p>
+<p>Restart both servers in the HA pair.</p>
+</section>
+<section>
+<title>Error scenario 3: Did you attempt to disable clustering on an HA pair, and now, after restarting servers, your HA servers are in maintenance mode?</title>
+<p>Check the status of your servers. Use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> REST API GET method with the following <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> service URI:</p>
+<p><codeph>http://&lt;Server-IP:Port>/ima/v1/service/status</codeph></p>
+<p>In this scenario, you are likely to see similar information as that described in <xref
+format="dita" href="tr00027_.dita#tr00027_/scenario1" scope="local">Error scenario 1</xref> and you are likely to see the information on both of your servers. The significant server status fields and values are:<ul>
+<li><codeph>"ErrorCode": 509,</codeph></li>
+<li><codeph>"ErrorMessage": "Store High-Availability error."</codeph></li>
+</ul> The significant HA status fields and values are:<ul>
+<li><codeph>"ReasonCode": 1,</codeph></li>
+<li><codeph>"ReasonString": "Cluster.EnableClusterMembership - CONFIG_ERROR",</codeph></li>
+</ul></p>
+<p>A possible cause of this error condition is that cluster membership was disabled on the primary server in the HA pair while the standby server was inactive.</p>
+<p>Disable cluster membership on both servers in the HA pair. Restart both servers. </p>
+</section>
+        <section>
+            <title>Error scenario 4: "ReasonString": "Store.TotalMemSizeMB_CONFIG_ERROR" is issued</title>
+            <p><codeph>"ReasonString": "Store.TotalMemSizeMB - CONFIG_ERROR"</codeph> in HA status indicates that there is a mismatch between the memory configuration of the store of the nodes and, consequently, the nodes cannot form an HA pair. A possible scenario in which this error can arise is when you are using one node that is a Docker container that has a controlled memory configuration, and another node that has been installed as an RPM on the host OS which means that all the memory that is available on the machine is used.</p>
+            <p>It is best practice to ensure that the two nodes in an HA pair are identical particularly with regard to the amount of memory available to them. </p>
+            <p/>
+        </section>
+</conbody>
+</concept>

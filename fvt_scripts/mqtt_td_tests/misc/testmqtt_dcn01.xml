@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+Test Description:
+   This is designed to test the functionality of the Disconnected Client Notification
+   feature. We create these connections:
+            FAA - Fake Android App
+            IOS - Fake IOS App
+            FBB - Fake Black Berry App
+            FWM - Fake Windows Mobile App
+            FWL - Fake Worklight
+   In this scenario, the FWL will be subscribed to $SYS/DisconnectedClientNotification
+   which will receive message notifications for disconnected clients. The FAA will be
+   subscribed to topic /DCN/enabled. IOS will publish to /DCN/enabled. FAA will disconnect,
+   after which IOS will publish a messge, which will then trigger a notification to be
+   published to $SYS/DisconnectedClientNotification and thus received by FWL.
+   The FBB will be doing the same things as FAA, but it will be subscribed to /DCN/disabled,
+   which is controlled by a messaging policy with DisconnectedClientNotification=False. We of
+   course expect FWL not to receive any notifications of messages published to that topic.
+   The FWM is a Windows user (not too bright), and tries to publish to $SYS/DisconnectedClientNotification
+   FWL will then make sure it does not receive that message.
+
+-->
+<ImaMqttTest name="testmqtt_dcn001">
+  <Action name="CreateConnection_FAA" type="CreateConnection">
+    <ActionParameter name="structure_id">con_FAA</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FAA</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">FAA</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <ApiParameter name="cleanSession">false</ApiParameter>
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CreateConnection_IOS" type="CreateConnection">
+    <ActionParameter name="structure_id">con_IOS</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">IOS</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <!--ApiParameter name="cleanSession">false</ApiParameter-->
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CreateConnection_FBB" type="CreateConnection">
+    <ActionParameter name="structure_id">con_FBB</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">FBB</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <ApiParameter name="cleanSession">false</ApiParameter>
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CreateConnection_FWM3" type="CreateConnection">
+    <ActionParameter name="structure_id">con_FWM</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FWM3</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ActionParameter name="mqttVersion">3</ActionParameter>
+    <ApiParameter name="clientId">FWM3</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <!--ApiParameter name="cleanSession">false</ApiParameter-->
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+  <Action name="CreateConnection_FWM4" type="CreateConnection">
+    <ActionParameter name="structure_id">con_FWM</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FWM4</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ActionParameter name="mqttVersion">3</ActionParameter>
+    <ApiParameter name="clientId">FWM4</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <!--ApiParameter name="cleanSession">false</ApiParameter-->
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CreateConnection_FWL" type="CreateConnection">
+    <ActionParameter name="structure_id">con_FWL</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">FWL</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <ApiParameter name="cleanSession">true</ApiParameter>
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CheckConnection_FAA" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_FAA</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+  <Action name="CheckConnection_IOS" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+  <Action name="CheckConnection_FBB" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+
+  <Action name="CheckConnection_FWM3" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_FWM3</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+  <Action name="CheckConnection_FWM4" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_FWM4</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+  <Action name="CheckConnection_FWL" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+  <Action name="SubscribeFWL" type="Subscribe">
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+    <ApiParameter name="topic">$SYS/DisconnectedClientNotification</ApiParameter>
+    <!--<ApiParameter name="QoS">0</ApiParameter>-->
+  </Action>
+
+  <Action name="SubscribeFAA" type="Subscribe">
+    <ActionParameter name="connection_id">con_CF_FAA</ActionParameter>
+    <ApiParameter name="topic">/DCN/enabled</ApiParameter>
+    <ApiParameter name="QoS">2</ApiParameter>
+  </Action>
+
+  <Action name="SubscribeFBB" type="Subscribe">
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+    <ApiParameter name="topic">/DCN/disabled</ApiParameter>
+    <ApiParameter name="QoS">2</ApiParameter>
+  </Action>
+
+  <Action name="CreateMessage_msg1" type="CreateMessage">
+    <ActionParameter name="structure_id">msg1</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+    <ApiParameter name="payload">this is msg1</ApiParameter>
+  </Action>
+
+  <Action name="CreateMessage_msg3" type="CreateMessage">
+    <ActionParameter name="structure_id">msg3</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+    <ApiParameter name="payload">this is msg3</ApiParameter>
+  </Action>
+
+  <Action name="SendMessage_msg1" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ActionParameter name="message_id">msg1</ActionParameter>
+    <ActionParameter name="topic">/DCN/enabled</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+  <Action name="SendMessage_msg3" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ActionParameter name="message_id">msg3</ActionParameter>
+    <ActionParameter name="topic">/DCN/disabled</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveMessage_msg1" type="ReceiveMessage">
+    <ActionParameter name="connection_id">con_CF_FAA</ActionParameter>
+    <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+    <ActionParameter name="waitTime">1000</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveMessage_msg3" type="ReceiveMessage">
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+    <ActionParameter name="structure_id">rxmsg3</ActionParameter>
+    <ActionParameter name="waitTime">1000</ActionParameter>
+  </Action>
+
+  <Action name="CheckMessage_msg1" type="CompareMessageData">
+    <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+    <ActionParameter name="compareBody">this is msg1</ActionParameter>
+    <ActionParameter name="compareTopic">/DCN/enabled</ActionParameter>
+    <ActionParameter name="compareRetain">false</ActionParameter>
+  </Action>
+
+  <Action name="CheckMessage_msg3" type="CompareMessageData">
+    <ActionParameter name="structure_id">rxmsg3</ActionParameter>
+    <ActionParameter name="compareBody">this is msg3</ActionParameter>
+    <ActionParameter name="compareTopic">/DCN/disabled</ActionParameter>
+    <ActionParameter name="compareRetain">false</ActionParameter>
+  </Action>
+
+
+  <!-- exp fail -->
+  <Action name="ReceiveMessage_msg_fail_faa" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+    <ActionParameter name="connection_id">con_CF_FAA</ActionParameter>
+    <ActionParameter name="structure_id">nrxmsg_faa</ActionParameter>
+    <ActionParameter name="waitTime">1000</ActionParameter>
+  </Action>
+
+  <!-- exp fail -->
+  <Action name="ReceiveMessage_msg_fail_fbb" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+    <ActionParameter name="structure_id">nrxmsg_fbb</ActionParameter>
+    <ActionParameter name="waitTime">1000</ActionParameter>
+  </Action>
+
+
+  <!-- close FAA -->
+  <Action name="CloseConnection_FAA" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_FAA</ActionParameter>
+  </Action>
+
+
+  <!-- give FAA some time to actually be closed -->
+  <Action name="Sleep2_1" type="Sleep">
+    <ActionParameter name="waitTime">2000</ActionParameter>
+  </Action>
+
+
+  <!-- send message while FAA is disconnected -->
+  <Action name="CreateMessage_msg2" type="CreateMessage">
+    <ActionParameter name="structure_id">msg2</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+    <ApiParameter name="payload">this is msg2</ApiParameter>
+  </Action>
+
+  <Action name="SendMessage_msg2" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ActionParameter name="message_id">msg2</ActionParameter>
+    <ActionParameter name="topic">/DCN/enabled</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+
+  <!-- FWL should get a notification message on DCN in leq 60 seconds -->
+  <Action name="ReceiveMessage_notice" type="ReceiveMessage">
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+    <ActionParameter name="structure_id">rxmsgn</ActionParameter>
+    <ActionParameter name="waitTime">61000</ActionParameter>
+  </Action>
+
+  <Action name="CheckMessage_rxmsgn" type="CompareMessageData">
+    <ActionParameter name="structure_id">rxmsgn</ActionParameter>
+    <ActionParameter name="compareTopic">$SYS/DisconnectedClientNotification</ActionParameter>
+    <ActionParameter name="compareRetain">false</ActionParameter>
+  </Action>
+
+
+
+  <!-- now disconnect FBB, and expect to NOT receive a notification when msg is sent -->
+  <Action name="CloseConnection_FBB" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+  </Action>
+
+  <Action name="Sleep2_2" type="Sleep">
+    <ActionParameter name="waitTime">2000</ActionParameter>
+  </Action>
+
+  <Action name="CreateMessage_msg4" type="CreateMessage">
+    <ActionParameter name="structure_id">msg4</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+    <ApiParameter name="payload">this is msg4</ApiParameter>
+  </Action>
+
+  <Action name="SendMessage_msg4" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ActionParameter name="message_id">msg4</ActionParameter>
+    <ActionParameter name="topic">/DCN/disabled</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveMessage_notice_fail" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+    <ActionParameter name="structure_id">rxmsgn</ActionParameter>
+    <ActionParameter name="waitTime">61000</ActionParameter>
+  </Action>
+  
+  <!-- Update the policies -->
+  <Action name="RESTDisableDCN" type="RestAPI">
+    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+    <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+    <ActionParameter name="action">POST</ActionParameter>
+    <ActionParameter name="payload">{"TopicPolicy":{"MQTTDCNEnabledAppMessagingPolicy":{"DisconnectedClientNotification":false}}}</ActionParameter>
+    <ActionParameter name="printResult">true</ActionParameter>
+    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    <ActionParameter name="expectedMessageCode"></ActionParameter>
+  </Action>
+  
+  <!-- Update the policies -->
+  <Action name="RESTEnableDCN" type="RestAPI">
+    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+    <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+    <ActionParameter name="action">POST</ActionParameter>
+    <ActionParameter name="payload">{"TopicPolicy":{"MQTTDCNDisabledAppMessagingPolicy":{"DisconnectedClientNotification":true}}}</ActionParameter>
+    <ActionParameter name="printResult">true</ActionParameter>
+    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    <ActionParameter name="expectedMessageCode"></ActionParameter>
+  </Action>
+
+  <!-- This message will not cause a notification as the policy for /DCN/enabled
+       is now set to false -->
+  <Action name="SendMessage_msg2Again" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ActionParameter name="message_id">msg2</ActionParameter>
+    <ActionParameter name="topic">/DCN/enabled</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+  <!-- FWL should get a notification message on DCN in leq 60 seconds -->
+  <!-- Because there is 1 unread message for /DCN/disabled from before
+       the /DCN/disabled policy was set to true -->
+  <Action name="ReceiveMessage_notice_failDisabled" type="ReceiveMessage">
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+    <ActionParameter name="structure_id">rxmsgn</ActionParameter>
+    <ActionParameter name="waitTime">61000</ActionParameter>
+  </Action>
+
+  <Action name="CheckMessage_rxmsgn_Disabledaaa" type="CompareMessageData">
+    <ActionParameter name="structure_id">rxmsgn</ActionParameter>
+    <ActionParameter name="compareTopic">$SYS/DisconnectedClientNotification</ActionParameter>
+    <ActionParameter name="compareRetain">false</ActionParameter>
+  </Action>
+
+  <Action name="SendMessage_msg4Again" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+    <ActionParameter name="message_id">msg4</ActionParameter>
+    <ActionParameter name="topic">/DCN/disabled</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+  <!-- FWL should get a notification message on DCN in leq 60 seconds -->
+  <!-- there will now be 2 messges waiting on /DCN/disabled -->
+  <Action name="ReceiveMessage_notice_Enabled" type="ReceiveMessage">
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+    <ActionParameter name="structure_id">rxmsgn</ActionParameter>
+    <ActionParameter name="waitTime">61000</ActionParameter>
+  </Action>
+
+  <Action name="CheckMessage_rxmsgn_Enabled" type="CompareMessageData">
+    <ActionParameter name="structure_id">rxmsgn</ActionParameter>
+    <ActionParameter name="compareTopic">$SYS/DisconnectedClientNotification</ActionParameter>
+    <ActionParameter name="compareRetain">false</ActionParameter>
+  </Action>
+
+
+
+
+
+  <!-- Silly Windows user tries to publish to $SYS/DisconnectedClientNotification -->
+  <Action name="CreateMessage_msg5.3" type="CreateMessage">
+    <ActionParameter name="structure_id">msg5.3</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FWM3</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+    <ApiParameter name="payload">this is msg5.3</ApiParameter>
+  </Action>
+  <Action name="CreateMessage_msg5.4" type="CreateMessage">
+    <ActionParameter name="structure_id">msg5.4</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FWM4</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+    <ApiParameter name="payload">this is msg5.4</ApiParameter>
+  </Action>
+
+  <Action name="SendMessage_msg5.3" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_FWM3</ActionParameter>
+    <ActionParameter name="message_id">msg5.3</ActionParameter>
+    <ActionParameter name="topic">$SYS/DisconnectedClientNotification</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+  <Action name="SendMessage_msg5.4" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_FWM4</ActionParameter>
+    <ActionParameter name="message_id">msg5.4</ActionParameter>
+    <ActionParameter name="topic">$SYS/DisconnectedClientNotification</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveMessage_notice_fail2" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+    <ActionParameter name="structure_id">rxmsgnn</ActionParameter>
+    <ActionParameter name="waitTime">61000</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_IOS" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_IOS</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_FWM3" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_FWM3</ActionParameter>
+  </Action>
+  <!-- Action name="CheckConnection_FWM4.2" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_FWM4</ActionParameter>
+    <ActionParameter name="isConnected">false</ActionParameter>
+  </Action-->
+  <Action name="CloseConnection_FWM4" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_FWM4</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_FWL" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_FWL</ActionParameter>
+  </Action>
+
+  <Action name="CreateConnection_FAA_2" type="CreateConnection">
+    <ActionParameter name="structure_id">con_FAA</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FAA</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">FAA</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+  <Action name="CloseConnection_FAA_2" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_FAA</ActionParameter>
+  </Action>
+
+  <Action name="CreateConnection_FBB_2" type="CreateConnection">
+    <ActionParameter name="structure_id">con_FBB</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">FBB</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+  <Action name="CloseConnection_FBB_2" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_FBB</ActionParameter>
+  </Action>
+
+  <!-- Update the policies -->
+  <Action name="RESTDisableDCN_Reset" type="RestAPI">
+    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+    <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+    <ActionParameter name="action">POST</ActionParameter>
+    <ActionParameter name="payload">{"TopicPolicy":{"MQTTDCNEnabledAppMessagingPolicy":{"DisconnectedClientNotification":true}}}</ActionParameter>
+    <ActionParameter name="printResult">true</ActionParameter>
+    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    <ActionParameter name="expectedMessageCode"></ActionParameter>
+  </Action>
+
+  <!-- Update the policies -->
+  <Action name="RESTEnableDCN_Reset" type="RestAPI">
+    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+    <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+    <ActionParameter name="action">POST</ActionParameter>
+    <ActionParameter name="payload">{"TopicPolicy":{"MQTTDCNDisabledAppMessagingPolicy":{"DisconnectedClientNotification":false}}}</ActionParameter>
+    <ActionParameter name="printResult">true</ActionParameter>
+    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    <ActionParameter name="expectedMessageCode"></ActionParameter>
+  </Action>
+
+</ImaMqttTest>

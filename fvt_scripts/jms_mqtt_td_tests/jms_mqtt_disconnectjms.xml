@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_mqtt_disconnect
+
+  Test Category:  JMS MQTT
+  
+  Test Description:
+    Test Endpoint Disconnect on updating Enabled=False feature
+
+    Create 2 connections, DisconnectClient1 and DisconnectClient2
+    Change connection policy to only allow DisconnectClient2
+    Attempt to connect as DisconnectClient3 but fail due to new policy
+    Create producer as DisconnectClient1 and DisconnectClient2 to show it 
+        was not disconnected by the policy update
+    Disable Endpoint
+    Attempt to connect again as DisconnectClient3 and fail
+    Attempt to use the now disconnected connections DisconnectClient1 and
+        DisconnectClient2 and fail
+    Reenable the endpoint
+    Reconnect successfully as DisconnectClient2
+    Fail to reconnect as DisconnectClient1
+    Update Connection Policy back to default
+    Make sure DisconnectClient2 is still connected
+    Connect again as DisconnectClient1 which is now allowed again
+	
+*****************************************************************************/
+-->
+<ImaJmsTest name="jms_mqtt_disconnect" >
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_mqtt_disconnect</solution>
+    </SyncClient>
+	
+    <Action name="part1" type="CompositeAction">
+      
+    <Action name="Create_EP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"Disconnect_EP":{"Enabled":true,"Port":20002,"ConnectionPolicies":"DemoConnectionPolicy","TopicPolicies":"DemoTopicPolicy","MaxMessageSize":"1KB","MessageHub":"DemoHub"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+        
+        <!-- Create a connection policy that will be used later -->
+        <Action name="Create_CP" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"ConnectionPolicy":{"Disconnect_CP":{"ClientID":"DisconnectClient2*","Protocol":"JMS,MQTT"}}}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+        <Action name="sync_ep_created" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_ep_created</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_created;mqtt_ep_created</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="Create_cf1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf1</ActionParameter>
+            <!--ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter-->
+        </Action>
+        
+        <Action name="SetProps_cf1" type="FillIsmProps">
+            <ActionParameter name="structure_id">cf1</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="Protocol" value="tcp"/>
+            <ImaProperty name="Port" value="20002"/>
+            <ImaProperty name="ClientID" value="DisconnectClient1"/>
+            <include>../common/JMS_server.xml</include>
+        </Action>
+        
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+            <ActionParameter name="factory_id">cf1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session_cf1</ActionParameter>
+        </Action>
+
+        <Action name="Create_cf2" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf2</ActionParameter>
+        </Action>
+        
+        <Action name="SetProps_cf2" type="FillIsmProps">
+            <ActionParameter name="structure_id">cf2</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="Protocol" value="tcp"/>
+            <ImaProperty name="Port" value="20002"/>
+            <ImaProperty name="ClientID" value="DisconnectClient2"/>
+            <include>../common/JMS_server.xml</include>
+        </Action>
+        
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf2</ActionParameter>
+            <ActionParameter name="factory_id">cf2</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+            <ActionParameter name="structure_id">session_cf2</ActionParameter>
+        </Action>
+
+        <Action name="Create_cf3" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf3</ActionParameter>
+        </Action>
+        
+        <Action name="SetProps_cf3" type="FillIsmProps">
+            <ActionParameter name="structure_id">cf3</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="Protocol" value="tcp"/>
+            <ImaProperty name="Port" value="20002"/>
+            <ImaProperty name="ClientID" value="DisconnectClient3"/>
+            <include>../common/JMS_server.xml</include>
+        </Action>
+        
+        <Action name="CreateDestination" type="CreateDestination">
+            <ApiParameter name="name">jms-disconnect</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">dest</ActionParameter>
+        </Action>
+
+        <Action name="sync_strict_ep" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_strict_ep</ActionParameter>
+            <ActionParameter name="component_list">jms_strict_ep;mqtt_strict_ep</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Make Endpoint connection policy restrict by ClientID -->
+         <!-- This should get DisconnectClient1 disconnected -->
+          <Action name="Change_CP" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"Endpoint":{"Disconnect_EP":{"ConnectionPolicies":"Disconnect_CP"}}}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+        <Action name="sync_ep_strict" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_ep_strict</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_strict;mqtt_ep_strict</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Connection with ClientID DisconnectClient3 fails, since no longer allowed -->
+        <Action name="CreateConnection3_after_strict" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf3</ActionParameter>
+            <ActionParameter name="factory_id">cf3</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession3failure" type="CreateSession" rc="1" reason="CWLNC0207">
+            <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+            <ActionParameter name="structure_id">session_cf3</ActionParameter>
+        </Action>
+        
+        <Action name="CloseConnection_cf3" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+        </Action>
+        
+        <!-- Still connected on DisconnectClient1, since not dynamic -->
+        <Action name="CreateProducer1_after_strict" type="CreateProducer">
+            <ActionParameter name="structure_id">producer1</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session_cf1</ActionParameter>
+        </Action>
+
+        <!-- Still connected on DisconnectClient2 -->
+        <Action name="CreateProducer2_after_strict" type="CreateProducer">
+            <ActionParameter name="structure_id">producer2</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session_cf2</ActionParameter>
+        </Action>
+
+        <Action name="sync_disable_ep" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_disable_ep</ActionParameter>
+            <ActionParameter name="component_list">jms_disable_ep;mqtt_disable_ep</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- connection_cf1 and connection_cf2 will be disconnected by this -->
+        <Action name="DisableEP" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"Endpoint":{"Disconnect_EP":{"Enabled":false}}}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+        <Action name="sync_ep_disabled" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_ep_disabled</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_disabled;mqtt_ep_disabled</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Now that the endpoint is disabled, connection_cf3 will be unable to connect -->
+        <!-- Would have been nice to try this connection WHILE running the disable command
+             but the test driver doesn't really allow for that, since depending on timing, it
+             may or may not fail. So just attempt the connection right after the disable. -->
+        <Action name="CreateConnection3_after_disable" type="CreateConnection" rc="1" reason="CWLNC0022">
+            <ActionParameter name="structure_id">connection_cf3</ActionParameter>
+            <ActionParameter name="factory_id">cf3</ActionParameter>
+        </Action>
+        
+        <!-- Attempt to use connection_cf1 and connection_cf2 and fail -->
+        <Action name="CreateProducer1_after_disable" type="CreateProducer" rc="1" reason="CWLNC0009">
+            <ActionParameter name="structure_id">producer1a</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer2_after_disable" type="CreateProducer" rc="1" reason="CWLNC0009">
+            <ActionParameter name="structure_id">producer2a</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session_cf2</ActionParameter>
+        </Action>
+
+        <Action name="sync_enable_ep" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_enable_ep</ActionParameter>
+            <ActionParameter name="component_list">jms_enable_ep;mqtt_enable_ep</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+	<!-- Re-enable the endpoint.. its used by later tests so hopefully
+	  the test gets this far -->
+        <Action name="EnableEP" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"Endpoint":{"Disconnect_EP":{"Enabled":true}}}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+        <Action name="sync_ep_enabled" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_ep_enabled</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_enabled;mqtt_ep_enabled</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+	<!-- Prove that we can connect again after re-enabling with the correct ClientID-->
+        <Action name="CreateConnection2success" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf2</ActionParameter>
+            <ActionParameter name="factory_id">cf2</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2Success" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+            <ActionParameter name="structure_id">session_cf2</ActionParameter>
+        </Action>
+        
+        <!-- And that we fail with the wrong ClientID -->
+        <Action name="CreateConnection1fail" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+            <ActionParameter name="factory_id">cf1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1fail" type="CreateSession" rc="1" reason="CWLNC0207">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="sync_reset_ep" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_reset_ep</ActionParameter>
+            <ActionParameter name="component_list">jms_reset_ep;mqtt_reset_ep</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="UpdateEP2" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"Endpoint":{"Disconnect_EP":{"ConnectionPolicies":"DemoConnectionPolicy"}}}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+        <Action name="sync_ep_reset" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_ep_reset</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_reset;mqtt_ep_reset</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Verify that DisconnectClient2 is still connected -->
+        <Action name="CreateProducerSuccess" type="CreateProducer">
+            <ActionParameter name="structure_id">producer2</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session_cf2</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_cf1" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="CloseConnection_cf2" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+        </Action>
+
+        <!-- Verify that DisconnectClient1 can now connect since
+             it will use DemoConnectionPolicy -->
+        <Action name="CreateConnection1Again" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+            <ActionParameter name="factory_id">cf1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1Again" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="CloseConnectionAgain_cf1" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="sync_complete" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_complete</ActionParameter>
+            <ActionParameter name="component_list">jms_complete;mqtt_complete</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="DeleteEP" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration/Endpoint/Disconnect_EP</ActionParameter>
+            <ActionParameter name="action">DELETE</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+        <Action name="DeleteCP" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/Disconnect_CP</ActionParameter>
+            <ActionParameter name="action">DELETE</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+    </Action>
+</ImaJmsTest>

@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: testmqtt_sharedsub_error02_JMS
+
+  Test Category: MQTT JMS Shared Subscription
+  
+	NOTE: Most of the validation of this test is in compare logs.  
+
+-->    
+
+<ImaJmsTest name="testmqtt_sharedsub_error02_JMS.xml">
+
+	<Action name="Cons1" type="CompositeAction">
+	
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>mqttDurSharedSubserror02</solution>
+	</SyncClient>
+
+		<!-- A connection factory without a clientID, used for shared namespaces -->
+		<Action name="Create_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+		</Action>
+		<Action name="SetProps_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102"/>
+		</Action>
+		
+		<Action name="CreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a session on Connection 1 --> 
+		<Action name="CreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>	
+		
+		<!-- Create a 2nd session on Connection 1 --> 
+		<Action name="CreateSession1b_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1b_cf1</ActionParameter>
+		</Action>				                                                          
+	
+		<Action name="CreateDestination_bad" type="CreateDestination">
+			<ApiParameter name="name">NotTheTopic</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">dest_Topic_bad</ActionParameter>
+		</Action>    
+		
+		<Action name="CreateDestination_good" type="CreateDestination">
+			<ApiParameter name="name">/ChangedTheTopic</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">dest_Topic_good</ActionParameter>
+		</Action>    
+				
+		<Action name="sync_wait_SubExists" type="SyncAction"> 
+			<ActionParameter name="request">wait</ActionParameter>
+			<ActionParameter name="condition">SubExists</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+			<ActionParameter name="timeout">30000</ActionParameter>
+		</Action>	
+		
+	
+		<!-- Use the wrong topic. Should fail, since there are two active MQTT Subscribers. -->
+		
+		<Action name="CreateSharedConsumer1_Shared" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0229">
+			<ActionParameter name="structure_id">consumer1_destShared</ActionParameter>
+			<ActionParameter name="dest_id">dest_Topic_bad</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">DurSubErrorTests</ApiParameter>
+		</Action>
+		
+		<!-- correct topic, but add a selector. Should fail, as there are MQTT subscribers active -->
+		<Action name="CreateSharedConsumer2_Shared" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0229" >
+			<ActionParameter name="structure_id">consumer1_destShared</ActionParameter>
+			<ActionParameter name="dest_id">dest_Topic_good</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">DurSubErrorTests</ApiParameter>
+			<ApiParameter name="selector">a=b</ApiParameter>
+		</Action>		
+			
+		<Action name="sync_JMSTried" type="SyncAction"> 
+			<ActionParameter name="request">set</ActionParameter>
+			<ActionParameter name="condition">JMSTried</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+		</Action>
+		
+		<!-- Wait for a cue to retry with a non-error case --> 
+		<Action name="sync_ReadyForJMS" type="SyncAction"> 
+			<ActionParameter name="request">wait</ActionParameter>
+			<ActionParameter name="condition">ReadyForJMS</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+		</Action>It shou
+	
+		<!-- Now.. successfully subscribe to the MQTT-created shared subscription and
+		close correct topic, correct Subname, this should succeed. 
+		nolocal should be ignored on shared subscriptions. -->
+		<Action name="CreateSharedConsumer3_Shared" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer1_destShared</ActionParameter>
+			<ActionParameter name="dest_id">dest_Topic_good</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			 <ApiParameter name="nolocal">true</ApiParameter>
+			<ApiParameter name="durableName">DurSubErrorTests</ApiParameter>
+		</Action>	
+		
+		<!-- There should be three consumers. one JMS, two MQTT --> 
+		<!-- Action name="ShowSubSharingJMS_MQTT" type="ShellAction" >
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests ClientID=__Shared TopicString=/ChangedTheTopic </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->	
+		
+  <Action name="restSubSharingJMS_MQTT" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubSharingJMS_MQTT" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="/ChangedTheTopic"/>
+        <ObjectProperty name="Consumers" value="3"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+
+		<Action name="CloseConsumer1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1_destShared</ActionParameter>
+		</Action>
+		
+		<!-- There should be two consumers: MQTT --> 
+		<!-- Action name="ShowSub_MQTT" type="ShellAction" >
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests ClientID=__Shared TopicString=/ChangedTheTopic </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+  <Action name="restSubSharingJMS_MQTT_inactiveJMS" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubSharingJMS_MQTT_inactiveJMS" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="/ChangedTheTopic"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>		
+		
+		<!-- there are active consumers, so we cannot unsubscribe -->
+		<Action name="Unsubscribe_fail" type="Unsubscribe" rc="1"  reason="CWLNC0226">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">DurSubErrorTests</ApiParameter>
+		</Action>			
+		
+		<!-- Now.. successfully resubscribe to the MQTT-created shared subscription -->
+		<Action name="ReSubscribeSharedConsumer3_Shared" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer1_destShared</ActionParameter>
+			<ActionParameter name="dest_id">dest_Topic_good</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			 <ApiParameter name="nolocal">true</ApiParameter>
+			<ApiParameter name="durableName">DurSubErrorTests</ApiParameter>
+		</Action>	
+		
+		<!-- There should be three consumers. one JMS, two MQTT --> 
+		<!-- Action name="ShowSubSharingJMS_MQTT_again" type="ShellAction" >
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests ClientID=__Shared TopicString=/ChangedTheTopic </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+  <Action name="restSubSharingJMS_MQTT_reactiveJMS" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubSharingJMS_MQTT_reactiveJMS" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="/ChangedTheTopic"/>
+        <ObjectProperty name="Consumers" value="3"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>				
+				
+		<Action name="CloseSession1_cf1" type="CloseSession">1
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>		
+		
+		<Action name="CloseSession1b_cf1" type="CloseSession">
+			<ActionParameter name="session_id">session1b_cf1</ActionParameter>
+		</Action>				
+		
+		<Action name="CloseConnection_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>			
+		
+	<!-- Tell MQTT that JMS has succeeded in joining  SharedSub -->
+	<Action name="sync_wait_JMSJoinedAndLeft" type="SyncAction"> 
+		<ActionParameter name="request">set</ActionParameter>
+		<ActionParameter name="condition">JMSJoinLeave</ActionParameter>
+		<ActionParameter name="value">1</ActionParameter>
+	</Action>	
+	
+	<!-- JMS will be the last user of the Subscription, so it when it unsubscribes, 
+	the subscription should go away after. --> 
+	
+	<Action name="sync_ReadyForJMSUnsubscribe" type="SyncAction"> 
+		<ActionParameter name="request">wait</ActionParameter>
+		<ActionParameter name="condition">ReadyForJMSUnsubscribe</ActionParameter>
+		<ActionParameter name="value">1</ActionParameter>
+		<ActionParameter name="timeout">20000</ActionParameter>
+	</Action>
+	
+		<Action name="CreateConnection_cf1_again" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a session on Connection 1 --> 
+		<Action name="CreateSession1_conn_cf1_again" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- There should be no consumers, but subscription should exist --> 
+		<!-- Action name="ShowSub_again" type="ShellAction" >
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests ClientID=__Shared TopicString=/ChangedTheTopic </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+  <Action name="restSub_noActive" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compare_noActive" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="/ChangedTheTopic"/>
+        <ObjectProperty name="Consumers" value="0"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>				
+			
+		<Action name="Unsubscribe" type="Unsubscribe">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">DurSubErrorTests</ApiParameter>
+		</Action>	
+		
+		<!-- Subscription should be gone. --> 
+		<!-- Action name="ShowSubGone" type="ShellAction" >
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests ClientID=__Shared TopicString=/ChangedTheTopic </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+  <Action name="restSub_Gone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compare_Gone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests</ActionParameter>
+    </Action>					
+		
+    <Action name="sync_ReadyForMQTTreclear" type="SyncAction"> 
+      <ActionParameter name="request">set</ActionParameter>
+      <ActionParameter name="condition">ReadyForMQTTreclear</ActionParameter>
+      <ActionParameter name="value">1</ActionParameter>
+      <ActionParameter name="timeout">20000</ActionParameter>
+    </Action>  
+
+		<Action name="CloseConnection_cf1_final" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>					
+
+	</Action>		
+
+</ImaJmsTest>

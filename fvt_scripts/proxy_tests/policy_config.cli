@@ -1,0 +1,26 @@
+
+# Messaging Policies for Proxy Endpoints
+#####setup 0 create MessagingPolicy Name=ProxyMessagingPolicy01 Destination=/dest1 DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"ProxyMessagingPolicy01":{"Topic":"/dest1","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+# THIS IS Backwards to IOT Rules:  iot-2/evt is DevicePub  and iot-2/cmd is DeviceSub normally
+setup 0 POST configuration {"TopicPolicy":{"ProxySubOnlyTP":{"Topic":"iot-2/evt/subonly/fmt/*","ActionList":"Subscribe","Protocol":"MQTT","Description":"RC135testing"}}}
+setup 0 POST configuration {"TopicPolicy":{"ProxyPubOnlyTP":{"Topic":"iot-2/cmd/pubonly/fmt/*","ActionList":"Publish","Protocol":"MQTT","Description":"RC135testing"}}}
+# Make sure DemoSubscriptionPolicy is set on DemoEndpoint
+setup 0 POST configuration {"Endpoint":{"DemoEndpoint":    {"Enabled":true,"SubscriptionPolicies":"DemoSubscriptionPolicy","EnableAbout":true}}}
+
+# Proxy Endpoints
+setup 0 POST configuration {"Endpoint":{"ProxyEndpoint01":{"Enabled":true,"Port":16103,"MaxMessageSize":"200MB","MessageHub":"DemoHub","ConnectionPolicies":"DemoConnectionPolicy","TopicPolicies":"ProxyMessagingPolicy01"}}}
+setup 0 POST configuration {"Endpoint":{"ProxyEndpointRC135":{"Enabled":true,"Port":16104,"MaxMessageSize":"200MB","MessageHub":"DemoHub","ConnectionPolicies":"DemoConnectionPolicy","TopicPolicies":"ProxyPubOnlyTP,ProxySubOnlyTP"}}}
+
+# Create messaging users
+setup 0 user add UserID=test02 type=messaging password=password
+
+
+# Proxy Policy Cleanup Configuration
+cleanup 0 user delete UserID=test02 type=messaging
+cleanup 0 DELETE configuration/Endpoint/ProxyEndpoint01
+cleanup 0 DELETE configuration/Endpoint/ProxyEndpointRC135
+cleanup 0 DELETE configuration/TopicPolicy/ProxyMessagingPolicy01
+cleanup 0 DELETE configuration/TopicPolicy/ProxySubOnlyTP
+cleanup 0 DELETE configuration/TopicPolicy/ProxyPubOnlyTP
+

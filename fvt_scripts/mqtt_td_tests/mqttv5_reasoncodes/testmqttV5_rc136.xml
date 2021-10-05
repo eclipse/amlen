@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqttV5_rc136" >
+<!--
+    Test MQTT V5 Reason Codes
+    
+    136    0x88    Server unavailable    CONNACK
+
+-->
+
+
+<!--  ==========  rc136  ==========  -->
+
+    <Action name="rc136" type="CompositeAction">
+        
+        <Action name="ServiceStop" type="RestAPI">
+            <ActionParameter name="structureID">service_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/service/stop</ActionParameter>
+            <ActionParameter name="payload">{"Service":"Server"}</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+<!--
+        <Action name="ServiceStatusBeforeConnect" type="RestAPI" rc="1">
+            <dependsOn action_id="ServiceStop" interval="15000"/> 
+                <ActionParameter name="structureID">service_output</ActionParameter>
+                <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+                <ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+                <ActionParameter name="action">GET</ActionParameter>
+                <ActionParameter name="printResult">true</ActionParameter>
+                <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+-->
+        <Action name="CreateConnectionV5" type="CreateConnection" rc="1" reason="ISMTEST2502">
+<!--            <dependsOn action_id="ServiceStatusBeforeConnect" interval="1000"/>    -->
+            <dependsOn action_id="ServiceStop" interval="15000"/> 
+                <ActionParameter name="structure_id">ConV5</ActionParameter>
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+                <include>../common/MQTT_server.xml</include>
+                <ApiParameter name="clientId">V5_connack.rc136</ApiParameter>
+                <include>../common/MQTT_port.xml</include>
+                <ApiParameter name="protocol">mqtt</ApiParameter>
+                <ApiParameter name="cleanSession">true</ApiParameter>
+            <ActionParameter name="isConnected">false</ActionParameter>
+            <ActionParameter name="reasonCode">136</ActionParameter>
+            <ActionParameter name="reason">Unable to connect to server thrown attempting to connect to tcp://169.53.146.8:16102.</ActionParameter>
+<!-- TODO:  need to make an include for IP resolution  (NO NEED - TD is ignoring it -->			
+        </Action>
+
+<!-- CFv5 does not exist when Connect fails -->        
+        <Action name="CheckConnectionStatusAfter" type="CheckConnection" rc="1" reason="ISMTEST1250">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">false</ActionParameter>
+            <ActionParameter name="reasonCode">136</ActionParameter>
+            <ActionParameter name="reason">Connection CFV5 is not found</ActionParameter>
+        </Action>
+
+        <!-- restart server - can't be with RESTAPI, must use a script -->
+        <Action name="ServiceRestart" type="ShellAction">
+            <ActionParameter name="command">../scripts/serverControl.sh -a startServer -i 1 -t 20</ActionParameter>  -->
+<!--            <ActionParameter name="command">../common/serverRestart.sh</ActionParameter> -->
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+<!-- actually done by serverControl.sh   not needed now          
+        <Action name="ServiceStatusRestart" type="RestAPI">
+            <dependsOn action_id="ServiceRestart" interval="25000"/> 
+                <ActionParameter name="structureID">service_output</ActionParameter>
+                <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+                <ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+                <ActionParameter name="action">GET</ActionParameter>
+                <ActionParameter name="printResult">true</ActionParameter>
+                <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+-->
+
+<!-- should not be necessary, but janet was talking about one time it was a problem --> 
+<!--        <Action name="CloseConnection136" type="CloseConnection" rc="1">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="reasonCode">136</ActionParameter>
+            <ActionParameter name="reason">Connection CFV5 is not found</ActionParameter>
+        </Action>
+-->
+<!-- verify a second close is not a problem when there was never a successful connection --> 
+<!--        <Action name="CloseConnection136again" type="CloseConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="reasonCode">136</ActionParameter>
+            <ActionParameter name="reason">Connection CFV5 is not found</ActionParameter>
+        </Action>
+-->
+    </Action>
+    
+    
+</IsmWSTest>
+                

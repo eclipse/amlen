@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="task_jgb_bfw_wt" xml:lang="en-us">
+<title>Creating and updating a trusted certificate by using <ph
+conref="../TextEntities.dita#TextEntities/RESTAPIs"/></title>
+<!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+<!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+<!--Put your short description next; used for first paragraph and abstract.-->
+<shortdesc>System administrators can copy a trusted certificate to be used in <ph
+    conref="../TextEntities.dita#TextEntities/ISM"/> to <ph
+    conref="../TextEntities.dita#TextEntities/ISM"/> by using the <ph
+    conref="../TextEntities.dita#TextEntities/ISM"
+    /> REST API PUT method. System administrators can then import the trusted certificate to the truststore that is referenced in the Security Profile by using the <ph
+    conref="../TextEntities.dita#TextEntities/ISM"
+    /> REST API POST method. Existing trusted certificate's security profiles can also be updated by system administrators by using the <ph
+    conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method.</shortdesc>
+<!--To optimize PDF retrievability, add prolog and indexing tags that help crystalize why users should be looking up this topic (purpose, task, and what they will learn)-->
+<!--<prolog><metadata><keywords><indexterm></indexterm></keywords></metadata></prolog>-->
+<taskbody>
+<context>
+<p>You can upload a trusted certificate by using the <ph
+          conref="../TextEntities.dita#TextEntities/ISM"/> REST API PUT, or by using the <ph
+          conref="../TextEntities.dita#TextEntities/ISMgui"/>. For more information about using the
+          <ph conref="../TextEntities.dita#TextEntities/ISMgui"/> to upload a trusted certificate,
+        see <xref href="ad00729_.dita"/>.</p>
+</context>
+<steps>
+<step id="1">
+        <cmd>To create a trusted certificate's security profile, first upload a trusted CA
+          certificate to <ph conref="../TextEntities.dita#TextEntities/ISM"/> by using the <ph
+            conref="../TextEntities.dita#TextEntities/ISM"/> REST API PUT method with the following
+            <ph conref="../TextEntities.dita#TextEntities/ISM"/> file URI: </cmd>
+        <info>
+          <p><codeph>http://&lt;admin-endpoint-IP:Port>/ima/v1/file/&lt;filename></codeph></p>
+          <p>The certificate is copied to <filepath>/tmp/userfiles</filepath></p>
+        </info>
+      </step>
+<step>
+<cmd>To create or update a trusted certificate's security profile, use the <ph
+conref="../TextEntities.dita#TextEntities/ISM"
+/> REST API POST method with the following <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> configuration URI:</cmd>
+<info>
+<p><codeph>http://&lt;admin-endpoint-IP:Port>/ima/v1/configuration/</codeph></p>
+</info>
+</step>
+<step>
+<cmd>Provide TrustedCertificate object configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>. Ensure that capitalization and double quotation marks are used as shown. </cmd>
+<info><codeblock>
+{ "TrustedCertificate": [{"SecurityProfileName": "string", "TrustedCertificate":"string", "Overwrite": true|false }]
+}</codeblock>Where:<dl>
+          <dlentry>
+            <dt><varname>TrustedCertificate</varname></dt>
+            <dd>Required.</dd>
+            <dd>Specifies a value for the trusted certificate.</dd>
+            <dd>The name can be a maximum of 255 alphanumeric characters. </dd>
+            <dd>The name must not have leading or trailing spaces and cannot contain control characters, commas, double quotation marks, backslashes, or equal signs. The first character must not be a number. </dd>
+            <dd>After the profile is created, this name cannot be changed.</dd>
+          </dlentry>
+          <dlentry>
+            <dt>SecurityProfileName</dt>
+            <dd>Required if you are creating a trusted certificate.</dd>
+            <dd>Specifies the name of the security profile that the trusted certificate is associated with.</dd>
+          </dlentry>
+          <dlentry>
+            <dt>Overwrite: true|false</dt>
+            <dd>Specifies whether an existing certificate is overwritten if it has the same name.</dd>
+            <dd>The default value is false which means that an existing certificate is not overwritten if it has the same name.</dd>
+          </dlentry>
+          </dl><p>You can check that the configuration of your trusted certificate's security profile is as expected by using the <ph
+          conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST Administration API GET method. For more information about the GET method, see <xref
+          href="ad00366_.dita"/>.</p></info>
+</step>
+</steps>
+<example>The following example shows the steps required to create a trusted certificate by using cURL:<ol>
+        <li>Copy the certificate to <filepath>/tmp/userfiles</filepath> by using the REST API PUT method:<codeblock>
+curl -X PUT -T imaCA-crt.pem http://127.0.0.1:9089/ima/v1/file/TestCACertKey.pem</codeblock></li>
+        <li>Copy the certificate and key to <filepath>/tmp/userfiles</filepath> to create a CertificateProfile by using the REST API PUT method:<codeblock>
+curl -X PUT -T certFree.pem  http://127.0.0.1:9089/ima/v1/file/TestCert.pem
+curl -X PUT -T keyFree.pem http://127.0.0.1:9089/ima/v1/file/TestKey.pem</codeblock></li>
+        <li>Create the CertificateProfile by using the REST API POST method:
+          <codeblock>
+curl -X POST \
+  -H 'Content-Type: application/json'  \
+  -d '{
+       "CertificateProfile":{
+        "TestCertProf":{
+         "Certificate": "TestCert.pem",
+         "Key": "TestKey.pem"
+       }
+      }
+     }
+  ' \
+http://127.0.0.1:9089/ima/v1/configuration</codeblock></li>
+        <li>Create the SecurityProfile by using the REST API POST method:
+          <codeblock>
+curl -X POST 
+  -H 'Content-Type: application/json'  \
+  -d '{
+       "SecurityProfile":{
+        "TestSecProf":{
+         "CertificateProfile": "TestCertProf",
+         "UsePasswordAuthentication": false
+       }
+      }
+     }
+  ' \
+http://127.0.0.1:9089/ima/v1/configuration</codeblock></li>
+        <li>Create the TrustedCertificate by using the REST API POST method:
+          <codeblock>
+curl -X POST 
+  -H 'Content-Type: application/json'  \
+  -d '{"TrustedCertificate":[{
+        "SecurityProfileName":"TestSecProf",
+        "TrustedCertificate": "TestCACertKey"
+       }]
+      }
+  ' \
+http://127.0.0.1:9089/ima/v1/configuration</codeblock></li>
+      </ol><?Pub Caret 340?>The following shows an example response to the POST
+      method.<codeblock>
+{        
+  "Version": "v1",
+  "Code": "CWLNA6011",
+  "Message": "The requested configuration change has completed successfully."
+}
+</codeblock><?Pub Caret 340?></example>
+</taskbody>
+</task>

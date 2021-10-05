@@ -1,0 +1,592 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: JMS_Queues_011
+
+  Test Category:  JMS Queues
+  
+  Test Description:
+    Test concurrent consumers on a queue, using different selectors, and getting messages in all 
+    different orders. 
+    Three consumers will be in one session.. a fourth will be in a different session. 
+    All consumers will be synchronous. 
+-->
+<ImaJmsTest name="jms_queues_011">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_queues_011</solution>
+	</SyncClient>
+
+	<include>../common/jms_jndi_ldap.xml</include>
+
+	<Action name="rmdt" type="CompositeAction">
+		<Action name="CreateTx_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">tx_cf1</ActionParameter>
+			<ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+		</Action>
+		
+		<Action name="CreateConnectionTx_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_tx_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">tx_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession1Tx_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_tx_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CreateTx_dest1" type="CreateDestination">
+			<ActionParameter name="structure_id">tx_dest1</ActionParameter>
+			<ActionParameter name="jndiName">jndi_queue1</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer1Tx_dest1" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_queue1</ActionParameter>
+			<ActionParameter name="dest_id">tx_dest1</ActionParameter>
+			<ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnectionTx_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+		</Action>
+		
+		<!-- PRODUCER: Create messages -->
+		
+		<!-- MESSAGE A -->
+
+		<Action name="CreateTxtMessageA" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_txt_msgA</ActionParameter>
+			<ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>
+			
+		<Action name="SetTxtMsgA" type="SetMessageText">
+			<ActionParameter name="message_id">tx_txt_msgA</ActionParameter>
+			<ApiParameter name="value">Message for Consumer A</ApiParameter>
+		</Action>
+		
+		<Action name="SetMessageAProperty1" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgA</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">1</ApiParameter>
+		</Action>
+
+		<Action name="SetMessageAProperty2" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgA</ActionParameter>
+			<ApiParameter name="propertyName">TargetedConsumer</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ApiParameter name="value">ConsumerA</ApiParameter>
+		</Action>		
+		
+		<Action name="SetMessageAProperty3" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgA</ActionParameter>
+			<ApiParameter name="propertyName">WhoAmI</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ApiParameter name="value">imaQueue</ApiParameter>
+		</Action>	
+		
+		<!-- MESSAGE B -->
+		
+		<Action name="CreateTxtMessageB" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_txt_msgB</ActionParameter>
+			<ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>
+
+		<!-- PRODUCER: Set message content -->				
+		<Action name="SetTxtMsgB" type="SetMessageText">
+			<ActionParameter name="message_id">tx_txt_msgB</ActionParameter>
+			<ApiParameter name="value">Message for Consumer B</ApiParameter>
+		</Action>
+		
+		<Action name="SetMessageBProperty1" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgB</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">1</ApiParameter>
+		</Action>
+
+		<Action name="SetMessageBProperty2" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgB</ActionParameter>
+			<ApiParameter name="propertyName">TargetedConsumer</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ApiParameter name="value">ConsumerB</ApiParameter>
+		</Action>		
+		
+		<Action name="SetMessageBProperty3" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgB</ActionParameter>
+			<ApiParameter name="propertyName">WhoAmI</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ApiParameter name="value">TheSameQueue</ApiParameter>
+		</Action>	
+		
+		<!-- MESSAGE C -->
+		
+		<Action name="CreateTxtMessageC" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_txt_msgC</ActionParameter>
+			<ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>
+
+		<!-- PRODUCER: Set message content -->				
+		<Action name="SetTxtMsgC" type="SetMessageText">
+			<ActionParameter name="message_id">tx_txt_msgC</ActionParameter>
+			<ApiParameter name="value">Message for Consumer C</ApiParameter>
+		</Action>
+		
+		<Action name="SetMessageCProperty1" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgC</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">1</ApiParameter>
+		</Action>
+
+		<Action name="SetMessageCProperty2" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgC</ActionParameter>
+			<ApiParameter name="propertyName">TargetedConsumer</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ApiParameter name="value">ConsumerC</ApiParameter>
+		</Action>		
+		
+		<Action name="SetMessageCProperty3" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgC</ActionParameter>
+			<ApiParameter name="propertyName">WhoAmI</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ApiParameter name="value">imaQueue</ApiParameter>
+		</Action>			
+		
+		<!-- MESSAGE D -->
+		
+		<Action name="CreateTxtMessageD" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_txt_msgD</ActionParameter>
+			<ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>
+
+		<!-- PRODUCER: Set message content -->				
+		<Action name="SetTxtMsgD" type="SetMessageText">
+			<ActionParameter name="message_id">tx_txt_msgD</ActionParameter>
+			<ApiParameter name="value">Message for Consumer D</ApiParameter>
+		</Action>
+		
+		<Action name="SetMessageDProperty1" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgD</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">0</ApiParameter>
+		</Action>
+
+		<Action name="SetMessageDProperty2" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgD</ActionParameter>
+			<ApiParameter name="propertyName">TargetedConsumer</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ApiParameter name="value">ConsumerD</ApiParameter>
+		</Action>		
+		
+		<Action name="SetMessageDProperty3" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgD</ActionParameter>
+			<ApiParameter name="propertyName">WhoAmI</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ApiParameter name="value">imaQueue</ApiParameter>
+		</Action>			
+					
+		<!-- PRODUCER: Send messages -->
+		
+		<Action name="SendMessageD" type="SendMessage" repeat="50" repeat_interval="0" interval="0" >
+			<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+			<ActionParameter name="message_id">tx_txt_msgD</ActionParameter>
+		</Action>
+		
+		<Action name="CompositeProduceLoop1" type="CompositeAction" repeat="50" repeat_interval="0">
+			<Action name="SendMessageA" type="SendMessage" interval="0" >
+				<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+				<ActionParameter name="message_id">tx_txt_msgA</ActionParameter>
+			</Action>
+			<Action name="SendMessageB" type="SendMessage" interval="0" >
+				<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+				<ActionParameter name="message_id">tx_txt_msgB</ActionParameter>
+			</Action>
+			<Action name="SendMessageC" type="SendMessage" interval="0" >
+				<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+				<ActionParameter name="message_id">tx_txt_msgC</ActionParameter>
+			</Action>						
+		</Action>	
+
+		<Action name="SetMessageAPropertyLoop2" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgA</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">2</ApiParameter>
+		</Action>	
+			
+		<Action name="SetMessageBPropertyLoop2" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgB</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">2</ApiParameter>
+		</Action>						
+		
+		<Action name="SetMessageCPropertyLoop2" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_txt_msgC</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">2</ApiParameter>
+		</Action>	
+			
+		<Action name="sync_components_tx1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>
+		
+		<Action name="CompositeProduceLoop2" type="CompositeAction" repeat="50" repeat_interval="0">
+			<Action name="SendMessageC_2" type="SendMessage" interval="0" >
+				<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+				<ActionParameter name="message_id">tx_txt_msgC</ActionParameter>
+			</Action>
+			<Action name="SendMessageB_2" type="SendMessage" interval="0" >
+				<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+				<ActionParameter name="message_id">tx_txt_msgB</ActionParameter>
+			</Action>
+			<Action name="SendMessageA_2" type="SendMessage" interval="0" >
+				<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+				<ActionParameter name="message_id">tx_txt_msgA</ActionParameter>
+			</Action>						
+		</Action>	
+		
+		<!--Action name="sync_components_tx1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action -->
+	
+		<Action name="CloseConnectionTx_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="rmdr" type="CompositeAction">
+		<include>../common/jms_jndi_ldap.xml</include>
+
+
+	<Action name="Create_qcf1" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">qcf1</ActionParameter>
+		<ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+		<ActionParameter name="loglevel">9</ActionParameter>
+		<ActionParameter name="logfile">stdout</ActionParameter>		
+	</Action>
+	
+	<Action name="CreateConnection_cf1" type="CreateConnection">
+		<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="factory_id">qcf1</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession1rx_conn_cf1" type="CreateSession" thread="3">
+		<dependsOn name="CreateConnection_cf1"/>
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session1rx_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession2rx_conn_cf1" type="CreateSession" thread="4">
+		<dependsOn name="CreateConnection_cf1"/>	
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session2rx_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSessionerx_conn_cf1" type="CreateSession" thread="5">
+		<dependsOn name="CreateConnection_cf1"/>	
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session3rx_cf1</ActionParameter>
+	</Action>	
+	
+	<Action name="Create_queue1" type="CreateDestination">
+		<ActionParameter name="structure_id">queue1</ActionParameter>
+		<ActionParameter name="jndiName">jndi_queue1</ActionParameter>
+	</Action>
+
+	<Action name="CreateConsumerA_queue1" type="CreateConsumer" thread="3">
+		<dependsOn name="Create_queue1"/>	
+		<ActionParameter name="structure_id">consumerA_queue1</ActionParameter>
+		<ActionParameter name="dest_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session1rx_cf1</ActionParameter>
+		<ApiParameter name="selector">TargetedConsumer = 'ConsumerA'</ApiParameter>
+	</Action>
+	
+	<Action name="CreateConsumerB_queue1" type="CreateConsumer" thread="4">
+		<dependsOn name="Create_queue1"/>		
+		<ActionParameter name="structure_id">consumerB_queue1</ActionParameter>
+		<ActionParameter name="dest_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session2rx_cf1</ActionParameter>
+		<ApiParameter name="selector">WhoAmI NOT LIKE  'imaQueue'</ApiParameter>		
+	</Action>
+	
+	<Action name="CreateConsumerC_queue1" type="CreateConsumer" thread="5">
+		<dependsOn name="Create_queue1"/>		
+		<ActionParameter name="structure_id">consumerC_queue1</ActionParameter>
+		<ActionParameter name="dest_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session3rx_cf1</ActionParameter>
+		<!--ApiParameter name="selector">TargetedConsumer = 'ConsumerC'</ApiParameter-->	
+		<ApiParameter name="selector">Loop = 2 AND TargetedConsumer = 'ConsumerC'</ApiParameter>	
+	</Action>	
+	
+	<Action name="StartConnection_cf1" type="StartConnection">
+		<dependsOn name="CreateConsumerA_queue1"/>	
+		<dependsOn name="CreateConsumerB_queue1"/>	
+		<dependsOn name="CreateConsumerC_queue1"/>
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="sync_components_rx1" type="SyncComponentAction"> 
+		<dependsOn name="StartConnection_cf1" interval="1000" />	
+		<ActionParameter name="component_name">rx1</ActionParameter>
+		<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+		<ActionParameter name="timeout">30000</ActionParameter>
+	</Action>	
+	
+	<Action name="CompositeConsume" type="CompositeAction" repeat="50" repeat_interval="0" thread="15">
+		<dependsOn name="sync_components_rx1" interval="1000" />
+		<Action name="RcvTextMessage_consumerA" type="ReceiveMessage" interval="0" thread="3" >
+			<ActionParameter name="consumer_id">consumerA_queue1</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msgA</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+		</Action>			
+		
+		<Action name="GetMsgText_consumerA" type="GetMessageText" interval="0"  thread="3">
+			<ActionParameter name="message_id">rx_txt_msgA</ActionParameter>
+			<ActionParameter name="verifyValue">Message for Consumer A</ActionParameter>
+		</Action>
+
+		<Action name="RcvTextMessage_consumerB" type="ReceiveMessage" interval="0" thread="4" >
+			<dependsOn name="RcvTextMessage_consumerA"/>
+			<ActionParameter name="consumer_id">consumerB_queue1</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msgB</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+		</Action>			
+		
+		<Action name="GetMsgText_consumerB" type="GetMessageText" interval="0"  thread="4">
+			<ActionParameter name="message_id">rx_txt_msgB</ActionParameter>
+			<ActionParameter name="verifyValue">Message for Consumer B</ActionParameter>
+		</Action>	
+		
+		<Action name="RcvTextMessage_consumerC" type="ReceiveMessage" interval="0" thread="5" >
+			<dependsOn name="RcvTextMessage_consumerB"/>
+			<ActionParameter name="consumer_id">consumerC_queue1</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msgC</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+		</Action>			
+		
+		<Action name="GetMsgText_consumerC" type="GetMessageText" interval="0"  thread="5">
+			<ActionParameter name="message_id">rx_txt_msgC</ActionParameter>
+			<ActionParameter name="verifyValue">Message for Consumer C</ActionParameter>
+		</Action>	
+		
+		<Action name="GetLoop_MsgC" type="GetMessageProperty" thread="5">
+			<ActionParameter name="message_id">rx_txt_msgC</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ActionParameter name="verifyValue">2</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="CloseConsumerC_queue1" type="CloseConsumer" thread="5">
+		<dependsOn name="CompositeConsume" />		
+		<ActionParameter name="consumer_id">consumerC_queue1</ActionParameter>
+	</Action>
+	
+	<Action name="ReCreateConsumerC_queue1" type="CreateConsumer" thread="5">
+		<dependsOn name="CompositeConsume" />		
+		<ActionParameter name="structure_id">consumerC_queue1</ActionParameter>
+		<ActionParameter name="dest_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session3rx_cf1</ActionParameter>
+		<!--ApiParameter name="selector">TargetedConsumer = 'ConsumerC'</ApiParameter-->	
+		<ApiParameter name="selector">Loop = 1 AND TargetedConsumer = 'ConsumerC'</ApiParameter>	
+	</Action>	
+	
+	<Action name="CompositeConsume2" type="CompositeAction" repeat="50" repeat_interval="0" >
+		<dependsOn name="ReCreateConsumerC_queue1" interval="1000" />
+		<Action name="RcvTextMessage_consumerB" type="ReceiveMessage" interval="0" thread="4" >
+			<ActionParameter name="consumer_id">consumerB_queue1</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msgB</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+		</Action>			
+		
+		<Action name="GetMsgText_consumerB" type="GetMessageText" interval="0"  thread="4">
+			<ActionParameter name="message_id">rx_txt_msgB</ActionParameter>
+			<ActionParameter name="verifyValue">Message for Consumer B</ActionParameter>
+		</Action>	
+		
+		<Action name="RcvTextMessage_consumerC" type="ReceiveMessage" interval="0" thread="5" >
+			<dependsOn name="RcvTextMessage_consumerB"/>
+			<ActionParameter name="consumer_id">consumerC_queue1</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msgC</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+		</Action>			
+		
+		<Action name="GetMsgText_consumerC" type="GetMessageText" interval="0"  thread="5">
+			<ActionParameter name="message_id">rx_txt_msgC</ActionParameter>
+			<ActionParameter name="verifyValue">Message for Consumer C</ActionParameter>
+		</Action>	
+		
+		<Action name="GetLoop_MsgC" type="GetMessageProperty" thread="5">
+			<ActionParameter name="message_id">rx_txt_msgC</ActionParameter>
+			<ApiParameter name="propertyName">Loop</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ActionParameter name="verifyValue">1</ActionParameter>
+		</Action>
+		
+		<Action name="RcvTextMessage_consumerA" type="ReceiveMessage" interval="0" thread="3" >
+			<dependsOn name="RcvTextMessage_consumerC"/>
+			<ActionParameter name="consumer_id">consumerA_queue1</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msgA</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+		</Action>			
+		
+		<Action name="GetMsgText_consumerA" type="GetMessageText" interval="0"  thread="3">
+			<ActionParameter name="message_id">rx_txt_msgA</ActionParameter>
+			<ActionParameter name="verifyValue">Message for Consumer A</ActionParameter>
+		</Action>		
+
+	</Action>	
+	
+		<!-- Consumers should have no more messages  -->
+	<Action name="RcvMessage_consumerAfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="3">
+		<dependsOn name="CompositeConsume2"/>
+		<ActionParameter name="consumer_id">consumerA_queue1</ActionParameter>
+		<ActionParameter name="structure_id">rx_txt_msgA</ActionParameter>
+		<ApiParameter name="timeout">500</ApiParameter>
+	</Action>
+
+	<Action name="RcvMessage_consumerBfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="4" >
+		<dependsOn name="CompositeConsume2"/>	
+		<ActionParameter name="consumer_id">consumerB_queue1</ActionParameter>
+		<ActionParameter name="structure_id">rx_txt_msgB</ActionParameter>
+		<ApiParameter name="timeout">500</ApiParameter>
+	</Action>
+	
+	<Action name="RcvMessage_consumerCfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="5" >
+		<dependsOn name="CompositeConsume2"/>	
+		<ActionParameter name="consumer_id">consumerC_queue1</ActionParameter>
+		<ActionParameter name="structure_id">rx_txt_msgC</ActionParameter>
+		<ApiParameter name="timeout">500</ApiParameter>
+	</Action>	
+	
+	<Action name="sync_components_rx1a" type="SyncComponentAction"> 
+		<dependsOn name="RcvMessage_consumerAfail" />	
+		<dependsOn name="RcvMessage_consumerBfail" />	
+		<dependsOn name="RcvMessage_consumerCfail" />	
+		<ActionParameter name="component_name">rx1a</ActionParameter>
+		<ActionParameter name="component_list">rx1a;rx2a</ActionParameter>
+		<ActionParameter name="timeout">10000</ActionParameter>
+	</Action>		
+	
+	<!-- Verify no more messages on the queue --> 
+	<Action name="CloseConnection_cf1" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+	</Action>   <!-- End of rmdr -->
+	
+	
+	<!--  Second Consumer process rmdr2jms_queues_011.xml-rmdr-M2.log. No selector, receives message type of D -->
+	<Action name="rmdr2" type="CompositeAction">
+		<include>../common/jms_jndi_ldap.xml</include>
+
+	<Action name="Create_qcf2" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">qcf2</ActionParameter>
+		<ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+		<ActionParameter name="loglevel">9</ActionParameter>
+		<ActionParameter name="logfile">stdout</ActionParameter>		
+	</Action>
+	
+	<Action name="CreateConnection_cf2" type="CreateConnection">
+		<ActionParameter name="structure_id">connection_cf2</ActionParameter>
+	 	<ActionParameter name="factory_id">qcf2</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession2rx_conn_cfD" type="CreateSession">
+		<dependsOn name="CreateConnection_cf2"/>
+		<ActionParameter name="conn_id">connection_cf2</ActionParameter>
+	 	<ActionParameter name="structure_id">sessionDrx_cf2</ActionParameter>
+	</Action>
+	
+	<Action name="Create_queueD" type="CreateDestination">
+		<ActionParameter name="structure_id">queueD</ActionParameter>
+		<ActionParameter name="jndiName">jndi_queue1</ActionParameter>
+	</Action>
+
+	<Action name="CreateConsumerD_queue" type="CreateConsumer">
+		<dependsOn name="Create_queueD"/>	
+		<ActionParameter name="structure_id">consumerD_queue1</ActionParameter>
+		<ActionParameter name="dest_id">queueD</ActionParameter>
+		<ActionParameter name="session_id">sessionDrx_cf2</ActionParameter>
+	</Action>
+	
+	<Action name="sync_components_rx2a" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">rx2a</ActionParameter>
+		<ActionParameter name="component_list">rx1a;rx2a</ActionParameter>
+		<ActionParameter name="timeout">45000</ActionParameter>
+	</Action>		
+	
+	<Action name="StartConnection_cf2" type="StartConnection">
+		<ActionParameter name="conn_id">connection_cf2</ActionParameter>
+	</Action>
+	
+	<Action name="ConsumeD" type="CompositeAction" repeat="50" repeat_interval="0" >
+		<Action name="RcvTextMessage_consumerD" type="ReceiveMessage" interval="0" >
+			<ActionParameter name="consumer_id">consumerD_queue1</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msgD</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+		</Action>			
+		
+		<Action name="GetMsgText_consumerD" type="GetMessageText" interval="0">
+			<ActionParameter name="message_id">rx_txt_msgD</ActionParameter>
+			<ActionParameter name="verifyValue">Message for Consumer D</ActionParameter>
+		</Action>	
+	</Action>	
+	
+		<!-- Consumer should have no more messages  -->
+	<Action name="RcvMessage_consumerDfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+		<ActionParameter name="consumer_id">consumerD_queue1</ActionParameter>
+		<ActionParameter name="structure_id">rx_txt_msgD</ActionParameter>
+		<ApiParameter name="timeout">500</ApiParameter>
+	</Action>	
+	
+	<Action name="CloseConnection_cf2" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_cf2</ActionParameter>
+	</Action>
+
+	</Action>	
+</ImaJmsTest>

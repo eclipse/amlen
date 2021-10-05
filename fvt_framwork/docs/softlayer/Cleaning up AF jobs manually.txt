@@ -1,0 +1,148 @@
+Cleaning up AF jobs manually (ie without using the STAX Monitor GUI which requires desktop access)
+
+For general instructions for fixing issues with AF, see the following document in box:
+
+https://ibm.ent.box.com/notes/195519053473
+
+1.  List all running jobs:
+
+staf -verbose local stax list jobs
+
+You can get the list of running jobs this way.
+
+2.  There's also a script I wrote that will list current jobs and their state:
+
+/staf/tools/niagara/scripts/ima-af-list-jobs-states
+
+====================================================================================
+Server: AFharness.softlayer.com
+====================================================================================
+Job   Parent  JobType   Stream        Type             Build           State   
+====================================================================================
+
+1877  NA      Parent    IMAProd       production       20190319-2344   Running 
+1913  1877    Child     IMAProd       production       20190319-2344   Running 
+1916  NA      Parent    IMADev        development      20190324-1201   Running 
+1919  1916    Child     IMADev        development      20190324-1201   Running 
+1920  1916    Child     IMADev        development      20190324-1201   Running 
+1921  1916    Child     IMADev        development      20190324-1201   Running 
+1922  1916    Child     IMADev        development      20190324-1201   Running 
+1923  1916    Child     IMADev        development      20190324-1201   Running 
+1924  NA      Parent    IMAProd       production       20190325-1605   Running 
+1925  NA      Parent    IMAProd       production       20190325-1605   Running 
+
+====================================================================================
+
+3.  What to do if a job is held?  These instructions are mostly intended for someone who is backing up the person handling AF issues while the primary is out.  This usually means fixing an issue with a job that is held.  In that case there are three possible resolutions:
+
+A. Fixing the issue that is causing a job to be held and releasing the job
+B. Cancelling the job and the parent run that spawned it
+C. Cancelling all AF jobs
+
+Details:
+
+A. Fixing the issue that is causing a job to be held and releasing the job
+
+people who are subscribed to updates from AFharness will receive emails with more details if a specific job is held. Anyone who will be a backup for AF issues should be subscribed and receive these emails.  Here is one I received recently:
+
+Subject: (softlayer) STAX Job ID 1802 is HELD on 10.10.10.10
+Body: 
+
+STAX Job ID 1802 is HELD on 10.10.10.10:
+
+Command:  ssh 10.10.10.10 *echo *10.10.10.10 AFharness.softlayer.com AFharness* >> /etc/hosts*
+
+RC=255
+
+RESULT=ssh: connect to host 10.10.10.10 port 22: No route to host^M 
+
+This was caused by the fact that the VSI we ordered never completely spun up. It was easier to cancel this run and the entire fvt_default run and start over.  But if I had figured out a way to spin this back up again, and get it working and configured in exactly the right state that AF required, then I could have done the following to release the job:
+
+staf local stax release job 1892
+
+and then check that the job is no longer held with:
+
+staf local stax list job 1892 blocks
+
+and check with it says it's "Running" or "Held".  If it's "Held", check your email for the next issue, and resolve that (and so on).  Note that it can sometimes happen that multiple threads for a specific job "hold" and cause a job to be "Held" multiple times.  In that case, you may need to release the job multiple times.
+
+B.  To cancel the job (and parent, if it's a child):
+
+There are three steps that need to be done:
+
+a. Terminate the job and it's parents:  there are multiple ways to do this, but you can use the script /staf/tools/niagara/scripts/ima-af-list-jobs-states to find the held jobs (and parents).  For example, if we wanted to find all jobs running for the IMADev development run:
+
+/staf/tools/niagara/scripts/ima-af-list-jobs-states
+
+====================================================================================
+Server: AFharness.softlayer.com
+====================================================================================
+Job   Parent  JobType   Stream        Type             Build           State   
+====================================================================================
+
+1877  NA      Parent    IMAProd       production       20190319-2344   Running 
+1913  1877    Child     IMAProd       production       20190319-2344   Running 
+1916  NA      Parent    IMADev        development      20190324-1201   Running 
+1919  1916    Child     IMADev        development      20190324-1201   Running 
+1920  1916    Child     IMADev        development      20190324-1201   Running 
+1921  1916    Child     IMADev        development      20190324-1201   Running 
+1922  1916    Child     IMADev        development      20190324-1201   Running 
+1923  1916    Child     IMADev        development      20190324-1201   Running 
+1924  NA      Parent    IMAProd       production       20190325-1605   Running 
+1925  NA      Parent    IMAProd       production       20190325-1605   Running 
+
+====================================================================================
+
+That would be 1920, 1921, 1922, 1923 and 1916.  To terminate a single job, do:
+
+staf local stax terminate job 1922
+
+To terminate all of these jobs at once you could:
+
+for j in 1920 1921 1922 1923 1916; do staf local stax terminate job "$j"; done
+
+b. Cancel all SoftLayer machines for this job (see /staf/tools/niagara/killVMs.sh for examples of commands used to cancel machines for a specific stream).  There are also convenience scripts in /staf/tools/niagara/scripts, although one should really learn to cancel machines manually before using these scripts.
+
+c. Check back in to STAF all machines used by this run.  To list machines checked out, run:
+
+/staf/tools/niagara/checkin.sh
+
+At the bottom of the output, it will show checked in machines:
+
+./checkin.sh
+....
+was2
+was3
+was4
+
+Resources that are currently in use:
+
+AFbvt08
+AFbvtCOD08a
+AFbvtCOD08b
+AFcciCOD01d
+AFcciCOD01p
+AFcciCOD02d
+AFcciCOD02p
+
+All the machines checked out show up under the "Resources that are currently in use:" line.
+
+There also convenience scripts under /staf/tools/niagara/scripts that I wrote for this, but again, you should learn how to do this manually first, before using the scripts.  Here's how to checkin a machine manually, given the machine name:
+
+./checkin.sh AFcciCOD01d
+
+To checkin all machines for IMADev, you could use the following script: /staf/tools/niagara/scripts/ima-af-checkin-dev-machines
+
+d. Reset the release so it's no longer marked "IN_USE": use the /staf/tools/niagara/staf_vars.sh script and follow the prompt until your release and specific group type (fvt_default, fvt_prod etc) are marked "NOT_IN_USE".
+
+This is the one step that I do not have working in a convenience script yet.
+
+C.  Completely reset the AF environment: see the directions in https://ibm.ent.box.com/notes/195519053473
+
+To terminate all the jobs without the GUI, just use the ids returned by 'staf local stax list jobs' and use:
+
+staf local stax terminate job <jobid> for each one.
+
+I hope to have some time to write a script that will completely reset AF in one step.
+
+

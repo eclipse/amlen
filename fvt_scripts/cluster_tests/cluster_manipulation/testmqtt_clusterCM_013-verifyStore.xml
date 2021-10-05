@@ -1,0 +1,663 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_clusterCM_013-verifyStore" >
+<!--
+    TODO: Fill in a brief description
+-->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_clusterCM_013-verifyStore</solution>
+    </SyncClient>
+    
+    <!-- ****************************************************** -->
+    <!-- Connect and disconnect with cleansession true -->
+    <!-- ****************************************************** -->
+    <Action name="CleanSession" type="CompositeAction">
+        <Action name="CreateConnectionA4" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server4.xml</include>
+            <ApiParameter name="clientId">CM_013_sub4</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+        <Action name="SubscriptionMonitorA4" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=CM_013_sub4</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="monitorServerA4" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnectionA5" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server5.xml</include>
+            <ApiParameter name="clientId">CM_013_pub5</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+        <Action name="CreateConnectionA2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server2.xml</include>
+            <ApiParameter name="clientId">CM_013_sub2</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        
+        
+        <!-- Disconnect -->
+        <Action name="CloseConnectionA4" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>            
+        <Action name="CloseConnectionA5" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+        <Action name="CloseConnectionA2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+        </Action>
+    </Action>
+
+
+    <!-- ****************************************************** -->
+    <!-- Server 5 publisher -->
+    <!-- ****************************************************** -->
+    <Action name="server5Publish" type="CompositeAction">
+        <!-- Connect -->
+        <Action name="CreateConnectionA5P" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server5.xml</include>
+            <ApiParameter name="clientId">CM_013_pub5</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+  
+        <!-- Publish retained messages-->
+        <Action name="PublishLoopA5-RM" type="CompositeAction" repeat="1" atleast="1">
+            <Action name="PublishToManyA5-RM-q0" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="prefix">/CM_013/retained/</ActionParameter>
+                <ActionParameter name="startIndex">1</ActionParameter>
+                <ActionParameter name="endIndex">50</ActionParameter>
+                <ActionParameter name="qos">0</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+            </Action>
+
+            <Action name="PublishToManyA5-RM-q1" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="prefix">/CM_013/retained/</ActionParameter>
+                <ActionParameter name="startIndex">51</ActionParameter>
+                <ActionParameter name="endIndex">100</ActionParameter>
+                <ActionParameter name="qos">1</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+            </Action>
+
+            <Action name="PublishToManyA5-RM-q2" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="prefix">/CM_013/retained/</ActionParameter>
+                <ActionParameter name="startIndex">101</ActionParameter>
+                <ActionParameter name="endIndex">150</ActionParameter>
+                <ActionParameter name="qos">2</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+            </Action>
+        </Action>
+
+        <!-- Publish qos 1 and 2 -->
+       <Action name="PublishLoop-qos1" type="PublishLoop">
+           <ActionParameter name="connection_id">CF1</ActionParameter>
+           <ActionParameter name="topic">/CM_013/qos1</ActionParameter>
+           <ActionParameter name="initializeCounter">true</ActionParameter>
+           <ActionParameter name="endIndex">250</ActionParameter>
+           <ActionParameter name="qos">1</ActionParameter>
+           <ActionParameter name="retained">false</ActionParameter>
+           <ActionParameter name="counterID">PQ1</ActionParameter>
+       </Action> 
+
+       <Action name="PublishLoop-qos2" type="PublishLoop">
+           <ActionParameter name="connection_id">CF1</ActionParameter>
+           <ActionParameter name="topic">/CM_013/qos2</ActionParameter>
+           <ActionParameter name="initializeCounter">true</ActionParameter>
+           <ActionParameter name="endIndex">250</ActionParameter>
+           <ActionParameter name="qos">2</ActionParameter>
+           <ActionParameter name="retained">false</ActionParameter>
+           <ActionParameter name="counterID">PQ2</ActionParameter>
+       </Action>
+
+       <Action name="monitorServerA4-afterPublish" type="RestAPI">
+           <ActionParameter name="structureID">status_output</ActionParameter>
+           <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+           <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+           <ActionParameter name="action">GET</ActionParameter>
+           <ActionParameter name="printResult">true</ActionParameter>
+           <ActionParameter name="expectedStatusCode">200</ActionParameter>
+       </Action>
+
+       <Action name="monitorClusterA4-afterPublish" type="RestAPI">
+           <ActionParameter name="structureID">status_output</ActionParameter>
+           <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+           <ActionParameter name="path">/ima/monitor/Cluster</ActionParameter>
+           <ActionParameter name="action">GET</ActionParameter>
+           <ActionParameter name="printResult">true</ActionParameter>
+           <ActionParameter name="expectedStatusCode">200</ActionParameter>
+       </Action>
+
+        <!-- Disconnect -->
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+
+
+
+    <Action name="server4Publish" type="CompositeAction">
+        <Action name="CreateConnectionA4P" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server4.xml</include>
+            <ApiParameter name="clientId">CM_013_pub4</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+       <!-- Publish to server 2 which will be taken down (tests forwarding queues) -->
+        <Action name="PublishToA2-1" type="PublishLoop">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="topic">/CM_013/fq</ActionParameter>
+            <ActionParameter name="initializeCounter">true</ActionParameter>
+            <ActionParameter name="endIndex">100</ActionParameter>
+            <ActionParameter name="qos">1</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+            <ActionParameter name="counterID">PQ3</ActionParameter>
+        </Action>
+
+        <Action name="PublishToA2-2" type="PublishLoop">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="topic">/CM_013/fq</ActionParameter>
+            <ActionParameter name="initializeCounter">true</ActionParameter>
+            <ActionParameter name="endIndex">100</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+            <ActionParameter name="counterID">PQ4</ActionParameter>
+        </Action>
+
+        <Action name="PublishToA2-RM1" type="PublishLoop">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="topic">/CM_013/fq</ActionParameter>
+            <ActionParameter name="initializeCounter">true</ActionParameter>
+            <ActionParameter name="endIndex">100</ActionParameter>
+            <ActionParameter name="qos">1</ActionParameter>
+            <ActionParameter name="retained">true</ActionParameter>
+            <ActionParameter name="counterID">PQ5</ActionParameter>
+        </Action>
+
+        <Action name="monitorServerA4-afterPublishFQ" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="monitorClusterA4-afterPublishFQ" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Cluster</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- Disconnect -->
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+    
+
+
+    <!-- *********************************************************************** -->
+    <!-- Server 4 subscribe -->
+    <!-- *********************************************************************** -->
+    <Action name="server4Subscribe" type="CompositeAction">
+        <!-- Connect -->
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server4.xml</include>
+            <ApiParameter name="clientId">CM_013_sub4</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+
+        <!-- Subscribe Retained Message Tree -->
+        <Action name="SubscribeRetained" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/CM_013/retained/#</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <!-- Subscribe to qos0 -->
+        <Action name="SubscribeQoS0" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/CM_013/qos0</ApiParameter>
+            <ApiParameter name="QoS">0</ApiParameter>
+        </Action>
+
+        <!-- Subscribe to qos1 and 2 -->
+        <Action name="SubscribeQoS1" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/CM_013/qos1</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="SubscribeQoS2" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/CM_013/qos2</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="SubscribeShared" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">$SharedSubscription/CM013_Shared//CM_013/shared</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="MonitorSubscriptionA4" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=CM_013_sub4</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="MonitorSubscriptionA4-shared" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=__Shared</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+
+        
+        <!-- Disconnect -->
+        <Action name="CloseConnection" type="CloseConnection">
+            <dependsOn action_id="MonitorSubscriptionA4" interval="3000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action> 
+    </Action>
+
+
+    <!-- Subscribe on server 2 which will be taken down -->
+    <Action name="server2Subscribe" type="CompositeAction">
+        <!-- Connect -->
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server2.xml</include>
+            <ApiParameter name="clientId">CM_013_sub2</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <!-- Subscribe -->
+        <Action name="SubscribeRetained" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/CM_013/fq</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="MonitorSubscriptionA2" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=CM_013_sub2</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+        
+        <!-- Disconnect -->
+        <Action name="CloseConnection" type="CloseConnection">
+            <dependsOn action_id="SubscribeRetained" interval="3000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="StopA2" type="ShellAction">
+            <ActionParameter name="command">../scripts/cluster.py -a stopClusterMember -m 2 -v 2 -f testmqtt_clusterCM_013.stopA2.log</ActionParameter>
+            <ActionParameter name="print_result">1</ActionParameter>
+        </Action>  
+    </Action>    
+
+
+    <!-- *********************************************************************** -->
+    <!-- Verify Store on A4 after removing it from cluster -->
+    <!-- *********************************************************************** -->    
+    <Action name="VerifyStore" type="CompositeAction">
+
+<!--         <Action name="removeFromCluster" type="ShellAction">
+            <ActionParameter name="command">../scripts/cluster.py -a removeClusterMember -m 4 -v 2 -f testmqtt_clusterCM_013.removeClusterMember.log</ActionParameter>
+            <ActionParameter name="print_result">1</ActionParameter>
+        </Action> -->
+
+        <Action name="StatusA4-1" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/service/status</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+        
+        <Action name="checkLeftCluster" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Cluster</ActionParameter>
+            <ActionParameter name="topLevelType">JSONObject</ActionParameter>
+            <ObjectProperty name="Status" value="Inactive"/>
+        </Action>
+
+        <Action name="monitorServerA4-1" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- Check for buffered messages on durable subscriptions -->
+        <Action name="MonitorSubscriptionA4" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=CM_013_sub4</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="checkBufferedMsgs-q0-start" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/CM_013/qos0</ActionParameter>
+            <ObjectProperty name="BufferedMsgs" value="0"/>
+        </Action>
+
+        <Action name="checkBufferedMsgs-q1-start" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/CM_013/qos1</ActionParameter>
+            <ObjectProperty name="BufferedMsgs" value="250"/>
+        </Action>
+
+        <Action name="checkBufferedMsgs-q2-start" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/CM_013/qos2</ActionParameter>
+            <ObjectProperty name="BufferedMsgs" value="250"/>
+        </Action>
+
+        <Action name="checkBufferedMsgs-retained-start" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/CM_013/retained/#</ActionParameter>
+            <ObjectProperty name="BufferedMsgs" value="100"/>
+        </Action>
+
+
+        <!-- Check if shared subscription exists -->
+        <Action name="MonitorSubscriptionA4-shared" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=__Shared</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="checkForSharedSub" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">CM013_Shared</ActionParameter>
+            <ObjectProperty name="IsShared" value="true"/>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server4.xml</include>
+            <ApiParameter name="clientId">CM_013_sub4</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="SubscriptionMonitorA4-1" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=CM_013_sub4</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveRMs" type="ReceiveMessage" repeat="100">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">newmsg1</ActionParameter>
+            <ActionParameter name="waitTime">15000</ActionParameter>
+        </Action>  
+
+
+        <!-- Publish qos0 to original topic -->
+        <Action name="PublishLoop-qos0" type="PublishLoop">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="topic">/CM_013/qos0</ActionParameter>
+            <ActionParameter name="initializeCounter">true</ActionParameter>
+            <ActionParameter name="endIndex">250</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+            <ActionParameter name="counterID">PQ0</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveQoS0" type="ReceiveMessage" repeat="250">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">newmsg1</ActionParameter>
+            <ActionParameter name="waitTime">15000</ActionParameter>
+        </Action>  
+
+        <!-- Receive the qos 1 and 2 that were published previously -->
+        <Action name="ReceiveQoS1" type="ReceiveMessage" repeat="250">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">newmsg1</ActionParameter>
+            <ActionParameter name="waitTime">15000</ActionParameter>
+        </Action> 
+        <Action name="ReceiveQoS2" type="ReceiveMessage" repeat="250">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">newmsg1</ActionParameter>
+            <ActionParameter name="waitTime">15000</ActionParameter>
+        </Action> 
+
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="StatusA4-2" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=CM_013_sub4</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- Verify buffered messages are 0 -->
+        <Action name="checkBufferedMsgs-q0" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/CM_013/qos0</ActionParameter>
+            <ObjectProperty name="BufferedMsgs" value="0"/>
+        </Action>
+
+        <Action name="checkBufferedMsgs-q1" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/CM_013/qos1</ActionParameter>
+            <ObjectProperty name="BufferedMsgs" value="0"/>
+        </Action>
+
+        <Action name="checkBufferedMsgs-q2" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/CM_013/qos2</ActionParameter>
+            <ObjectProperty name="BufferedMsgs" value="0"/>
+        </Action>
+
+        <Action name="checkBufferedMsgs-retained" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/CM_013/retained/#</ActionParameter>
+            <ObjectProperty name="BufferedMsgs" value="0"/>
+        </Action>
+
+
+        <!-- Publish more RMs -->
+        <Action name="CreateConnection-2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server4.xml</include>
+            <ApiParameter name="clientId">CM_013_pub4a</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="PublishLoopA4-RM" type="CompositeAction" repeat="1" atleast="1">
+            <Action name="PublishToManyA5-RM-q0" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="prefix">/CM_013/retained/</ActionParameter>
+                <ActionParameter name="startIndex">1</ActionParameter>
+                <ActionParameter name="endIndex">25</ActionParameter>
+                <ActionParameter name="qos">0</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+            </Action>
+
+            <Action name="PublishToManyA5-RM-q1" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="prefix">/CM_013/retained/</ActionParameter>
+                <ActionParameter name="startIndex">51</ActionParameter>
+                <ActionParameter name="endIndex">75</ActionParameter>
+                <ActionParameter name="qos">1</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+            </Action>
+
+            <Action name="PublishToManyA5-RM-q2" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="prefix">/CM_013/retained/</ActionParameter>
+                <ActionParameter name="startIndex">101</ActionParameter>
+                <ActionParameter name="endIndex">125</ActionParameter>
+                <ActionParameter name="qos">2</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+            </Action>
+
+            <Action name="PublishToManyA5-RM-q0-2" type="PublishTopicTree">
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="prefix">/CM_013/retained/</ActionParameter>
+                <ActionParameter name="startIndex">151</ActionParameter>
+                <ActionParameter name="endIndex">200</ActionParameter>
+                <ActionParameter name="qos">0</ActionParameter>
+                <ActionParameter name="retained">true</ActionParameter>
+                <ActionParameter name="clearRetained">false</ActionParameter>
+            </Action>
+        </Action>
+
+
+
+        <!-- TODO: check for no more messages -->
+        <!-- TODO: verify buffered messages from forwarding channel are gone -->
+
+        <Action name="SubscriptionMonitorA4-end" type="RestAPI">
+            <dependsOn action_id="PublishLoopA4-RM" interval="3000"/>
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=CM_013_sub4</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection-2" type="CloseConnection">
+            <dependsOn action_id="SubscriptionMonitorA4-end" interval="2000"/>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+
+
+
+
+    </Action>
+
+
+</IsmWSTest>

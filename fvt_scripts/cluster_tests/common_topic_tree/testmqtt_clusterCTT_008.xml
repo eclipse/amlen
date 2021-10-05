@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_cluster_008" >
+<!--
+	A more complex common topic space. 
+-->
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>testmqtt_clusterCTT_008</solution>
+	</SyncClient>
+	
+    <Action name="publish1" type="CompositeAction">
+
+	    <Action name="CreateConnection" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_008_pub1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+    	    <ApiParameter name="protocol">mqtt</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by testmqtt_clusterCTT_008 test Producer 1</ApiParameter>
+        </Action>
+        
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">pub1</ActionParameter>
+			<ActionParameter name="component_list">sub1;sub2;pub1</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>
+		
+			
+	<Action name="PublishToMany_QoS_1" type="PublishTopicTree"  repeat="2" >
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ActionParameter name="prefix">/CTT/008/</ActionParameter>
+		<ActionParameter name="startIndex">1</ActionParameter>
+		<ActionParameter name="endIndex">10</ActionParameter>
+		<ActionParameter name="qos">1</ActionParameter>
+	</Action>
+	
+	<Action name="PublishToMany_QoS_2" type="PublishTopicTree"  repeat="2" >
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ActionParameter name="prefix">/CTT/008/</ActionParameter>
+		<ActionParameter name="startIndex">1</ActionParameter>
+		<ActionParameter name="endIndex">10</ActionParameter>
+		<ActionParameter name="qos">2</ActionParameter>
+	</Action>
+		
+	
+	<Action name="CloseConnection" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>
+    
+    <Action name="receive1" type="CompositeAction">
+	    <Action name="CreateConnection" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_008_sub1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    
+	<Action name="SubscribeToMany" type="SubscribeTopicTree">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ActionParameter name="prefix">/CTT/008/</ActionParameter>
+		<ActionParameter name="startIndex">1</ActionParameter>
+		<ActionParameter name="endIndex">5</ActionParameter>
+		<ActionParameter name="qos">2</ActionParameter>
+	</Action>	    
+
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">sub1</ActionParameter>
+			<ActionParameter name="component_list">sub1;pub1;pub2</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>		
+		
+		<Action name="ReceiveMessages" type="CompositeAction" repeat="40" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+    	        <ActionParameter name="connection_id">CF1</ActionParameter>
+        	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+            	<ActionParameter name="waitTime">3000</ActionParameter>
+        	</Action>
+        </Action>
+        
+    	<Action name="ReceiveNoMore1" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+        	<ActionParameter name="structure_id">submsg1</ActionParameter>
+    	    <ActionParameter name="waitTime">2000</ActionParameter>
+	    </Action>        
+
+	    <Action name="CloseConnection" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>
+    
+    <Action name="publish2" type="CompositeAction">
+
+	    <Action name="CreateConnection2" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server2.xml</include>
+	        <ApiParameter name="clientId">CTT_008_pub2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+    	    <ApiParameter name="protocol">mqtt</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">msg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by testmqtt_clusterCTT_008 test Producer 2</ApiParameter>
+        </Action>
+        
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">pub2</ActionParameter>
+			<ActionParameter name="component_list">sub1;sub2;pub2</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>
+
+	<Action name="PublishToMany_QoS_2" type="PublishTopicTree" repeat="2" >
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ActionParameter name="prefix">/CTT/008/</ActionParameter>
+		<ActionParameter name="startIndex">1</ActionParameter>
+		<ActionParameter name="endIndex">10</ActionParameter>
+		<ActionParameter name="qos">2</ActionParameter>
+	</Action>
+	
+	<Action name="PublishToMany_QoS_1" type="PublishTopicTree" repeat="2" >
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ActionParameter name="prefix">/CTT/008/</ActionParameter>
+		<ActionParameter name="startIndex">1</ActionParameter>
+		<ActionParameter name="endIndex">10</ActionParameter>
+		<ActionParameter name="qos">1</ActionParameter>
+	</Action>	
+
+	    <Action name="CloseConnection2" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>
+    
+    <Action name="receive2" type="CompositeAction">
+	    <Action name="CreateConnection" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>vi 
+            <include>../common/ConnectionType.xml</include>  
+    	    <include>../common/MQTT_server2.xml</include>
+	        <ApiParameter name="clientId">CTT_008_sub2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+	<Action name="SubscribeToMany" type="SubscribeTopicTree">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ActionParameter name="prefix">/CTT/008/</ActionParameter>
+		<ActionParameter name="startIndex">1</ActionParameter>
+		<ActionParameter name="endIndex">10</ActionParameter>
+		<ActionParameter name="qos">1</ActionParameter>
+	</Action>
+	
+	<Action name="UnsubscribeToMany" type="UnsubscribeTopicTree">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ActionParameter name="prefix">/CTT/008/</ActionParameter>
+		<ActionParameter name="startIndex">1</ActionParameter>
+		<ActionParameter name="endIndex">5</ActionParameter>
+	</Action>	   	    
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">sub2</ActionParameter>
+			<ActionParameter name="component_list">sub2;pub1;pub2</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>		
+		
+		<Action name="ReceiveMessages2" type="CompositeAction" repeat="40" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+    	        <ActionParameter name="connection_id">CF1</ActionParameter>
+        	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+            	<ActionParameter name="waitTime">3000</ActionParameter>
+        	</Action>
+	
+        </Action>
+        
+    	<Action name="ReceiveNoMore2" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+        	<ActionParameter name="structure_id">submsg1</ActionParameter>
+    	    <ActionParameter name="waitTime">2000</ActionParameter>
+	    </Action>        
+
+	    <Action name="CloseConnection2" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>    
+</IsmWSTest>
+                

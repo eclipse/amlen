@@ -1,0 +1,27 @@
+# Upload wrong cert file
+setcfg 0 PUT file ${M1_TESTROOT}/common/imaCA-crt.pem imaCA.pem
+
+# Apply the uploaded cert as the cert for LDAP
+setcfg 0 POST configuration {"LDAP":{"Certificate":"imaCA.pem","Overwrite":true}}
+
+# Test LDAP configuration for the ldaps protocol IGNORING current cert with CheckServerSert set to DisableVerify
+setcfg 0 POST configuration {"LDAP":{"URL":"ldaps://${M1_IPv4_1}:6636","BindDN":"cn=Manager,o=IBM","BaseDN":"ou=MessageSight,o=IBM","BindPassword":"secret","UserSuffix":"ou=users,o=IBM,c=US","GroupSuffix":"ou=groups,o=IBM,c=US","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","Enabled":true,"Verify":true,"CheckServerCert":"DisableVerify"}}
+
+# Test LDAP configuration for the ldaps protocol USING "wrong" cert but enforcing valid cert with CheckServerCert set to TrustStore
+setcfg - POST configuration {"LDAP":{"URL":"ldaps://${M1_IPv4_1}:6636","BindDN":"cn=Manager,o=IBM","BaseDN":"ou=MessageSight,o=IBM","BindPassword":"secret","UserSuffix":"ou=users,o=IBM,c=US","GroupSuffix":"ou=groups,o=IBM,c=US","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","Enabled":true,"Verify":true,"CheckServerCert":"TrustStore"}}
+
+# Upload correct cert file
+setcfg 0 PUT file ${M1_TESTROOT}/common/rootCA-crt.pem imaCA.pem
+
+# Apply the uploaded cert as the cert for LDAP
+setcfg 0 POST configuration {"LDAP":{"Certificate":"imaCA.pem","Overwrite":true}}
+
+# Test LDAP configuration for the ldaps protocol USING "correct" cert and enforcing valid cert with CheckServerCert set to TrustStore
+setcfg 0 POST configuration {"LDAP":{"URL":"ldaps://${M1_IPv4_1}:6636","BindDN":"cn=Manager,o=IBM","BaseDN":"ou=MessageSight,o=IBM","BindPassword":"secret","UserSuffix":"ou=users,o=IBM,c=US","GroupSuffix":"ou=groups,o=IBM,c=US","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","Enabled":true,"Verify":true,"CheckServerCert":"TrustStore"}}
+
+# Now commit LDAP config for the ldaps protocol using the current cert
+setcfg 0 POST configuration {"LDAP":{"URL":"ldaps://${M1_IPv4_1}:6636","BindDN":"cn=Manager,o=IBM","BaseDN":"ou=MessageSight,o=IBM","BindPassword":"secret","UserSuffix":"ou=users,o=IBM,c=US","GroupSuffix":"ou=groups,o=IBM,c=US","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","Enabled":true,"CheckServerCert":"TrustStore"}}
+
+# Just verify -- succeeds because ldap protocol config is still in place
+setcfg 0 POST configuration {"LDAP":{"Verify":true}}
+

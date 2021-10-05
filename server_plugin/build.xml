@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="server_plugin" default="build_server_plugin">
+	<property environment="env" />
+	<property name="server.plugin.dir" location="." />
+	<property name="server.plugin.src.dir" location="${server.plugin.dir}/src" />
+	<property name="server.plugin.test.src.dir" location="${server.plugin.dir}/test" />
+	<property name="server.plugin.bin.dir" location="${server.plugin.dir}/bin" />
+	<property name="server.plugin.junit.dir" location="${server.plugin.bin.dir}/test" />
+	<property name="server.plugin.lib.dir" location="${server.plugin.bin.dir}/lib" />
+	<property name="server.translation.dir" value="${server.plugin.dir}/../server_translation"/>
+	<property name="server.tmstool.dir" value="${server.plugin.dir}/../server_tmsmsgtool"/>
+	<property name="server.common.dir" value="${server.plugin.dir}/../server_ship"/>
+	<property name="server.common.lib.dir" value="${server.common.dir}/../server_ship/lib"/>
+
+	<!-- Load contrib library -->
+	<taskdef resource="net/sf/antcontrib/antlib.xml" />
+
+    <available file="${server.plugin.rpx.dir}" type="dir" property="rpx.path.exists" />
+    <available file="${server.common.dir}/msgcat" type="dir" property="msgcat.path.exists" />
+
+	<!-- define server_plugin jar file name -->
+	<property name="imaserverplugin.jar" location="${server.plugin.lib.dir}/imaPlugin.jar"/>
+
+
+	<property name="imaserverplugin_test.jar" location="${server.plugin.lib.dir}/imaserverplugin_test.jar"/>
+
+	<fileset dir="${server.translation.dir}/xml" id="pluginserver_translations">
+		<include name="**/*.xml" />
+	</fileset>
+	<pathconvert refid="pluginserver_translations" property="translations.present" setonempty="false"/>
+
+	<echo message="In ${server.translation.dir}/pluginserver, translations.present=${translations.present}" />
+
+   <condition property="is64">
+       <or>
+           <os arch="x86_64" />
+           <os arch="amd64" />
+       </or>
+   </condition>
+   <condition property="OSbit" value="64">
+       <isset property="is64" />
+   </condition>
+
+   <condition property="OSbit" value="32">
+       <not>
+           <isset property="is64" />
+       </not>
+   </condition>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+   </path>
+
+   <path id="test.classpath">
+   	  <pathelement location="/opt/apache-ant/lib" />
+   	  <pathelement location="/usr/share/java/junit.jar" />
+      <pathelement location="${server.plugin.bin.dir}" />
+      <pathelement location="${server.plugin.junit.dir}" />
+      <path refid="compile.classpath" />
+
+   </path>
+
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${server.plugin.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="plugin_publish">
+		<echo> ==  Copy files to server_ship tree ================ </echo>
+		<copy todir="${server.common.lib.dir}" preservelastmodified="yes">
+			<fileset dir="${server.plugin.lib.dir}">
+				<exclude name="**/*test*"/>
+			</fileset>
+		</copy>
+   </target>
+
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, package"  -->
+	<target name="build_server_plugin"  depends="build_plugin_jar, build_plugin_test_jar, plugin_test, plugin_publish">
+		<echo> ==  Invoking ant for server_plugin build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_plugin_jar" depends="plugin_compile, plugin_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${server.plugin.src.dir}/META-INF/MANIFEST.MF" todir="${server.plugin.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${server.plugin.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${server.plugin.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imaserverplugin.jar}">
+			<fileset dir="${server.plugin.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/**" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${imaserverplugin.jar}" manifest="${server.plugin.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+
+    <target name="build_plugin_test_jar" depends="plugin_compile, plugin_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${server.plugin.src.dir}/META-INF/MANIFEST.MF" todir="${server.plugin.junit.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${server.plugin.junit.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+        <replace file="${server.plugin.junit.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imaserverplugin_test.jar}">
+			<fileset dir="${server.plugin.junit.dir}" includes="**/*.class" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+        <jar update="true" keepcompression="true" compress="false" destfile="${imaserverplugin_test.jar}" manifest="${server.plugin.junit.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+
+	<!--Compile the project-->
+	<target name="plugin_compile" depends="server_plugin_init, NWays_mock">
+		<!-- set paths in src files that need them -->
+		<replace file="${server.plugin.src.dir}/com/ibm/ima/plugin/impl/ImaPluginImpl.java" token="IMA_SVR_INSTALL_PATH" value="${IMA_SVR_INSTALL_PATH}" />
+		<replace file="${server.plugin.src.dir}/com/ibm/ima/plugin/impl/ImaPluginInstaller.java" token="IMA_SVR_INSTALL_PATH" value="${IMA_SVR_INSTALL_PATH}" />
+
+		<javac source="1.8" target="1.8" srcdir="${server.plugin.src.dir}" destdir="${server.plugin.bin.dir}" deprecation="no"
+		     includeAntRuntime="no" encoding="utf-8"
+		     debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${server.plugin.src.dir}" />
+			<src path="${server.common.dir}/msgcat" />
+			<exclude name="*.properties" />
+			<classpath refid="compile.classpath" />
+		</javac>
+
+		<copy todir="${server.plugin.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${server.plugin.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+   <!-- Execute unit test for the project -->
+    <target name="plugin_test" depends="plugin_compile_test, plugin_junittest_32, plugin_junittest_64">
+    </target>
+
+    <!-- Execute unit test 32 for the project -->
+    <target name="plugin_junittest_32" depends="plugin_compile_test" >
+       <echo> ==  Unit tests with 32 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="32"/>
+       </antcall>
+    </target>
+
+    <!-- Execute unit test 64 for the project -->
+    <target name="plugin_junittest_64" if="do.unit.64" depends="plugin_compile_test"  >
+       <echo> ==  Unit tests with 64 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="64"/>
+       </antcall>
+    </target>
+
+	<!-- Execute the unit tests for the project -->
+	<target name="junit_test">
+		<echo> ==  Unit test setup for ${os.st} bits ======================== </echo>
+		<property name="test.data.dir" location="${server.plugin.junit.dir}/test-data/${os.st}" />
+		<property name="test.reports.dir" location="${server.plugin.junit.dir}/test-reports/${os.st}" />
+		<delete dir="${test.data.dir}" />
+		<delete dir="${test.reports.dir}" />
+		<mkdir dir="${test.data.dir}" />
+		<mkdir dir="${test.reports.dir}" />
+
+		<!-- property name="jvmargadd_1" value="-showversion" / -->
+		<condition property="jvmargadd_1" value="-d${os.st}" else="-showversion">
+			<equals arg1="${os.name}" arg2="SunOS"/>
+		</condition>
+
+		<if>
+			<isset property="generate_coverage" />
+			<then>
+				<coverage destfile="${server.plugin.bin.dir}/jacoco.exec">
+					<junit printsummary="no" haltonfailure="false" haltonerror="false" jvm="java" showoutput="yes" fork="true" forkmode="once">
+						<jvmarg value="${jvmargadd_1}" />
+						<classpath refid="test.classpath" />
+						<formatter type="xml" />
+						<formatter type="plain" usefile="no" />
+						<test name="com.ibm.ima.plugin.unittest.AllTests" fork="yes" todir="${test.data.dir}"/>
+					</junit>
+				</coverage>
+			</then>
+			<else>
+				<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
+					<jvmarg value="${jvmargadd_1}" />
+					<classpath refid="test.classpath" />
+					<formatter type="xml" />
+					<formatter type="plain" usefile="no" />
+					<test name="com.ibm.ima.plugin.unittest.AllTests" fork="yes" todir="${test.data.dir}"/>
+				</junit>
+			</else>
+		</if>
+
+		<!-- HTML report for the unit tests -->
+		<junitreport todir="${test.data.dir}" >
+			<fileset dir="${test.data.dir}">
+				<include name="*.xml" />
+			</fileset>
+			<report format="frames" todir="${test.reports.dir}" />
+		</junitreport>
+	</target>
+
+	<!--  Compile the unit test code  -->
+	<target name="plugin_compile_test" depends="plugin_compile">
+		<javac  source="1.7" target="1.7" srcdir="${server.plugin.test.src.dir}" destdir="${server.plugin.junit.dir}"
+                     debug="yes" debuglevel="lines,source,vars" optimize="yes">
+         <classpath refid="test.classpath" />
+      </javac>
+      <copy todir="${server.plugin.junit.dir}" preservelastmodified="yes">
+         <fileset dir="${server.plugin.test.src.dir}" excludes="**/*.java" />
+      </copy>
+   </target>
+
+
+	<!-- Executing RPX tool for pseudo translation-->
+
+	<target name="NWays_mock" if="rpx.path.exists" unless="translations.present" description="Runs RPX class to do pseudo translation">
+		<if>
+	    	<equals arg1="${msgcat.path.exists}" arg2="true"/>
+    	<then>
+			<!-- Classpath for RPX -->
+			<path id="rpx.specific.classpath">
+		    	<pathelement location="rpx.jar"/>
+			    <fileset dir="${server.plugin.rpx.dir}">
+			       <include name="**/*.jar"/>
+			    </fileset>
+			</path>
+
+			<taskdef name="nways" classname="com.ibm.rpx.ant.Nw" classpathref="rpx.specific.classpath"/>
+
+			<echo message="Running RPX"/>
+			<nways classpath="${server.plugin.rpx.dir};${server.plugin.rpx.dir}\rpx.jar;${ant.home}/lib/ant.jar" ways="fr de ja zh zh_TW" >
+				<fileset dir="${server.common.dir}/msgcat/com/ibm/ima/plugin/msgcatalog/">
+					<include name="IsmpluginListResourceBundle.java"/>
+				</fileset>
+			</nways>
+		</then>
+		</if>
+	</target>
+
+    <!-- Initialize the build environment -->
+	<target name="server_plugin_init">
+		<mkdir dir="${server.plugin.junit.dir}"/>
+		<mkdir dir="${server.plugin.lib.dir}"/>
+
+	</target>
+</project>

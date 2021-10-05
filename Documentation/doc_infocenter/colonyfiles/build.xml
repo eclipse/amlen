@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="ibm.ism.doc"
+         xmlns:antz="antlib:com.ibm.tools.antz"
+         xmlns:ut="antlib:com.ibm.tools.antz.ut"
+         xmlns:colony="antlib:com.ibm.tools.colony"
+         default="build">
+
+   <description>
+      This is a standard build.xml. If you alter ANYTHING in here, other than the 
+      project name above, be sure to mark it as such below in this description.
+      Failure to do so will mean that this entire file is replaced when a newer 
+      version is released and any customisations will be LOST!      
+
+      Version: 1.6
+      Customisations: None                   
+   </description>
+
+   <!-- Define extra ant extensions  -->
+   <taskdef resource="net/sf/antcontrib/antcontrib.properties" onerror="ignore" />
+
+   <!-- These properties are generally overridden by colony. They may need to be
+        customised if you are running the build independant of colony. If you do
+        make changes don't forget to flag them in the box above else they may be
+        overwritten! -->
+   <property name="source.dir" location="../source" />
+   <property name="build.dir" location="../build" />
+   <property name="dist.dir" location="${basedir}/dist" />
+   <property name="plugins.dir" location="${dist.dir}/plugins" />
+   <property name="build.draft" value="yes" />
+   <property name="build.pdf" value="yes" />
+   <property name="transform.basename" value="transform" />
+   <property name="plugin.to.build" value="all" />
+   <property name="build.type" value="external" />
+   <property name="build.version" value="1" />
+
+   <!-- Set up additional build properties here -->
+   <property name="force" value="false" />
+   <property name="fail.level" value="fatal" />
+   <property name="timestamp.format" value="yyyyMMdd_HHmm" />
+
+
+   <!-- The main build target -->
+   <target name="build" depends="build.transforms,build.plugins,summary" />
+
+
+   <!-- This target is called by colony if a clean of the output has been requested 
+        and can be used manually to clean a build -->
+   <target name="clean">
+      <if>
+         <equals arg1="${plugin.to.build}" arg2="all" />
+         <then>
+            <echo level="info">Removing the old build</echo>
+            <delete includeemptydirs="yes" failonerror="no">
+               <fileset dir="${build.dir}" />
+               <fileset dir="${dist.dir}" />
+               <fileset dir="${source.dir}" includes="**/.antz.*.summary" />
+            </delete>
+            <mkdir dir="${build.dir}" />
+            <mkdir dir="${plugins.dir}" />
+         </then>
+         <else>
+            <echo level="info">Removing the old build for ${plugin.to.build} only</echo>
+            <delete includeemptydirs="yes" failonerror="no">
+               <fileset dir="${build.dir}/${plugin.to.build}" />
+               <fileset dir="${dist.dir}/artifacts/logs" includes="${plugin.to.build}/**" />
+               <fileset dir="${plugins.dir}" includes="${plugin.to.build}*.jar" />
+               <fileset dir="${source.dir}" includes="${plugin.to.build}/**/.antz.*.summary" />
+            </delete>
+         </else>
+      </if>
+   </target>
+
+   <!-- Calls all transform files, which typically build the docs via IDWB -->
+   <target name="build.transforms">
+      <if>
+         <equals arg1="${plugin.to.build}" arg2="all" />
+         <then>
+            <dirset id="target.transform.dir" dir="${source.dir}" />
+         </then>
+         <else>
+            <dirset id="target.transform.dir" dir="${source.dir}/${plugin.to.build}" />
+         </else>
+      </if>
+
+      <antz:subant antfile="${transform.basename}_pre.xml"
+                   setbasedir="yes"
+                   verbose="yes"
+                   failonerror="no"
+                   inheritall="yes">
+         <dirset refid="target.transform.dir" />
+      </antz:subant>
+      <antz:subant antfile="${transform.basename}.xml" setbasedir="yes" verbose="yes" failonerror="no" inheritall="yes">
+         <dirset refid="target.transform.dir" />
+      </antz:subant>
+      <antz:subant antfile="${transform.basename}_post.xml"
+                   setbasedir="yes"
+                   verbose="yes"
+                   failonerror="no"
+                   inheritall="yes">
+         <dirset refid="target.transform.dir" />
+      </antz:subant>
+   </target>
+
+   <!-- Build all plugins -->
+   <target name="build.plugins">
+      <tstamp>
+         <format property="qualifier" pattern="${timestamp.format}" />
+      </tstamp>
+      <if>
+         <equals arg1="${plugin.to.build}" arg2="all" />
+         <then>
+            <ut:jarplugins srcdir="${build.dir}" destdir="${plugins.dir}" qualifier="v${qualifier}" />
+         </then>
+         <else>
+            <ut:jarplugins srcdir="${build.dir}/${plugin.to.build}"
+                           destdir="${plugins.dir}"
+                           qualifier="v${qualifier}" />
+         </else>
+      </if>
+   </target>
+
+   <!-- Create a nice summary of what was built -->
+   <target name="summary">
+      <ut:idwbsummary style="/resource/idwbsummary.xsl" source="${source.dir}" output="${dist.dir}/artifacts/logs" />
+   </target>
+
+</project>

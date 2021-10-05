@@ -1,0 +1,545 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name:  JMS_DM_006
+
+  Test Category:  JMS Delivery Mode
+  
+  Test Description:
+  	Test non-persistent messaging with a durable subscription.
+  	A mixture of persistent and non-persistent messages are sent in this test.
+  
+*****************************************************************************/
+-->
+<ImaJmsTest name="jms_deliverymode_006" >
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_deliverymode_006</solution>
+    </SyncClient>
+    
+    <Action name="rmdr" type="CompositeAction">
+
+        <!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+        <Action name="syncReset" type="SyncAction">
+            <ActionParameter name="request">reset</ActionParameter>
+        </Action>
+
+        <!-- Initialize the SyncDriver values -->
+
+        <Action name="syncInit1" type="SyncAction">
+            <ActionParameter name="request">init</ActionParameter>
+            <ActionParameter name="condition">syncPoint</ActionParameter>
+        </Action>
+
+        <Action name="syncInit2" type="SyncAction">
+            <ActionParameter name="request">init</ActionParameter>
+            <ActionParameter name="condition">cue_wait</ActionParameter>
+            <ActionParameter name="value">0</ActionParameter>
+        </Action>
+
+        <Action name="syncInit3" type="SyncAction">
+            <ActionParameter name="request">init</ActionParameter>
+            <ActionParameter name="condition">cue_set</ActionParameter>
+            <ActionParameter name="value">0</ActionParameter>
+        </Action>
+
+<!-- Set up the connection for the first time -->
+        <Action name="CreateFactory" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="rx_DM006_clientid" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+             <ActionParameter name="factory_id">CF1</ActionParameter>
+             <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">Con1</ActionParameter>
+            <ActionParameter name="structure_id">Ses1</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination" type="CreateDestination">
+            <ApiParameter name="name">jmsDM-06</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+             <ActionParameter name="structure_id">destRX1</ActionParameter>
+        </Action>
+
+<!-- Create durable subscription delMode6 and start the connection -->
+        <Action name="CreateConsumer" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">consumer1</ActionParameter>
+            <ActionParameter name="dest_id">destRX1</ActionParameter>
+            <ActionParameter name="session_id">Ses1</ActionParameter>
+            <ApiParameter name="durableName">delMode6</ApiParameter>
+        </Action>
+
+        <Action name="StartConnectionRX" type="StartConnection">
+            <ActionParameter name="conn_id">Con1</ActionParameter>
+        </Action>
+
+<!-- The sender is sending the messages between these 2 sync points -->
+        <Action name="sync_components1" type="SyncComponentAction">
+            <ActionParameter name="component_name">rx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        <Action name="sync_components2" type="SyncComponentAction">
+            <ActionParameter name="component_name">rx1a</ActionParameter>
+            <ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+<!-- kill the server -->
+        <Action name="CrashServer" type="ShellAction">
+            <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+        <!--Action name="SyncCue1" type="SyncAction">
+            <ActionParameter name="request">set</ActionParameter>
+            <ActionParameter name="condition">cue_wait</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+        </Action>
+
+        <Action name="SyncCue2" type="SyncAction">
+            <ActionParameter name="request">wait</ActionParameter>
+            <ActionParameter name="condition">cue_set</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action-->
+
+        <Action name="ReceiveAfterCrash" type="ReceiveMessage" rc="1" reason="CWLNC0010">
+            <ActionParameter name="consumer_id">consumer1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ApiParameter name="timeout">500</ApiParameter>
+        </Action>
+
+<!-- Create new connection after server is brought back up -->
+        <Action name="CreateFactory1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener1" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps1" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="rx_DM006_clientid" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+             <ActionParameter name="factory_id">CF1</ActionParameter>
+             <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession1" type="CreateSession">
+            <ActionParameter name="conn_id">Con1</ActionParameter>
+             <ActionParameter name="structure_id">Ses1</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination1" type="CreateDestination">
+            <ApiParameter name="name">jmsDM-06</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+             <ActionParameter name="structure_id">destRX1</ActionParameter>
+        </Action>
+
+<!-- Recreate the durable subscription delMode6 and start the connection -->
+        <Action name="CreateConsumer1" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">consumer1</ActionParameter>
+            <ActionParameter name="dest_id">destRX1</ActionParameter>
+            <ActionParameter name="session_id">Ses1</ActionParameter>
+            <ApiParameter name="durableName">delMode6</ApiParameter>
+        </Action>
+
+        <Action name="StartConnectionRX1" type="StartConnection">
+            <ActionParameter name="conn_id">Con1</ActionParameter>
+        </Action>
+
+<!-- The receiver should not receive the messages since they are not persistent -->
+
+        <Action name="CompositePersistent" type="CompositeAction" repeat="50" repeat_interval="0">
+            <Action name="ReceiveMessagePersistent" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">500</ApiParameter>
+            </Action>
+
+            <Action name="GetPersistentMsgContents" type="GetMessageText">
+                <dependsOn name="ReceiveMessagePersistent" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">I wonder if delivery mode is implemented correctly</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="ReceiveMessageFail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ApiParameter name="timeout">500</ApiParameter>
+        </Action>
+
+<!-- Close session -->
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">Ses1</ActionParameter>
+        </Action>
+
+<!-- More messages being sent while the client is not active -->
+        <Action name="SyncComponents3" type="SyncComponentAction">
+            <ActionParameter name="component_name">rx1b</ActionParameter>
+            <ActionParameter name="component_list">tx1b;rx1b</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        <Action name="SyncComponents4" type="SyncComponentAction">
+            <ActionParameter name="component_name">rx1c</ActionParameter>
+            <ActionParameter name="component_list">tx1c;rx1c</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        <Action name="CreateSession2" type="CreateSession">
+            <ActionParameter name="conn_id">Con1</ActionParameter>
+            <ActionParameter name="structure_id">Ses1</ActionParameter>
+        </Action>
+
+<!-- Recreate durable subscription to delMode6 -->
+        <Action name="CreateConsumer2" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">consumer1</ActionParameter>
+            <ActionParameter name="dest_id">destRX1</ActionParameter>
+            <ActionParameter name="session_id">Ses1</ActionParameter>
+            <ApiParameter name="durableName">delMode6</ApiParameter>
+        </Action>
+
+<!-- Receive the messages that were sent while the client was inactive -->
+        <Action name="CompositeRcv2" type="CompositeAction" expected="50" interval="0">
+            <Action name="ReceiveMessage1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessage1Contents" type="GetMessageText">
+                <dependsOn name="ReceiveMessage1" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">We are testing delivery modes here</ActionParameter>
+            </Action>
+
+            <Action name="GetMessage1Property" type="GetMessageProperty">
+                <dependsOn name="GetMessage1Contents" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ApiParameter name="propertyType">DeliveryMode</ApiParameter>
+                <ApiParameter name="valueType">Integer</ApiParameter>
+                <ActionParameter name="verifyValue">1</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage2" type="ReceiveMessage">
+                <dependsOn name="GetMessage1Property" interval="0"/>
+                <ActionParameter name="consumer_id">consumer1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessage2Contents" type="GetMessageText">
+                <dependsOn name="ReceiveMessage2" interval="0"/>
+                <ActionParameter name="message_id">rxmsg2</ActionParameter>
+                <ActionParameter name="verifyValue">I wonder if delivery mode is implemented correctly</ActionParameter>
+            </Action>
+
+            <Action name="GetMessage2Property" type="GetMessageProperty">
+                <dependsOn name="GetMessage2Contents" interval="0"/>
+                <ActionParameter name="message_id">rxmsg2</ActionParameter>
+                <ApiParameter name="propertyType">DeliveryMode</ApiParameter>
+                <ApiParameter name="valueType">Integer</ApiParameter>
+                <ActionParameter name="verifyValue">1</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage3" type="ReceiveMessage">
+                <dependsOn name="GetMessage2Property" interval="0"/>
+                <ActionParameter name="consumer_id">consumer1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg3</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessage3Contents" type="GetMessageText">
+                <dependsOn name="ReceiveMessage3" interval="0"/>
+                <ActionParameter name="message_id">rxmsg3</ActionParameter>
+                <ActionParameter name="verifyValue">Only one way to find out</ActionParameter>
+            </Action>
+            
+            <Action name="GetMessage3Property" type="GetMessageProperty">
+                <dependsOn name="GetMessage3Contents" interval="0"/>
+                <ActionParameter name="message_id">rxmsg3</ActionParameter>
+                <ApiParameter name="propertyType">DeliveryMode</ApiParameter>
+                <ApiParameter name="valueType">Integer</ApiParameter>
+                <ActionParameter name="verifyValue">1</ActionParameter>
+            </Action>
+        </Action>
+
+<!-- Tear down the test -->
+
+        <Action name="CloseConsumer" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1</ActionParameter>
+        </Action>
+
+        <Action name="Unsubscribe" type="Unsubscribe">
+            <ActionParameter name="session_id">Ses1</ActionParameter>
+            <ApiParameter name="durableName">delMode6</ApiParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">Con1</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession1" type="CloseSession">
+            <ActionParameter name="session_id">Ses1</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">Con1</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">Con1</ActionParameter>
+        </Action>
+    </Action>  
+
+    <Action name="rmdt" type="CompositeAction">
+        <!-- This side runs on machine 1! -->
+        <Action name="CreateFactory_TX" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_TX" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_TX" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="tx_DM006_clientid" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_TX" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+            <ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+            <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_TX" type="CreateSession">
+            <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+            <ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateSessionSecond_TX" type="CreateSession">
+            <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+            <ActionParameter name="structure_id">SesSecond_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination" type="CreateDestination">
+            <ApiParameter name="name">jmsDM-06</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+             <ActionParameter name="structure_id">destTX</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+            <ActionParameter name="structure_id">producer1</ActionParameter>
+            <ActionParameter name="dest_id">destTX</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+            <ApiParameter name="deliveryMode">1</ApiParameter>
+        </Action>
+
+        <Action name="CreateProducerSecond" type="CreateProducer">
+            <ActionParameter name="structure_id">producerSecond</ActionParameter>
+            <ActionParameter name="dest_id">destTX</ActionParameter>
+            <ActionParameter name="session_id">SesSecond_Tx</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection_TX" type="StartConnection">
+            <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="msgParam">We are testing delivery modes here</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="session_id">SesSecond_Tx</ActionParameter>
+            <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessage2Text" type="SetMessageText">
+            <ActionParameter name="message_id">txmsg2</ActionParameter>
+            <ApiParameter name="value">I wonder if delivery mode is implemented correctly</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage3" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg3</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+            <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessage3Text" type="SetMessageText">
+            <ActionParameter name="message_id">txmsg3</ActionParameter>
+            <ApiParameter name="value">Only one way to find out</ApiParameter>
+        </Action>
+        
+        <Action name="sync_components1" type="SyncComponentAction">
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeSnd" type="CompositeAction" repeat="50" interval="0" repeat_interval="0">
+            <Action name="SendMessage1" type="SendMessage">
+                <ActionParameter name="producer_id">producer1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage2" type="SendMessage">
+                <dependsOn name="SendMessage1" interval="0"/>
+                <ActionParameter name="producer_id">producerSecond</ActionParameter>
+                <ActionParameter name="message_id">txmsg2</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage3" type="SendMessage">
+                <dependsOn name="SendMessage2" interval="0"/>
+                <ActionParameter name="producer_id">producer1</ActionParameter>
+                <ActionParameter name="message_id">txmsg3</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="sync_components2" type="SyncComponentAction">
+            <ActionParameter name="component_name">tx1a</ActionParameter>
+            <ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+<!-- wait for receiver to go inactive, then send more messages -->
+        <Action name="sync_components3" type="SyncComponentAction">
+            <ActionParameter name="component_name">tx1b</ActionParameter>
+            <ActionParameter name="component_list">tx1b;rx1b</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        <Action name="CreateFactory_TX1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_TX1" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_TX1" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="tx_DM006_clientid" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_TX1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+            <ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+            <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_TX1" type="CreateSession">
+            <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+            <ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination1" type="CreateDestination">
+            <ApiParameter name="name">jmsDM-06</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+             <ActionParameter name="structure_id">destTX</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer1" type="CreateProducer">
+            <ActionParameter name="structure_id">producer1</ActionParameter>
+            <ActionParameter name="dest_id">destTX</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+            <ApiParameter name="deliveryMode">1</ApiParameter>
+        </Action>
+
+        <Action name="StartConnection_TX1" type="StartConnection">
+            <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CompositeSnd1" type="CompositeAction" repeat="50" interval="0" repeat_interval="0">
+            <Action name="SendMessage1" type="SendMessage">
+                <ActionParameter name="producer_id">producer1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage2" type="SendMessage">
+                <dependsOn name="SendMessage1" interval="0"/>
+                <ActionParameter name="producer_id">producer1</ActionParameter>
+                <ActionParameter name="message_id">txmsg2</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage3" type="SendMessage">
+                <dependsOn name="SendMessage2" interval="0"/>
+                <ActionParameter name="producer_id">producer1</ActionParameter>
+                <ActionParameter name="message_id">txmsg3</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="sync_components4" type="SyncComponentAction">
+            <ActionParameter name="component_name">tx1c</ActionParameter>
+            <ActionParameter name="component_list">tx1c;rx1c</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession_TX" type="CloseSession">
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection_TX" type="StopConnection">
+            <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_TX" type="CloseConnection">
+            <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+    </Action>
+</ImaJmsTest>

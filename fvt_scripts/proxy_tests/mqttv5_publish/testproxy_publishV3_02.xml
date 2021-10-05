@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testproxy_publishV3_02" >
+<!--
+    Tests MQTT V3 clientID-A publish 2 RETAIN messages and 1 Non-Retained
+    then clientID-Bs (MQTT V3 and V5) will subscribe and should receive the 2nd Retain message and Non-Retained message only.
+-->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testproxy_publishV3_02</solution>
+    </SyncClient>
+
+<!-- ==========  publish     ========== -->
+    
+    <Action name="publish" type="CompositeAction">
+     
+        <Action name="CreateConnectionV3" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV3_02.pub</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+        </Action>
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg1:{clientId:V5_publishV3_02.pub , retain:true, QoS:2}</ApiParameter>
+        </Action>
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg2:{clientId:V5_publishV3_02.pub , retain:true, QoS:1}</ApiParameter>
+        </Action>
+        <Action name="CreateMessage3" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg3</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg3:{clientId:V5_publishV3_02.pub , retain:false, QoS:1}</ApiParameter>
+        </Action>
+        <Action name="SendMessage1" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+               <ActionParameter name="message_id">txmsg1</ActionParameter>
+               <ActionParameter name="topic">retain/02/v3</ActionParameter>
+               <ActionParameter name="RETAIN">true</ActionParameter>
+               <ActionParameter name="QoS">2</ActionParameter>
+           </Action>
+        <Action name="SendMessage2" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+               <ActionParameter name="message_id">txmsg2</ActionParameter>
+               <ActionParameter name="topic">retain/02/v3</ActionParameter>
+               <ActionParameter name="RETAIN">true</ActionParameter>
+               <ActionParameter name="QoS">1</ActionParameter>
+           </Action>
+        <Action name="sync_RetainSent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">rxV3-1;rxV5-1;tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="sync_Subscribed" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx2</ActionParameter>
+            <ActionParameter name="component_list">rxV3-2;rxV5-2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="SendMessage3" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+               <ActionParameter name="message_id">txmsg3</ActionParameter>
+               <ActionParameter name="topic">retain/02/v3</ActionParameter>
+               <ActionParameter name="QoS">1</ActionParameter>
+           </Action>
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+
+    
+<!-- ==========  receiveV3     ========== -->
+
+    <Action name="receiveV3" type="CompositeAction">
+        <Action name="CreateConnectionV3" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV3_02.subV3</ApiParameter>
+        </Action>
+        <Action name="sync_RetainSent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-1</ActionParameter>
+            <ActionParameter name="component_list">rxV3-1;rxV5-1;tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <ApiParameter name="topic">retain/02/v3</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        <Action name="sync_Subscribed" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-2</ActionParameter>
+            <ActionParameter name="component_list">rxV3-2;rxV5-2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="ReceiveMessage" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CheckMessage" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg2:{clientId:V5_publishV3_02.pub , retain:true, QoS:1}</ActionParameter>
+            <ActionParameter name="compareTopic">retain/02/v3</ActionParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+            <ActionParameter name="compareRetain">true</ActionParameter>
+        </Action>
+        <Action name="ReceiveMessage2" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CheckMessage2" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg3:{clientId:V5_publishV3_02.pub , retain:false, QoS:1}</ActionParameter>
+            <ActionParameter name="compareTopic">retain/02/v3</ActionParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+            <ActionParameter name="compareRetain">false</ActionParameter>
+        </Action>
+        <Action name="CloseConnectionV3" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+    </Action>
+
+    
+<!-- ==========  receiveV5     ========== -->
+
+    <Action name="receiveV5" type="CompositeAction">
+        <Action name="CreateConnectionV5" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV3_02.subV5</ApiParameter>
+
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+        </Action>
+        <Action name="sync_RetainSent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV5-1</ActionParameter>
+            <ActionParameter name="component_list">rxV3-1;rxV5-1;tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+            </Action>
+            
+<!--  defect 201129 -->
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">retain/02/v3</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="sync_Subscribed" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV5-2</ActionParameter>
+            <ActionParameter name="component_list">rxV3-2;rxV5-2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="ReceiveMessageRetain" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CheckMessageRetain" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg2:{clientId:V5_publishV3_02.pub , retain:true, QoS:1}</ActionParameter>
+            <ActionParameter name="compareTopic">retain/02/v3</ActionParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+            <ActionParameter name="compareRetain">true</ActionParameter>
+        </Action>
+        <Action name="ReceiveMessage2" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CheckMessage2" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg3:{clientId:V5_publishV3_02.pub , retain:false, QoS:1}</ActionParameter>
+            <ActionParameter name="compareTopic">retain/02/v3</ActionParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+            <ActionParameter name="compareRetain">false</ActionParameter>
+        </Action>
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>
+    </Action>
+
+    
+</IsmWSTest>
+                

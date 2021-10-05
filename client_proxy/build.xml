@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2014-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="client_proxy" default="build_client_proxy" basedir=".">
+	
+	<property name="client.build.dir" value="${basedir}"/>
+	<property name="client.workspace" value="${client.build.dir}/.."/>
+	<property name="client.common.dir" value="${client.workspace}/client_ship"/>
+	<property name="client.proxy.dir" value="${client.workspace}/client_proxy"/>
+	<property name="client.common.lib.dir" value="${client.common.dir}/lib"/>
+	
+	<property name="client.proxy.src.dir" location="${client.proxy.dir}/src" />
+	<property name="client.proxy.test.src.dir" location="${client.proxy.dir}/test" />
+	<property name="client.proxy.bin.dir" location="${client.proxy.dir}/bin" />
+	<property name="client.proxy.junit.dir" location="${client.proxy.bin.dir}" />
+	<property name="client.proxy.lib.dir" location="${client.proxy.bin.dir}/lib" />
+	<property name="client.proxy.javadoc.dir" location="${client.proxy.bin.dir}/javadoc" />
+	
+	<!-- define proxy_config.jar file name -->
+	<property name="proxy_config.jar" location="${client.proxy.lib.dir}/imaproxy_config.jar"/>
+
+
+   <condition property="is64">
+       <or>
+           <os arch="x86_64" />
+           <os arch="amd64" />
+       </or>
+   </condition>
+   <condition property="OSbit" value="64">
+       <isset property="is64" />
+   </condition>
+
+   <condition property="OSbit" value="32">
+       <not>
+           <isset property="is64" />
+       </not>
+   </condition>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+   </path>
+
+   <path id="test.classpath">
+      <path refid="compile.classpath" />
+   	  <pathelement location="/opt/apache-ant/lib" />
+      <pathelement location="${client.proxy.bin.dir}" />
+      <pathelement location="${client.proxy.junit.dir}" />
+   </path>
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${client.proxy.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="proxy_publish">
+		<echo> ==  Copy files to client_ship tree ================ </echo>
+        <mkdir dir="${client.common.lib.dir}"/>
+		<copy todir="${client.common.lib.dir}" preservelastmodified="yes">
+			<fileset dir="${client.proxy.lib.dir}" />
+		</copy>
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, javadoc, package"  -->
+	<target name="build_client_proxy"  depends="build_proxy_jar, proxy_javadoc, proxy_test, proxy_publish">
+		<echo> ==  Invoking ant for client_proxy build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_proxy_jar" depends="proxy_compile, proxy_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.proxy.src.dir}/META-INF/MANIFEST.MF" todir="${client.proxy.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.proxy.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+	
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.proxy.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${proxy_config.jar}">
+			<fileset dir="${client.proxy.bin.dir}" includes="**/*.class, **/*.properties, javadoc/**" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${proxy_config.jar}" manifest="${client.proxy.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!--Compile the project-->
+	<target name="proxy_compile" depends="client_proxy_init">
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac srcdir="${client.proxy.src.dir}" destdir="${client.proxy.bin.dir}" deprecation="no"
+             includeAntRuntime="no" encoding="utf-8"
+             debug="yes" debuglevel="lines,source" optimize="yes" target="1.6" source="1.6">
+			<src path="${client.proxy.src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+        <copy todir="${client.proxy.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${client.proxy.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+	
+   <!-- Generate Javadoc for just this project, both api and internal -->
+   <target name="proxy_javadoc" depends="client_proxy_init">
+      <echo> ==  Generating complete reference javadoc for the project  ======= </echo>
+      <javadoc destdir="${client.proxy.javadoc.dir}"
+               failonerror="false"
+               packagenames="**.*"
+               defaultexcludes="yes"
+               author="false"
+               private="false"
+               verbose="false"
+               version="true"
+               use="true"
+               noqualifier="java.*"
+      	       Extdirs="${gsaProjectSpace}/tools/javadoc;${env.JAVA_HOME}/jre/lib/ext"
+               windowtitle="IBM Internet Scale Messaging Proxy Config"
+      >
+         <doctitle><![CDATA[<h1>IBM Internet Scale Messaging Proxy Config</h1>]]></doctitle>
+         <bottom><![CDATA[<i>Copyright &#169; Contributors to the Eclipse Foundation 2014-2021</i>]]></bottom>
+         <classpath refid="compile.classpath" />
+        <sourcefiles>
+           <fileset file="${client.proxy.src.dir}/com/ibm/ima/proxy/*.java" />
+        </sourcefiles>
+      </javadoc>
+   </target>
+
+   <!-- Execute unit test for the project -->
+    <target name="proxy_test" depends="proxy_compile_test, proxy_junittest_32, proxy_junittest_64">
+    </target>
+
+    <!-- Execute unit test 32 for the project -->
+    <target name="proxy_junittest_32" depends="proxy_compile_test" >
+       <echo> ==  Unit tests with 32 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="32"/>
+       </antcall>
+    </target>
+
+    <!-- Execute unit test 64 for the project -->
+    <target name="proxy_junittest_64" if="do.unit.64" depends="proxy_compile_test"  >
+       <echo> ==  Unit tests with 64 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="64"/>
+       </antcall>
+    </target>
+
+	<!-- Execute the unit tests for the project -->
+	<target name="junit_test">
+		<echo> ==  Unit test setup for ${os.st} bits ======================== </echo>
+		<property name="test.data.dir" location="${client.proxy.junit.dir}/test-data/${os.st}" />
+		<property name="test.reports.dir" location="${client.proxy.junit.dir}/test-reports/${os.st}" />
+		<delete dir="${test.data.dir}" />
+		<delete dir="${test.reports.dir}" />
+		<mkdir dir="${test.data.dir}" />
+		<mkdir dir="${test.reports.dir}" />
+
+		<!-- property name="jvmargadd_1" value="-showversion" / -->
+		<condition property="jvmargadd_1" value="-d${os.st}" else="-showversion">
+			<equals arg1="${os.name}" arg2="SunOS"/>
+		</condition>
+
+		<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
+			<jvmarg value="${jvmargadd_1}" />
+			<classpath refid="test.classpath" />
+			<formatter type="xml" />
+			<formatter type="plain" usefile="no" />
+			<!-- <test name="com.ibm.ism.proxy.AllTests" fork="yes" todir="${test.data.dir}"/>  -->
+		</junit>
+
+		<!-- HTML report for the unit tests -->
+		<junitreport todir="${test.data.dir}" >
+			<fileset dir="${test.data.dir}">
+				<include name="*.xml" />
+			</fileset>
+			<report format="frames" todir="${test.reports.dir}" />
+		</junitreport>
+	</target>
+
+	<!--  Compile the unit test code  -->
+	<target name="proxy_compile_test" depends="proxy_compile">
+		<javac srcdir="${client.proxy.test.src.dir}" destdir="${client.proxy.junit.dir}" encoding="utf-8"
+                     debug="yes" debuglevel="lines,source" optimize="yes" target="1.6" source="1.6">
+         <classpath refid="test.classpath" />
+      </javac>
+      <copy todir="${client.proxy.junit.dir}" preservelastmodified="yes">
+         <fileset dir="${client.proxy.test.src.dir}" excludes="**/*.java" />
+      </copy>
+   </target>
+
+
+    <!-- Initialize the build environment -->
+	<target name="client_proxy_init">
+		<mkdir dir="${client.proxy.junit.dir}"/>
+		<mkdir dir="${client.proxy.lib.dir}"/>
+	</target>
+</project>

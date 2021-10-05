@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_chainedcert_008
+
+  Test Category:  JMS Chained Certs
+  
+  Test Description: 
+    
+  Certificates used:
+    chainedcerts/certs/imaserverd-crt.pem and key
+    chainedcerts/certs/imaclientb-crt.pem and key
+    CAfile.pem (contains rootCAa and rootCAb)
+    ibmb.jks
+
+    The server cert is signed by imaCAc
+    which is signed by rootCAb
+
+    The client cert is signed by imaCAa
+    which is signed by rootCAa
+
+    The certificates should provide their chains.
+    
+    NOTE: This is testing something that is documented as not being
+          supported. CA files containing more than 1 certificate
+          can be uploaded, but only the first certificate will be
+          put into the generated CA file.
+          
+          The CA file used in this test has rootCA A, followed by rootCA B.
+          So only rootCA A gets put into the generated CA file.
+          
+          Therefore, we do not fail when we use a client certificate that
+          was signed by rootCA A.
+
+    Endpoints:
+    JMSChainCertEP6 - Port 18435
+
+-->
+<ImaJmsTest name="jms_chainedcert_008">
+    <Action name="Create_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <!--ActionParameter name="loglevel">9</ActionParameter>
+        <ActionParameter name="logfile">stdout</ActionParameter-->
+        <ActionParameter name="keyStore">chainedcerts/certs/ibmb.jks</ActionParameter>
+        <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Protocol" value="tcps"/>
+        <ImaProperty name="Port" value="18435"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+
+    <!-- Succeeds because ibma.jks contains rootCAa-crt.pem and 
+    JMSChainSec6 contains rootCAa-crt.pem -->
+    <Action name="CreateConnection_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession" type="CreateSession">
+        <ActionParameter name="structure_id">session1</ActionParameter>
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession2" type="CreateSession">
+        <ActionParameter name="structure_id">session2</ActionParameter>
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateDest" type="CreateDestination">
+        <ActionParameter name="structure_id">dest</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/chained/cert/topic_002</ApiParameter>
+    </Action>
+
+    <Action name="CreateConsumer" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer" type="CreateProducer">
+        <ActionParameter name="structure_id">producer</ActionParameter>
+        <ActionParameter name="session_id">session2</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateMessage" type="CreateMessage">
+        <ActionParameter name="structure_id">msg</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="msgParam">TEXT: test content</ApiParameter>
+    </Action>
+
+    <Action name="SendMsg" type="SendMessage">
+        <ActionParameter name="producer_id">producer</ActionParameter>
+        <ActionParameter name="message_id">msg</ActionParameter>
+    </Action>
+
+    <Action name="RcvMsg" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rcvmsg</ActionParameter>
+        <ApiParameter name="timeout">10000</ApiParameter>
+    </Action>
+
+    <Action name="GetText" type="GetMessageText">
+        <ActionParameter name="message_id">rcvmsg</ActionParameter>
+        <ActionParameter name="verifyValue">TEXT: test content</ActionParameter>
+    </Action>
+
+    <Action name="CloseConn_cf1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+	<Action name="DisableClientCerts" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"JMSChainSec6":{"UseClientCertificate":false}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"JMSChainSec6","UseClientCertificate":false}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!--Action name="DisableClientCerts" type="ShellAction">
+        <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update SecurityProfile Name=JMSChainSec6 UseClientCertificate=True</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action-->
+
+    <Action Name="RestartServer" type="ShellAction">
+        <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>"
+    </Action>
+
+    <!-- Succeeds because ibma.jks contains rootCAa-crt.pem -->
+    <Action name="CreateConnection2_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession3" type="CreateSession">
+        <ActionParameter name="structure_id">session1</ActionParameter>
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession4" type="CreateSession">
+        <ActionParameter name="structure_id">session2</ActionParameter>
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer1" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer</ActionParameter>
+        <ActionParameter name="session_id">session2</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection1" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateMessage1" type="CreateMessage">
+        <ActionParameter name="structure_id">msg</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="msgParam">TEXT: test content</ApiParameter>
+    </Action>
+
+    <Action name="SendMsg1" type="SendMessage">
+        <ActionParameter name="producer_id">producer</ActionParameter>
+        <ActionParameter name="message_id">msg</ActionParameter>
+    </Action>
+
+    <Action name="RcvMsg1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rcvmsg</ActionParameter>
+        <ApiParameter name="timeout">10000</ApiParameter>
+    </Action>
+
+    <Action name="GetText1" type="GetMessageText">
+        <ActionParameter name="message_id">rcvmsg</ActionParameter>
+        <ActionParameter name="verifyValue">TEXT: test content</ActionParameter>
+    </Action>
+
+    <Action name="CloseConn2_cf1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+</ImaJmsTest>

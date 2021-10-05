@@ -1,0 +1,48 @@
+#!/bin/bash
+source /niagara/test/scripts/ISMsetup.sh
+
+if [ -z $1 ]; then
+  r=0
+else
+  r=$1
+fi
+
+> ./failover.log
+
+size=`cat /niagara/test/scale/Li/runsubq2.err | wc -l`
+echo size=${size}
+
+while [ "${size}" == "0" ]; do
+   /niagara/test/scripts/haFunctions.sh -a stopPrimary -f /dev/stdout >> ./failover.log
+   sleep 5
+   console status imaserver
+   size=`cat /niagara/test/scale/Li/runsubq2.err | wc -l`
+   echo size=${size}
+
+   if [ "${size}" == "0" ]; then
+     /niagara/test/scripts/haFunctions.sh -a startStandby -f /dev/stdout >> ./failover.log
+     sleep 5
+     console status imaserver
+     size=`cat /niagara/test/scale/Li/runsubq2.err | wc -l`
+     echo size=${size}
+   fi
+
+  if [ $r != 0 ] ; then
+     sleep ${r}
+  else
+    read -p "Continue (y/n)? "
+    if [[ ("$REPLY" != "y")&&("$REPLY" != "Y") ]]
+    then
+      exit 
+    fi
+  fi
+
+  if [ "${size}" == "0" ]; then
+    size=`cat /niagara/test/scale/Li/runsubq2.err | wc -l`
+    echo size=${size}
+  fi
+  console status imaserver
+done
+sleep 5s
+doally "killall java"
+

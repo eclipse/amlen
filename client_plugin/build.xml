@@ -1,0 +1,593 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2014-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="client_plugin" default="build_client_plugin">
+	<property environment="env"/>
+	<property name="client.plugin.src.dir" location="${client.plugin.dir}/src" />
+	<property name="server.plugin.src.dir" location="${client.plugin.dir}/../server_plugin/src" />
+	<property name="client.plugin.test.src.dir" location="${client.plugin.dir}/test" />
+	<property name="client.plugin.bin.dir" location="${client.plugin.dir}/bin" />
+	<property name="client.plugin.junit.dir" location="${client.plugin.bin.dir}/test" />
+	<property name="client.plugin.lib.dir" location="${client.plugin.bin.dir}/lib" />
+	<property name="client.plugin.javadoc.dir" location="${client.plugin.bin.dir}/javadoc" />
+	<property name="client.plugin.samples.src.dir" location="${client.plugin.dir}/samples" />
+	<property name="client.plugin.samples.bin.dir" location="${client.plugin.bin.dir}/samples" />
+	<property name="server.translation.dir" value="${client.build.dir}/../server_translation"/>
+	<property name="server.tmstool.dir" value="${client.build.dir}/../server_tmsmsgtool"/>
+	<property name="client.plugin.samples.jsonmsg.bin.dir" location="${client.plugin.samples.bin.dir}/jsonmsgPlugin/" />
+	<property name="client.plugin.samples.jsonmsg.bin.doc.dir" location="${client.plugin.samples.jsonmsg.bin.dir}/doc" />
+	<property name="client.plugin.samples.restmsg.bin.dir" location="${client.plugin.samples.bin.dir}/restmsgPlugin/" />
+	<property name="client.plugin.samples.restmsg.bin.doc.dir" location="${client.plugin.samples.restmsg.bin.dir}/doc" />
+	
+	<property name="client.pluginsdk.samples.dir" location="${client.common.pluginsdk.dir}/samples" />
+	<property name="client.pluginsdk.jsonmsgplugin.samples.dir" location="${client.pluginsdk.samples.dir}/jsonmsgPlugin" />
+	<property name="client.pluginsdk.jsonmsgclient.samples.dir" location="${client.pluginsdk.samples.dir}/jsonmsgClient" />
+	<property name="client.pluginsdk.restmsgplugin.samples.dir" location="${client.pluginsdk.samples.dir}/restmsgPlugin" />
+	<property name="client.pluginsdk.restmsgclient.samples.dir" location="${client.pluginsdk.samples.dir}/restmsgClient" />
+        
+        <!-- Override this property if lack of jsdoc is a non-fatal error e.g. building for distros where jsdoc is unavailable -->
+        <property name="jsdoc.fails.build" value="true" />
+	
+
+	<!-- Load contrib library -->
+	<taskdef resource="net/sf/antcontrib/antcontrib.properties" onerror="ignore"/>
+	
+    
+    <available file="${client.plugin.rpx.dir}" type="dir" property="rpx.path.exists" />
+    <available file="${client.common.dir}/msgcat" type="dir" property="msgcat.path.exists" />
+	
+	<!-- define client_plugin jar file name -->
+	<property name="imaclientplugin.jar" location="${client.plugin.lib.dir}/imaclientplugin.jar"/>
+	<property name="imaserverplugin.jar" location="${server.common.lib.dir}/imaPlugin.jar"/>
+	<property name="jsonsample.jar" location="${client.plugin.lib.dir}/jsonprotocol.jar"/>
+	<property name="json.plugin.dir" location="${client.common.pluginsdk.dir}/lib/jsonplugin" />
+	<property name="json.plugin.zip" location="${client.common.pluginsdk.dir}/lib/jsonplugin.zip" />
+	<property name="restsample.jar" location="${client.plugin.lib.dir}/restprotocol.jar"/>
+	<property name="rest.plugin.dir" location="${client.common.pluginsdk.dir}/lib/restplugin" />
+	<property name="rest.plugin.zip" location="${client.common.pluginsdk.dir}/lib/restplugin.zip" />
+
+	<property name="imaclientplugin_test.jar" location="${client.plugin.lib.dir}/imaclientplugin_test.jar"/>
+
+	<property name="java8.dir" location="${env.JAVA_HOME}" />
+		
+	<fileset dir="${server.translation.dir}/xml" id="pluginclient_translations">
+		<include name="**/*.xml" />
+	</fileset>
+	<pathconvert refid="pluginclient_translations" property="translations.present" setonempty="false"/>
+	
+	<echo message="In ${server.translation.dir}/pluginclient, translations.present=${translations.present}" />
+
+   <condition property="is64">
+       <or>
+           <os arch="x86_64" />
+           <os arch="amd64" />
+       </or>
+   </condition>
+   <condition property="OSbit" value="64">
+       <isset property="is64" />
+   </condition>
+
+   <condition property="OSbit" value="32">
+       <not>
+           <isset property="is64" />
+       </not>
+   </condition>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+   </path>
+
+   <path id="test.classpath">
+   	  <pathelement location="/opt/apache-ant/lib" />
+   	  <pathelement location="/usr/share/java/junit.jar" />
+      <pathelement location="${client.plugin.bin.dir}" />
+      <pathelement location="${client.plugin.junit.dir}" />
+      <path refid="compile.classpath" />
+   </path>
+
+   <path id="samples.classpath">
+   	  <!--Include the imaPlugin from server ship tree -->
+      <pathelement location="${server.common.lib.dir}/imaPlugin.jar" />
+   </path>
+    
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${client.plugin.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to client ship tree      -->
+   <target name="plugin_publish">
+		<echo> ==  Copy files to client_ship tree ================ </echo>
+   		<!--Copy imaPlugin.jar from server ship tree to client ship tree -->
+		<copy todir="${client.common.lib.dir}" preservelastmodified="yes">
+			<fileset dir="${server.common.lib.dir}">
+				 <include name="**/imaPlugin.jar"/>
+			</fileset>
+		</copy>
+   		<copy todir="${client.common.pluginsdk.dir}/lib" preservelastmodified="yes">
+			<fileset dir="${server.common.lib.dir}">
+				 <include name="**/imaPlugin.jar"/>
+			</fileset>
+		</copy>
+   	
+        <copy todir="${client.common.pluginsdk.dir}/doc/javadoc">
+   	            <fileset dir="${client.plugin.javadoc.dir}" />
+   	    </copy>
+   	
+   	 
+   		
+   </target>
+	
+  
+   <!-- Copy the product file to ship tree      -->
+   <target name="samples_publish">
+		<echo> ==  Copy samples jar file to client_ship tree ================ </echo>
+		<copy file="${jsonsample.jar}" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${jsonsample.jar}" todir="${client.common.pluginsdk.dir}/lib" preservelastmodified="yes"/>
+		
+   	    <!--Copy JSON MSG Source -->
+   	    <copy todir="${client.pluginsdk.jsonmsgplugin.samples.dir}/src/com">
+   	            <fileset dir="${client.plugin.dir}/samples/com"  includes="**/jsonmsg/**"/>
+   	    </copy>
+   	
+        <!--Copy the sample configuration(s) -->
+   	    <!--Copy JSON MSG Configuration file -->
+        <copy todir="${client.pluginsdk.jsonmsgplugin.samples.dir}/config">
+            <fileset dir="${client.plugin.dir}/config/jsonmsg" />
+   	    </copy>
+   	
+   	    <!--Copy JSON MSG Java Doc -->
+        <copy todir="${client.pluginsdk.jsonmsgplugin.samples.dir}/doc/javadoc">
+            <fileset dir="${client.plugin.samples.jsonmsg.bin.doc.dir}" />
+        </copy>
+    
+   	    <!--Copy Javascript JSON MSG Client Source -->
+        <copy todir="${client.pluginsdk.jsonmsgclient.samples.dir}">
+            <fileset dir="${client.plugin.dir}/jsJSON" />
+        </copy>
+   	
+   	     <!--Copy Javascript JSON MSG Client JS Doc -->
+         <copy todir="${client.pluginsdk.jsonmsgclient.samples.dir}/doc/jsdoc" failonerror="${jsdoc.fails.build}">
+                 <fileset dir="${client.plugin.dir}/bin/jsonmsg_jsdoc" />
+         </copy>
+   	
+   	    <!-- Create JSON Plugin Zip -->
+   	    <mkdir dir="${json.plugin.dir}" />
+        <copy file="${jsonsample.jar}" todir="${json.plugin.dir}" preservelastmodified="yes"/>
+   	    <copy file="${client.common.pluginsdk.dir}/samples/jsonmsgPlugin/config/plugin.json" todir="${json.plugin.dir}" preservelastmodified="yes"/>
+   	    <zip destfile="${json.plugin.zip}"
+   	       basedir="${json.plugin.dir}"
+   	       update="true"
+   	     />
+   	    <delete dir="${json.plugin.dir}"/>
+   	    
+   	    <copy file="${restsample.jar}" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${restsample.jar}" todir="${client.common.pluginsdk.dir}/lib" preservelastmodified="yes"/>
+		
+   	    <!--Copy REST MSG Source -->
+   	    <copy todir="${client.pluginsdk.restmsgplugin.samples.dir}/src/com">
+   	            <fileset dir="${client.plugin.dir}/samples/com" includes="**/restmsg/**" />
+   	    </copy>
+   	
+        <!--Copy the sample configuration(s) -->
+   	    <!--Copy REST MSG Configuration file -->
+        <copy todir="${client.pluginsdk.restmsgplugin.samples.dir}/config">
+            <fileset dir="${client.plugin.dir}/config/restmsg" />
+   	    </copy>
+   	
+   	    <!--Copy REST MSG Java Doc -->
+        <copy todir="${client.pluginsdk.restmsgplugin.samples.dir}/doc/javadoc">
+            <fileset dir="${client.plugin.samples.restmsg.bin.doc.dir}" />
+        </copy>
+    
+   	    <!--Copy Javascript REST MSG Client Source -->
+        <copy todir="${client.pluginsdk.restmsgclient.samples.dir}">
+            <fileset dir="${client.plugin.dir}/jsREST" />
+        </copy>
+   	
+   	     <!--Copy Javascript REST MSG Client JS Doc -->
+         <copy todir="${client.pluginsdk.restmsgclient.samples.dir}/doc/jsdoc" failonerror="${jsdoc.fails.build}">
+                 <fileset dir="${client.plugin.dir}/bin/restmsg_jsdoc" />
+         </copy>
+   	
+   	    <!-- Create REST Plugin Zip -->
+   	    <mkdir dir="${rest.plugin.dir}" />
+        <copy file="${restsample.jar}" todir="${rest.plugin.dir}" preservelastmodified="yes"/>
+   	    <copy file="${client.common.pluginsdk.dir}/samples/restmsgPlugin/config/plugin.json" todir="${rest.plugin.dir}" preservelastmodified="yes"/>
+   	    <zip destfile="${rest.plugin.zip}"
+   	       basedir="${rest.plugin.dir}"
+   	       update="true"
+   	     />
+   	    <delete dir="${rest.plugin.dir}"/>
+   	
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, javadoc, plugin_jsdoc, package"  -->
+	<target name="build_client_plugin"  depends="plugin_javadoc, plugin_jsonmsg_javadoc, plugin_restmsg_javadoc, jsonmsg_jsdoc, restmsg_jsdoc, plugin_publish, plugin_samples, samples_publish">
+		<echo> ==  Invoking ant for client_plugin build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_plugin_jar" depends="plugin_compile, plugin_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.plugin.src.dir}/META-INF/MANIFEST.MF" todir="${client.plugin.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.plugin.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+	
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.plugin.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imaclientplugin.jar}">
+			<fileset dir="${client.plugin.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/**, samples/**" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${imaclientplugin.jar}" manifest="${client.plugin.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+    
+    <target name="build_plugin_test_jar" depends="plugin_compile, plugin_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.plugin.src.dir}/META-INF/MANIFEST.MF" todir="${client.plugin.junit.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.plugin.junit.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+	
+		<!-- set build id in the MANIFEST.MF file -->
+        <replace file="${client.plugin.junit.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imaclientplugin_test.jar}">
+			<fileset dir="${client.plugin.junit.dir}" includes="**/*.class" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+        <jar update="true" keepcompression="true" compress="false" destfile="${imaclientplugin_test.jar}" manifest="${client.plugin.junit.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+
+	<!--Compile the project-->
+	<target name="plugin_compile" depends="client_plugin_init, NWays_mock">				
+		<!-- set build id in the ImaConstants.java file -->
+		<!--
+		  <replace file="${client.plugin.src.dir}/com/ibm/ima/plugin/impl/ImaConstants.java" token="BUILD_ID" value="${build.id}" />
+		-->
+		
+		<!-- set version id in the ImaConstants.java file -->
+		<!--
+		<replace file="${client.plugin.src.dir}/com/ibm/ima/plugin/impl/ImaConstants.java" token="VERSION_ID" value="${version.id}" />
+		-->
+
+		<javac source="1.6" target="1.6" srcdir="${client.plugin.src.dir}" destdir="${client.plugin.bin.dir}" deprecation="no"
+             includeAntRuntime="no" encoding="utf-8"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${client.plugin.src.dir}" />
+			<src path="${client.common.dir}/msgcat" />
+			<exclude name="*.properties" />
+			<classpath refid="compile.classpath" />
+		</javac>
+		
+        <copy todir="${client.plugin.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${client.plugin.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+	
+   <!-- Generate Javadoc for just this project, both api and internal -->
+   <target name="plugin_javadoc" depends="client_plugin_init">
+      <echo> ==  Generating complete reference javadoc for the project  ======= </echo>
+      <javadoc destdir="${client.plugin.javadoc.dir}"
+               failonerror="false"
+               defaultexcludes="yes"
+               author="false"
+               private="false"
+               verbose="false"
+               version="true"
+               use="true"
+               splitindex="false"
+               noqualifier="java.*"
+      	       executable="${java8.dir}/bin/javadoc"
+               windowtitle="Eclipse Amlen Javadoc Reference"
+      >
+         <doctitle><![CDATA[<h1>Eclipse Amlen plug-in reference</h1>]]></doctitle>
+         <bottom><![CDATA[<i>Copyright &#169; Contributors to the Eclipse Foundation 2014-2021</i>]]></bottom>
+      	
+         <classpath refid="test.classpath" /> 
+         <sourcefiles>
+      		<!-- <fileset file="${client.plugin.src.dir}/../doconly/*.java" /> -->
+            <fileset file="${server.plugin.src.dir}/com/ibm/ima/plugin/*.java" />
+         	<fileset file="${server.plugin.src.dir}/com/ibm/ima/plugin/util/*.java" />
+         	
+         </sourcefiles>
+      </javadoc>
+      <!-- Replace hr id="" elements to avoid "Multiple WAI-ARIA 'navigation' landmarks 
+           must have unique labels specified with aria-label or aria-labelledby" validation error -->
+   	  <replace dir="${client.plugin.javadoc.dir}">
+        <include name="**/*.html"/>
+        <replacetoken><![CDATA[<hr id="navbar]]></replacetoken>
+        <replacevalue><![CDATA[<div id="navbar]]></replacevalue>
+      </replace>
+
+      <!-- Remove contentinfo landmark from package-use.html, since it doesn't have  
+           role="main" defined -->
+      <replace dir="${client.plugin.javadoc.dir}" value="">
+        <include name="**/package-use.html"/>
+        <replacetoken><![CDATA[<div role="contentinfo" title ="contentinfo_title" aria-labelledby ="contentinfo_label"/><hr id="contentinfo_label"/>]]></replacetoken>
+      </replace>
+      <!-- Add a landmark role to index.html -->
+      <replace dir="${client.plugin.javadoc.dir}">
+        <include name="**/index.html"/>
+        <replacetoken><![CDATA[</noscript>]]></replacetoken>
+        <replacevalue><![CDATA[</noscript>
+<div role="banner"/>]]></replacevalue>
+      </replace>   	
+   </target>
+	
+	<target name="plugin_jsonmsg_javadoc" depends="client_plugin_init">
+	      <echo> ==  Generating complete reference javadoc for the project  ======= </echo>
+	      <javadoc destdir="${client.plugin.samples.jsonmsg.bin.doc.dir}"
+	               failonerror="false"
+	               defaultexcludes="yes"
+	               author="false"
+	               private="false"
+	               verbose="false"
+	               version="true"
+	               use="true"
+	               splitindex="false"
+	               noqualifier="java.*"
+	               executable="${java8.dir}/bin/javadoc"
+	               windowtitle="Eclipse Amlen JSON Message Protocol Plugin Javadoc Reference"
+	      >
+	         <doctitle><![CDATA[<h1>Eclipse Amlen json_msg reference</h1>]]></doctitle>
+	         <bottom><![CDATA[<i>Copyright &#169; Contributors to the Eclipse Foundation 2014-2021</i>]]></bottom>
+	        
+	         <classpath refid="test.classpath" /> 
+	         <sourcefiles>
+	            <!-- <fileset file="${client.plugin.src.dir}/../doconly/*.java" /> -->
+	            <fileset file="${client.plugin.samples.src.dir}/com/ibm/ima/samples/plugin/jsonmsg/*.java" />
+	            
+	         </sourcefiles>
+	      </javadoc>
+	      <!-- Replace hr id="" elements to avoid "Multiple WAI-ARIA 'navigation' landmarks 
+	           must have unique labels specified with aria-label or aria-labelledby" validation error -->
+	      <replace dir="${client.plugin.samples.jsonmsg.bin.doc.dir}">
+	        <include name="**/*.html"/>
+	        <replacetoken><![CDATA[<hr id="navbar]]></replacetoken>
+	        <replacevalue><![CDATA[<div id="navbar]]></replacevalue>
+	      </replace>
+
+	      <!-- Remove contentinfo landmark from package-use.html, since it doesn't have  
+	           role="main" defined -->
+	      <replace dir="${client.plugin.samples.jsonmsg.bin.doc.dir}" value="">
+	        <include name="**/package-use.html"/>
+	        <replacetoken><![CDATA[<div role="contentinfo" title ="contentinfo_title" aria-labelledby ="contentinfo_label"/><hr id="contentinfo_label"/>]]></replacetoken>
+	      </replace>
+	      <!-- Add a landmark role to index.html -->
+	      <replace dir="${client.plugin.samples.jsonmsg.bin.doc.dir}">
+	        <include name="**/index.html"/>
+	        <replacetoken><![CDATA[</noscript>]]></replacetoken>
+	        <replacevalue><![CDATA[</noscript>
+	        <div role="banner"/>]]></replacevalue>
+	      </replace>    
+	   </target>
+	   
+	<target name="plugin_restmsg_javadoc" depends="client_plugin_init">
+	      <echo> ==  Generating complete reference javadoc for the project  ======= </echo>
+	      <javadoc destdir="${client.plugin.samples.restmsg.bin.doc.dir}"
+	               failonerror="false"
+	               defaultexcludes="yes"
+	               author="false"
+	               private="false"
+	               verbose="false"
+	               version="true"
+	               use="true"
+	               splitindex="false"
+	               noqualifier="java.*"
+	               executable="${java8.dir}/bin/javadoc"
+	               windowtitle="Eclipse Amlen REST Message Protocol Plugin Javadoc Reference"
+	      >
+	         <doctitle><![CDATA[<h1>Eclipse Amlen restmsg reference</h1>]]></doctitle>
+	         <bottom><![CDATA[<i>Copyright &#169; Contributors to the Eclipse Foundation 2014-2021</i>]]></bottom>
+	        
+	         <classpath refid="test.classpath" /> 
+	         <sourcefiles>
+	            <!-- <fileset file="${client.plugin.src.dir}/../doconly/*.java" /> -->
+	            <fileset file="${client.plugin.samples.src.dir}/com/ibm/ima/samples/plugin/restmsg/*.java" />
+	            
+	         </sourcefiles>
+	      </javadoc>
+	      <!-- Replace hr id="" elements to avoid "Multiple WAI-ARIA 'navigation' landmarks 
+	           must have unique labels specified with aria-label or aria-labelledby" validation error -->
+	      <replace dir="${client.plugin.samples.restmsg.bin.doc.dir}">
+	        <include name="**/*.html"/>
+	        <replacetoken><![CDATA[<hr id="navbar]]></replacetoken>
+	        <replacevalue><![CDATA[<div id="navbar]]></replacevalue>
+	      </replace>
+
+	      <!-- Remove contentinfo landmark from package-use.html, since it doesn't have  
+	           role="main" defined -->
+	      <replace dir="${client.plugin.samples.restmsg.bin.doc.dir}" value="">
+	        <include name="**/package-use.html"/>
+	        <replacetoken><![CDATA[<div role="contentinfo" title ="contentinfo_title" aria-labelledby ="contentinfo_label"/><hr id="contentinfo_label"/>]]></replacetoken>
+	      </replace>
+	      <!-- Add a landmark role to index.html -->
+	      <replace dir="${client.plugin.samples.restmsg.bin.doc.dir}">
+	        <include name="**/index.html"/>
+	        <replacetoken><![CDATA[</noscript>]]></replacetoken>
+	        <replacevalue><![CDATA[</noscript>
+	        <div role="banner"/>]]></replacevalue>
+	      </replace>    
+	   </target>
+
+    <target name="jsonmsg_jsdoc">
+        <echo>==  Generating JavaScript docs for JSON Messaging client  =======</echo>
+        <exec dir="${client.plugin.dir}"
+              executable="jsdoc"
+              failonerror="true"
+	      failifexecutionfails="${jsdoc.fails.build}">
+            <arg value="--destination"/>
+            <arg value="${client.plugin.dir}/bin/jsonmsg_jsdoc"/>
+            <arg value="${client.plugin.dir}/jsJSON/js/jsonmsg.js"/>
+        </exec>
+	</target>
+	
+	
+    <target name="restmsg_jsdoc">
+        <echo>==  Generating JavaScript docs for REST Messaging client  =======</echo>
+        <exec dir="${client.plugin.dir}"
+              executable="jsdoc"
+              failonerror="true"
+	      failifexecutionfails="${jsdoc.fails.build}">
+            <arg value="--destination"/>
+            <arg value="${client.plugin.dir}/bin/restmsg_jsdoc"/>
+            <arg value="${client.plugin.dir}/jsREST/js/restmsg.js"/>
+        </exec>
+	</target>
+	
+   <!-- Execute unit test for the project -->
+    <target name="plugin_test" depends="plugin_compile_test, plugin_junittest_32, plugin_junittest_64">
+    </target>
+
+    <!-- Execute unit test 32 for the project -->
+    <target name="plugin_junittest_32" depends="plugin_compile_test" >
+       <echo> ==  Unit tests with 32 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="32"/>
+       </antcall>
+    </target>
+
+    <!-- Execute unit test 64 for the project -->
+    <target name="plugin_junittest_64" if="do.unit.64" depends="plugin_compile_test"  >
+       <echo> ==  Unit tests with 64 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="64"/>
+       </antcall>
+    </target>
+
+	<!-- Execute the unit tests for the project -->
+	<target name="junit_test">
+		<echo> ==  Unit test setup for ${os.st} bits ======================== </echo>
+		<property name="test.data.dir" location="${client.plugin.junit.dir}/test-data/${os.st}" />
+		<property name="test.reports.dir" location="${client.plugin.junit.dir}/test-reports/${os.st}" />
+		<delete dir="${test.data.dir}" />
+		<delete dir="${test.reports.dir}" />
+		<mkdir dir="${test.data.dir}" />
+		<mkdir dir="${test.reports.dir}" />
+
+		<!-- property name="jvmargadd_1" value="-showversion" / -->
+		<condition property="jvmargadd_1" value="-d${os.st}" else="-showversion">
+			<equals arg1="${os.name}" arg2="SunOS"/>
+		</condition>
+
+		<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
+			<jvmarg value="${jvmargadd_1}" />
+			<classpath refid="test.classpath" />
+			<formatter type="xml" />
+			<formatter type="plain" usefile="no" />
+			<test name="com.ibm.ima.plugin.impl.AllTests" fork="yes" todir="${test.data.dir}"/>
+		</junit>
+
+		<!-- HTML report for the unit tests -->
+		<junitreport todir="${test.data.dir}" >
+			<fileset dir="${test.data.dir}">
+				<include name="*.xml" />
+			</fileset>
+			<report format="frames" todir="${test.reports.dir}" />
+		</junitreport>
+	</target>
+
+	<!--  Compile the unit test code  -->
+	<target name="plugin_compile_test" depends="plugin_compile">
+		<javac  source="1.6" target="1.6" srcdir="${client.plugin.test.src.dir}" destdir="${client.plugin.junit.dir}"
+                     debug="yes" debuglevel="lines,source,vars" optimize="yes" encoding="utf-8">
+         <classpath refid="test.classpath" />
+      </javac>
+      <copy todir="${client.plugin.junit.dir}" preservelastmodified="yes">
+         <fileset dir="${client.plugin.test.src.dir}" excludes="**/*.java" />
+      </copy>
+   </target>
+
+	<!--Compile the project-->
+	<target name="plugin_samples" depends="plugin_publish">
+		<!--  Compile the samples classes with no visibility to the internal files -->
+		<javac  source="1.6" target="1.6" srcdir="${client.plugin.samples.src.dir}" destdir="${client.plugin.samples.bin.dir}" deprecation="no"
+             includeAntRuntime="no" encoding="utf-8"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${client.plugin.samples.src.dir}" />
+			<classpath refid="samples.classpath" />
+		</javac>
+		
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.plugin.samples.src.dir}/META-INF/MANIFEST.MF" todir="${client.plugin.samples.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.plugin.samples.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" encoding="UTF-8" />
+	
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.plugin.samples.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" encoding="UTF-8" />
+		<jar destfile="${jsonsample.jar}">
+			<fileset dir="${client.plugin.samples.bin.dir}" includes="**/jsonmsg/**/*.class" />
+		</jar>
+	
+		<jar destfile="${restsample.jar}">
+			<fileset dir="${client.plugin.samples.bin.dir}" includes="**/restmsg/**/*.class" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${jsonsample.jar}" manifest="${client.plugin.samples.bin.dir}/META-INF/MANIFEST.MF" />
+		<jar update="true" keepcompression="true" compress="false" destfile="${restsample.jar}" manifest="${client.plugin.samples.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!-- Executing RPX tool for pseudo translation-->
+
+	<target name="NWays_mock" if="rpx.path.exists" unless="translations.present" description="Runs RPX class to do pseudo translation">
+		<if>
+	    	<equals arg1="${msgcat.path.exists}" arg2="true"/>
+    	<then>
+			<!-- Classpath for RPX -->
+			<path id="rpx.specific.classpath">
+		    	<pathelement location="rpx.jar"/>
+			    <fileset dir="${client.plugin.rpx.dir}">
+			       <include name="**/*.jar"/>
+			    </fileset>
+			</path>
+	
+			<taskdef name="nways" classname="com.ibm.rpx.ant.Nw" classpathref="rpx.specific.classpath"/>	
+			
+			<echo message="Running RPX"/>
+			<nways classpath="${client.plugin.rpx.dir};${client.plugin.rpx.dir}\rpx.jar;${ant.home}/lib/ant.jar" ways="fr de ja zh zh_TW" >
+				<fileset dir="${client.common.dir}/msgcat/com/ibm/ima/plugin/msgcatalog/">
+					<include name="IsmpluginListResourceBundle.java"/>
+				</fileset>
+			</nways>
+		</then>
+		</if>
+	</target>
+
+    <!-- Initialize the build environment -->
+	<target name="client_plugin_init">
+		<mkdir dir="${client.plugin.junit.dir}"/>
+		<mkdir dir="${client.plugin.lib.dir}"/>
+		<mkdir dir="${client.plugin.samples.bin.dir}"/>
+		<mkdir dir="${client.plugin.dir}/bin/jsonmsg_jsdoc}"/>
+		<mkdir dir="${client.plugin.dir}/bin/restmsg_jsdoc}"/>
+		<mkdir dir="${client.plugin.samples.jsonmsg.bin.dir}"/>
+		<mkdir dir="${client.plugin.samples.jsonmsg.bin.doc.dir}"/>
+		<mkdir dir="${client.plugin.samples.restmsg.bin.dir}"/>
+		<mkdir dir="${client.plugin.samples.restmsg.bin.doc.dir}"/>
+		<mkdir dir="${client.pluginsdk.samples.dir}"/>
+		<mkdir dir="${client.pluginsdk.jsonmsgplugin.samples.dir}"/>
+		<mkdir dir="${client.pluginsdk.jsonmsgclient.samples.dir}"/>
+		<mkdir dir="${client.pluginsdk.restmsgplugin.samples.dir}"/>
+		<mkdir dir="${client.pluginsdk.restmsgclient.samples.dir}"/>
+		  
+	</target>
+</project>

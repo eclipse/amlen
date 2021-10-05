@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+Test Description:
+   PETER - The publisher to /DCN/policy
+   SALLY - The subscriber to /DCN/policy
+   MOLLY - The monitor (subscriber) to $SYS/DisconnectedClientNotification
+
+	This will test to make sure that notifications do not get sent in
+	the case where a subscriber disconnects, its topic receives a message,
+	the subscriber reconnects and consumes the message before the server
+	goes through and sends notifications. In this test case, PETER is the
+	publisher, SALLY is the subscriber, and MOLLY is monitoring
+	$SYS/DisconnectedClientNotification
+-->
+
+<ImaMqttTest name="testmqtt_dcn02">
+  <Action name="CreateConnection_SALLY" type="CreateConnection">
+    <ActionParameter name="structure_id">con_SALLY</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_SALLY</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">SALLY</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <ApiParameter name="cleanSession">false</ApiParameter>
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CreateConnection_PETER" type="CreateConnection">
+    <ActionParameter name="structure_id">con_PETER</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_PETER</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">PETER</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <!-- Does not need to be clean session if it doesn't disconnect -->
+    <!--ApiParameter name="cleanSession">false</ApiParameter-->
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CreateConnection_MOLLY" type="CreateConnection">
+    <ActionParameter name="structure_id">con_MOLLY</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_MOLLY</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">MOLLY</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <!-- Does not need to be clean session if it doesn't disconnect -->
+    <!--ApiParameter name="cleanSession">false</ApiParameter-->
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CheckConnection_SALLY" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_SALLY</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+  <Action name="CheckConnection_PETER" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_PETER</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+  <Action name="CheckConnection_MOLLY" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_MOLLY</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+  <Action name="SubscribeMOLLY" type="Subscribe">
+    <ActionParameter name="connection_id">con_CF_MOLLY</ActionParameter>
+    <ApiParameter name="topic">$SYS/DisconnectedClientNotification</ApiParameter>
+  </Action>
+
+  <Action name="SubscribeSALLY" type="Subscribe">
+    <ActionParameter name="connection_id">con_CF_SALLY</ActionParameter>
+    <ApiParameter name="topic">/DCN/policy</ApiParameter>
+    <ApiParameter name="QoS">2</ApiParameter>
+  </Action>
+
+
+
+  <Action name="CreateMessage_msg1" type="CreateMessage">
+    <ActionParameter name="structure_id">msg1</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_PETER</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+    <ApiParameter name="payload">this is msg1</ApiParameter>
+  </Action>
+
+  <Action name="SendMessage_msg1" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_PETER</ActionParameter>
+    <ActionParameter name="message_id">msg1</ActionParameter>
+    <ActionParameter name="topic">/DCN/policy</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveMessage_msg1" type="ReceiveMessage">
+    <ActionParameter name="connection_id">con_CF_SALLY</ActionParameter>
+    <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+    <ActionParameter name="waitTime">1000</ActionParameter>
+  </Action>
+
+
+  <Action name="CloseConnection_SALLY" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_SALLY</ActionParameter>
+  </Action>
+
+  <Action name="CreateMessage_msg2" type="CreateMessage">
+    <ActionParameter name="structure_id">msg2</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_PETER</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+    <ApiParameter name="payload">this is msg2</ApiParameter>
+  </Action>
+
+  <!-- publish message while SALLY is disconnected -->
+  <Action name="SendMessage_msg2" type="SendMessage">
+    <ActionParameter name="connection_id">con_CF_PETER</ActionParameter>
+    <ActionParameter name="message_id">msg2</ActionParameter>
+    <ActionParameter name="topic">/DCN/policy</ActionParameter>
+    <ActionParameter name="RETAIN">false</ActionParameter>
+    <ActionParameter name="QoS">0</ActionParameter>
+  </Action>
+
+  <!-- reconnect and recv message BEFORE notifications go out (hopefully) -->
+  <Action name="CreateConnection_SALLY_2" type="CreateConnection">
+    <ActionParameter name="structure_id">con_SALLY_2</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_SALLY_2</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">SALLY</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <ApiParameter name="cleanSession">false</ApiParameter>
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CheckConnection_SALLY_2" type="CheckConnection">
+    <ActionParameter name="connection_id">con_CF_SALLY_2</ActionParameter>
+    <ActionParameter name="isConnected">true</ActionParameter>
+  </Action>
+
+  <!-- resubscribe *** THIS IS UNNECESSARY -->
+  <!--Action name="SubscribeSALLY_2" type="Subscribe">
+    <ActionParameter name="connection_id">con_CF_SALLY_2</ActionParameter>
+    <ApiParameter name="topic">/DCN/policy</ApiParameter>
+    <ApiParameter name="QoS">2</ApiParameter>
+  </Action-->
+
+  <Action name="ReceiveMessage_msg2" type="ReceiveMessage">
+    <ActionParameter name="connection_id">con_CF_SALLY_2</ActionParameter>
+    <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+    <ActionParameter name="waitTime">1000</ActionParameter>
+  </Action>
+
+  <!-- should not get a notification because the subscriber reconnected
+       and received its waiting message immediately -->
+  <Action name="ReceiveMessage_notice_fail" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+    <ActionParameter name="connection_id">con_CF_MOLLY</ActionParameter>
+    <ActionParameter name="structure_id">rxmsgnn</ActionParameter>
+    <ActionParameter name="waitTime">61000</ActionParameter>
+  </Action>
+
+  <!-- Unsubscribe -->
+  <Action name="UnsubscribeSALLY_2" type="Unsubscribe">
+    <ActionParameter name="connection_id">con_CF_SALLY_2</ActionParameter>
+    <ApiParameter name="topic">/DCN/policy</ApiParameter>
+  </Action>
+
+  <Action name="CloseConnection_SALLY_2" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_SALLY_2</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_PETER" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_PETER</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_MOLLY" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_MOLLY</ActionParameter>
+  </Action>
+
+  <!-- reconnect to removenon-cleansession status -->
+  <Action name="CreateConnection_SALLY_3" type="CreateConnection">
+    <ActionParameter name="structure_id">con_SALLY_2</ActionParameter>
+    <ActionParameter name="connection_id">con_CF_SALLY_2</ActionParameter>
+    <include>../common/ConnectionType.xml</include>
+    <include>../common/MQTT_server.xml</include>
+    <ApiParameter name="clientId">SALLY</ApiParameter>
+    <ApiParameter name="port">29300</ApiParameter>
+    <ApiParameter name="user">MQTTUserDCN</ApiParameter>
+    <ApiParameter name="password">test</ApiParameter>
+    <ApiParameter name="verbose">true</ApiParameter>
+  </Action>
+
+  <Action name="CloseConnection_SALLY_3" type="CloseConnection">
+    <ActionParameter name="connection_id">con_CF_SALLY_2</ActionParameter>
+  </Action>
+
+</ImaMqttTest>

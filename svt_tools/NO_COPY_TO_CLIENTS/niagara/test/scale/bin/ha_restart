@@ -1,0 +1,73 @@
+#!/bin/bash
+source /niagara/test/scripts/ISMsetup.sh
+
+stop()
+{
+server=$1
+out=`ssh admin@${server} status imaserver`
+printf "${server} stopping ."
+if [ ! "${out}" == "Status = Stopped" ]; then
+  out=`ssh admin@${server} "imaserver stop; status imaserver" | head -n 1`
+  printf "."
+  while [ ! "${out}" == "Status = Stopped" ]; do
+    sleep 5s
+    printf "."
+    out=`ssh admin@${server} status imaserver`
+  done
+fi
+printf " ${out}\n"
+unset out
+unset server 
+}
+
+start()
+{
+server=$1
+out=`ssh admin@${server} status imaserver`
+printf "${server} starting ."
+out=`ssh admin@${server} "imaserver start; status imaserver" | head -n 1`
+printf "."
+sleep 5s
+
+while [ ! "${out}" == "Status = StoreStarting" ]; do
+  sleep 5s
+  printf "."
+  out=`ssh admin@${server} "status imaserver" | head -n 1`
+done
+printf " ${out}\n"
+
+standby=$2
+printf "${standby} starting "
+out=`ssh admin@${standby} "imaserver start; status imaserver" | head -n 1`
+while [[ ( ! "${out}" == "Status = Standby") && ( ! "${out}" == "Status = Running") && ( ! "${out}" == "Status = Running (production)") ]]; do
+  sleep 5s
+  printf "."
+  out=`ssh admin@${standby} "status imaserver" | head -n 1`
+done
+
+printf ". ${out}\n"
+
+out=`ssh admin@${server} "status imaserver" | head -n 1`
+while [[ ( ! "${out}" == "Status = Standby") && ( ! "${out}" == "Status = Running") && ( ! "${out}" == "Status = Running (production)") ]]; do
+  sleep 5s
+  out=`ssh admin@${server} "status imaserver" | head -n 1`
+done
+
+printf "${server} ${out}\n"
+
+unset out
+unset server 
+}
+
+p=`getprimary`
+s=`getstandby`
+
+stop $s
+stop $p
+
+sleep 5
+
+start $p $s
+
+
+

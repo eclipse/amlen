@@ -1,0 +1,677 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name:  HA_expiry_test_jms
+
+  Test Category:  JMS/MQTT High Availability
+
+  Test Description:
+    Start JMS TestDriver
+    Start MQTT TestDriver
+
+    (JMS TestDriver component 1)
+    durable subscription to /HAEXP/#
+    durable shared subscription to /HAEXP/#
+
+    (MQTT TestDriver component 2)
+    durable QoS 0 subscription to /HAEXP/#
+    durable QoS 1 subscription to /HAEXP/#
+    durable QoS 2 subscription to /HAEXP/#
+    durable QoS 2 shared subscription to /HAEXP/#
+
+    NOTE: All JMS and MQTT subscribers are inactive/disconnected while publishing
+
+    (JMS TestDriver component 1)
+    send retained messages to (Expiration set on each publish, based on topic):
+            /HAEXP/10sec
+            /HAEXP/20sec
+            /HAEXP/40sec
+            /HAEXP/50sec
+            /HAEXP/60sec
+
+    (MQTT TestDriver component 2)
+    send retained messages to (Expiration set on messaging policy, 30 seconds)
+            /HAEXP/30sec
+
+    SYNC POINT 1
+
+    (JMS TestDriver component 1)
+    Send a lot of messages that expire in different ways:
+            Send from JMS with ttl set on the message (10 seconds)
+            Send from JMS with ttl set on messaging policy (30 seconds)
+            Send from JMS with ttl set on message that is > ttl set on messaging policy (60/10)
+            Send from JMS with ttl set on message that is < ttl set on messaging policy (60/10)
+            Send from JMS with no ttl set on the message (Never expires)
+            Send from JMS with ttl set but not expiring any time soon (240 seconds set on message)
+
+    (MQTT TestDriver component 2)
+    Send a lot of messages that expire in different ways:
+            Send from MQTT with ttl set on messaging policy (30 seconds)
+            Send from MQTT with no ttl set on the message (Never expires)
+            Send from MQTT with ttl set but not expiring any time soon (240 seconds)
+
+    (JMS TestDriver component 1)
+    Get stats for server and subscription
+
+    SYNC POINT 2
+
+    (JMS TestDriver component 1)
+    Crash imaserver
+    Get stats for server and subscription
+    Wait 20 seconds
+    Get stats for server and subscription
+    Wait 20 seconds
+    Get stats for server and subscription
+    Wait 20 seconds
+    Get stats for server and subscription
+
+    SYNC POINT 3
+
+    Reconnect JMS subscribers
+
+    SYNC POINT 4
+    
+    At this point there should be 400 messages remaining on all of the subscriptions.
+    100 with no expiration set, sent by JMS
+    100 with no expiration set, sent by MQTT
+    100 with 240sec expiration set, sent by JMS (set on message)
+    100 with 240sec expiration set, sent by MQTT (set on policy)
+
+    The other 600 messages and the 6 retained messages should have expired.
+    
+    Consume the messages from the JMS subscriptions.
+    Reconnect QoS 1 MQTT subscription and consume messages from the QoS 1 subscription
+    as well as the messages from the MQTT shared subscription.
+    Reconnect QoS 2 MQTT subscription and consume messages from the QoS 2 subscription.
+    
+	Make sure nothing is left on any subscriptions.
+
+    Collect stats a final time.
+
+    (JMS TestDriver component 1)
+    Verify:
+            Admin set ttl's were synchronized and still followed after failover.
+            Expired message statistics are correct.
+
+    SYNC POINT 5
+
+    Cleanup
+
+    TEST COMPLETE
+
+    By the end of the test, there should be 400 regular messages left
+    on the subscriptions.
+
+
+*****************************************************************************/
+-->
+<ImaJmsTest name="HA_expiry_test_jms">
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>HA_expiry_test_Unique1</solution>
+    </SyncClient>
+
+    <Action name="jms" type="CompositeAction">
+
+        <Action name="Create_CF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF</ActionParameter>
+        </Action>
+
+        <Action name="Create_CFShared" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CFShared</ActionParameter>
+        </Action>
+
+        <Action name="Fill_CF_Props" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <!-- TODO: Update these values -->
+            <ImaProperty name="ClientID" value="HA_Expiry_JMS" />
+            <ImaProperty name="Port" value="20021" />
+            <include>../common/JMS_serverHA.xml</include>
+        </Action>
+
+        <Action name="Fill_CFShared_Props" type="FillIsmProps">
+            <ActionParameter name="structure_id">CFShared</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <!-- TODO: Update these values -->
+            <ImaProperty name="Port" value="20021" />
+            <include>../common/JMS_serverHA.xml</include>
+        </Action>
+
+        <Action name="Create_Conn" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn</ActionParameter>
+            <ActionParameter name="factory_id">CF</ActionParameter>
+        </Action>
+
+        <Action name="Create_ConnShared" type="CreateConnection">
+            <ActionParameter name="structure_id">ConnShared</ActionParameter>
+            <ActionParameter name="factory_id">CFShared</ActionParameter>
+        </Action>
+
+        <Action name="Create_Session" type="CreateSession">
+            <ActionParameter name="structure_id">Session</ActionParameter>
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+
+        <Action name="Create_SessionShared" type="CreateSession">
+            <ActionParameter name="structure_id">SessionShared</ActionParameter>
+            <ActionParameter name="conn_id">ConnShared</ActionParameter>
+        </Action>
+
+        <!-- Create JMS Destinations for the various topics we will
+             publish and subscribe to -->
+
+        <Action name="Create_Dest_PublishPolicySet" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicySet</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/Expiry/PolicySet</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_PublishPolicySetHigher" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicySetHigher</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/Expiry/PolicySetHigher</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_PublishPolicySetLower" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicySetLower</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/Expiry/PolicySetLower</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_PublishPolicyNotSet" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicyNotSet</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/Expiry/PolicyNotSet</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_PublishPolicySetLong" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicySetLong</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/Expiry/PolicySetLong</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_Wildcard" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_Wildcard</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/#</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_10sec" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_10sec</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/10sec</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_20sec" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_20sec</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/20sec</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_40sec" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_40sec</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/40sec</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_50sec" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_50sec</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/50sec</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_60sec" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_60sec</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/60sec</ApiParameter>
+        </Action>
+
+        <!-- Create wildcard subscription -->
+
+        <Action name="Create_Sub" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">Sub</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ActionParameter name="dest_id">Dest_Wildcard</ActionParameter>
+            <ApiParameter name="durableName">ExpirySubWildcard</ApiParameter>
+        </Action>
+
+        <!-- Create shared wildcard subscription -->
+        
+        <Action name="Create_SharedSub" type="CreateSharedDurableConsumer">
+            <ActionParameter name="structure_id">SubShared</ActionParameter>
+            <ActionParameter name="session_id">SessionShared</ActionParameter>
+            <ActionParameter name="dest_id">Dest_Wildcard</ActionParameter>
+            <ApiParameter name="durableName">ExpirySubSharedWildcard</ApiParameter>
+        </Action>
+
+        <!-- Close consumers so that we don't process all the messages that we want
+             to let exipre -->
+
+        <Action name="Close_Sub" type="CloseConsumer">
+            <ActionParameter name="consumer_id">Sub</ActionParameter>
+        </Action>
+
+        <Action name="Close_SubShared" type="CloseConsumer">
+            <ActionParameter name="consumer_id">SubShared</ActionParameter>
+        </Action>
+
+        <Action name="Create_Pub" type="CreateProducer">
+            <ActionParameter name="structure_id">Pub</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+        </Action>
+
+        <!-- Create retained messages -->
+
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">TextMessage</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+
+        <Action name="SetRetained" type="SetMessageProperty">
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+            <ApiParameter name="valueType">Integer</ApiParameter>
+            <ApiParameter name="value">1</ApiParameter>
+        </Action>
+
+        <Action name="SetText" type="SetMessageText">
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ApiParameter name="value">TEXT: HA Expiry Retained message</ApiParameter>
+        </Action>
+
+        <!-- Publish retained with varying expirations -->
+
+        <Action name="Publish_10sec_retained" type="SendMessage">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="dest_id">Dest_10sec</ActionParameter>
+            <ApiParameter name="ttl">10000</ApiParameter>
+        </Action>
+
+        <Action name="Publish_20sec_retained" type="SendMessage">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="dest_id">Dest_20sec</ActionParameter>
+            <ApiParameter name="ttl">20000</ApiParameter>
+        </Action>
+
+        <Action name="Publish_40sec_retained" type="SendMessage">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="dest_id">Dest_40sec</ActionParameter>
+            <ApiParameter name="ttl">40000</ApiParameter>
+        </Action>
+
+        <Action name="Publish_50sec_retained" type="SendMessage">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="dest_id">Dest_50sec</ActionParameter>
+            <ApiParameter name="ttl">50000</ApiParameter>
+        </Action>
+
+        <Action name="Publish_60sec_retained" type="SendMessage">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="dest_id">Dest_60sec</ActionParameter>
+            <ApiParameter name="ttl">60000</ApiParameter>
+        </Action>
+
+        <!-- sync point 1 -->
+        <Action name="SyncPoint1" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms1</ActionParameter>
+            <ActionParameter name="component_list">jms1;mqtt1</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+
+        <!-- Send messages with various forms of ttl set -->
+
+        <!-- Create message -->
+
+        <Action name="CreateMessageRegular" type="CreateMessage">
+            <ActionParameter name="structure_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+
+        <Action name="SetTextRegular" type="SetMessageText">
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ApiParameter name="value">TEXT: HA Expiry Regular message</ApiParameter>
+        </Action>
+
+        <!-- ttl Set directly on the JMS message -->
+        <Action name="Send_Message_ttl_A" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicyNotSet</ActionParameter>
+            <ApiParameter name="ttl">10000</ApiParameter>
+        </Action>
+
+        <!-- ttl Set on messaging policy only -->
+        <Action name="Send_Message_ttl_B" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySet</ActionParameter>
+        </Action>
+
+        <!-- ttl Set on messaging policy greater than ttl on message -->
+        <Action name="Send_Message_ttl_C" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySetHigher</ActionParameter>
+            <ApiParameter name="ttl">10000</ApiParameter>
+        </Action>
+
+        <!-- ttl Set on messaging policy less than ttl on message -->
+        <Action name="Send_Message_ttl_D" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySetLower</ActionParameter>
+            <ApiParameter name="ttl">60000</ApiParameter>
+        </Action>
+
+        <!-- ttl not set anywhere -->
+        <Action name="Send_Message_ttl_E" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicyNotSet</ActionParameter>
+        </Action>
+
+        <!-- ttl Set on message but not expiring anytime soon -->
+        <Action name="Send_Message_ttl_F" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicyNotSet</ActionParameter>
+            <ApiParameter name="ttl">240000</ApiParameter>
+        </Action>
+        
+        <!-- Collect some server stats after we have sent everything -->
+        <Action name="Stats_Sub_A" type="RestAPI">
+            <dependsOn name="Send_Message_ttl_F" interval="1000"/>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_A" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <!-- sync point 2 -->
+        <Action name="SyncPoint2" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms2</ActionParameter>
+            <ActionParameter name="component_list">jms2;mqtt2</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+
+        <!-- Crash the primary server-->
+        <Action name="Crash_Server" type="ShellAction">
+<!--            <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>-->
+            <ActionParameter name="command">python ../scripts/haFunctions.py -a crashPrimary -f crashPrimary.log</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+        <!-- Collect more server stats immediately after the restart -->
+        <Action name="Stats_Sub_C" type="RestAPI">
+            <dependsOn name="Crash_Server" interval="15000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_C" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Sub_D" type="RestAPI">
+            <dependsOn name="Stats_Server_C" interval="20000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_D" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Sub_E" type="RestAPI">
+            <dependsOn name="Stats_Server_D" interval="20000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_E" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Sub_F" type="RestAPI">
+            <dependsOn name="Stats_Server_E" interval="20000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_F" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <!-- sync point 3 -->
+        <Action name="SyncPoint3" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms3</ActionParameter>
+            <ActionParameter name="component_list">jms3;mqtt3</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+
+        <!-- Reconnect -->
+        <Action name="Create_Conn_Reconnect" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn</ActionParameter>
+            <ActionParameter name="factory_id">CF</ActionParameter>
+        </Action>
+
+        <Action name="Create_ConnShared_Reconnect" type="CreateConnection">
+            <ActionParameter name="structure_id">ConnShared</ActionParameter>
+            <ActionParameter name="factory_id">CFShared</ActionParameter>
+        </Action>
+
+        <Action name="Create_Session_Reconnect" type="CreateSession">
+            <ActionParameter name="structure_id">Session</ActionParameter>
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+
+        <Action name="Create_SessionShared_Reconnect" type="CreateSession">
+            <ActionParameter name="structure_id">SessionShared</ActionParameter>
+            <ActionParameter name="conn_id">ConnShared</ActionParameter>
+        </Action>
+
+        <!-- Verification -->
+
+        <!-- sync point 4 -->
+        <Action name="SyncPoint4" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms4</ActionParameter>
+            <ActionParameter name="component_list">jms4;mqtt4</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+        
+        <!-- Create wildcard subscription -->
+
+        <Action name="ReCreate_Sub" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">Sub</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ActionParameter name="dest_id">Dest_Wildcard</ActionParameter>
+            <ApiParameter name="durableName">ExpirySubWildcard</ApiParameter>
+        </Action>
+
+        <!-- Create shared wildcard subscription -->
+        
+        <Action name="ReCreate_SharedSub" type="CreateSharedDurableConsumer">
+            <ActionParameter name="structure_id">SubShared</ActionParameter>
+            <ActionParameter name="session_id">SessionShared</ActionParameter>
+            <ActionParameter name="dest_id">Dest_Wildcard</ActionParameter>
+            <ApiParameter name="durableName">ExpirySubSharedWildcard</ApiParameter>
+        </Action>
+        
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+        
+        <Action name="StartConnectionShared" type="StartConnection">
+            <ActionParameter name="conn_id">ConnShared</ActionParameter>
+        </Action>
+
+        <Action name="Receive" type="ReceiveMessage" repeat="400">
+            <ActionParameter name="consumer_id">Sub</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+        
+        <Action name="ReceiveEmpty" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">Sub</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg</ActionParameter>
+            <ApiParameter name="timeout">1000</ApiParameter>
+        </Action>
+        
+        <Action name="ReceiveShared" type="ReceiveMessage" repeat="400">
+            <ActionParameter name="consumer_id">SubShared</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+        
+        <Action name="ReceiveSharedEmpty" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">Sub</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg</ActionParameter>
+            <ApiParameter name="timeout">1000</ApiParameter>
+        </Action>
+
+        <!-- Collect some more server stats after a short period of time after restart
+             This delay also provides some time to consume non-expired messages that
+             are available after reconnecting -->
+
+        <Action name="Stats_Sub_G" type="RestAPI">
+            <dependsOn name="SyncPoint4" interval="20000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_G" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    
+        <!-- sync point 5 -->
+        <Action name="SyncPoint5" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms5</ActionParameter>
+            <ActionParameter name="component_list">jms5;mqtt5</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+
+        <Action name="CloseConsumer" type="CloseConsumer">
+            <ActionParameter name="consumer_id">Sub</ActionParameter>
+        </Action>
+
+        <Action name="CloseConsumerShared" type="CloseConsumer">
+            <ActionParameter name="consumer_id">SubShared</ActionParameter>
+        </Action>
+        
+        <!-- Unsubscribe and disconnect -->
+        <Action name="Unsubscribe" type="Unsubscribe">
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ApiParameter name="durableName">ExpirySubWildcard</ApiParameter>
+        </Action>
+        
+        <Action name="UnsubscribeShared" type="Unsubscribe">
+            <ActionParameter name="session_id">SessionShared</ActionParameter>
+            <ApiParameter name="durableName">ExpirySubSharedWildcard</ApiParameter>
+        </Action>
+
+        <Action name="Close_Conn" type="CloseConnection">
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+
+        <Action name="Close_ConnShared" type="CloseConnection">
+            <ActionParameter name="conn_id">ConnShared</ActionParameter>
+        </Action>
+
+        <Action name="StartStandby" type="ShellAction">
+            <ActionParameter name="command">python ../scripts/haFunctions.py -a startStandby -f HA_expiry_test_jms.startStandby.log</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+    </Action>
+</ImaJmsTest>

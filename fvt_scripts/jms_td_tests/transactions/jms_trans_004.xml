@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+	Test case:  jms_trans_004.xml
+	
+	Description:
+		Extension of rollback() acceptance test (jms_trans_002.xml) with multiple consumers in multiple sessions.
+-->
+<ImaJmsTest name="jms_trans_004" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_trans_004</solution>
+	</SyncClient>
+  <Action name="rmdr" type="CompositeAction">
+
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102"/>
+		<include>../common/JMS_server.xml</include>
+	</Action>
+	<Action name="CreateConnection" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateSession1" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session1</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+	<Action name="CreateSession2" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session2</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+	<Action name="CreateSession3" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session3</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+
+	<!-- Create destination and consumer #1 -->
+	<Action name="CreateDestination1" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans001</ApiParameter>
+	 	<ActionParameter name="structure_id">dest1</ActionParameter>
+	</Action>
+	<Action name="CreateConsumer1" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer1</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>
+
+	<!-- Create destination and consumer #2 -->
+	<Action name="CreateDestination2" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans002</ApiParameter>
+	 	<ActionParameter name="structure_id">dest2</ActionParameter>
+	</Action>
+	<Action name="CreateConsumer2" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer2</ActionParameter>
+		<ActionParameter name="dest_id">dest2</ActionParameter>
+		<ActionParameter name="session_id">Session2</ActionParameter>
+	</Action>
+
+	<!-- Create destination and consumer #3 -->
+	<Action name="CreateDestination3" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans003</ApiParameter>
+	 	<ActionParameter name="structure_id">dest3</ActionParameter>
+	</Action>
+	<Action name="CreateConsumer3" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer3</ActionParameter>
+		<ActionParameter name="dest_id">dest3</ActionParameter>
+		<ActionParameter name="session_id">Session3</ActionParameter>
+	</Action>
+
+	<!-- Create destination and consumer #4 -->
+	<Action name="CreateDestination4" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans004</ApiParameter>
+	 	<ActionParameter name="structure_id">dest4</ActionParameter>
+	</Action>
+	<Action name="CreateConsumer4" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer4</ActionParameter>
+		<ActionParameter name="dest_id">dest4</ActionParameter>
+		<ActionParameter name="session_id">Session3</ActionParameter>
+	</Action>
+
+	<Action name="StartConnection" type="StartConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+
+	<!-- sync before sending/receiving messages -->
+	<Action name="sync_components" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">rx1</ActionParameter>
+		<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<Action name="CompositeRcv1_1" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage1_1" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage1_1" type="GetMessageText">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">TEXT: test string</ActionParameter>
+		</Action>
+	</Action>
+	<Action name="CompositeRcv2_1" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage2_1" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg2</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage2_1" type="GetMessageMapItem">
+			<ActionParameter name="message_id">rxmsg2</ActionParameter>
+			<ApiParameter name="propertyName">MessageContent</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">MAP: test string</ActionParameter>
+		</Action>
+	</Action>
+	<Action name="CompositeRcv3_1" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage3_1" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg3</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage3_1" type="ReadStreamMessage">
+			<ActionParameter name="message_id">rxmsg3</ActionParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">STREAM: test string</ActionParameter>
+		</Action>
+	</Action>
+	<Action name="CompositeRcv4_1" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage4_1" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer4</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg4</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage4_1" type="GetMessageObject">
+			<ActionParameter name="message_id">rxmsg4</ActionParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">OBJECT: test string</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="Rollback1" type="SessionRollback">
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>
+	<Action name="Rollback2" type="SessionRollback">
+		<ActionParameter name="session_id">Session2</ActionParameter>
+	</Action>
+	<Action name="Rollback3" type="SessionRollback">
+		<ActionParameter name="session_id">Session3</ActionParameter>
+	</Action>
+
+	<Action name="CompositeRcv1_2" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage1_2" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage1_2" type="GetMessageText">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">TEXT: test string</ActionParameter>
+		</Action>
+	</Action>
+	<Action name="CompositeRcv2_2" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage2_2" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg2</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage2_2" type="GetMessageMapItem">
+			<ActionParameter name="message_id">rxmsg2</ActionParameter>
+			<ApiParameter name="propertyName">MessageContent</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">MAP: test string</ActionParameter>
+		</Action>
+	</Action>
+	<Action name="CompositeRcv3_2" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage3_2" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg3</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage3_2" type="ReadStreamMessage">
+			<ActionParameter name="message_id">rxmsg3</ActionParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">STREAM: test string</ActionParameter>
+		</Action>
+	</Action>
+	<Action name="CompositeRcv4_2" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage4_2" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer4</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg4</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage4_2" type="GetMessageObject">
+			<ActionParameter name="message_id">rxmsg4</ActionParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">OBJECT: test string</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="Commit1" type="SessionCommit">
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>
+	<Action name="Commit2" type="SessionCommit">
+		<ActionParameter name="session_id">Session2</ActionParameter>
+	</Action>
+	<Action name="Commit3" type="SessionCommit">
+		<ActionParameter name="session_id">Session3</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession1" type="CloseSession">
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>
+	<Action name="CloseSession2" type="CloseSession">
+		<ActionParameter name="session_id">Session2</ActionParameter>
+	</Action>
+	<Action name="CloseSession3" type="CloseSession">
+		<ActionParameter name="session_id">Session3</ActionParameter>
+	</Action>
+
+	<Action name="StopConnection" type="StopConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CloseConnection" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+</Action>
+  
+  
+  
+<Action name="rmdt" type="CompositeAction">
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102"/>
+		<include>../common/JMS_server.xml</include>
+	</Action>
+	<Action name="CreateConnection" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateSession" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	 	<ActionParameter name="structure_id">Ses1</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+
+	<!-- Create destination and producer #1 -->
+	<Action name="CreateDestination1" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans001</ApiParameter>
+	 	<ActionParameter name="structure_id">dest1</ActionParameter>
+	</Action>
+	<Action name="CreateProducer1" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<!-- Create destination and producer #2 -->
+	<Action name="CreateDestination2" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans002</ApiParameter>
+	 	<ActionParameter name="structure_id">dest2</ActionParameter>
+	</Action>
+	<Action name="CreateProducer2" type="CreateProducer">
+		<ActionParameter name="structure_id">producer2</ActionParameter>
+		<ActionParameter name="dest_id">dest2</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<!-- Create destination and producer #3 -->
+	<Action name="CreateDestination3" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans003</ApiParameter>
+	 	<ActionParameter name="structure_id">dest3</ActionParameter>
+	</Action>
+	<Action name="CreateProducer3" type="CreateProducer">
+		<ActionParameter name="structure_id">producer3</ActionParameter>
+		<ActionParameter name="dest_id">dest3</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<!-- Create destination and producer #4 -->
+	<Action name="CreateDestination4" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans004</ApiParameter>
+	 	<ActionParameter name="structure_id">dest4</ActionParameter>
+	</Action>
+	<Action name="CreateProducer4" type="CreateProducer">
+		<ActionParameter name="structure_id">producer4</ActionParameter>
+		<ActionParameter name="dest_id">dest4</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<Action name="StartConnection" type="StartConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+
+	<Action name="CreateMessage1" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg1</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>
+	<Action name="CreateMessage2" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg2</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">MAP</ApiParameter>
+	</Action>
+	<Action name="CreateMessage3" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg3</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">STREAM</ApiParameter>
+	</Action>
+	<Action name="CreateMessage4" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg4</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">OBJECT</ApiParameter>
+	</Action>
+
+	<Action name="SetMessageText" type="SetMessageText">
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+		<ApiParameter name="value">TEXT: test string</ApiParameter>
+	</Action>
+	<Action name="SetMapMsg" type="SetMessageMapItem">
+		<ActionParameter name="message_id">txmsg2</ActionParameter>
+		<ApiParameter name="propertyName">MessageContent</ApiParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ApiParameter name="value">MAP: test string</ApiParameter>
+	</Action>
+	<Action name="SetStreamMsg" type="WriteStreamMessage">
+		<ActionParameter name="message_id">txmsg3</ActionParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ApiParameter name="value">STREAM: test string</ApiParameter>
+		</Action>
+	<Action name="SetObjMsg" type="SetMessageObject">
+		<ActionParameter name="message_id">txmsg4</ActionParameter>
+		<ActionParameter name="objValueType">String</ActionParameter>
+		<ApiParameter name="value">OBJECT: test string</ApiParameter>
+	</Action>
+
+	<Action name="sync_components" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">tx1</ActionParameter>
+		<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<Action name="SendMessages1" type="SendMessage" repeat="40" repeat_interval="0">
+		<ActionParameter name="producer_id">producer1</ActionParameter>
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+	</Action>
+	<Action name="SendMessages2" type="SendMessage" repeat="40" repeat_interval="0">
+		<ActionParameter name="producer_id">producer2</ActionParameter>
+		<ActionParameter name="message_id">txmsg2</ActionParameter>
+	</Action>
+	<Action name="SendMessages3" type="SendMessage" repeat="40" repeat_interval="0">
+		<ActionParameter name="producer_id">producer3</ActionParameter>
+		<ActionParameter name="message_id">txmsg3</ActionParameter>
+	</Action>
+	<Action name="SendMessages4" type="SendMessage" repeat="40" repeat_interval="0">
+		<ActionParameter name="producer_id">producer4</ActionParameter>
+		<ActionParameter name="message_id">txmsg4</ActionParameter>
+	</Action>
+
+	<Action name="Commit" type="SessionCommit">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession" type="CloseSession">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="StopConnection" type="StopConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CloseConnection" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+  </Action>
+</ImaJmsTest>

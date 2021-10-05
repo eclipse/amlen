@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testproxy_publishV5_05" >
+<!--
+    Test MQTT V5 Publishes NON-RETAIN with Message Expiry 
+    DURABLE MQTT V3 and V5 Subscriber will receive the message before expiry end and not after expiry expires.
+-->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testproxy_publishV5_05</solution>
+    </SyncClient>
+
+
+<!--  ==========  publish  ==========  -->
+
+    <Action name="publish" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.pubV5</ApiParameter>
+
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 1:{ clientId:V5_publishV5_05.pubV5, retain:false, expires:10, QoS:1, topic:topic/05/V5 }</ApiParameter>
+            <ApiParameter name="msgExpire">10</ApiParameter>
+        </Action>
+        
+        <Action name="sync_Subscribed" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">rxV3-1;rxV5-1;tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+        <Action name="SendMessage1" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">topic/05/V5</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+        
+        <Action name="sync_Message1Sent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx2</ActionParameter>
+            <ActionParameter name="component_list">rxV3-2;rxV5-2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="sync_Message1Received" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx3</ActionParameter>
+            <ActionParameter name="component_list">rxV3-3;rxV5-3;tx3</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+
+        <Action name="SubscriptionMonitorBeforeMsg2Sent" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=V5_publishV5_05*</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 2:{ clientId:V5_publishV5_05.pubV5, retain:false, expires:5, QoS:2, topic:topic/05/V5 }</ApiParameter>
+            <ApiParameter name="msgExpire">5</ApiParameter>
+        </Action>
+        <Action name="SendMessage2" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg2</ActionParameter>
+            <ActionParameter name="topic">topic/05/V5</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+        <Action name="SubscriptionMonitorAfterMsg2Sent" type="RestAPI">
+          <dependsOn action_id="sync_Message1Received" interval="3000"/>
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=V5_publishV5_05*</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+           
+        <Action name="sync_Message2Sent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx4</ActionParameter>
+            <ActionParameter name="component_list">rxV3-4;rxV5-4;tx4</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+
+
+<!--  ==========  receiveV3  ==========  -->
+
+    <Action name="receiveV3" type="CompositeAction">
+        <Action name="CreateCleanConnectionV3" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV3</ApiParameter>
+
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseCleanConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+        <Action name="CreateConnectionV3" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV3</ApiParameter>
+
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <ApiParameter name="topic">topic/05/V5</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        <Action name="CloseConnectionSubscribe" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+        
+        <Action name="sync_Subscribed" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-1</ActionParameter>
+            <ActionParameter name="component_list">rxV3-1;rxV5-1;tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="sync_Message1Sent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-2</ActionParameter>
+            <ActionParameter name="component_list">rxV3-2;rxV5-2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection4Msg1" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV3</ApiParameter>
+
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="ReceiveMessage1" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CheckMessage1" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg 1:{ clientId:V5_publishV5_05.pubV5, retain:false, expires:10, QoS:1, topic:topic/05/V5 }</ActionParameter>
+            <ActionParameter name="compareTopic">topic/05/V5</ActionParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+            <ActionParameter name="compareRetain">false</ActionParameter>
+        </Action>
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CloseConnectionAfterMsg1" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+        
+         <Action name="sync_Message1Received" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-3</ActionParameter>
+            <ActionParameter name="component_list">rxV3-3;rxV5-3;tx3</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+           
+        <Action name="sync_Message2Sent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-4</ActionParameter>
+            <ActionParameter name="component_list">rxV3-4;rxV5-4;tx4</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- wait interval=11 seconds to be sure the message expires -->
+        <Action name="SubscriptionMonitorAfterMsg2Sent" type="RestAPI">
+          <dependsOn action_id="sync_Message2Sent" interval="11000"/>
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=V5_publishV5_05*</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection4Msg2" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV3</ApiParameter>
+
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+<!-- Defect 202976 the message is arriving -->
+        <Action name="NotReceiveMessage2" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CloseConnectionAfterMsg2" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+        <!-- Clear out the durable subscription -->
+        <Action name="CreateConnectionClearSession" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV3</ApiParameter>
+
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnectionClearSession" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+        
+    </Action>
+
+
+<!--  ==========  receiveV5  ==========  -->
+
+    <Action name="receiveV5" type="CompositeAction">
+        <Action name="CreateCleanConnectionV5" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV5</ApiParameter>
+
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">30</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+        </Action>
+        <Action name="CloseCleanConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>
+        <Action name="CreateConnectionV5" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV5</ApiParameter>
+
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">30</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">topic/05/V5</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        <Action name="CloseConnectionSubscribe" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>
+        
+        <Action name="sync_Subscribed" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV5-1</ActionParameter>
+            <ActionParameter name="component_list">rxV3-1;rxV5-1;tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="sync_Message1Sent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV5-2</ActionParameter>
+            <ActionParameter name="component_list">rxV3-2;rxV5-2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection4Msg1" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV5</ApiParameter>
+
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">30</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+        </Action>
+        <Action name="ReceiveMessage1" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">5000</ActionParameter>
+        </Action>
+        <Action name="CheckMessage1" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg 1:{ clientId:V5_publishV5_05.pubV5, retain:false, expires:10, QoS:1, topic:topic/05/V5 }</ActionParameter>
+            <ActionParameter name="compareTopic">topic/05/V5</ActionParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+            <ActionParameter name="compareRetain">false</ActionParameter>
+        </Action>
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CloseConnectionAfterMsg1" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>
+        
+         <Action name="sync_Message1Received" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV5-3</ActionParameter>
+            <ActionParameter name="component_list">rxV3-3;rxV5-3;tx3</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+           
+        <Action name="sync_Message2Sent" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV5-4</ActionParameter>
+            <ActionParameter name="component_list">rxV3-4;rxV5-4;tx4</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- wait interval=11 seconds to be sure the message expires -->
+        <Action name="SubscriptionMonitorAfterMsg2Sent" type="RestAPI">
+          <dependsOn action_id="sync_Message2Sent" interval="11000"/>
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=V5_publishV5_05*</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection4Msg2" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV5</ApiParameter>
+
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+        </Action>
+<!-- Defect 202976 the message is arriving -->
+        <Action name="NotReceiveMessage2" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        <Action name="CloseConnectionAfterMsg2" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>
+        <!-- Clear out the durable subscription, should have expired, but failsafe -->
+        <Action name="CreateConnectionClearSession" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">V5_publishV5_05.subV5</ApiParameter>
+
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnectionClearSession" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>
+        
+    </Action>
+    
+    
+</IsmWSTest>
+                

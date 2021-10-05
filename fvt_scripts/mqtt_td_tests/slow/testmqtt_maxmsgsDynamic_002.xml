@@ -1,0 +1,509 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: testmqtt_maxmsgsDynamic_002
+
+  Test Category: MessageExpiration
+  
+  Test Description: 
+  
+  This test swaps back and forth between reject messages, and discard messages, and between different 
+  MaxMessages= values.  It verifies that we can continue sending when the buffer is full, and that when 
+  we make the buffer bigger we can send as well. 
+  
+  It depends on testmqtt_maxmsgsDynamic_001.xml to create the subscriptions, and pre-fill the buffer.
+  
+  It also depends on testmqtt_maxmsgsDynamic_001.xml to complete and leave the MessagingPolicies 
+  (Type=Topic, and Type=Subscription) in the correct stat.  
+  
+  
+  IF testmqtt_maxmsgsDynamic_001.xml FAILED, THIS WILL FAIL AS WELL. 
+  
+  
+  There are four subscriptions. One messaging policy is used for the non-shared policies, so when that is updated wiht 
+  a new behavior or new MaxMessages values, this test verifies that all the subscriptions are updated.  
+  
+  The MaxMessages 
+  
+-->
+		
+<IsmWSTest name="testmqtt_maxmsgsDynamic_002">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>mqtt_maxmsgsDynamic_002</solution>
+	</SyncClient>
+ 
+	<Action name="Subs" type="CompositeAction">
+	
+	     <!-- QoS=0 , which uses simpQ in the engine -->
+  
+  	    	         
+		<!-- Wait for Publisher to finish. It sends a lot of messages.  --> 
+    	<Action name="SyncMQTT_Pub_Done" type="SyncAction">
+            <ActionParameter name="request">wait</ActionParameter>
+            <ActionParameter name="condition">MQTT_Pub_Done</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+            <ActionParameter name="timeout">250000</ActionParameter>
+        </Action>
+        
+	<Action name="ShowSubScriptions_atstart" type="RestAPI"  thread="39">
+		<dependsOn action_id="SyncMQTT_Pub_Done" interval="0" />
+		<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?TopicString=/MQTT/Dynamic/*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>					            
+  	
+	    
+	    <!-- Reconnect to a QoS=0 durable subscription --> 
+		<Action name="CreateSubConnection_QoS_0" type="CreateConnection"  thread="10">
+			<dependsOn action_id="SyncMQTT_Pub_Done" interval="0" />
+			<ActionParameter name="structure_id">Cons_QoS_0</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_0</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_NS</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+  		</Action>    
+  		
+		<Action name="CompositeReceive_QoS0" type="CompositeAction" repeat="150" atleast="100" thread="10">
+			<Action name="ReceiveMessage_QoS0" type="ReceiveMessage">
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<ActionParameter name="structure_id">QoS0msg</ActionParameter>
+			<ActionParameter name="waitTime">2000</ActionParameter>
+			</Action>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_0" type="CloseConnection" thread="10">
+	   	    <ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+	    </Action>	
+	    
+	    
+	     <!-- QoS=1, which uses intermediateQ in the engine -->
+	      		 		
+
+	    <!-- Create a QoS=1 durable subscriptions --> 
+		<Action name="CreateSubConnection_QoS_1" type="CreateConnection" thread="11">
+			<dependsOn action_id="SyncMQTT_Pub_Done" interval="0" />
+			<ActionParameter name="structure_id">Cons_QoS_1</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_1</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_NS</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+ 
+		<Action name="CompositeReceive_QoS1" type="CompositeAction" repeat="150" atleast="100" thread="11">
+			<Action name="ReceiveMessage_QoS1" type="ReceiveMessage">
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<ActionParameter name="structure_id">QoS1msg</ActionParameter>
+			<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_1" type="CloseConnection" thread="11">
+	   	    <ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+	    </Action>	  		 
+
+	     <!-- QoS=2 , which uses intermediateQ in the engine -->
+
+	    <!-- Create a QoS=2 durable subscription --> 
+		<Action name="CreateSubConnection_QoS_2" type="CreateConnection" thread="12">
+			<dependsOn action_id="SyncMQTT_Pub_Done" interval="0" />
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_2</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_NS</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action>  
+  			  
+		<Action name="CompositeReceive_QoS2" type="CompositeAction" repeat="150" atleast="100" thread="12">
+			<Action name="ReceiveMessage_QoS2" type="ReceiveMessage">
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<ActionParameter name="structure_id">QoS2msg</ActionParameter>
+			<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_2" type="CloseConnection" thread="12">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>	 
+			
+	     <!-- QoS=1, SharedSubscriptions which uses multiuserQ in the engine -->    
+	    <!-- Create a QoS=1 shared durable subscription which uses multiQ --> 
+		<Action name="CreateSubConnection_QoS_1Shared" type="CreateConnection" thread="13">
+			<dependsOn action_id="SyncMQTT_Pub_Done" interval="0" />
+			<ActionParameter name="structure_id">Cons_QoS_1S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_1S</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_1Sa</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+  		
+		<Action name="CompositeReceive_1S" type="CompositeAction" repeat="150" atleast="0" thread="13">
+			<Action name="ReceiveMessage_1S" type="ReceiveMessage">
+			<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+			<ActionParameter name="structure_id">QoS1Smsg</ActionParameter>
+			<ActionParameter name="waitTime">2000</ActionParameter>
+			</Action>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_1Shared" type="CloseConnection" thread="13">
+	   	    <ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+	    </Action>
+	    	        		
+	    <!-- Join a QoS=1 shared durable subscription which uses multiQ --> 
+		<Action name="CreateSubConnection_QoS_2Shared" type="CreateConnection" thread="14">
+			<dependsOn action_id="SyncMQTT_Pub_Done" interval="0" />
+			<ActionParameter name="structure_id">Cons_QoS_2S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_2S</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_1Sb</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+  		
+		<Action name="CompositeReceive_2S" type="CompositeAction" repeat="150" atleast="0" thread="14">
+			<Action name="ReceiveMessage_Qo2S" type="ReceiveMessage">
+			<ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+			<ActionParameter name="structure_id">QoS2Smsg</ActionParameter>
+			<ActionParameter name="waitTime">2000</ActionParameter>
+			</Action>
+		</Action>
+
+	    <Action name="CloseConnection_QoS_2Shared" type="CloseConnection" thread="14">
+	   	    <ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+	    </Action>	 
+		
+		<Action name="CreateSubConnection_QoS_0_Clear" type="CreateConnection" thread="10">
+			<ActionParameter name="structure_id">Cons_QoS_0</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_0</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+		    <ApiParameter name="user">MQTTDynamic_NS</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_0_Clear" type="CloseConnection"  thread="10" >
+	   	    <ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+	    </Action>	
+	    
+
+	     <!-- QoS=1, which uses intermediateQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_1_Clear" type="CreateConnection" thread="11">
+			<ActionParameter name="structure_id">Cons_QoS_1</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_1</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_NS</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_1_Clear" type="CloseConnection" thread="11">
+	   	    <ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+	    </Action>	
+	    
+
+	     <!-- QoS=2 , which uses intermediateQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_2_Clear" type="CreateConnection" thread="12">
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_2</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_NS</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_2_Clear" type="CloseConnection" thread="12">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>	
+	    
+	     <!-- QoS=1, SharedSubscriptions which uses multiuserQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_1Shared_Clear" type="CreateConnection" thread="13">
+			<ActionParameter name="structure_id">Cons_QoS_1S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_1S</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_1Sa</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_1Shared_Clear" type="CloseConnection" thread="13">
+	   	    <ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+	    </Action>	
+	    
+	     <!-- QoS=1, SharedSubscriptions which uses multiuserQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_1Shared_Clear2" type="CreateConnection" thread="14">
+			<ActionParameter name="structure_id">Cons_QoS_2S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_01_Cons_QoS_2S</ApiParameter>
+			<ApiParameter name="port">20021</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="user">MQTTDynamic_1Sb</ApiParameter>
+      		<ApiParameter name="password">dynamic</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_1Shared_Clear2" type="CloseConnection" thread="14">
+	   	    <ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+	    </Action>		    
+	    
+		<!-- Action name="ShowSubScriptionsGone" type="ShellAction">
+			<dependsOn action_id="CreateSubConnection_QoS_0_Clear" interval="0" />
+			<dependsOn action_id="CreateSubConnection_QoS_1_Clear" interval="0" />
+			<dependsOn action_id="CreateSubConnection_QoS_2_Clear" interval="0" />
+			<dependsOn action_id="CreateSubConnection_QoS_1Shared_Clear" interval="0" />
+			<dependsOn action_id="CreateSubConnection_QoS_1Shared_Clear2" interval="0" />
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription TopicString=/MQTT/Dynamic/* </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowSubScriptions_AfterSuccess" type="RestAPI">
+		<dependsOn action_id="CreateSubConnection_QoS_0_Clear" interval="0" />
+		<dependsOn action_id="CreateSubConnection_QoS_1_Clear" interval="0" />
+		<dependsOn action_id="CreateSubConnection_QoS_2_Clear" interval="0" />
+		<dependsOn action_id="CreateSubConnection_QoS_1Shared_Clear" interval="0" />
+		<dependsOn action_id="CreateSubConnection_QoS_1Shared_Clear2" interval="0" />
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?TopicString=/MQTT/Dynamic/*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>					    
+
+		
+	 </Action>  
+	 
+ 
+	<Action name="Pubs" type="CompositeAction">
+ 
+		<Action name="CreatePubConnection1" type="CreateConnection" >
+			<ActionParameter name="structure_id">ConPub1</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MMD_001_Pub1</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="keepAlive">100</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage1" type="CreateMessage" >
+			<ActionParameter name="structure_id">msg1</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: message type 1 from testmqtt_maxmsgsDynamic_002: </ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>
+		
+		<Action name="CreateMessage2" type="CreateMessage" >
+			<ActionParameter name="structure_id">msg2</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: message type 2 from testmqtt_maxmsgsDynamic_002: </ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>
+        
+   		<Action name="Publish1" type="CompositeAction" repeat="9" repeat_interval="0">	  
+ 
+		<Action name="SendMessage_1" type="SendMessage" interval="0" repeat="22"  repeat_interval="0">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">msg1</ActionParameter>
+			<ActionParameter name="topic">/MQTT/Dynamic/msg1</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>
+
+		<Action name="UpdateNonShared_to_MM127_Discard" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"TopicPolicy":{"MQTTMMMessagingPolicyDyn1":{"MaxMessagesBehavior":"DiscardOldMessages","MaxMessages":127}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action> 
+	
+	<Action name="UpdateShared_to_MM126_Discard" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"SubscriptionPolicy":{"MQTTMMSSubPolicyDynamic1":{"MaxMessagesBehavior":"DiscardOldMessages","MaxMessages":126}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action> 
+			
+						
+	<!-- This should work since we now discard with a small buffer -->
+		<Action name="SendMessage_1b" type="SendMessage" interval="0" repeat="90" repeat_interval="0">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">msg1</ActionParameter>
+			<ActionParameter name="topic">/MQTT/Dynamic/msg1</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+
+		<Action name="ShowSubScriptions_AfterDiscard" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?TopicString=/MQTT/Dynamic/*</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>					
+
+		<Action name="UpdateNonShared_to_MM2127_Reject" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"TopicPolicy":{"MQTTMMMessagingPolicyDyn1":{"MaxMessagesBehavior":"RejectNewMessages","MaxMessages":2127}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>	
+		
+		<!-- Updates to this policy should be ignored, since values for the global-shared subscription should come from the 
+			SubscriptionPolicy --> 
+
+		<Action name="UpdateSharedTOPIC_POLICY_to_MM10_Reject" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"TopicPolicy":{"MQTTMMMessagingPolicyDyn2":{"MaxMessagesBehavior":"RejectNewMessages","MaxMessages":10}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action> 							
+
+		<Action name="UpdateShared_to_MM2126_Reject" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"SubscriptionPolicy":{"MQTTMMSSubPolicyDynamic1":{"MaxMessagesBehavior":"RejectNewMessages","MaxMessages":2126}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action> 			
+		
+	<!-- This should work since we now have a bigger buffer but we reject -->
+		<Action name="SendMessage_1c" type="SendMessage" interval="0" repeat="22" repeat_interval="0"  >
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">msg1</ActionParameter>
+			<ActionParameter name="topic">/MQTT/Dynamic/msg1</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+
+	<Action name="ShowSubScriptions_AfterSuccess" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?TopicString=/MQTT/Dynamic/*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>		
+					
+		</Action>	
+		
+     		<!-- signal consumers to start --> 
+    	<Action name="SyncMQTT_Pub_Done" type="SyncAction">
+            <ActionParameter name="request">set</ActionParameter>
+            <ActionParameter name="condition">MQTT_Pub_Done</ActionParameter>
+        	<ActionParameter name="value">1</ActionParameter>
+        </Action>		
+	
+		<Action name="ClosePubConnection1" type="CloseConnection"  >
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+  		</Action>
+		
+    </Action> 	 
+	 
+</IsmWSTest>   
+

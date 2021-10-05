@@ -1,0 +1,600 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_maxmsgs_004
+
+  Non-Durable Shared Subscription with JMS consumers continuously
+  subscribing/receiving/closing. 
+
+*****************************************************************************/
+-->
+<ImaJmsTest name="jms_maxmsgs_004" >
+<SyncClient>
+        <server>
+                <include>../common/JMS_syncip.xml</include>
+				<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>JMS_MM_004</solution>
+</SyncClient>
+
+<Action name="Cons1" type="CompositeAction">
+        <!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+        <Action name="syncReset" type="SyncAction">
+               <ActionParameter name="request">reset</ActionParameter>
+        </Action>
+
+        <!-- Initialize the SyncDriver values -->
+
+        <Action name="syncInit1" type="SyncAction">
+                <ActionParameter name="request">init</ActionParameter>
+                <ActionParameter name="condition">syncPoint</ActionParameter>
+        </Action>
+
+        <Action name="CreateFactory_Cons1" type="CreateConnectionFactory">
+                <ActionParameter name="structure_id">CF1</ActionParameter>
+                <!--ActionParameter name="loglevel">9</ActionParameter>
+                <ActionParameter name="logfile">stdout</ActionParameter-->
+                <ApiParameter name="user">JMS_MMSUBND</ApiParameter>
+      			<ApiParameter name="passwd">password</ApiParameter>
+        </Action>
+
+        <Action name="CreateListener_Cons1" type="CreateExceptionListener">
+                <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_Cons1" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1</ActionParameter>
+        	<ActionParameter name="validateAll">true</ActionParameter>
+        	<ActionParameter name="validateNoWarn">false</ActionParameter>
+	        <include>../common/JMS_server.xml</include>
+    	    <ImaProperty name="Port" value="29305" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_Cons1" type="CreateConnection">
+                <ActionParameter name="structure_id">Con1</ActionParameter>
+                <ActionParameter name="factory_id">CF1</ActionParameter>
+                <ApiParameter name="exceptionListener">listener1</ApiParameter>
+                <ApiParameter name="user">JMS_MMSUBND</ApiParameter>
+      			<ApiParameter name="passwd">password</ApiParameter>                
+        </Action>
+
+        <Action name="CreateSession_Cons1" type="CreateSession">
+                <ActionParameter name="conn_id">Con1</ActionParameter>
+                <ActionParameter name="structure_id">Ses1_Cons1</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_Cons1" type="CreateDestination">
+                <ApiParameter name="name">/MM/jmsMM-004</ApiParameter>
+                <ActionParameter name="type">topic</ActionParameter>
+                <ActionParameter name="structure_id">destCons1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConsumer1" type="CreateSharedConsumer">
+                <ActionParameter name="structure_id">consumer1</ActionParameter>
+                <ActionParameter name="dest_id">destCons1</ActionParameter>
+                <ActionParameter name="session_id">Ses1_Cons1</ActionParameter>
+                <ApiParameter name="durableName">jmsMaxMsg_004</ApiParameter> 
+        </Action>
+
+        <Action name="StartConnection_Cons1" type="StartConnection">
+                <ActionParameter name="conn_id">Con1</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_Cons1" type="SyncComponentAction">
+                <ActionParameter name="component_name">cons1a</ActionParameter>
+                <ActionParameter name="component_list">prod1a;prod2a;cons1a</ActionParameter>
+                <!--ActionParameter name="component_list">prod1a;prod2a;cons1a;cons2a</ActionParameter -->
+                <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv1_1" type="CompositeAction" repeat="10" interval="0" repeat_interval="0">
+                <Action name="ReceiveMessage1_1" type="ReceiveMessage">
+                        <ActionParameter name="consumer_id">consumer1</ActionParameter>
+                        <ActionParameter name="structure_id">msg1</ActionParameter>
+                        <ApiParameter name="timeout">5000</ApiParameter>
+                </Action>
+        </Action>
+        
+   		<!-- Action name="ShowSub_After_Cons1_Initialreceive" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription  ClientID=__SharedND </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->			        
+		
+		<Action name="ShowSub_After_Cons1_Initialreceive" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=__SharedND</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action> 		      			        
+
+	   <Action name="GetBusy" type="CompositeAction" repeat="10" interval="0" repeat_interval="0">
+	   
+        <Action name="CreateFactory_Cons2" type="CreateConnectionFactory">
+                <ActionParameter name="structure_id">CF2</ActionParameter>
+                <!--ActionParameter name="loglevel">9</ActionParameter>
+                <ActionParameter name="logfile">stdout</ActionParameter-->
+        </Action>
+
+        <Action name="CreateListener_Cons2" type="CreateExceptionListener">
+                <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_Cons2" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF2</ActionParameter>
+        	<ActionParameter name="validateAll">true</ActionParameter>
+        	<ActionParameter name="validateNoWarn">false</ActionParameter>
+	        <include>../common/JMS_server.xml</include>
+    	    <ImaProperty name="Port" value="29305" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_Cons2" type="CreateConnection">
+                <ActionParameter name="structure_id">Con2_Cons2</ActionParameter>
+                <ActionParameter name="factory_id">CF2</ActionParameter>
+                <ApiParameter name="exceptionListener">listener1</ApiParameter>
+                <ApiParameter name="user">JMS_MMSUBND</ApiParameter>
+      			<ApiParameter name="passwd">password</ApiParameter>                
+        </Action>
+
+        <Action name="CreateSession_Cons2" type="CreateSession">
+                <ActionParameter name="conn_id">Con2_Cons2</ActionParameter>
+                <ActionParameter name="structure_id">Ses1_Cons2</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_Cons2" type="CreateDestination">
+                <ApiParameter name="name">/MM/jmsMM-004</ApiParameter>
+                <ActionParameter name="type">topic</ActionParameter>
+                <ActionParameter name="structure_id">destCons2</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConsumer2" type="CreateSharedConsumer">
+                <ActionParameter name="structure_id">Consumer2</ActionParameter>
+                <ActionParameter name="dest_id">destCons2</ActionParameter>
+                <ActionParameter name="session_id">Ses1_Cons2</ActionParameter>
+                <ApiParameter name="durableName">jmsMaxMsg_004</ApiParameter> 
+        </Action>
+
+        <Action name="StartConnection_Cons2" type="StartConnection">
+                <ActionParameter name="conn_id">Con2_Cons2</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcvCons2_1" type="CompositeAction" repeat="5" interval="0" repeat_interval="0">
+                <Action name="ReceiveMessage2_1" type="ReceiveMessage">
+                        <ActionParameter name="consumer_id">Consumer2</ActionParameter>
+                        <ActionParameter name="structure_id">msgCons2</ActionParameter>
+                        <ApiParameter name="timeout">5000</ApiParameter>
+                </Action>
+        </Action>
+        
+  		<Action name="GetReallyBusy" type="CompositeAction" repeat="20" interval="0" repeat_interval="0" thread="2">
+	        <dependsOn name="CompositeRcvCons2_1" interval="0"/> 	
+	        <Action name="CreateSession_Cons3" type="CreateSession">
+	                <ActionParameter name="conn_id">Con1</ActionParameter>
+	                <ActionParameter name="structure_id">Ses3_Cons3</ActionParameter>
+	        </Action>
+	
+	        <Action name="CreateDestination_Cons3" type="CreateDestination">
+	                <ApiParameter name="name">/MM/jmsMM-004</ApiParameter>
+	                <ActionParameter name="type">topic</ActionParameter>
+	                <ActionParameter name="structure_id">destCons3</ActionParameter>
+	        </Action>
+	        
+	        <Action name="CreateConsumer3" type="CreateSharedConsumer">
+	                <ActionParameter name="structure_id">Consumer3</ActionParameter>
+	                <ActionParameter name="dest_id">destCons3</ActionParameter>
+	                <ActionParameter name="session_id">Ses3_Cons3</ActionParameter>
+	                <ApiParameter name="durableName">jmsMaxMsg_004</ApiParameter> 
+	        </Action>
+	
+	        <Action name="CompositeRcvCons3_1" type="CompositeAction" repeat="10" interval="0" repeat_interval="0">
+	                <Action name="ReceiveMessage3_1" type="ReceiveMessage">
+	                        <ActionParameter name="consumer_id">Consumer3</ActionParameter>
+	                        <ActionParameter name="structure_id">msgCons3</ActionParameter>
+	                        <ApiParameter name="timeout">5000</ApiParameter>
+	                </Action>
+	        </Action>   
+	        
+	        <!-- Action name="CompositeRcvCons1_2a" type="CompositeAction" repeat="10" interval="0" repeat_interval="0" >
+	                <Action name="ReceiveMessage1_2a" type="ReceiveMessage">
+	                        <ActionParameter name="consumer_id">consumer1</ActionParameter>
+	                        <ActionParameter name="structure_id">msgCons1</ActionParameter>
+	                        <ApiParameter name="timeout">5000</ApiParameter>
+	                </Action>
+	        </Action -->  
+	        
+	        <Action name="CompositeRcvCons2_2" type="CompositeAction" repeat="10" interval="0" repeat_interval="0" >
+	                <Action name="ReceiveMessage2_2" type="ReceiveMessage">
+	                        <ActionParameter name="consumer_id">Consumer2</ActionParameter>
+	                        <ActionParameter name="structure_id">msgCons2</ActionParameter>
+	                        <ApiParameter name="timeout">5000</ApiParameter>
+	                </Action>
+	        </Action>                    
+	        
+			<Action name="CloseSession_Ses3_Cons3" type="CloseSession">
+				<ActionParameter name="session_id">Ses3_Cons3</ActionParameter>
+			</Action>
+	  		         
+  	   </Action>   <!-- End of GetReallyBusy --> 
+        	   
+ 		<Action name="GetReallyBusyPart2" type="CompositeAction" repeat="10" interval="0" repeat_interval="0" thread="3">
+	        <dependsOn name="CompositeRcvCons2_1" interval="0"/> 			
+	        <Action name="CreateFactory_Cons4" type="CreateConnectionFactory">
+	                <ActionParameter name="structure_id">CF4</ActionParameter>
+	                <!--ActionParameter name="loglevel">9</ActionParameter>
+	                <ActionParameter name="logfile">stdout</ActionParameter-->
+	        </Action>
+	
+	        <Action name="SetFactoryProps_Cons4" type="FillIsmProps">
+	            <ActionParameter name="structure_id">CF4</ActionParameter>
+	        	<ActionParameter name="validateAll">true</ActionParameter>
+	        	<ActionParameter name="validateNoWarn">false</ActionParameter>
+		        <include>../common/JMS_server.xml</include>
+	    	    <ImaProperty name="Port" value="29305" type="STRING"/>
+	        </Action>
+	
+	        <Action name="CreateConnection_Cons4" type="CreateConnection">
+	                <ActionParameter name="structure_id">Con4_Cons4</ActionParameter>
+	                <ActionParameter name="factory_id">CF4</ActionParameter>
+	                <ApiParameter name="exceptionListener">listener1</ApiParameter>
+                <ApiParameter name="user">JMS_MMSUBND</ApiParameter>
+      			<ApiParameter name="passwd">password</ApiParameter>	                
+	        </Action>
+	
+	        <Action name="CreateSession_Cons4" type="CreateSession">
+	                <ActionParameter name="conn_id">Con4_Cons4</ActionParameter>
+	                <ActionParameter name="structure_id">Ses4_Cons4</ActionParameter>
+	        </Action>
+	
+	        <Action name="CreateDestination_Cons4" type="CreateDestination">
+	                <ApiParameter name="name">/MM/jmsMM-004</ApiParameter>
+	                <ActionParameter name="type">topic</ActionParameter>
+	                <ActionParameter name="structure_id">destCons4</ActionParameter>
+	        </Action>
+	        
+	        <Action name="CreateConsumer4" type="CreateSharedConsumer">
+	                <ActionParameter name="structure_id">Consumer4</ActionParameter>
+	                <ActionParameter name="dest_id">destCons4</ActionParameter>
+	                <ActionParameter name="session_id">Ses4_Cons4</ActionParameter>
+	                <ApiParameter name="durableName">jmsMaxMsg_004</ApiParameter> 
+	        </Action>
+	
+	        <Action name="StartConnection_Cons4" type="StartConnection">
+	                <ActionParameter name="conn_id">Con4_Cons4</ActionParameter>
+	        </Action>
+	
+	        <Action name="CompositeRcvCons4_1" type="CompositeAction" repeat="10" interval="0" repeat_interval="0">
+	                <Action name="ReceiveMessage4_1" type="ReceiveMessage">
+	                        <ActionParameter name="consumer_id">Consumer4</ActionParameter>
+	                        <ActionParameter name="structure_id">msgCons4</ActionParameter>
+	                        <ApiParameter name="timeout">5000</ApiParameter>
+	                </Action>
+	        </Action>	
+	        
+        	<Action name="CloseConnection_Cons4" type="CloseConnection">
+	                <ActionParameter name="conn_id">Con4_Cons4</ActionParameter>
+	        </Action>	        
+	        
+   	        <!--Action name="CompositeRcvCons1_2b" type="CompositeAction" repeat="10" interval="0" repeat_interval="0" >
+	                <Action name="ReceiveMessage1_2b" type="ReceiveMessage">
+	                        <ActionParameter name="consumer_id">consumer1</ActionParameter>
+	                        <ActionParameter name="structure_id">msgCons1a</ActionParameter>
+	                        <ApiParameter name="timeout">5000</ApiParameter>
+	                </Action>
+	        </Action -->	      
+  	   </Action>   <!-- End of GetReallyBusyPart2 --> 		   
+
+       	<Action name="CloseConnection_Con2" type="CloseConnection">
+       		 <dependsOn name="GetReallyBusyPart2" interval="0"/>
+       		 <dependsOn name="GetReallyBusy" interval="0"/>
+	         <ActionParameter name="conn_id">Con2_Cons2</ActionParameter>
+        </Action>	    
+ 
+  
+ 	   </Action> <!-- End of GetBusy --> 
+
+		<!-- Action name="ShowSub_At_End" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription  ClientID=__SharedND </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+		<Action name="ShowSub_At_End" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=__SharedND</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action> 		      			        
+
+        <Action name="StopConnection_Cons1" type="StopConnection">
+                <ActionParameter name="conn_id">Con1</ActionParameter>
+        </Action>
+
+      		<!-- When consumers are done.. then kill session, and the loop above will stop . --> 
+        <Action name="sync_components_Prod1done" type="SyncComponentAction">
+                <ActionParameter name="component_name">cons1done</ActionParameter>
+                <ActionParameter name="component_list">prod1done;cons1done</ActionParameter>
+                <!--ActionParameter name="component_list">prod2done;cons1done;cons2done</ActionParameter-->
+                <ActionParameter name="timeout">120000</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_Cons1" type="CloseConnection">
+                <ActionParameter name="conn_id">Con1</ActionParameter>
+        </Action>
+        
+		<!-- Action name="ShowSub_Gone_At_End" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription  ClientID=__SharedND </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+		<Action name="ShowSub_Gone_At_End" type="RestAPI">
+        	<ActionParameter name="structureID">stat_output_b</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=jmsMaxMsg_004&amp;ClientID=__SharedND</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+   	 	<!-- In order to verify the subscription actually does not exist, look for the
+         subscription in the array and verify it is not there. 
+         TODO: Identify subscription by more than just SubName.
+    	-->
+    	<Action name="compareShowSub_Gone_At_End" type="CompareREST" rc="1" reason="ISMTEST3416">
+        	<ActionParameter name="structureID">stat_output_b</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">jmsMaxMsg_004</ActionParameter>
+    	</Action>			                
+
+</Action>
+
+
+
+<Action name="Prod1" type="CompositeAction">
+        <!-- This side runs on machine 1! -->
+        
+        <Action name="CreateFactory_Prod1" type="CreateConnectionFactory">
+                <ActionParameter name="structure_id">CF1_Prod1</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_Prod1" type="CreateExceptionListener">
+                <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_Prod1" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1_Prod1</ActionParameter>
+		    <ActionParameter name="validateAll">true</ActionParameter>
+ 		  	<ActionParameter name="validateNoWarn">false</ActionParameter>
+		    <ImaProperty name="ClientID" value="jms_mm004Prod1_clientid" type="STRING"/>
+    		<include>../common/JMS_server.xml</include>
+    		<ImaProperty name="Port" value="29305" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_Prod1" type="CreateConnection">
+                <ActionParameter name="structure_id">Con1_Prod1</ActionParameter>
+                <ActionParameter name="factory_id">CF1_Prod1</ActionParameter>
+                <ApiParameter name="exceptionListener">listener1</ApiParameter>
+                <ApiParameter name="user">JMS_MMSUBND</ApiParameter>
+      			<ApiParameter name="passwd">password</ApiParameter>                
+        </Action>
+
+        <Action name="CreateSession_Prod1" type="CreateSession">
+                <ActionParameter name="conn_id">Con1_Prod1</ActionParameter>
+                <ActionParameter name="structure_id">Ses1_Prod1</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_Prod1" type="CreateDestination">
+                <ApiParameter name="name">/MM/jmsMM-004</ApiParameter>
+                <ActionParameter name="type">topic</ActionParameter>
+                <ActionParameter name="structure_id">destProd1</ActionParameter>
+        </Action>
+        
+       	<Action name="SetDestProps_destProd1" type="FillIsmProps">
+			<ActionParameter name="structure_id">destProd1</ActionParameter>
+			<ImaProperty name="DisableAck" value="true"/>
+		</Action>
+        
+
+        <Action name="CreateProducer" type="CreateProducer">
+                <ActionParameter name="structure_id">producer1</ActionParameter>
+                <ActionParameter name="dest_id">destProd1</ActionParameter>
+                <ActionParameter name="session_id">Ses1_Prod1</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection_Prod1" type="StartConnection">
+                <ActionParameter name="conn_id">Con1_Prod1</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+                <ActionParameter name="structure_id">msg1</ActionParameter>
+                <ActionParameter name="session_id">Ses1_Prod1</ActionParameter>
+                <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+        
+   		<Action name="SetMessage1Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">msg1</ActionParameter>
+			<ApiParameter name="propertyName">ID</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">100000</ApiParameter>
+		</Action>        
+
+        <Action name="SetMessage1Text" type="SetMessageText">
+                <ActionParameter name="message_id">msg1</ActionParameter>
+                <ApiParameter name="value">This message is from Prod1. </ApiParameter>
+        </Action>
+
+  		<!-- probably a wait from consumers.. --> 
+        <Action name="sync_components_Prod1" type="SyncComponentAction">
+                <ActionParameter name="component_name">prod1a</ActionParameter>
+                <ActionParameter name="component_list">prod1a;prod2a;cons1a</ActionParameter>
+                <!--ActionParameter name="component_list">prod1a;prod2a;cons1a;cons2a</ActionParameter-->
+                <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+		<!-- can I put an atleast on this so when the consumers are done.. I can just close connection? --> 
+        <Action name="CompositeSnd1" type="CompositeAction" repeat="25000" repeat_interval="1" atleast="2000" >
+                <Action name="SendMessage1" type="SendMessage">
+                        <ActionParameter name="producer_id">producer1</ActionParameter>
+                        <ActionParameter name="message_id">msg1</ActionParameter>
+               			<ActionParameter name="incrID">1</ActionParameter>
+                </Action>
+		</Action>
+
+ 
+ 		<!-- When consumers are done.. then kill session, and the loop above will stop . --> 
+        <Action name="sync_components_Prod1done" type="SyncComponentAction" thread="21">
+        		<dependsOn name="sync_components_Prod1" interval="0"/> 
+                <ActionParameter name="component_name">prod1done</ActionParameter>
+                <ActionParameter name="component_list">prod1done;cons1done</ActionParameter>
+                <!--ActionParameter name="component_list">prod2done;cons1done;cons2done</ActionParameter-->
+                <ActionParameter name="timeout">120000</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession_Prod1" type="CloseSession" thread="21" >
+        		<dependsOn name="sync_components_Prod1done" interval="0"/> 
+                <ActionParameter name="session_id">Ses1_Prod1</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection_Prod1" type="StopConnection" thread="21" >
+                <ActionParameter name="conn_id">Con1_Prod1</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_Prod1" type="CloseConnection" thread="21" >
+                <ActionParameter name="conn_id">Con1_Prod1</ActionParameter>
+        </Action>
+    </Action>  <!-- End of prod1 --> 
+    
+<Action name="Prod2" type="CompositeAction" thread="12" >
+        
+        <Action name="CreateFactory_Prod2" type="CreateConnectionFactory">
+                <ActionParameter name="structure_id">CF1_Prod2</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_Prod2" type="CreateExceptionListener">
+                <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_Prod2" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1_Prod2</ActionParameter>
+		    <ActionParameter name="validateAll">true</ActionParameter>
+ 		  	<ActionParameter name="validateNoWarn">false</ActionParameter>
+		    <ImaProperty name="ClientID" value="jms_mm004Prod2_clientid" type="STRING"/>
+    		<include>../common/JMS_server.xml</include>
+    		<ImaProperty name="Port" value="29305" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_Prod2" type="CreateConnection">
+                <ActionParameter name="structure_id">Con1_Prod2</ActionParameter>
+                <ActionParameter name="factory_id">CF1_Prod2</ActionParameter>
+                <ApiParameter name="exceptionListener">listener1</ApiParameter>
+                <ApiParameter name="user">JMS_MMSUBND</ApiParameter>
+      			<ApiParameter name="passwd">password</ApiParameter>
+                
+        </Action>
+
+        <Action name="CreateSession_Prod2" type="CreateSession">
+                <ActionParameter name="conn_id">Con1_Prod2</ActionParameter>
+                <ActionParameter name="structure_id">Ses1_Prod2</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_Prod2" type="CreateDestination">
+                <ApiParameter name="name">/MM/jmsMM-004</ApiParameter>
+                <ActionParameter name="type">topic</ActionParameter>
+                <ActionParameter name="structure_id">destProd2</ActionParameter>
+        </Action>
+        
+       	<Action name="SetDestProps_destProd2" type="FillIsmProps">
+			<ActionParameter name="structure_id">destProd2</ActionParameter>
+			<ImaProperty name="DisableAck" value="true"/>
+		</Action>        
+
+        <Action name="CreateProducer" type="CreateProducer">
+                <ActionParameter name="structure_id">producer1</ActionParameter>
+                <ActionParameter name="dest_id">destProd2</ActionParameter>
+                <ActionParameter name="session_id">Ses1_Prod2</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection_Prod2" type="StartConnection">
+                <ActionParameter name="conn_id">Con1_Prod2</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+                <ActionParameter name="structure_id">msg1</ActionParameter>
+                <ActionParameter name="session_id">Ses1_Prod2</ActionParameter>
+                <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+        
+   		<Action name="SetMessage1Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">msg1</ActionParameter>
+			<ApiParameter name="propertyName">ID</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">200000</ApiParameter>
+		</Action>        
+
+        <Action name="SetMessage1Text" type="SetMessageText">
+                <ActionParameter name="message_id">msg1</ActionParameter>
+                <ApiParameter name="value">This message is from Prod2. </ApiParameter>
+        </Action>
+
+  		<!-- probably a wait from consumers.. --> 
+        <Action name="sync_components_Prod2" type="SyncComponentAction">
+                <ActionParameter name="component_name">prod2a</ActionParameter>
+                <ActionParameter name="component_list">prod1a;prod2a;cons1a</ActionParameter>
+                <!--ActionParameter name="component_list">prod1a;prod2a;cons1a;cons2a</ActionParameter-->
+                <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+		<!-- can I put an atleast on this so when the consumers are done.. I can just close connection? --> 
+        <Action name="CompositeSnd1" type="CompositeAction" repeat="25000" repeat_interval="1" atleast="2000" >
+                <Action name="SendMessage1" type="SendMessage">
+                        <ActionParameter name="producer_id">producer1</ActionParameter>
+                        <ActionParameter name="message_id">msg1</ActionParameter>
+               			<ActionParameter name="incrID">1</ActionParameter>
+                </Action>
+		</Action>
+
+   		<!-- When consumers are done.. then kill session, and the loop above will stop . --> 
+        <Action name="sync_components_Prod2done" type="SyncComponentAction" thread="21" >
+        		<dependsOn name="sync_components_Prod2" interval="0"/> 
+                <ActionParameter name="component_name">prod2done</ActionParameter>
+                <ActionParameter name="component_list">prod2done;cons1done</ActionParameter>
+                <!--ActionParameter name="component_list">prod2done;cons1done;cons2done</ActionParameter-->
+                <ActionParameter name="timeout">120000</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession_Prod2done" type="CloseSession" thread="21" >
+        		<dependsOn name="sync_components_Prod2done" interval="0"/> 
+                <ActionParameter name="session_id">Ses1_Prod2</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection_Prod2" type="StopConnection" thread="21"  >
+                <ActionParameter name="conn_id">Con1_Prod2</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_Prod2" type="CloseConnection" thread="21" >
+                <ActionParameter name="conn_id">Con1_Prod2</ActionParameter>
+        </Action>
+ 
+    </Action>  <!-- End of prod2 --> 
+    
+</ImaJmsTest>

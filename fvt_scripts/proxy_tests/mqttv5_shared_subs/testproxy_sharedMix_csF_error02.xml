@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<!--
+    This test will subscribing to various MQTTv5 SharedSubscriptions with various error conditions. 
+    
+    For MQTT Durable Shared Subscriptions, the topic filter on the subscribe has three parts:
+    
+    It must start with $share to cue ISM that this is a shared subscription.
+    
+    The next element is the Subscription Name. 
+    
+    Then follows the Topic filter to subscriber to.
+    
+    Example: 
+    
+    $share/MySubscriptionName/RiverLevels/RedRiver
+    
+    A lot of the verification of this test is in the compare of RestAPI structures which check 
+    that the stats were all correctly showing the right number of consumers. 
+    
+    This is because we silently fail to subscribe in most cases, and the only 
+    way to know that has happened, is to make sure the consumer count did not 
+    increase.  
+    
+-->
+<IsmWSTest name="testproxy_sharedMix_csF_error02" >
+    
+    <Action name="CreateConnectionA" type="CreateConnection">
+        <ActionParameter name="structure_id">ConA</ActionParameter>
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">sharedMix_error02A</ApiParameter>
+
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">60</ApiParameter>
+        <!-- ApiParameter name="verbose">true</ApiParameter-->
+    </Action>
+    
+    <Action name="CreateConnectionB" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1B</ActionParameter>
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">sharedMix_error02B</ApiParameter>
+
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">60</ApiParameter>
+        <!-- ApiParameter name="verbose">true</ApiParameter-->
+    </Action>    
+    
+    <!-- Create a valid subscription with a wildcard --> 
+    <Action name="Subscribe_ConsumerA" type="Subscribe">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/ErrorTopic/+</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+        <ApiParameter name="expectedrcv5">2</ApiParameter>
+    </Action>
+
+   <Action name="restShowSubWith_consumerA_OriginalTopic" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/ErrorTopic/+&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubWith_consumerA_OriginalTopic" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/ErrorTopic/+</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="ErrorTopic/+"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>                                            
+                
+    
+    <!-- Now  that we have an active subscriber, try subscribing with a different 
+        Topic filter. This should create two new subscriptions, unlike the prior implementation of SharedSubs --> 
+        
+    <Action name="Subscribe_ConsumerB_DifferentTopic" type="Subscribe">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/DifferentNonErrorTopic</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+        <ApiParameter name="expectedrcv5">2</ApiParameter>
+    </Action>
+        
+    <Action name="Subscribe_ConsumerB_DifferentTopic_minus_Plus" type="Subscribe"> 
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/ErrorTopic</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+        <ApiParameter name="expectedrcv5">2</ApiParameter>
+    </Action>    
+
+   <Action name="restShowAfterConsumerB_DifferentTopics_orig" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_2a</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/ErrorTopic/+&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowAfterConsumerB_DifferentTopics_orig" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_2a</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/ErrorTopic/+</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="ErrorTopic/+"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>        
+    
+   <Action name="restShowAfterConsumerB_DifferentTopics_1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_2b</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName/sharedMix_error02/DifferentNonErrorTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowAfterConsumerB_DifferentTopics_1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_2b</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/DifferentNonErrorTopic</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="DifferentNonErrorTopic"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>    
+    
+   <Action name="restShowAfterConsumerB_DifferentTopics_2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_2c</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/ErrorTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowAfterConsumerB_DifferentTopics_2" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_2c</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/ErrorTopic</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="ErrorTopic"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>        
+    
+    <!-- The active subscriber should be able to subscribe with the same Subname and a different 
+        topic because it creates a new subscription --> 
+    <Action name="Subscribe_ConsumerA_SameName_NewTopic" type="Subscribe">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/SameName_NewTopic</ApiParameter>    
+        <ApiParameter name="QoS">2</ApiParameter>
+        <ApiParameter name="expectedrcv5">2</ApiParameter>
+    </Action>        
+    
+    <Action name="UnSubscribe_ConsumerA" type="Unsubscribe">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/ErrorTopic/+</ApiParameter>    
+    </Action>    
+    
+   <Action name="restShowsharedMix_error02Subname_gone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/ErrorTopic/+&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>        
+    
+    <Action name="compareShowsharedMix_error02Subname_gone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/ErrorTopic/+</ActionParameter>
+    </Action>        
+                 
+    <!-- Subscribe again, same subscription name, same topic we had above. We are already subscribed, so should have no affect -->
+    <Action name="ReSubscribe_ConsumerA_SameName_NewTopic" type="Subscribe">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/SameName_NewTopic</ApiParameter>    
+        <ApiParameter name="QoS">2</ApiParameter>
+        <ApiParameter name="expectedrcv5">2</ApiParameter>
+    </Action>    
+    
+    <!-- Subscribe again, use the same topic we had above but a different Subname.  -->
+    <Action name="ReSubscribe_ConsumerA_NewSubName_SameTopic" type="Subscribe">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02_newName/SameName_NewTopic</ApiParameter>    
+        <ApiParameter name="QoS">2</ApiParameter>
+        <ApiParameter name="expectedrcv5">2</ApiParameter>
+    </Action>                
+
+   <Action name="resthowSubWith_ConsumerA_SameName_NewTopic" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_2</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/SameName_NewTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="comparehowSubWith_ConsumerA_SameName_NewTopic" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_2</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/SameName_NewTopic</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="SameName_NewTopic"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>    
+    
+<Action name="restShowSubWith_ConsumerA_NewSubName_SameTopic" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_2</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02_newName/SameName_NewTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubWith_ConsumerA_NewSubName_SameTopic" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_2</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02_newName/SameName_NewTopic</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="SameName_NewTopic"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>        
+    
+    <!-- Now  that we have an active subscriber, try adding another subscriber with a different QoS. -->
+    <Action name="Subscribe_ConsumerB" type="Subscribe">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/SameName_NewTopic</ApiParameter>
+        <ApiParameter name="QoS">0</ApiParameter>
+        <ApiParameter name="expectedrcv5">0</ApiParameter>
+    </Action>    
+
+   <Action name="restShowSubWith_2_consumers" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/SameName_NewTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubWith_2_consumers" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/SameName_NewTopic</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="SameName_NewTopic"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>                
+    
+    <!-- Steal the clientId of the shared consumer using connection CF1B. 
+        This should cause a clean disconnect from the shared subscription. Hopefully -->
+    <Action name="CreateConnectionC" type="CreateConnection">
+        <ActionParameter name="structure_id">ConC</ActionParameter>
+        <ActionParameter name="connection_id">CF1C</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">sharedMix_error02B</ApiParameter> <!-- Stealing an active ClientID --> 
+
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">60</ApiParameter>
+        <ActionParameter name="persistenceDirectory">tmp1</ActionParameter>
+        <!-- ApiParameter name="verbose">true</ApiParameter-->
+    </Action>
+    
+    <Action name="CheckConnection1BBad" type="CheckConnection" >
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+        <ActionParameter name="isConnected">false</ActionParameter>
+    </Action>        
+
+   <Action name="restShowSubAfterTheft1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_3</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/SameName_NewTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubAfterTheft1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_3</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/SameName_NewTopic</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="SameName_NewTopic"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>    
+
+    <!-- Steal the clientId of the other consumer using CF1A.
+        This should cause a clean disconnect from the shared subscription  -->
+    <Action name="CreateConnectionD" type="CreateConnection">
+        <ActionParameter name="structure_id">ConDc</ActionParameter>
+        <ActionParameter name="connection_id">CF1D</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">sharedMix_error02A</ApiParameter> <!-- Stealing an active ClientID --> 
+
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">60</ApiParameter>
+        <ActionParameter name="persistenceDirectory">tmp1</ActionParameter>
+        <!-- ApiParameter name="verbose">true</ApiParameter-->
+    </Action>    
+    
+    <Action name="CheckConnection1ABad" type="CheckConnection" >
+        <dependsOn action_id="CreateConnectionD" interval="50"/>
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+        <ActionParameter name="isConnected">false</ActionParameter>
+    </Action>        
+
+   <Action name="restShowSubAfterTheft2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_3</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/SameName_NewTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubAfterTheft2" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_3</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/SameName_NewTopic</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="SameName_NewTopic"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>    
+    
+    <Action name="UnSubscribe_ConsumerC" type="Unsubscribe">
+        <ActionParameter name="connection_id">CF1C</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/SameName_NewTopic</ApiParameter>    
+    </Action>        
+
+    <Action name="UnSubscribe_ConsumerD" type="Unsubscribe">
+        <ActionParameter name="connection_id">CF1D</ActionParameter>
+        <ApiParameter name="topic">$share/sharedMix_error02/SameName_NewTopic</ApiParameter>    
+    </Action>        
+    
+    <Action name="CloseConnectionA" type="CloseConnection" rc="1" reason="ISMTEST2507">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnectionC" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1C</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnectionD" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1D</ActionParameter>
+    </Action>
+    
+   <Action name="restShowsharedMix_error02Subname2_gone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/SameName_NewTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>        
+    
+    <Action name="compareShowsharedMix_error02Subname2_gone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/SameName_NewTopic</ActionParameter>
+    </Action>        
+
+     <Action name="CreateConnectionA_reclear" type="CreateConnection">
+        <ActionParameter name="structure_id">ConA</ActionParameter>
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">sharedMix_error02A</ApiParameter>
+
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <!-- ApiParameter name="verbose">true</ApiParameter-->
+    </Action>
+    
+    <!-- clientId sharedMix_error02A had one other subs, but now we have done a CleanSession true connect so 
+        the other two subs should be gone. -->    
+   <Action name="restShowsharedMix_error02newSubname2_gone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02_newName/SameName_NewTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>        
+    
+    <Action name="compareShowsharedMix_error02newSubname2_gone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02_newName/SameName_NewTopic</ActionParameter>
+    </Action>          
+    
+    
+   <Action name="CloseConnectionA_reclear" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>    
+    
+    <Action name="CreateConnectionB_reclear" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1B</ActionParameter>
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">sharedMix_error02B</ApiParameter>
+
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <!-- ApiParameter name="verbose">true</ApiParameter-->
+    </Action>
+    
+    <!--  the two subs unique to consumer B should be gone now. --> 
+    <Action name="restShowsharedMix_error02Subname3_gone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/ErrorTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>        
+    
+    <Action name="compareShowsharedMix_error02Subname3_gone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/ErrorTopic</ActionParameter>
+    </Action>            
+
+     <Action name="restShowsharedMix_error02Subname4_gone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/sharedMix_error02/DifferentNonErrorTopic&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>        
+    
+    <Action name="compareShowsharedMix_error02Subname4_gone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1_gone</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/sharedMix_error02/DifferentNonErrorTopic</ActionParameter>
+    </Action>        
+        
+      <Action name="CloseConnectionB_reclear" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>    
+    
+    <Action name="CreateConnectionC_reclear" type="CreateConnection">
+        <ActionParameter name="structure_id">ConC</ActionParameter>
+        <ActionParameter name="connection_id">CF1C</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">sharedMix_error02B</ApiParameter>
+
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ActionParameter name="persistenceDirectory">tmp1</ActionParameter>
+        <!-- ApiParameter name="verbose">true</ApiParameter-->
+    </Action>
+    
+     <Action name="CloseConnectionC_reclear" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1C</ActionParameter>
+    </Action>        
+        
+    <Action name="CreateConnectionD_reclear" type="CreateConnection">
+        <ActionParameter name="structure_id">ConDc</ActionParameter>
+        <ActionParameter name="connection_id">CF1D</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">sharedMix_error02A</ApiParameter> 
+
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ActionParameter name="persistenceDirectory">tmp1</ActionParameter>
+        <!-- ApiParameter name="verbose">true</ApiParameter-->
+    </Action>    
+ 
+    <Action name="CloseConnectionD_reclear" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1D</ActionParameter>
+    </Action>         
+    
+</IsmWSTest>
+                

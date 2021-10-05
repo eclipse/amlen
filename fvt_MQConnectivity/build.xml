@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="fvt_mqconnectivity" default="build_fvt_mqconnectivity"  basedir=".">
+    <property environment="env"/>
+	<property name="fvt.mqconnectivity.src.dir" location="${basedir}/src" />
+	<property name="fvt.mqconnectivity.bin.dir" location="${basedir}/bin" />
+	<property name="fvt.mqconnectivity.scripts.dir" location="${basedir}/scripts" />
+	<property name="fvt.mqconnectivity.ssl.dir" location="${basedir}/scripts/ssl" />
+	<property name="fvt.mqconnectivity.lib.dir" location="${fvt.mqconnectivity.bin.dir}/lib" />
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+
+	<property name="client.ship.lib.dir" value="${basedir}/../client_ship/lib"/>
+	<property name="fvt.ship.dir" value="${basedir}/../fvt_ship"/>
+	<property name="testTools.ship.lib.dir" value="${basedir}/../testTools_ship/lib"/>
+
+    <property name="publishBuildTools" location="${basedir}/../build_tools" />
+
+    <!-- NOT USED, use build_tools now:	<property name="testTools.lib.dir" location="../testTools_MQ_MQTTClient/lib"/> -->
+
+	<!-- define fvt_mqconnectivity jar file name -->
+	<property name="mqconnectivity.jar" location="${fvt.mqconnectivity.lib.dir}/mqconnectivity.jar"/>
+
+	<property name="fvtScripts.build.dir" value="${basedir}/scripts"/>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+       <pathelement location="${client.deps.dir}/com.ibm.micro.client.mqttv3.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mq.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mqjms.jar"/>
+   	    <pathelement location="${client.deps.dir}/connector.jar"/>
+   	    <pathelement location="${client.deps.dir}/dhbcore.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mq.commonservices.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mq.headers.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mq.jmqi.jar"/>
+   		<pathelement location="${client.deps.dir}/jms.jar"/>
+    	<pathelement location="${client.ship.lib.dir}/imaclientjms.jar" />
+    	<pathelement location="${client.ship.lib.dir}/org.eclipse.paho.client.mqttv3.jar"/>
+   		<fileset dir="${testTools.ship.lib.dir}/">
+   						<include name="*.jar" />
+   		</fileset>
+   </path>
+
+	<property name="compile_classpath" refid="compile.classpath"/>
+	<echo message="compile.classpath = ${compile_classpath}"/>
+
+    <target name="clean">
+      <delete includeemptydirs="true" dir="${fvt.mqconnectivity.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="mqconnectivity_publish">
+		<echo> ==  mqconnectivity_publish called (TBD) ================ </echo>
+		<echo> ==  Copy files to fvt_ship tree ================ </echo>
+		<fixcrlf eol="unix" srcdir="${fvtScripts.build.dir}" includes="**/*" excludes="**/*.jks **/*.pkcs12"/>
+		<copy file="${mqconnectivity.jar}" todir="${fvt.ship.dir}/lib" preservelastmodified="yes" verbose="true"/>
+		<!-- These next 2 lines are not needed. These files are already being put in svt/svt_ssl by another test. -->
+   		<!-- <copy file="${cacerts.jks}" todir="${svt.ship.dir}/svt_ssl" preservelastmodified="yes" verbose="true"/> -->
+		<!-- <copy file="${cacerts.pkcs12}" todir="${svt.ship.dir}/svt_ssl" preservelastmodified="yes" verbose="true"/> -->
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, package"  -->
+	<target name="build_fvt_mqconnectivity"  depends="build_mqconnectivity_jar, mqconnectivity_publish">
+		<echo> ==  Invoking ant for fvt_mqconnectivity build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_mqconnectivity_jar" depends="mqconnectivity_compile" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${fvt.mqconnectivity.src.dir}/META-INF/MANIFEST.MF" todir="${fvt.mqconnectivity.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${fvt.mqconnectivity.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${fvt.mqconnectivity.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${mqconnectivity.jar}">
+			<!--fileset dir="${fvt.mqconnectivity.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/*" /-->
+			<fileset dir="${fvt.mqconnectivity.bin.dir}" includes="**/*.class" />
+			<!--fileset dir="${fvt.mqconnectivity.bin.dir}/test" includes="**/*.class" /-->
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${mqconnectivity.jar}" manifest="${fvt.mqconnectivity.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!--Compile the project-->
+	<target name="mqconnectivity_compile" depends="fvt_mqconnectivity_init">
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac  source="1.6" target="1.6" srcdir="${fvt.mqconnectivity.src.dir}" destdir="${fvt.mqconnectivity.bin.dir}" deprecation="no"
+             includeAntRuntime="no"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${fvt.mqconnectivity.src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+        <copy todir="${fvt.mqconnectivity.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${fvt.mqconnectivity.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+    <!-- Initialize the build environment -->
+	<target name="fvt_mqconnectivity_init">
+		<mkdir dir="${fvt.mqconnectivity.lib.dir}"/>
+	</target>
+</project>

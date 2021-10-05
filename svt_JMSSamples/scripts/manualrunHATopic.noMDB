@@ -1,0 +1,101 @@
+#!/bin/bash +x
+######################################################################
+### Parameters for the general execution of manualrun, 
+###  also see usage() for additiona parameter information
+###
+
+source manualrun_HA_JMS
+
+#####################################################################
+#--  LAUNCH()  -------------------------------------------------------
+launch() {
+  # BUILD CLIENT USERNAME for CLIENT_ID and LDAP if added.
+  client-name
+
+  declare SUB_USERNAME=c${USERCNT}2${USERHOST}
+  declare PUB_USERNAME=c${USERCNT}3${USERHOST}
+
+  declare SUB_TOPIC_NAME=${TOPIC_FROM}${TOPIC_TO}${SUB_USERNAME}
+  declare PUB_TOPIC_NAME=${TOPIC_TO}${SUB_USERNAME}${TOPIC_FROM}
+# when not using MDB PUB/SUB Topics need to match -- COMMENT NEXT LINE WHEN USING MDB.
+  declare PUB_TOPIC_NAME=${SUB_TOPIC_NAME}
+
+#Create Durable Subscription (subscription1) before Publishing for clientid (HASubscriber)
+  if [[ $# -lt 4 ]]; then
+    DURABLE=false
+  else
+    DURABLE=$4
+  fi
+
+# Launch Subscriber and Publisher with or without Enable Client Trace
+#
+  if [[ "$5" == "DEBUG" ]]; then
+    java ${stack} -DIMATraceLevel=${TRACELEVEL}  -DIMATraceFile=stdout  svt.jms.ism.HADurableSubscriber ${SERVERLIST} ${SUB_PORT} ${SUB_TOPIC_NAME} ${MSG_COUNT}  ${RECV_TIMEOUT} ${MSGWAIT_TIMEOUT}  ${FORCE_TIMEOUT} ${CONNECT_TIMEOUT} ${SUB_USERNAME}  > svtSub.${SUB_USERNAME}.log 2>&1  &
+    sleep 5
+    java ${stack} -DIMATraceLevel=${TRACELEVEL}  -DIMATraceFile=stfout  svt.jms.ism.HATopicPublisher    ${SERVERLIST} ${PUB_PORT} ${PUB_TOPIC_NAME} ${MSG_COUNT} "${SERVERLIST} JMS ${HOSTNAME}.${PUB_USERNAME}" ${MSG_RATE} ${DURABLE} true ${CONNECT_TIMEOUT} ${PUB_USERNAME}  > svtPub.${PUB_USERNAME}.log  2>&1  &
+	
+  else
+    java ${stack} svt.jms.ism.HADurableSubscriber  ${SERVERLIST} ${SUB_PORT} ${SUB_TOPIC_NAME} ${MSG_COUNT}  ${RECV_TIMEOUT} ${MSGWAIT_TIMEOUT}  ${FORCE_TIMEOUT} ${CONNECT_TIMEOUT} ${SUB_USERNAME}   > svtSub.${SUB_USERNAME}.log 2>&1   &
+    sleep 5
+    java ${stack} svt.jms.ism.HATopicPublisher     ${SERVERLIST} ${PUB_PORT} ${PUB_TOPIC_NAME} ${MSG_COUNT} "${SERVERLIST} JMS ${HOSTNAME}.${PUB_USERNAME}" ${MSG_RATE} ${DURABLE} false ${CONNECT_TIMEOUT} ${PUB_USERNAME}   > svtPub.${PUB_USERNAME}.log 2>&1  &
+    sleep 5	
+  fi
+
+
+echo "===> The ${SUB_USERNAME} and ${PUB_USERNAME} Clients are started, waiting for them to complete"
+  
+}
+
+#--  RUN()  -------------------------------------------------------
+run() {
+#  div is interesting when 'batch' is not 1.  
+#  ${batch} is number of client that are create with each invoke.  ${1} is total number of client to create.  
+#    So ${div} is how many batches are needed and ${rem} is the remainder left to start from a partial ${batch}
+
+  declare -i div=$(($1/${batch}))    
+  declare -i rem=$(($1%${batch}))
+  declare -i id=$2
+  declare -i minutes=$3
+
+#  Because the clientID needs to match the LDAP USER name and the clientID format is:  3 char#, 0|1 for Sub/Pub, 3 char# for IP, 
+#  need to monitor ${div} and ${2} do not exceed ${MAX_CLIENT_COUNT}.
+#  Client3 is the last client to be created in this run....
+
+  declare -i div3=${div}+${id}-1
+  declare -i rem3=${rem}+${id}
+
+# In the IF blocks below: Construct $USER later in launch() for JMS Client
+  server_list
+
+  if [ ${div} -gt 0 ]; then
+    for i in $(eval echo {${id}..${div3}}); do
+      if [ "${id}" -le "${MAX_CLIENT_COUNT}" ]; then
+        launch ${batch} ${id} ${minutes}
+      fi
+      ((id+=${batch}))
+    done
+  fi
+
+  if [ ${rem} -gt 0 ]; then
+    if [ "${id}" -le "${MAX_CLIENT_COUNT}" ]; then
+     launch ${rem} ${id} ${minutes}
+    fi
+   ((id+=rem))
+  fi
+
+}
+
+###################################################################
+#--  Start of Main  -------------------------------------------------------
+##  
+#set -x
+
+if [ $# -ne 3 ]; then
+  set +x
+  usage
+else
+  run $@
+  wait     # wait for 'launch'ed processes to complete
+fi
+
+

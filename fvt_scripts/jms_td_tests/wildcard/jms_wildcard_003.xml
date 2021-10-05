@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_wildcard_003
+
+  Test Category:  JMS Wildcards
+  
+  Test Description: 
+    Test Topic Messaging policies with 3 *'s in the Topic string.
+    
+    Connection Policies:
+    DemoConnectionPolicy - Allow all connections
+    
+    Messaging Policies:
+      JMSWildcardTopicMP1 - Start out by updating the policy to allow '*start*end*'
+                           and continue updating through the test.
+
+    Endpoints:
+    JMSWildcardEP - Port 18400
+
+    Some variations to test include:
+      ***
+      *a*b*
+      a*b*c*
+      *a*b*c
+      ***a
+      a***b
+      c***
+
+-->
+<ImaJmsTest name="jms_wildcard_003">
+
+    <Action name="Create_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+    </Action>
+    
+    <Action name="SetProps_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Protocol" value="tcp"/>
+        <ImaProperty name="Port" value="18400"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+    
+    <!-- Create a connection with valid username and password -->
+    <Action name="CreateConnection_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateSession1_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateSession2_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session2_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateSession3_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session3_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession4_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session4_cf1</ActionParameter>
+    </Action>
+
+	<!-- matches *** and *start*end* -->
+    <Action name="Create_dest1" type="CreateDestination">
+        <ActionParameter name="structure_id">dest1</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/a/start/b/end/c</ApiParameter>
+    </Action>
+
+	<!-- matches *** and start*mid*end* -->
+    <Action name="Create_dest2" type="CreateDestination">
+        <ActionParameter name="structure_id">dest2</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">start/a/mid/b/end/c</ApiParameter>
+    </Action>
+
+	<!-- matches *** and *start*mid*end -->
+    <Action name="Create_dest3" type="CreateDestination">
+        <ActionParameter name="structure_id">dest3</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/a/start/b/mid/c/end</ApiParameter>
+    </Action>
+
+	<!-- matches *** and ***start -->
+    <Action name="Create_dest4" type="CreateDestination">
+        <ActionParameter name="structure_id">dest4</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/a/starttriple</ApiParameter>
+    </Action>
+
+	<!-- matches *** and mid***mid -->
+    <Action name="Create_dest5" type="CreateDestination">
+        <ActionParameter name="structure_id">dest5</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">mid/a/b/c/d/triple</ApiParameter>
+    </Action>
+    
+    <!-- matches *** and end*** -->
+    <Action name="Create_dest6" type="CreateDestination">
+        <ActionParameter name="structure_id">dest6</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">endtriple/a/b</ApiParameter>
+    </Action>
+
+	<!-- Update the Topic Messaging Policy to have 3 *'s, 1 at the start, 1 in the middle, and 1 at the end of the string. -->
+    <Action name="UpdateTopicMP1" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"JMSWildcardTopicMP1":{"Topic":"*start*end*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now only topics containing '.*start.*end.*' should succeed. -->
+    
+    <!-- /a/start/b/end/c matches *start*end* -->
+    <Action name="CreateConsumer1_dest1" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer1_dest1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- start/a/mid/b/end/c matches *start*end* -->
+    <Action name="CreateConsumer1_dest2" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer1_dest2" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- /a/start/b/mid/c/end matches *start*end* -->
+    <Action name="CreateConsumer1_dest3" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer1_dest3" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- /a/starttriple does not match *start*end* -->
+    <Action name="CreateConsumer1_dest4" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer1_dest4" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- Update the Topic Messaging Policy to have 3 *'s, 2 in the middle but not together, 
+    and 1 at the end of the string. -->
+    <Action name="UpdateTopicMP2" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"JMSWildcardTopicMP1":{"Topic":"start*mid*end*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now only topics 'start.*mid.*end.*' should succeed. -->
+    
+    <!-- /a/start/b/end/c does not match start*mid*end* -->
+    <Action name="CreateConsumer2_dest1" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer2_dest1" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- start/a/mid/b/end/c matches start*mid*end* -->
+    <Action name="CreateConsumer2_dest2" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer2_dest2" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- /a/start/b/mid/c/end does not match start*mid*end* -->
+    <Action name="CreateConsumer2_dest3" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer2_dest3" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- /a/starttriple does not match start*mid*end* -->
+    <Action name="CreateConsumer2_dest4" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer2_dest4" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- Update the Topic Messaging Policy to have 3 *'s, 1 at the beginning of the string,
+    and 2 in the middle but not together. -->
+    <Action name="UpdateTopicMP3" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"JMSWildcardTopicMP1":{"Topic":"*start*mid*end"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any topic containing '.*start.*mid.*end' should succeed. -->
+
+    <!-- /a/start/b/end/c does not match *start*mid*end -->
+    <Action name="CreateConsumer3_dest1" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer3_dest1" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- start/a/mid/b/end/c does not match *start*mid*end -->
+    <Action name="CreateConsumer3_dest2" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer3_dest2" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- /a/start/b/mid/c/end matches *start*mid*end -->
+    <Action name="CreateConsumer3_dest3" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer3_dest3" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- /a/starttriple does not match *start*mid*end -->
+    <Action name="CreateConsumer3_dest4" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer3_dest4" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+	<!-- Update the TopicPolicy to have 3 *'s, all together at the beginning of the string. -->
+	<Action name="UpdateTopicMP4" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"JMSWildcardTopicMP1":{"Topic":"***starttriple"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any topic containing '.*starttriple' should succeed. -->
+
+    <!-- /a/start/b/end/c does not match ***starttriple -->
+    <Action name="CreateConsumer4_dest1" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer4_dest1" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- start/a/mid/b/end/c does not match ***starttriple -->
+    <Action name="CreateConsumer4_dest2" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer4_dest2" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- /a/start/b/mid/c/end does not match ***starttriple -->
+    <Action name="CreateConsumer4_dest3" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer4_dest3" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- /a/starttriple matches ***starttriple -->
+    <Action name="CreateConsumer4_dest4" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer4_dest4" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- Update the TopicPolicy to have 3 *'s, all together in the middle of the string. -->
+	<Action name="UpdateTopicMP5" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"JMSWildcardTopicMP1":{"Topic":"mid***triple"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any topic containing 'mid.*triple' should succeed. -->
+
+    <!-- /a/start/b/end/c does not match mid***triple -->
+    <Action name="CreateConsumer5_dest1" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer5_dest1" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- start/a/mid/b/end/c does not match mid***triple -->
+    <Action name="CreateConsumer5_dest2" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer5_dest2" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- /a/start/b/mid/c/end does not match mid***triple -->
+    <Action name="CreateConsumer5_dest3" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer5_dest3" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- /a/starttriple does not match mid***triple -->
+    <Action name="CreateConsumer5_dest4" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer5_dest4" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- mid/a/b/c/d/triple matches mid***triple -->
+    <Action name="CreateConsumer5_dest5" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest5</ActionParameter>
+        <ActionParameter name="dest_id">dest5</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer5_dest5" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest5</ActionParameter>
+        <ActionParameter name="dest_id">dest5</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- Update the TopicPolicy to have 3 *'s, all together at the end of the string. -->
+	<Action name="UpdateTopicMP6" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"JMSWildcardTopicMP1":{"Topic":"endtriple***"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any topic containing 'endtriple.*' should succeed. -->
+
+    <!-- /a/start/b/end/c does not match endtriple*** -->
+    <Action name="CreateConsumer6_dest1" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer6_dest1" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- start/a/mid/b/end/c does not match endtriple*** -->
+    <Action name="CreateConsumer6_dest2" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer6_dest2" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- /a/start/b/mid/c/end does not match endtriple*** -->
+    <Action name="CreateConsumer6_dest3" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer6_dest3" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- /a/starttriple does not match endtriple*** -->
+    <Action name="CreateConsumer6_dest4" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer6_dest4" type="CreateProducer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">producer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- end/a/b matches endtriple*** -->
+    <Action name="CreateConsumer6_dest6" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest6</ActionParameter>
+        <ActionParameter name="dest_id">dest6</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer6_dest6" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest6</ActionParameter>
+        <ActionParameter name="dest_id">dest6</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- Update the TopicPolicy to have 3 *'s, and nothing else. -->
+    <Action name="UpdateTopicMP7" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"JMSWildcardTopicMP1":{"Topic":"***"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any topic should succeed. -->
+    
+    <!-- /a/start/b/end/c matches *** -->
+    <Action name="CreateConsumer7_dest1" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer7_dest1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- start/a/mid/b/end/c matches *** -->
+    <Action name="CreateConsumer7_dest2" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer7_dest2" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest2</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <!-- /a/start/b/mid/c/end matches *** -->
+    <Action name="CreateConsumer7_dest3" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateProducer7_dest3" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest3</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <!-- /a/starttriple matches *** -->
+    <Action name="CreateConsumer7_dest4" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer7_dest4" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest4</ActionParameter>
+        <ActionParameter name="dest_id">dest4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="StartConnection_cf1" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_cf1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+</ImaJmsTest>

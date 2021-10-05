@@ -1,0 +1,980 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_msgdelivery_001
+
+  Test Category:  JMS Message Delivery
+
+  Test Description:
+        Send messages from a JMS producer to a JMS consumer using the same
+        ConnectionFactory and Destination for both producer and consumer. Use both
+        synchronous and asynchronous message delivery in this test.
+
+        This test is also used to test the setting/getting of many of the Message Headers,
+        on both Producer and Consumer.
+
+        Some of the message headers are ignored on send, some are passed on the message, so
+        on the producer side we verify the values accordingly.
+
+        UPDATE: This test now includes tests for topic strings with too many levels.
+        And test for stealing client ID
+
+-->
+<LlmJmsTest name="jms_msgdelivery_001">
+
+  <Action name="Create_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+  </Action>
+
+
+  <Action name="SetProps_cf1Fail" type="FillIsmProps" >
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+	<ImaProperty name="ClientID" value="MDclient1"/>
+        <ImaProperty name="Protocol" value="tcpsnot" valid="false" />
+        <include>../common/JMS_server.xml</include>
+        <ImaProperty name="Port" value="16102" type="STRING"/>
+  </Action>
+
+
+  <Action name="SetProps_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Protocol" value="tcp" />
+        <include>../common/JMS_server.xml</include>
+        <ImaProperty name="Port" value="16102" type="STRING"/>
+  </Action>
+
+  <Action name="CreateConnection_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+        <ActionParameter name="prop_log_file">msgdelivery001_l.log</ActionParameter>
+        <ActionParameter name="prop_event_file">msgdelivery001_e.log</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession1_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session1_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession2_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session2_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession3_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session3_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession4_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session4_cf1</ActionParameter>
+  </Action>
+
+  <Action name="ConnectLoop" type="CompositeAction" repeat="10" repeat_interval="0">
+	<Action name="CreateConnection_fail" type="CreateConnection">
+       		<ActionParameter name="structure_id">connection_cfFail</ActionParameter>
+	        <ActionParameter name="factory_id">cf1</ActionParameter>
+	</Action>
+
+  	<Action name="CreateSession1_conn_cf1Fail" type="CreateSession" rc="1" reason="CWLNC0205">
+       		<ActionParameter name="conn_id">connection_cfFail</ActionParameter>
+       		<ActionParameter name="structure_id">session1_cfFail</ActionParameter>
+	</Action>
+
+    <Action name="CloseFailedConn" type="CloseConnection">
+        	<ActionParameter name="conn_id">connection_cfFail</ActionParameter>
+    </Action>
+  </Action>
+
+  <Action name="Create_destLevels" type="CreateDestination">
+        <ActionParameter name="structure_id">destLevels</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/dest1/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z/a/b/c/d/e</ApiParameter>
+  </Action>
+
+  <Action name="CreateConsumer1_destLevels" type="CreateConsumer" rc="1" reason="CWLNC0217">
+        <ActionParameter name="structure_id">consumer1_destLevels</ActionParameter>
+        <ActionParameter name="dest_id">destLevels</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CreateProducer1_destLevels" type="CreateProducer" rc="1" reason="CWLNC0217">
+        <ActionParameter name="structure_id">producer1_destLevels</ActionParameter>
+        <ActionParameter name="dest_id">destLevels</ActionParameter>
+        <ActionParameter name="session_id">session4_cf1</ActionParameter>
+  </Action>
+
+  <Action name="Create_dest1" type="CreateDestination">
+        <ActionParameter name="structure_id">dest1</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/dest1/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z/a/b/c/d</ApiParameter>
+  </Action>
+
+  <!-- create a destination that will placed on the message, but should be ignored
+           per the JMS spec.      -->
+  <Action name="Create_destNotUsed" type="CreateDestination">
+        <ActionParameter name="structure_id">destNotUsed</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">unusedDest</ApiParameter>
+  </Action>
+
+  <Action name="CreateConsumer1_dest1" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer1_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CreateConsumer2_dest1" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer2_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session2_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CreateProducer1_dest1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer1_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session3_cf1</ActionParameter>
+  </Action>
+
+  <!--
+     In LLM, we were able to start connection before creating/setting
+     messageListener.  This is not currently working for ISM.
+
+         <Action name="StartConnection_cf1" type="StartConnection">
+           <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+         </Action>
+     -->
+
+  <Action name="CreateMsgListener_consumer1" type="CreateMessageListener">
+        <ActionParameter name="structure_id">msg_listener_consumer1</ActionParameter>
+  </Action>
+
+  <Action name="SetMsgListener_consumer1" type="SetMessageListener">
+        <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+        <ActionParameter name="consumer_id">consumer1_dest1</ActionParameter>
+  </Action>
+
+  <Action name="StartConnection_cf1" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+  </Action>
+
+  <Action name="rmdt" type="CompositeAction">
+        <!-- PRODUCER -->
+        <!-- PRODUCER: Create messages -->
+
+        <!-- the first message is also used to test all setters/getters for Message Headers.
+                 The message Type is initially set to MAP, then changed to BYTES -->
+        <Action name="CreateBytesMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_bytes_msg1</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+
+        <Action name="SetMsgGroupID" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupID</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ApiParameter name="value">GroupA</ApiParameter>
+        </Action>
+
+        <Action name="SetMsgGroupSeq" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupSeq</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">Integer</ApiParameter>
+          <ApiParameter name="value">1</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgGroupID" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupID</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">GroupA</ActionParameter>
+        </Action>
+
+        <Action name="GetMsgGroupSeq" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupSeq</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">Integer</ApiParameter>
+          <ActionParameter name="verifyValue">1</ActionParameter>
+        </Action>
+
+        <Action name="SetMsgTypeProd" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageType</ApiParameter>
+          <ApiParameter name="value">StockQuote</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgTypeProd" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageType</ApiParameter>
+          <ActionParameter name="verifyValue">StockQuote</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedRedeliveryProd" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Redelivered</ApiParameter>
+          <ApiParameter name="value">true</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedRedeliveryProd" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Redelivered</ApiParameter>
+          <ApiParameter name="valueType">Boolean</ApiParameter>
+          <ActionParameter name="verifyValue">true</ActionParameter>
+        </Action>
+
+        <Action name="SetCorrelationIDProd" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">CorrelationID</ApiParameter>
+          <ApiParameter name="value">MyCorrelationID</ApiParameter>
+        </Action>
+
+        <Action name="GetCorrelationIDProd" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">CorrelationID</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MyCorrelationID</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedMessageIDProd" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageID</ApiParameter>
+          <ApiParameter name="value">MyMessageID</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedMessagedDProd" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageID</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MyMessageID</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedTimestampProd" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Timestamp</ApiParameter>
+          <ApiParameter name="value">7777777</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusrdTimestampProd" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Timestamp</ApiParameter>
+          <ApiParameter name="valueType">Long</ApiParameter>
+          <ActionParameter name="verifyValue">7777777</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedPriorityProd" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Priority</ApiParameter>
+          <ApiParameter name="value">7</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedPriorityProd" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Priority</ApiParameter>
+          <ApiParameter name="valueType">Integer</ApiParameter>
+          <ActionParameter name="verifyValue">7</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedDestinationProd" type="SetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Destination</ApiParameter>
+          <ApiParameter name="value">destNotUsed</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedDestinationProd" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Destination</ApiParameter>
+          <ApiParameter name="valueType">Object</ApiParameter>
+          <ActionParameter name="verifyValue">destNotUsed</ActionParameter>
+        </Action>
+
+        <Action name="CreateMapMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_map_msg1</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">MAP</ApiParameter>
+        </Action>
+
+        <Action name="CreateObjMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_obj_msg1</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">OBJECT</ApiParameter>
+        </Action>
+
+        <Action name="CreateStreamMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_strm_msg1</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">STREAM</ApiParameter>
+        </Action>
+
+        <Action name="CreateTxtMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+
+        <Action name="CreateEmptyBytesMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_bytes_msgEmpty</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="CreateEmptyMapMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_map_msgEmpty</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">MAP</ApiParameter>
+        </Action>
+
+        <Action name="CreateEmptyObjectMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_obj_msgEmpty</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">OBJECT</ApiParameter>
+        </Action>
+
+        <Action name="CreateEmptyTxtMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_txt_msgEmpty</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+          <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+
+        <Action name="CreateEmptyMessage_ses3_dest1" type="CreateMessage">
+          <ActionParameter name="structure_id">tx_msgEmpty</ActionParameter>
+          <ActionParameter name="session_id">session3_cf1</ActionParameter>
+        </Action>
+
+        <!-- PRODUCER: Set message content -->
+        <Action name="WriteBytesMessage_ses3_dest1" type="WriteBytesMessage">
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+          <ApiParameter name="valueType">UTF8</ApiParameter>
+          <ApiParameter name="value">BYTES: test content 1</ApiParameter>
+        </Action>
+
+        <Action name="SetMapItem1_ses3_dest1" type="SetMessageMapItem">
+          <ActionParameter name="message_id">tx_map_msg1</ActionParameter>
+          <ApiParameter name="propertyName">MessageContent1</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ApiParameter name="value">MAP: test content 1</ApiParameter>
+        </Action>
+
+        <Action name="SetMapItem2_ses3_dest1" type="SetMessageMapItem">
+          <ActionParameter name="message_id">tx_map_msg1</ActionParameter>
+          <ApiParameter name="propertyName">MessageContent2</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ApiParameter name="value">MAP: test content 2</ApiParameter>
+        </Action>
+
+        <Action name="SetObjMsg_ses3_dest1" type="SetMessageObject">
+          <ActionParameter name="message_id">tx_obj_msg1</ActionParameter>
+          <ActionParameter name="objValueType">String</ActionParameter>
+          <ApiParameter name="value">OBJECT: test content 1</ApiParameter>
+        </Action>
+
+        <Action name="WriteStreamMessage_ses3_dest1" type="WriteStreamMessage">
+          <ActionParameter name="message_id">tx_strm_msg1</ActionParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ApiParameter name="value">STREAM: test content 1</ApiParameter>
+        </Action>
+
+        <Action name="SetTxtMsg_ses3_dest1" type="SetMessageText">
+          <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+          <ApiParameter name="value">TEXT: test content 1</ApiParameter>
+        </Action>
+
+        <!-- NOTE: No content set for "empty" messages -->
+
+        <!-- PRODUCER: Send messages -->
+        <Action name="SendBytesMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+        </Action>
+
+        <Action name="SendMapMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_map_msg1</ActionParameter>
+        </Action>
+
+        <Action name="SendObjMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_obj_msg1</ActionParameter>
+        </Action>
+
+        <Action name="SendStreamMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_strm_msg1</ActionParameter>
+        </Action>
+
+        <Action name="SendTxtMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+        </Action>
+
+        <Action name="SendEmptyBytesMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_bytes_msgEmpty</ActionParameter>
+        </Action>
+
+        <Action name="SendEmptyMapMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_map_msgEmpty</ActionParameter>
+        </Action>
+
+        <Action name="SendEmptyObjectMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_obj_msgEmpty</ActionParameter>
+        </Action>
+
+        <Action name="SendEmptyTextMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_txt_msgEmpty</ActionParameter>
+        </Action>
+
+        <Action name="SendEmptyMessage_ses3_dest1" type="SendMessage">
+          <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+          <ActionParameter name="message_id">tx_msgEmpty</ActionParameter>
+        </Action>
+  </Action>
+
+  <Action name="rmdr1" type="CompositeAction">
+        <!-- CONSUMER 1: Receive messages -->
+        <Action name="RcvBytesMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvMapMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_map_msg1</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvObjMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvStreamMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_strm_msg1</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvTxtMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_txt_msg1</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyBytesMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_bytes_msgEmpty</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyMapMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_map_msgEmpty</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyObjectMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_obj_msgEmpty</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyTextMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_txt_msgEmpty</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyMessage_consumer1" type="ReceiveMessage">
+          <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+          <ActionParameter name="structure_id">rx_msgEmpty</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <!-- CONSUMER 1: Extract message content and verify it -->
+        <Action name="ReadBytesMsg_consumer1" type="ReadBytesMessage">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="valueType">UTF8</ApiParameter>
+          <ActionParameter name="verifyValue">BYTES: test content 1</ActionParameter>
+        </Action>
+
+
+        <Action name="GetMsgGroupIDCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupID</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">GroupA</ActionParameter>
+        </Action>
+
+        <Action name="GetMsgGroupSeqCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupSeq</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">Integer</ApiParameter>
+          <ActionParameter name="verifyValue">1</ActionParameter>
+        </Action>
+
+        <Action name="GetMsgTypeCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageType</ApiParameter>
+          <ActionParameter name="verifyValue">StockQuote</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedMsgTypeCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageType</ApiParameter>
+          <ApiParameter name="value">StockSale</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedMsgTypeCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageType</ApiParameter>
+          <ActionParameter name="verifyValue">StockSale</ActionParameter>
+        </Action>
+
+        <Action name="GetRedeliveryConsReal" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Redelivered</ApiParameter>
+          <ApiParameter name="valueType">Boolean</ApiParameter>
+          <ActionParameter name="verifyValue">false</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedRedeliveryCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Redelivered</ApiParameter>
+          <ApiParameter name="value">true</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedRedeliveryCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Redelivered</ApiParameter>
+          <ApiParameter name="valueType">Boolean</ApiParameter>
+          <ActionParameter name="verifyValue">true</ActionParameter>
+        </Action>
+
+        <Action name="GetRealCorrelationIDCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">CorrelationID</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MyCorrelationID</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedCorrelationIDCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">CorrelationID</ApiParameter>
+          <ApiParameter name="value">MyOtherCorrelationID</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedCorrelationIDCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">CorrelationID</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MyOtherCorrelationID</ActionParameter>
+        </Action>
+
+        <Action name="GetMessageIDReal" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageID</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+        </Action>
+
+        <Action name="GetTimestampReal" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Timestamp</ApiParameter>
+          <ApiParameter name="valueType">Long</ApiParameter>
+        </Action>
+
+        <Action name="SetUnusedTimestampCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Timestamp</ApiParameter>
+          <ApiParameter name="value">8888888</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedTimestampCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Timestamp</ApiParameter>
+          <ApiParameter name="valueType">Long</ApiParameter>
+          <ActionParameter name="verifyValue">8888888</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedMessageIDCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageID</ApiParameter>
+          <ApiParameter name="value">MyOtherMessageID</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedMessageIDCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">MessageID</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MyOtherMessageID</ActionParameter>
+        </Action>
+
+        <Action name="GetPriorityReal" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Priority</ApiParameter>
+          <ApiParameter name="valueType">Integer</ApiParameter>
+          <ActionParameter name="verifyValue">4</ActionParameter>
+        </Action>
+
+        <Action name="SetUnusedPriorityCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Priority</ApiParameter>
+          <ApiParameter name="value">2</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedPriorityCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Priority</ApiParameter>
+          <ApiParameter name="valueType">Integer</ApiParameter>
+          <ActionParameter name="verifyValue">2</ActionParameter>
+        </Action>
+
+        <Action name="GetDestinationReal" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Destination</ApiParameter>
+          <ApiParameter name="valueType">Object</ApiParameter>
+          <!-- ActionParameter name="verifyValue">dest1</ActionParameter -->
+        </Action>
+        <Action name="SetUnusedDestinationCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Destination</ApiParameter>
+          <ApiParameter name="value">destNotUsed</ApiParameter>
+        </Action>
+
+        <Action name="GetUnusedDestinationCons" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyType">Destination</ApiParameter>
+          <ApiParameter name="valueType">Object</ApiParameter>
+          <ActionParameter name="verifyValue">destNotUsed</ActionParameter>
+        </Action>
+
+        <Action name="ClearBytesMessageProps_ism" type="ClearMsg">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="clearProps">true</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgGroupIDConsPostClear" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupID</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+        <Action name="SetMsgGroupIDCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupID</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ApiParameter name="value">GroupB</ApiParameter>
+        </Action>
+
+        <Action name="SetMsgGroupSeqCons" type="SetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupSeq</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">Integer</ApiParameter>
+          <ApiParameter name="value">2</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgGroupIDCons2" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupID</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">GroupB</ActionParameter>
+        </Action>
+
+        <Action name="GetMsgGroupSeqCons2" type="GetMessageProperty">
+          <ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSXGroupSeq</ApiParameter>
+          <ApiParameter name="propertyType">Common</ApiParameter>
+          <ApiParameter name="valueType">Integer</ApiParameter>
+          <ActionParameter name="verifyValue">2</ActionParameter>
+        </Action>
+
+        <Action name="GetMapItem1_consumer1" type="GetMessageMapItem">
+          <ActionParameter name="message_id">rx_map_msg1</ActionParameter>
+          <ApiParameter name="propertyName">MessageContent1</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MAP: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="GetMapItem2_consumer1" type="GetMessageMapItem">
+          <ActionParameter name="message_id">rx_map_msg1</ActionParameter>
+          <ApiParameter name="propertyName">MessageContent2</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MAP: test content 2</ActionParameter>
+        </Action>
+
+        <Action name="GetObjMsg_consumer1" type="GetMessageObject">
+          <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">OBJECT: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="ReadStreamMsg_consumer1" type="ReadStreamMessage">
+          <ActionParameter name="message_id">rx_strm_msg1</ActionParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">STREAM: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="GetMsgText_consumer1" type="GetMessageText">
+          <ActionParameter name="message_id">rx_txt_msg1</ActionParameter>
+          <ActionParameter name="verifyValue">TEXT: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="ReadEmptyBytesMsg_consumer1" type="ReadBytesMessage">
+          <ActionParameter name="message_id">rx_bytes_msgEmpty</ActionParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+        <Action name="GetMapItemEmpty_consumer1" type="GetMessageMapItem">
+          <ActionParameter name="message_id">rx_map_msgEmpty</ActionParameter>
+          <ApiParameter name="propertyName">MessageContentEmpty</ApiParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+        <Action name="GetEmptyObjectMsg_consumer1" type="GetMessageObject">
+          <ActionParameter name="message_id">rx_obj_msgEmpty</ActionParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+        <Action name="GetEmptyTextMsg_consumer1" type="GetMessageText">
+          <ActionParameter name="message_id">rx_txt_msgEmpty</ActionParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+  </Action>
+
+  <Action name="rmdr2" type="CompositeAction">
+        <!-- CONSUMER 2: Receive messages -->
+        <Action name="RcvBytesMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_bytes_msg2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvMapMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_map_msg2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvObjMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_obj_msg2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvStreamMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_strm_msg2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvTxtMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_txt_msg2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyBytesMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_bytes_msgEmpty2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyMapMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_map_msgEmpty2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyObjectMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_obj_msgEmpty2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyTextMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_txt_msgEmpty2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvEmptyMessage_consumer2" type="ReceiveMessage">
+          <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+          <ActionParameter name="structure_id">rx_msgEmpty2</ActionParameter>
+          <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <!-- CONSUMER 2: Extract message content and verify it -->
+        <Action name="ReadBytesMsg_consumer2" type="ReadBytesMessage">
+          <ActionParameter name="message_id">rx_bytes_msg2</ActionParameter>
+          <ApiParameter name="valueType">UTF8</ApiParameter>
+          <ActionParameter name="verifyValue">BYTES: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="GetMapItem1_consumer2" type="GetMessageMapItem">
+          <ActionParameter name="message_id">rx_map_msg2</ActionParameter>
+          <ApiParameter name="propertyName">MessageContent1</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MAP: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="GetMapItem2_consumer2" type="GetMessageMapItem">
+          <ActionParameter name="message_id">rx_map_msg2</ActionParameter>
+          <ApiParameter name="propertyName">MessageContent2</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">MAP: test content 2</ActionParameter>
+        </Action>
+
+        <Action name="GetObjMsg_consumer2" type="GetMessageObject">
+          <ActionParameter name="message_id">rx_obj_msg2</ActionParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">OBJECT: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="ReadStreamMsg_consumer2" type="ReadStreamMessage">
+          <ActionParameter name="message_id">rx_strm_msg2</ActionParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue">STREAM: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="GetMsgText_consumer2" type="GetMessageText">
+          <ActionParameter name="message_id">rx_txt_msg2</ActionParameter>
+          <ActionParameter name="verifyValue">TEXT: test content 1</ActionParameter>
+        </Action>
+
+        <Action name="ReadEmptyBytesMsg_consumer2" type="ReadBytesMessage">
+          <ActionParameter name="message_id">rx_bytes_msgEmpty2</ActionParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+        <Action name="GetMapItemEmpty_consumer2" type="GetMessageMapItem">
+          <ActionParameter name="message_id">rx_map_msgEmpty2</ActionParameter>
+          <ApiParameter name="propertyName">MessageContentEmpty</ApiParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+        <Action name="GetEmptyObjectMsg_consumer2" type="GetMessageObject">
+          <ActionParameter name="message_id">rx_obj_msgEmpty2</ActionParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+        <Action name="GetEmptyTextMsg_consumer2" type="GetMessageText">
+          <ActionParameter name="message_id">rx_txt_msgEmpty2</ActionParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+  </Action>
+
+
+  <!-- some funny close behavior -->
+
+
+
+  <!-- try closing consumer 3 times -->
+  <Action name="CloseConsumer1_1" type="CloseConsumer">
+    <ActionParameter name="consumer_id">consumer1_dest1</ActionParameter>
+  </Action>
+
+  <Action name="CloseConsumer1_2" type="CloseConsumer">
+    <ActionParameter name="consumer_id">consumer1_dest1</ActionParameter>
+  </Action>
+
+  <Action name="CloseConsumer1_3" type="CloseConsumer">
+    <ActionParameter name="consumer_id">consumer1_dest1</ActionParameter>
+  </Action>
+
+
+  <!-- try closing session 3 times -->
+  <Action name="CloseSession1_1" type="CloseSession">
+    <ActionParameter name="session_id">session1_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CloseSession1_2" type="CloseSession">
+    <ActionParameter name="session_id">session1_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CloseSession1_3" type="CloseSession">
+    <ActionParameter name="session_id">session1_cf1</ActionParameter>
+  </Action>
+
+
+  <!-- try closing closed consumer on closed session -->
+  <Action name="CloseConsumer1_4" type="CloseConsumer">
+    <ActionParameter name="consumer_id">consumer1_dest1</ActionParameter>
+  </Action>
+
+
+  <!-- try closing connection 3 times -->
+  <Action name="CloseConnection_cf1_1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_cf1_2" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_cf1_3" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+  </Action>
+
+
+  <!-- try closing an already closed session after closing connection -->
+  <Action name="CloseSession1_4" type="CloseSession">
+    <ActionParameter name="session_id">session1_cf1</ActionParameter>
+  </Action>
+
+  <!-- try closing consumer on closed connection-->
+  <Action name="CloseConsumer2_1" type="CloseConsumer">
+    <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+  </Action>
+
+  <!-- try closing a not explicitly closed session after closing connection -->
+  <Action name="CloseSession2_1" type="CloseSession">
+    <ActionParameter name="session_id">session2_cf1</ActionParameter>
+  </Action>
+
+
+  <!-- try closing producer (a few times) who is on session not explicitly closed -->
+  <Action name="CloseProducer1_1" type="CloseProducer">
+    <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+  </Action>
+
+  <Action name="CloseProducer1_2" type="CloseProducer">
+    <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+  </Action>
+
+  <Action name="CloseProducer1_3" type="CloseProducer">
+    <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+  </Action>
+
+
+</LlmJmsTest>

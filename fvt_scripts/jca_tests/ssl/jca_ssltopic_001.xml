@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_ssltopic_001
+
+   Test Category:  JCA SSL Tests
+   
+   Test Description:
+   Send an HTTP Request to JCAServlet, which then sends a message to
+   to a topic listened to by an MDB. The MDB then forwards the replyTo
+   destination of the message, which this test driver subscribes to.
+   
+   This test uses JMS SSL connections.
+
+  -->
+<ImaJcaTest name="jca_ssltopic_001">
+
+    <include>../common/jms_jndi_ldap.xml</include>
+        
+    <Action name="Single" type="CompositeAction">
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_SECURE_CF</ActionParameter>
+            <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+            <ActionParameter name="keyStorePassword">password</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+            <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <!-- log topic -->
+		<Action name="Create_log_dest" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/200</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+	
+	    <!-- log consumer -->
+	    <Action name="CreateConsumerLog" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer</ActionParameter>
+	      <ActionParameter name="dest_id">logDest</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyTopicSsl</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv" type="CompositeAction" repeat="50">
+            <Action name="RcvObjMessage_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+    
+            <Action name="GetTestProps" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+                <ActionParameter name="verifyValue">0200</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="HitServlet" type="HttpAction" thread="2">
+            <dependsOn name="StartConnection"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0200</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_001.log</ActionParameter>
+        </Action>
+
+	    <Action name="RX_and_Check_Log_Msgs" type="CompositeAction" repeat="50">
+	      <dependsOn name="CompositeRcv"/>
+	      <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	      </Action>
+	
+	      <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	      </Action>
+	    </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+
+    <Action name="Cluster" type="CompositeAction">
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_SECURE_CF</ActionParameter>
+            <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+            <ActionParameter name="keyStorePassword">password</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+            <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <!-- log topic -->
+		<Action name="Create_log_dest" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/200</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+	
+	    <!-- log consumer -->
+	    <Action name="CreateConsumerLog" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer</ActionParameter>
+	      <ActionParameter name="dest_id">logDest</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyTopicSsl</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv" type="CompositeAction" repeat="150">
+            <Action name="RcvObjMessage_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+    
+            <Action name="GetTestProps" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+                <ActionParameter name="verifyValue">0200</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="HitServlet" type="HttpAction" thread="2">
+            <dependsOn name="StartConnection"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0200</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_001.log</ActionParameter>
+        </Action>
+
+	    <Action name="RX_and_Check_Log_Msgs" type="CompositeAction" repeat="150">
+	      <dependsOn name="CompositeRcv"/>
+	      <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	      </Action>
+	
+	      <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	      </Action>
+	    </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+</ImaJcaTest>

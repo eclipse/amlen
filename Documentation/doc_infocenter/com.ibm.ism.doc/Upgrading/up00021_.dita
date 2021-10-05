@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="up00021_" xml:lang="en-us">
+<title>Upgrading from <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> to <ph
+conref="../TextEntities.dita#TextEntities/ISM"/></title>
+<shortdesc>If you are a <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> customer
+who is upgrading to <ph conref="../TextEntities.dita#TextEntities/ISM"/> version <ph
+conref="../TextEntities.dita#TextEntities/ver_current"/>, you will find that normal product
+operation is almost entirely unchanged by the renaming of the product. Migration requires some
+simple steps outlined here.
+</shortdesc>
+<conbody>
+    <section>
+        <title>Overview of key changes</title>
+        <p>The main changes from <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> to 
+        be aware of during migration are:</p>
+        <ol>
+            <li>Packages have been renamed and made more granular</li>
+            <li>Directories have different locations</li>
+            <li>TLS keys used for validating peers in HA pairs and clusters have changed</li>
+        </ol>
+        <p>In the following sections we'll look at each change then the actions required during migration</p>
+    </section>
+    <section>
+        <title>New Packages</title>
+        <p>Previously the main server package (the rpm that contains the files to be installed) 
+        contained code that was not needed by all users, in particular the bridge to IBM MQ and 
+        code used with plugins for custom protocols has been split out into separate packages</p>
+        <table>
+            <title>Comparing old and new package names</title>
+            <tgroup cols="2">
+            <thead>
+                <row>
+                    <entry>Old Package Name</entry>
+                    <entry>New Package Name(s)</entry>
+                </row>
+            </thead>
+            <tbody>
+                <row>
+                    <entry><p>IBMWIoTPMessageGatewayServer</p></entry>
+                    <entry><p>EclipseAmlenServer</p>
+                           <p>EclipseAmlen</p>
+                           <p>EclipseAmlenProtocolPlugin</p></entry>
+                </row>
+            </tbody>
+            </tgroup>
+        </table>
+    </section>
+    <section>
+        <title>Directories have been moved</title>
+        <p>Due to the renaming of the product the following directories have been moved</p>
+            <table>
+            <title>Comparing old and new directory paths</title>
+            <tgroup cols="3">
+            <thead>
+                <row>
+                    <entry>Old Location</entry>
+                    <entry>New Location</entry>
+                    <entry>Description</entry>
+                </row>
+            </thead>
+            <tbody>
+                <row>
+                    <entry><filepath>/opt/ibm/imaserver</filepath></entry>
+                    <entry><filepath>/usr/share/amlen-server</filepath></entry>
+                    <entry>Server install path</entry>
+                </row>
+                <row>
+                    <entry><filepath>/var/messagesight</filepath></entry>
+                    <entry><filepath>/var/lib/amlen-server</filepath></entry>
+                    <entry>Data/config/diagnostics for the server</entry>
+                </row>
+                <row>
+                    <entry><filepath>/opt/ibm/imawebui</filepath></entry>
+                    <entry><filepath>/usr/share/amlen-webui</filepath></entry>
+                    <entry>WebUI install path</entry>
+                </row>
+               <row>
+                    <entry><filepath>/var/messagesight/webui</filepath></entry>
+                    <entry><filepath>/var/lib/amlen-webui</filepath></entry>
+                    <entry>Data/config/diagnostics path for the WebUI</entry>
+                </row>
+                <row>
+                    <entry><filepath>/opt/ibm/imabridge</filepath></entry>
+                    <entry><filepath>/usr/share/amlen-bridge</filepath></entry>
+                    <entry>Bridge install path</entry>
+                </row>
+               <row>
+                    <entry><filepath>/var/imabridge</filepath></entry>
+                    <entry><filepath>/var/lib/amlen-bridge</filepath></entry>
+                    <entry>Data/config/diagnostics path for the Bridge</entry>
+                </row>
+            </tbody>
+            </tgroup>
+        </table>
+    </section>
+    <section>
+        <title>TLS keys for peers in HA Pairs and Clusters</title>
+        <p>Both <ph conref="../TextEntities.dita#TextEntities/ISM"/> and 
+         <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> contain default TLS keys used as a check on connections
+         to peers in Highly Available Pairs and in Clusters. The default keys have changed in
+         <ph conref="../TextEntities.dita#TextEntities/ISM"/>. If the servers being migrated are part of
+         an HA pair or a cluster then the simplest migration method is to temporarily
+         disable the checking of certificates during the upgrade then switch to using the default Amlen certificates
+         and then finally  move to custom certificates for significantly improved security. For more details about
+         TLS certificates in  <ph conref="../TextEntities.dita#TextEntities/ISM"/> and 
+         <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> see 
+         <xref format="dita" href="up00022_.dita" scope="local"
+            type="topic">TLS in <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> and <ph conref="../TextEntities.dita#TextEntities/ISM"/></xref>
+        </p>
+    </section>
+    <section>
+        <title>Suggested Procedure for Server Migration</title>
+        <p>A suggested procedure to migrate from <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> to 
+        <ph conref="../TextEntities.dita#TextEntities/ISM"/> is:</p>
+        <ol>
+            <li>If using HA or Clustering - stop the links requiring TLS certificates (see <xref format="dita" href="up00022_.dita" scope="local"
+            type="topic">TLS in <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> and <ph conref="../TextEntities.dita#TextEntities/ISM"/></xref>)</li>
+            <li>On each server in turn (starting with standbys):
+                  <ol>
+                    <li>Stop the server:
+                    <codeblock>sudo systemctl stop imaserver</codeblock>
+                    </li>
+                    <li>Uninstall <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/></li>
+                    <li>Move the data directory:
+                    <codeblock>mv /var/messagesight /var/lib/amlen-server</codeblock>
+                    </li>
+                    <li>Install <ph conref="../TextEntities.dita#TextEntities/ISM"/></li>
+                    <li>Start the server:
+                    <codeblock>sudo systemctl start imaserver</codeblock>
+                    </li>
+                 </ol>
+            </li>
+            <li>After each server has been migrated, require certificates on all HA and Cluster links; either by initially using the default
+            Amlen keys and certificates or moving straight to custom keys/certs (see <xref format="dita" href="up00022_.dita" scope="local"
+            type="topic">TLS in <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> and 
+            <ph conref="../TextEntities.dita#TextEntities/ISM"/></xref>)</li>
+        </ol>
+    </section> 
+</conbody>
+</concept>

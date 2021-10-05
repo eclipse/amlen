@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_chainedcert_007
+
+  Test Category:  JMS Chained Certs
+  
+  Test Description: 
+    
+  Certificates used:
+    chainedcerts/certs/imaserverd-crt.pem and key
+    chainedcerts/certs/imaclientd-crt.pem and key
+    CAfile.pem (contains rootCAa-crt and rootCAb-crt)
+    ibmd.jks
+
+    Both the client and server certs are signed by imaCAc-crt.pem
+    which is signed by rootCAb
+    The certificates should provide their chains.
+    
+    
+          The CA file used in this test has rootCA A, followed by rootCA B.
+         
+         In early versions of MessageSight, this didn't work. 
+         Updated March 2019 when certs and server were updated. 
+
+    Endpoints:
+    JMSChainCertEP6 - Port 18435
+
+-->
+<ImaJmsTest name="jms_chainedcert_007">
+    <Action name="Create_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <!--ActionParameter name="loglevel">9</ActionParameter>
+        <ActionParameter name="logfile">stdout</ActionParameter-->
+        <ActionParameter name="keyStore">chainedcerts/certs/ibmd.jks</ActionParameter>
+        <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Protocol" value="tcps"/>
+        <ImaProperty name="Port" value="18435"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+
+    <!-- Fails because we don't support uploading a CAfile as a trusted
+    cert. Each CA cert must be uploaded separately -->
+    
+    <Action name="CreateConnection_cf1" type="CreateConnection" >
+        <ActionParameter name="structure_id">connection_cf</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+    
+	<!-- Action name="DisableClientCerts" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"JMSChainSec6":{"UseClientCertificate":false}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action Name="RestartServer" type="ShellAction">
+        <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>"
+    </Action>
+    
+    <Action name="CreateConnection2_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action -->
+
+    <Action name="CreateSession3" type="CreateSession">
+        <ActionParameter name="structure_id">session1</ActionParameter>
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession4" type="CreateSession">
+        <ActionParameter name="structure_id">session2</ActionParameter>
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateDest" type="CreateDestination">
+        <ActionParameter name="structure_id">dest</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/chained/cert/topic_007</ApiParameter>
+    </Action>
+
+    <Action name="CreateConsumer1" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer</ActionParameter>
+        <ActionParameter name="session_id">session2</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection1" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateMessage1" type="CreateMessage">
+        <ActionParameter name="structure_id">msg</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="msgParam">TEXT: test content</ApiParameter>
+    </Action>
+
+    <Action name="SendMsg1" type="SendMessage">
+        <ActionParameter name="producer_id">producer</ActionParameter>
+        <ActionParameter name="message_id">msg</ActionParameter>
+    </Action>
+
+    <Action name="RcvMsg1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rcvmsg</ActionParameter>
+        <ApiParameter name="timeout">10000</ApiParameter>
+    </Action>
+
+    <Action name="GetText1" type="GetMessageText">
+        <ActionParameter name="message_id">rcvmsg</ActionParameter>
+        <ActionParameter name="verifyValue">TEXT: test content</ActionParameter>
+    </Action>
+
+    <Action name="CloseConn2_cf1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf</ActionParameter>
+    </Action>
+
+</ImaJmsTest>

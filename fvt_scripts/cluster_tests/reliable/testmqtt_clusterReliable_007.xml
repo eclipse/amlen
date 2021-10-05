@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_clusterReliable_007" >
+<!--
+    TODO: Fill in a brief description
+-->
+
+    	<!-- Server 3 subscriber -->
+        <Action name="CreateConnectionCleanSub" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1Sub</ActionParameter>
+            <ActionParameter name="connection_id">CF1Sub</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server3.xml</include>
+            <include>server3failover.xml</include>
+            <ApiParameter name="clientId">Reliable_007_sub3</ApiParameter>
+            <ApiParameter name="port">20003</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        
+        <Action name="CloseConnectionCleanSub" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1Sub</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnectionSub" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1Sub</ActionParameter>
+            <ActionParameter name="connection_id">CF1Sub</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server3.xml</include>
+            <include>server3failover.xml</include>
+            <ApiParameter name="clientId">Reliable_007_sub3</ApiParameter>
+            <ApiParameter name="port">20003</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ActionParameter name="maxinflight">1</ActionParameter>
+        </Action>
+        
+        <!-- Subscribe -->
+        <Action name="SubscribeSub" type="Subscribe">
+            <ActionParameter name="connection_id">CF1Sub</ActionParameter>
+            <ApiParameter name="topic">/reliable/passing/007</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+           
+        <!-- Disconnect -->
+        <Action name="CloseConnectionSub" type="CloseConnection">
+        	<!-- Give some time for subscription to propagate around the cluster -->
+        	<dependsOn action_id="SubscribeSub" interval="3000"/>
+            <ActionParameter name="connection_id">CF1Sub</ActionParameter>
+        </Action>
+	    <!-- Server 3 subscriber end -->
+
+		<!-- Stop server 3 -->
+		<Action name="StopServer3" type="ShellAction">
+			<ActionParameter name="command">../scripts/cluster.py -a stopClusterMember -m 3 -v 2 -f testmqtt_clusterReliable_007.stopServer3.log</ActionParameter>
+			<ActionParameter name="print_result">1</ActionParameter>
+		</Action>
+		
+	    <!-- Server 1 publisher -->
+        <!-- Connect -->
+        <Action name="CreateConnectionCleanPub1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1Pub</ActionParameter>
+            <ActionParameter name="connection_id">CF1Pub</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server1.xml</include>
+            <include>server1failover.xml</include>
+            <ApiParameter name="clientId">Reliable_007_pub1</ApiParameter>
+            <ApiParameter name="port">20003</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionCleanPub1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1Pub</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnectionPub1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1Pub</ActionParameter>
+            <ActionParameter name="connection_id">CF1Pub</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server1.xml</include>
+            <include>server1failover.xml</include>
+            <ApiParameter name="clientId">Reliable_007_pub1</ApiParameter>
+            <ApiParameter name="port">20003</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ActionParameter name="maxinflight">1</ActionParameter>
+        </Action>
+        
+        <!-- Publish -->
+        <Action name="CreateMessagePub1" type="CreateMessage">
+            <ActionParameter name="structure_id">msg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1Pub</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by testmqtt_clusterReliable_007</ApiParameter>
+        </Action>
+        
+        <Action name="SendMessagePub1" type="SendMessage" repeat="100" repeat_interval="0">
+            <ActionParameter name="connection_id">CF1Pub</ActionParameter>
+            <ActionParameter name="message_id">msg1</ActionParameter>
+            <ActionParameter name="topic">/reliable/passing/007</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+        
+        <Action name="SendMessageBPub1" type="SendMessage" repeat="100" repeat_interval="0">
+            <ActionParameter name="connection_id">CF1Pub</ActionParameter>
+            <ActionParameter name="message_id">msg1</ActionParameter>
+            <ActionParameter name="topic">/reliable/passing/007</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+           
+        <!-- Disconnect -->
+        <Action name="CloseConnectionPub1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1Pub</ActionParameter>
+        </Action>
+    	<!-- Server 1 publisher end -->
+    
+    	<!-- Stop server 1 -->
+		<Action name="StopServer1" type="ShellAction">
+			<ActionParameter name="command">../scripts/cluster.py -a stopClusterMember -m 1 -v 2 -f testmqtt_clusterReliable_007.stopServer1.log</ActionParameter>
+			<ActionParameter name="print_result">1</ActionParameter>
+		</Action>
+		
+		<!-- Start Server 3 -->
+    	<Action name="StartServer3" type="ShellAction">
+			<ActionParameter name="command">../scripts/cluster.py -a startClusterMember -m 3 -v 2 -f testmqtt_clusterReliable_007.startServer3.log</ActionParameter>
+			<ActionParameter name="print_result">1</ActionParameter>
+		</Action>
+		<!-- Verify Server 3 Running -->
+    	<Action name="VerifyServer3Running" type="ShellAction">
+			<ActionParameter name="command">../scripts/cluster.py -a verifyStatus -m 3 -v 2 -s STATUS_RUNNING -t 15 -f testmqtt_clusterReliable_007.verifyStatus3.log</ActionParameter>
+			<ActionParameter name="print_result">1</ActionParameter>
+		</Action>
+		
+		<!-- Start Server 1 -->
+    	<Action name="StartServer1" type="ShellAction">
+			<ActionParameter name="command">../scripts/cluster.py -a startClusterMember -m 1 -v 2 -f testmqtt_clusterReliable_007.startServer1.log</ActionParameter>
+			<ActionParameter name="print_result">1</ActionParameter>
+		</Action>
+		<!-- Verify Server 1 Running -->
+    	<Action name="VerifyServer1Running" type="ShellAction">
+			<ActionParameter name="command">../scripts/cluster.py -a verifyStatus -m 1 -v 2 -s STATUS_RUNNING -t 15 -f testmqtt_clusterReliable_007.verifyStatus1.log</ActionParameter>
+			<ActionParameter name="print_result">1</ActionParameter>
+		</Action>
+    
+    	<!--Action name="statServerBeforeStartServer1" type="RestAPI">
+          <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+          <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+          <ActionParameter name="action">GET</ActionParameter>
+          <ActionParameter name="payload"></ActionParameter>
+          <ActionParameter name="printResult">true</ActionParameter>
+          <ActionParameter name="expectedStatusCode">200</ActionParameter>
+          <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+        
+        <Action name="statServerBeforeStartServer2" type="RestAPI">
+          <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+          <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+          <ActionParameter name="action">GET</ActionParameter>
+          <ActionParameter name="payload"></ActionParameter>
+          <ActionParameter name="printResult">true</ActionParameter>
+          <ActionParameter name="expectedStatusCode">200</ActionParameter>
+          <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+        
+    	
+		
+		<Action name="statSubscriptionAfterStart" type="RestAPI">
+          <ActionParameter name="server">``A3_HOST``:``A3_PORT``</ActionParameter>
+          <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=Reliable_007_sub3&amp;TopicString=/reliable/passing/007</ActionParameter>
+          <ActionParameter name="action">GET</ActionParameter>
+          <ActionParameter name="payload"></ActionParameter>
+          <ActionParameter name="printResult">true</ActionParameter>
+          <ActionParameter name="expectedStatusCode">200</ActionParameter>
+          <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action-->
+        
+        <!-- Server 1 receiver -->
+        <Action name="CreateConnectionRcv" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1Rcv</ActionParameter>
+            <ActionParameter name="connection_id">CF1Rcv</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server3.xml</include>
+            <include>server3failover.xml</include>
+            <ApiParameter name="clientId">Reliable_007_sub3</ApiParameter>
+            <ApiParameter name="port">20003</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ActionParameter name="maxinflight">1</ActionParameter>
+        </Action>
+        
+        <!-- Subscribe -->
+        <Action name="SubscribeRcv" type="Subscribe">
+            <ActionParameter name="connection_id">CF1Rcv</ActionParameter>
+            <ApiParameter name="topic">/reliable/passing/007</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        
+        <!-- Receive -->
+        <Action name="ReceiveMessagesRcv" type="CompositeAction" repeat="200" repeat_interval="0">
+            <Action name="ReceiveMessage" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF1Rcv</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">15000</ActionParameter>
+            </Action>
+            
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="compareBody">Sent by testmqtt_clusterReliable_007</ActionParameter>
+                <ActionParameter name="compareTopic">/reliable/passing/007</ActionParameter>
+            </Action>
+        </Action>
+        
+        <Action name="statSubscriptionAtEnd" type="RestAPI">
+          <ActionParameter name="server">``A3_HOST``:``A3_PORT``</ActionParameter>
+          <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=Reliable_007_sub3&amp;TopicString=/reliable/passing/007</ActionParameter>
+          <ActionParameter name="action">GET</ActionParameter>
+          <ActionParameter name="payload"></ActionParameter>
+          <ActionParameter name="printResult">true</ActionParameter>
+          <ActionParameter name="expectedStatusCode">200</ActionParameter>
+          <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+        
+        <!-- Verify there are no messages left -->
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1Rcv</ActionParameter>
+            <ActionParameter name="structure_id">submsg1</ActionParameter>
+            <ActionParameter name="waitTime">5000</ActionParameter>
+        </Action>
+        
+        <!-- Disconnect -->
+        <Action name="CloseConnectionRcv" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1Rcv</ActionParameter>
+        </Action>
+    	<!-- Server 1 receiver end -->
+</IsmWSTest>

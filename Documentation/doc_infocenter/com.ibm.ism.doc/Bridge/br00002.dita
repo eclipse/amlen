@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002--><!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<?Pub Sty _display FontColor="red"?><?Pub Inc?><concept id="pdf_ad00000_" xml:lang="en-us">
+ <title>
+<ph conref="../TextEntities.dita#TextEntities/ISM_bridge"/> concepts</title>
+ <?Pub Caret -2?>
+ <shortdesc>The <ph conref="../TextEntities.dita#TextEntities/ISM_bridge"/> enables MQTT
+messages to be sent from one MQTT server either to another MQTT server, or to IBM Event Streams. You
+can define one or more source connections, one or more destination connections, and a set of
+forwarding rules. The Bridge also supports IBM Event Streams as a destination. </shortdesc>
+ <conbody>
+  <section>
+<title>MQTT version support</title>
+  <p><ph conref="../TextEntities.dita#TextEntities/ISM_bridge"/> supports MQTTv3.1(eclipse), MQTTv3.1.1 (OASIS), and MQTTv5.0
+(OASIS). MQTTv3.1.1 is also standardized as ISO/IEC 20922:2016.</p>
+<p>A number of functions used by the Bridge are only available in MQTTv5.0. These include error
+reporting, message properties, subscription options, and session expiry. The Bridge works with
+MQTTv3.1.1 server but these functions are not available.</p>
+<p>MQTTv3.1 does not support session existence detection. There are likely to be problems using
+cleansession=false (durable) sessions when using MQTTv3.1.</p>
+  <p>While the Bridge is primarily tested with <ph conref="../TextEntities.dita#TextEntities/ISM"/>, and Watson IoT Platform
+messaging, it should work with any other servers implementing these versions of MQTT.</p>
+</section>
+<section>
+<title>Transport Security</title>
+<p>The Bridge supports TCP connections without transport security, and secure connections using
+TLSv1.1 or TLSv1.2. This support exists for both outgoing connections and incoming admin
+connections. </p>
+<p>For outgoing connections if TLSv1.1 is requested, the Bridge will normally connect as either
+TLSv1.1 or TLSv1.2 as selected by the server. If TLSv1.2 is requested the Bridge will only connect
+as TLSv1.2.</p>
+<p>The cipher list can be selected for outgoing connections in the Connection object to allow for
+servers with restricted cipher support. We recommend that the cipher list not be specified unless
+required.</p>
+<p>The Bridge defines two directories to contain certificate information. Files can be directly
+created in these directories and must be in PEM format. Private key files in the keystore may be
+password encrypted. </p>
+<ul>
+<li>The truststore directory contains certificates needed by the Bridge to verify server
+certificates </li>
+<li>The keystore directory contains certificates and keys used by the admin endpoints of the
+Bridge.</li>
+</ul>
+<p>Hashing of the trust store is done automatically when the bridge is started, and whenever a file
+in the trust store is modified.</p>
+<p>For the server certificate, any issuing CAs can be placed in the same file as the server
+certificate, or they can be put in the trust store.</p>
+<p>The trust store contains the trusted root certificates from trusted CAs. Thus if the server
+produces a certificate signed by a trusted CA, there is no need to put the cert into the trust
+store. If the server produces a self-signed certificate, the cert or its issuing CA must be put into
+the trust store.</p>
+</section>
+<section><title>Subscriptions</title><p>The forwarder defines a set of subscriptions to make on the
+source connection. Up to 16 subscriptions are allowed per forwarder. The Bridge makes a subscription
+for each topic filter in the Topic list. The quality of service for all of the subscriptions is
+specified by SourceQoS and defaults to 2. </p><p>As there is a single topic map and single key map
+for the forwarder, the subscriptions used in a single forwarder must use a common topic space. If
+different mappings are needed then separate formatters can be used.</p><p>If the source sever does
+not allow the specified QoS, the Bridge will request a lower QoS. The server may also return a lower
+QoS than was requested.</p><p>If the destination is Event Streams, the Bridge will only request
+QoS=0 or QoS=1 from the source as the Event Streams destination does not participate in the QoS=2
+protocol.</p> If a destination does not allow a publish as the QoS of the message received, the QoS
+of the message is decreased to a level which is supported by the destination.</section>
+<section>
+<title>Instances</title>
+<p>In some cases the message rate is too high to process with a single forwarder. You can create
+multiple forwarders which the same definition by defining a prototype forwarder and setting the
+Instances count to greater than zero. Up to 100 instances can be created. When the bridge starts, it
+creates the number of forwarders requested and appends an instance number starting with 00 up to 99
+to the forwarder name.</p>
+<p>Each of the forwarder instances will appear to be a separately defined forwarder.</p>
+<p>Normally a multi-instance forwarder only works when using shared subscription because if you use
+non-shared subscription each instance will send a copy of all messages to the destination. Shared
+subscriptions are defined in MQTTv5.0 and start with the topic filter $share/ .</p>
+<p><ph conref="../TextEntities.dita#TextEntities/ISM"/> allows connections to use the MQTTv5.0 shared subscriptions. In addition, it allows
+an older form of shared subscription with topic filters starting with $SharedSubscription/ to be use
+in all versions.</p>
+<p>Watson IoT Platform allows shared subscriptions to be created using an ‘A’ client class. </p>
+</section>
+<section>
+<title>Replacement variables and properties</title>
+<p>TopicMap, Selector, KeyMap, and PartitionRule forwarder properties all allow replacement
+variables. When a message has properties as defined in MQTTv5 these may be used as replacement
+variables.</p>
+<p>In a Selector, literal text is quoted and replacement variables are not. In the other forwarder
+properties literal text is not quoted, and replacement variables are represented by ${varname} where
+varname is the name of the replacement variable.</p>
+<p>The following replacement variables are defined:</p>
+<table id="table_tbc_tks_kfb">
+<title>Replacement variables and properties</title>
+<?Pub Caret -1?>
+<desc>List of the replacement variables and properties for <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> Bridge<p outputclass="summary">List of the
+replacement variables and properties for <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+Bridge</p></desc>
+<tgroup cols="3">
+<colspec colname="col1" colwidth="11*"/>
+<colspec colname="col2" colwidth="8*"/>
+<colspec colname="col3" colwidth="42*"/>
+<thead>
+<row valign="bottom">
+<entry colname="col1">Name of property</entry>
+<entry colname="col2">Type </entry>
+<entry colname="col3">Description </entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry colname="col1">Topic</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">The complete name of the <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+Topic.</entry>
+</row>
+<row>
+<entry colname="col1">Topic0 – Topic99</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">The part of the topic which follows n slashes until the next slash. In a
+TopicMap, if this is followed by an asterisk (*) then use from this part to the end of the
+topic.</entry>
+</row>
+<row>
+<entry colname="col1">QoS</entry>
+<entry colname="col2">Number</entry>
+<entry colname="col3">The quality of service level of the message (0-2)</entry>
+</row>
+<row>
+<entry colname="col1">_Format</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">The MQTTv5 PayloadFormatIndicator property with a value of “text” or “binary”.
+This is null for other versions.</entry>
+</row>
+<row>
+<entry colname="col1">_ContentType</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">The MQTTv5 Content Type property</entry>
+</row>
+<row>
+<entry colname="col1">_ReplyTo</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">The MQTTv5 Response Topic property</entry>
+</row>
+<row>
+<entry colname="col1">_Correlation</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">The MQTTv5 Correlation Data property but only if it is a valid UTF-8
+string.</entry>
+</row>
+<row>
+<entry colname="col1">TimeISO</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">The current time as an ISO8601 timestamp to milliseconds with a time
+zone.</entry>
+</row>
+<row>
+<entry colname="col1">TimeMS</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">The current time as a number of milliseconds since 1970-01-0T00:00Z</entry>
+</row>
+<row>
+<entry colname="col1">$</entry>
+<entry colname="col2">String</entry>
+<entry colname="col3">A replacement with the literal value $. This is only needed if the literal
+string contains the characters ${</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+<p>In addition, the name of any MQTTv5 user property is available as a replacement value.</p>
+<p>Support for creating JSON strings is also provided. This allows JSON named items to be inserted
+into the output, and for strings to be correctly JSON escaped. A JSON replacement variable is of the
+format: ${JSON:name:repl} where JSON is a constant value, name is the name of the item, and repl is
+a replacement variable. The three parts are separated by colons. For instance, ${JSON:Event:Topic3}
+will create a JSON encoded value with a name of Event and the value for ${Topic3} correctly encoded
+as a JSON string. This support is primarily designed for creating JSON encoded key maps.</p>
+</section>
+<section><title>Message Selection</title><p>A message selector allows a forwarder to select messages
+using parts of the topic and properties of the message. Only messages that match the selector are
+forwarded. Message selectors cannot be look at the message body.</p><p>A selector is an expression
+which is evaluated. A message is forwarded if the selector returns true, and is not forwarded if the
+selector returns false or unknown.</p><p>A selector is a s<codeph>tring</codeph> with a syntax which
+is a subset of the SQL92 conditional expression syntax. An empty selector or having no selector is
+the same as returning true</p><p>The order of evaluation of a message selector is from left to right
+within precedence level. Parentheses can be used to change this order. Predefined selector literals
+and operator names are shown here in uppercase; however, they are case insensitive.</p><p>The
+routing rules used with an Event Streams destination also use this message selection syntax.</p><p>A
+selector can contain:</p><p>Literals:</p><ul>
+<li>A string literal is enclosed in single quotes, with a single quote represented by doubled single
+quote; for example, <codeph>'literal'</codeph> and <codeph>'literal''s'</codeph>. </li>
+<li>An exact numeric literal is a numeric value without a decimal point, such as
+<codeph>57</codeph>, <codeph>-957</codeph>, and <codeph>+62</codeph>; numbers in the range of
+<codeph>long</codeph> are supported. </li>
+<li>An approximate numeric literal is a numeric value in scientific notation, such as
+<codeph>7E3</codeph> and <codeph>-57.9E2</codeph>, or a numeric value with a decimal, such as
+<codeph>7.</codeph>,<codeph>-95.7</codeph>, and <codeph>+6.2</codeph>; numbers in the range of
+<codeph>double</codeph> are supported. </li>
+<li>The boolean literals <codeph>TRUE</codeph> and <codeph>FALSE</codeph>.</li>
+</ul><p>Identifiers:</p><ul>
+<li>An identifier is a sequence of letters and digits, the first of which must be a letter. The
+characters underscore (_) and dollar ($) count as letters for this purpose.</li>
+<li>Identifiers cannot be the names <codeph>NULL</codeph>, <codeph>TRUE</codeph>, and <codeph>FALSE
+in any case</codeph>.</li>
+<li>Identifiers cannot be <codeph>NOT</codeph>, <codeph>AND</codeph>, <codeph>OR</codeph>,
+<codeph>BETWEEN</codeph>, <codeph>LIKE</codeph>, <codeph>IN</codeph>, <codeph>IS</codeph>, or
+<codeph>ESCAPE in any case</codeph>.</li>
+<li>Identifiers are either replacement field references or property references. If an identifier
+that does not exist is referenced, its value is UNKNOWN. See section 2.5.</li>
+<li>The type of the identifier is not modified by the evaluation. Strings can only take string
+operations, boolean can only take boolean operators, and numbers can only take numeric
+operator.</li>
+</ul><p>Expressions:</p><ul>
+<li>Arithmetic expressions are composed of themselves, arithmetic operations, identifiers (whose
+value is treated as a numeric literal), and numeric literals.</li>
+<li>Conditional expressions are composed of themselves, comparison operations, and logical
+operations.</li>
+<li>Standard bracketing <codeph>()</codeph> for ordering expression evaluation is supported.</li>
+<li>Logical operators in precedence order: <codeph>NOT</codeph>, <codeph>AND</codeph>,
+<codeph>OR</codeph></li>
+<li>Comparison operators: <codeph>=</codeph>, <codeph>></codeph>, <codeph>>=</codeph>,
+<codeph>&lt;</codeph>, <codeph>&lt;=</codeph>, <codeph>&lt;></codeph> (not equal)</li>
+<li>Only like type values can be compared. </li>
+<li>String and boolean comparison is restricted to <codeph>=</codeph> and <codeph>&lt;></codeph>.
+Two strings are equal if and only if they contain the same sequence of characters.</li>
+<li>Arithmetic operators in precedence order:<ol>
+<li>+, - (unary)</li>
+<li>*, / (multiplication and division)</li>
+<li>+, - (addition and subtraction)</li>
+</ol></li>
+<li>arithmetic-expr1 [NOT] BETWEEN arithmetic-expr2 AND arithmetic-expr3 comparison operator</li>
+<li>identifier [NOT] IN (string-literal1, string-literal2,...) comparison operator where identifier
+has a String or NULL value. If identifier of an IN or NOT IN operation is NULL, the value of the
+operation is UNKNOWN. </li>
+<li>identifier [NOT] LIKE pattern-value [ESCAPE escape-character] comparison operator, where
+identifier has a String value; pattern-value is a string literal where '_' stands for any single
+character; '%' stands for any sequence of characters, including the empty sequence; and all other
+characters stand for themselves. The optional escape-character is a single-character string literal
+whose character is used to escape the special meaning of the '_' and '%' in pattern-value. </li>
+<li>identifier IS NULL (comparison operator which changes UNKNOWN into TRUE)</li>
+<li>identifier IS NOT NULL (comparison operator that changes FALSE into TRUE)</li>
+<li>identifier IS NOT TRUE comparison operator that makes FALSE or UNKNOWN into TRUE, and TRUE into
+FALSE) This can also be done with the unary operator ! identifier. </li>
+<li>identifier IS NOT FALSE comparison operator that make UNKNOWN into TRUE. This can also be done
+with the unary operator !! identifier. </li>
+</ul><p>Unknown Values</p><ul>
+<li>Comparison or arithmetic with an unknown value always yields an UNKNOWN value.</li>
+<li>The <codeph>IS NULL, IS NOT NULL, IS NOT TRUE, and IS NOT FALSE</codeph> operators can convert
+an UNKNOWN value into the respective <codeph>TRUE</codeph> and <codeph>FALSE</codeph> values. </li>
+<li>The IS NOT TRUE and IS NOT FALSE operators can be used to convert UNKNOWN into a known value.
+The unary form of these (! and !!) can also be used.</li>
+<li>The boolean operators use three-valued logic as defined by the following tables:</li>
+</ul><p>
+<table id="table_awm_swy_kfb">
+<title>Tables defining boolean operators use three-valued logic</title>
+<?Pub Caret -1?>
+<desc>Tables defining boolean operators use three-valued logic<p outputclass="summary">Tables
+defining boolean operators use three-valued logic for <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> Bridge</p></desc>
+<tgroup cols="4">
+<colspec colname="col1" colwidth="1*"/>
+<colspec colname="col2" colwidth="1*"/>
+<colspec colname="col3" colwidth="1*"/>
+<colspec colname="col4" colwidth="1*"/>
+<thead>
+<row valign="bottom">
+<entry colname="col1">AND</entry>
+<entry colname="col2">T </entry>
+<entry colname="col3">F</entry>
+<entry colname="col4">U</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry colname="col1">T</entry>
+<entry colname="col2">T</entry>
+<entry colname="col3">F</entry>
+<entry>U</entry>
+</row>
+<row>
+<entry colname="col1">F</entry>
+<entry colname="col2">F</entry>
+<entry colname="col3">F</entry>
+<entry>U</entry>
+</row>
+<row>
+<entry colname="col1">U</entry>
+<entry colname="col2">U</entry>
+<entry colname="col3">F</entry>
+<entry>U</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+</p><p>
+<table id="table_dwt_gxy_kfb">
+<title>Tables defining boolean operators use three-valued logic</title>
+<?Pub Caret -1?>
+<desc>Tables defining boolean operators use three-valued logic<p outputclass="summary">Tables
+defining boolean operators use three-valued logic for <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> Bridge</p></desc>
+<tgroup cols="4">
+<colspec colname="col1" colwidth="1*"/>
+<colspec colname="col2" colwidth="1*"/>
+<colspec colname="col3" colwidth="1*"/>
+<colspec colname="col4" colwidth="1*"/>
+<thead>
+<row valign="bottom">
+<entry colname="col1">OR</entry>
+<entry colname="col2">T </entry>
+<entry colname="col3">F</entry>
+<entry colname="col4">U</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry colname="col1">T</entry>
+<entry colname="col2">T</entry>
+<entry colname="col3">T</entry>
+<entry>T</entry>
+</row>
+<row>
+<entry colname="col1">F</entry>
+<entry colname="col2">T</entry>
+<entry colname="col3">F</entry>
+<entry>U</entry>
+</row>
+<row>
+<entry colname="col1">U</entry>
+<entry colname="col2">T</entry>
+<entry colname="col3">U</entry>
+<entry>U</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+</p><p>Examples:</p><codeph>Topic2 not like ‘%test%’</codeph><p>Do not select messages where the
+path component after the second slash contains “test”.</p><codeph>QoS > 0 and Topic6 in (‘warning’,
+‘error’, ‘alert’)</codeph><p>Select only messages at QoS=1 and QoS=2 where the sixth topic part is
+“warning”, “error”, or “alert”.</p></section>
+<section>
+<title>Topic Mapping</title>
+<p>It is common for the topic space on the source and destination to be different. The topic mapping
+string allows for the source topic to be mapped to the destination topic. A replacement variable is
+of the form ${varname} . Any characters except replacement variables are copied to the destination
+topic. Where the replacement variable exists its value is copied into the destination topic. See
+section 2.5.</p>
+<p>Parts of the topic are delimited by a slash (/) and the portion of the topic before the first
+slash is part 0.. Replacement variables of the form ${Topic#} where # is a number between 0 and 99
+mean that the part of the topic following the specified number of slashes, and up to the next slash
+is copied to the destination topic string. If the name is followed by an asterisk such as ${Topic3*}
+the value is the rest of the topic starting with the specified part is copied to the
+destination.</p>
+<p>Example:<codeblock>Topic = iot-2/type/washer/id/123ABC567/evt/ThisEvent/fmt/json
+TopicMap = wiotp/event/${Topic2}/${Topic4}/${Topic6}
+Result = witop/event/washer/123ABCC567/ThisEvent
+</codeblock><codeblock>TopicMap = wiotp/event/%{Topic2*}
+Result = wiotp/event/washer/id/123ABC567/evt/ThisEvent/fmt/json
+</codeblock></p>
+<p>A KeyMap uses the same syntax but is used to form the Event Streams key. The key can be a simple
+string or can be JSON. It is best to use the JSON format replacement variables when creating JSON as
+this give support for correctly quoting and escaping values. If JSON is directly encoded it is
+necessary to escape several characters including quote marks.</p>
+<p>Example:<codeblock>Topic = "iot-2/type/washer/id/123ABC567/evt/ThisEvent/fmt/json",
+KeyMap = {${JSON:type:Topic2},${JSON:id:Topic4},${JSON:event:Topic6},${JSON:time:TimeISO}} 
+Result = {“type”:”washer”,”id”:”123ABC567”,”event”:”ThisEvent”,”time”: 
+          ”2018-11-01T11:00:22.123Z”}
+</codeblock></p>
+</section>
+<section>
+<title>Password obfuscation</title>
+<p>It is normally not desirable to leave passwords in clear text in configuration files. The Bridge
+allows two forms of password obfuscation as there are two forms of stored passwords. Passwords which
+are returned from the Bridge via REST interfaces or updated config files use obfuscated passwords. </p>
+<p>Passwords for User objects are stored as salted and hashed values and are obfuscated using a
+uni-directional hash. These are indicated in config files by passwords starting with an equal sign
+(=). </p>
+<p>The passwords for connections and endpoints are stored as salted and encrypted values using a
+bi-directional encryption. These are indicated in config files by passwords starting with an exclam
+(!). </p>
+<p>While obfuscating passwords keeps the values from easy disclosure, a determined attack combined
+with reverse engineering the algorithms used could allow an attacker to gain access. Therefore, even
+obfuscated passwords should not be widely distributed.</p>
+</section>
+ </conbody>
+ 
+</concept><?Pub *0000002436?><?tm 1462276987818 1 Linux ?>

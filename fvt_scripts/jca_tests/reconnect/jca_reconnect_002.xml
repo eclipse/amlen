@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_reconnect_002
+
+   Test Category:  JCA Reconnect Tests
+   
+   Test Description:
+   MDBTopicBean_DurableCMTR is a global shared durable subscription MDB.
+   
+   Send 10 messages to hostname/reply/maxmsg which has MaxMessages=10.
+   Then send 1 message to hostname/send/Topic/DurableCMTR and set the replyTo topic
+   to hostname/reply/maxmsg.
+   
+   This should cause the MDB to fail sending the reply, and it will retry repeatedly
+   due to the default maxDeliveryFailures=-1 setting.
+   
+   Restart imaserver.
+   
+   Consume the 10 messages from the subscription.
+   The MDB should now successfully publish its message.
+
+   TestProps #0401
+
+  -->
+<ImaJcaTest name="jca_reconnect_002">
+
+    <Action name="Cluster" type="CompositeAction">
+        <include>../common/jms_jndi_ldap.xml</include>
+        
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+        </Action>
+        
+		<Action name="SetFactoryProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="maxmsg_clientid" type="STRING"/>
+		</Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session2</ActionParameter>
+        </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyMaxMsg</ActionParameter>
+        </Action>
+
+        <Action name="Create_dest2" type="CreateDestination">
+            <ActionParameter name="structure_id">dest2</ActionParameter>
+            <ActionParameter name="jndiName">sendTopic_DurableCMTR</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+            <ActionParameter name="structure_id">producer</ActionParameter>
+            <ActionParameter name="dest_id">dest2</ActionParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer2" type="CreateProducer">
+            <ActionParameter name="structure_id">producer2</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session2</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+            <ApiParameter name="durableName">maxmsgdurable</ApiParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CreateTestPropsMessage" type="CreateTestPropsMessage">
+            <ActionParameter name="structure_id">message</ActionParameter>
+            <ApiParameter name="msgParam">0401</ApiParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="SetReplyToProperty" type="SetMessageProperty">
+            <ActionParameter name="message_id">message</ActionParameter>
+            <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+            <ApiParameter name="value">dest</ApiParameter>
+        </Action>
+
+        <!-- Fill the maxmsgdurable durable subscription with 10 messages -->
+
+        <Action name="SendMessage" type="SendMessage" repeat="10">
+            <ActionParameter name="producer_id">producer2</ActionParameter>
+            <ActionParameter name="message_id">message</ActionParameter>
+        </Action>
+
+        <!-- Send a message to the MDB with replyTo destination set to the
+        maxmsgdurable subscription. This message should be repeatedly
+        rejected and resent since the MDB will keep trying while the 
+        subscription is full. -->
+
+        <Action name="SendMessage2" type="SendMessage">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">message</ActionParameter>
+        </Action>
+
+        <!-- At this point we should see the maxmsgdurable with a full 10 messages
+        buffered and published, and some number of rejected messages, and 1 consumer 
+        
+        "maxmsgdurable","mar228/reply/maxmsg","maxmsg_clientid","True",10,10,100.0,10,10,158,100.0,"False",1
+        -->
+
+		<Action name="Stat1" type="RestAPI">
+			<dependsOn name="SendMessage2" interval="10000" />
+			<ActionParameter name="structureID">Stat1</ActionParameter>
+			<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+		    <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=maxmsgdurable</ActionParameter>
+			<ActionParameter name="action">GET</ActionParameter>
+		    <ActionParameter name="payload"></ActionParameter>
+		   	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+		    <ActionParameter name="expectedMessageCode"></ActionParameter>
+		</Action>
+		<Action name="CompareStat1" type="CompareREST">
+		    <ActionParameter name="structureID">Stat1</ActionParameter>
+		    <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+			<ActionParameter name="subObjectKey">SubName</ActionParameter>
+		    <ActionParameter name="subObjectName">maxmsgdurable</ActionParameter>
+		    <ObjectProperty name="BufferedMsgs" value="10"/>
+		    <ObjectProperty name="PublishedMsgs" value="10"/>
+		</Action>	
+
+        <!-- Crash the server -->
+
+        <Action name="CrashServer" type="ShellAction">
+            <dependsOn name="CompareStat1" interval="3000" />
+            <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+        <!--Action name="StopServer" type="ShellAction">
+            <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stop force</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+        <Action name="StartServer" type="ShellAction">
+            <dependsOn name="StopServer" interval="10000" />
+            <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver start</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action-->
+
+        <!-- Now we should still see a full 10 messages on the subscription, 
+        but 0 published messages and 0 consumers as we have not resubscribed yet
+        and all attempts at publishing the reply from the MDB are still being
+        rejected.
+        
+        "maxmsgdurable","mar228/reply/maxmsg","maxmsg_clientid","True",10,10,100.0,10,0,132,100.0,"False",0
+        -->
+        <Action name="Stat2" type="RestAPI">
+        	<dependsOn name="CrashServer" interval="10000" />
+			<ActionParameter name="structureID">Stat2</ActionParameter>
+			<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+		    <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=maxmsgdurable</ActionParameter>
+			<ActionParameter name="action">GET</ActionParameter>
+		    <ActionParameter name="payload"></ActionParameter>
+		   	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+		    <ActionParameter name="expectedMessageCode"></ActionParameter>
+		</Action>
+		<Action name="CompareStat2" type="CompareREST">
+		    <ActionParameter name="structureID">Stat2</ActionParameter>
+		    <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+			<ActionParameter name="subObjectKey">SubName</ActionParameter>
+		    <ActionParameter name="subObjectName">maxmsgdurable</ActionParameter>
+		    <ObjectProperty name="BufferedMsgs" value="10"/>
+		    <ObjectProperty name="PublishedMsgs" value="0"/>
+		</Action>
+
+        <Action name="CreateConnectionReconnect" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSessionReconnect" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConsumerReconnect" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+            <ApiParameter name="durableName">maxmsgdurable</ApiParameter>
+        </Action>
+
+        <Action name="StartConnectionReconnect" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <!-- Clear out the messages that are filling the subscription -->
+
+        <Action name="RcvObjMessage_clearsub" type="ReceiveMessage" repeat="10">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <!-- This receive has a long timeout to allow the MDB enough time
+        to reconnect to imaserver -->
+
+        <Action name="RcvObjMessage" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">180000</ApiParameter>
+        </Action>
+        
+        <!-- We should now see 1 message has been published to the subscription.
+        This is the reply sent successfully from the MDB. 
+        
+        "maxmsgdurable","mar228/reply/maxmsg","maxmsg_clientid","True",2,10,20.0,10,1,134,100.0,"False",1
+       
+        -->
+        <Action name="Stat3" type="RestAPI">
+			<ActionParameter name="structureID">Stat3</ActionParameter>
+			<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+		    <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=maxmsgdurable</ActionParameter>
+			<ActionParameter name="action">GET</ActionParameter>
+		    <ActionParameter name="payload"></ActionParameter>
+		   	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+		    <ActionParameter name="expectedMessageCode"></ActionParameter>
+		</Action>
+		<Action name="CompareStat3" type="CompareREST">
+		    <ActionParameter name="structureID">Stat3</ActionParameter>
+		    <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+			<ActionParameter name="subObjectKey">SubName</ActionParameter>
+		    <ActionParameter name="subObjectName">maxmsgdurable</ActionParameter>
+		    <ObjectProperty name="PublishedMsgs" value="1"/>
+		</Action>
+
+        <Action name="CloseConsumer" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+        </Action>
+
+        <Action name="unsubscribe" type="Unsubscribe">
+            <ActionParameter name="session_id">session</ActionParameter>
+            <ApiParameter name="durableName">maxmsgdurable</ApiParameter>
+        </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+</ImaJcaTest>

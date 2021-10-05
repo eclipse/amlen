@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_mqtt_006
+
+  Test Category: JMS to MQTT
+  
+  Test Description:
+    Test the ability to send/receive messages between two protocols. 
+    Also verifies that "bytes" for ConvertMessageType in JMS correctly 
+    converts to ByteMessages. 
+    
+    This test also receives RETAINED messages sent from MQTT to JMS.
+
+-->
+<LlmJmsTest name="jms_mqtt_006jms">
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_mqtt_006</solution>
+    </SyncClient>
+    
+    <Action name="rmdr" type="CompositeAction">
+        <Action name="CreateRx_cf1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">rx_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="SetPropsRx_cf1" type="FillIsmProps">
+            <ActionParameter name="structure_id">rx_cf1</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="jms_006_clientid" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+            <ImaProperty name="ConvertMessageType" value="bytes" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnectionRx_cf1" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_rx_cf1</ActionParameter>
+            <ActionParameter name="factory_id">rx_cf1</ActionParameter>
+        </Action>
+                
+        <Action name="CreateSession1Rx_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_rx_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session1_rx_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2Rx_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_rx_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session2_rx_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateSession3Rx_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_rx_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session3_rx_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateRx_dest1" type="CreateDestination">
+            <ActionParameter name="structure_id">rx_dest1</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/&#xE002;&#xE757;&#xF000;&#xF0FF;&#xF77F;&#xF8FE;&#xF8FF;MqttToJms_006</ApiParameter>
+        </Action>
+        
+        <!-- Retained message has been sent. Create consumer 1 and 2
+        and receive it -->
+        <Action name="Sync_retained" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_retain</ActionParameter>
+            <ActionParameter name="component_list">mqtt_retain;jms_retain</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1Rx_dest1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1_dest1</ActionParameter>
+            <ActionParameter name="dest_id">rx_dest1</ActionParameter>
+            <ActionParameter name="session_id">session1_rx_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConsumer2Rx_dest1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer2_dest1</ActionParameter>
+            <ActionParameter name="dest_id">rx_dest1</ActionParameter>
+            <ActionParameter name="session_id">session2_rx_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateMsgListener_consumer1" type="CreateMessageListener">
+            <ActionParameter name="structure_id">msg_listener_consumer1</ActionParameter>
+        </Action>
+        
+        <Action name="SetMsgListener_consumer1" type="SetMessageListener">
+            <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+            <ActionParameter name="consumer_id">consumer1_dest1</ActionParameter>
+        </Action>
+
+        <Action name="StartConnectionRx_cf1" type="StartConnection">
+            <ActionParameter name="conn_id">connection_rx_cf1</ActionParameter>
+        </Action>
+
+        <Action name="RcvTxtMessage_retainedCons1" type="ReceiveMessage">
+            <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg_retained1</ActionParameter>
+            <ApiParameter name="timeout">20000</ApiParameter>
+            <ApiParameter name="msgBodyType">BytesMessage</ApiParameter>
+        </Action>
+        
+        <!-- Action name="GetMsgText_retainedCons1" type="GetMessageText">
+            <ActionParameter name="message_id">rxmsg_retained1</ActionParameter>
+            <ActionParameter name="verifyValue">TEXT: Retained Message1</ActionParameter>
+        </Action -->
+        
+        <Action name="GetRetainedFlag_consumer1" type="GetMessageProperty">
+            <ActionParameter name="message_id">rxmsg_retained1</ActionParameter>
+            <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+            <ActionParameter name="verifyValue">1</ActionParameter>
+        </Action>
+
+        <Action name="RcvTxtMessage_retainedCons2" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg_retained2</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgText_retainedCons2" type="GetMessageText">
+            <ActionParameter name="message_id">rxmsg_retained2</ActionParameter>
+            <ActionParameter name="verifyValue">TEXT: Retained Message1</ActionParameter>
+        </Action>
+        
+        <Action name="GetRetainedFlag_consumer2" type="GetMessageProperty">
+            <ActionParameter name="message_id">rxmsg_retained2</ActionParameter>
+            <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+            <ActionParameter name="verifyValue">1</ActionParameter>
+        </Action>
+
+        <!-- Retained messages have been received. Start sending and receiving 
+        live messages -->
+        <Action name="Sync_subscribed" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_subscribed</ActionParameter>
+            <ActionParameter name="component_list">mqtt_subscribed;jms_subscribed</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+
+        <!-- Receive messages for consumer 1 -->
+
+        <Action name="RcvTxtMessage_consumer1" type="ReceiveMessage">
+            <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+            <ActionParameter name="structure_id">rx_txt_msg1</ActionParameter>
+            <ApiParameter name="timeout">20000</ApiParameter>
+            <ApiParameter name="msgBodyType">BytesMessage</ApiParameter>
+        </Action>
+        
+        <Action name="GetMsgText_consumer1" type="GetMessageText">
+            <ActionParameter name="message_id">rx_txt_msg1</ActionParameter>
+            <ActionParameter name="verifyValue">TEXT: test content 1</ActionParameter>
+        </Action>
+        
+        <Action name="RcvBytesMessage_consumer1" type="ReceiveMessage">
+            <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+            <ActionParameter name="structure_id">rx_bytes_msg1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+            <ApiParameter name="msgBodyType">BytesMessage</ApiParameter>
+        </Action>        
+
+        <!-- Live retained message received. retained should be false -->
+        <Action name="RcvLiveRetainedMessage_consumer1" type="ReceiveMessage">
+            <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg_liveRetained1</ActionParameter>
+            <ApiParameter name="msgBodyType">BytesMessage</ApiParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+        
+        <Action name="GetRetainedFlagLive_consumer1" type="GetMessageProperty">
+            <ActionParameter name="message_id">rxmsg_liveRetained1</ActionParameter>
+            <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+            <ActionParameter name="verifyValue">0</ActionParameter>
+        </Action>
+
+        <!-- Receive messages for consumer 2 -->
+
+        <Action name="RcvTxtMessage_consumer2" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+            <ActionParameter name="structure_id">rx_txt_msg2</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgText_consumer2" type="GetMessageText">
+            <ActionParameter name="message_id">rx_txt_msg2</ActionParameter>
+            <ActionParameter name="verifyValue">TEXT: test content 1</ActionParameter>
+        </Action>
+        
+        <Action name="RcvBytesMessage_consumer2" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+            <ActionParameter name="structure_id">rx_bytes_msg2</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+            <ApiParameter name="msgBodyType">BytesMessage</ApiParameter>
+        </Action>        
+        
+        <!-- Live retained message received. retained should be false -->
+        <Action name="RcvLiveRetainedMessage_consumer2" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg_liveRetained2</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgLiveRetained_consumer2" type="GetMessageText">
+            <ActionParameter name="message_id">rxmsg_liveRetained2</ActionParameter>
+            <ActionParameter name="verifyValue">TEXT: Live Retained Message</ActionParameter>
+        </Action>
+        
+        <Action name="GetRetainedFlagLive_consumer2" type="GetMessageProperty">
+            <ActionParameter name="message_id">rxmsg_liveRetained2</ActionParameter>
+            <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+            <ActionParameter name="verifyValue">0</ActionParameter>
+        </Action>
+
+        <!-- Done receiving live messages. Clear retained message --> 
+        <Action name="Sync_clear" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_clear</ActionParameter>
+            <ActionParameter name="component_list">mqtt_clear;jms_clear</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+
+        <!-- Verify retained cleared by creating consumer 3 -->
+        <Action name="Sync_cleared" type="SyncComponentAction">
+            <ActionParameter name="component_name">jms_cleared</ActionParameter>
+            <ActionParameter name="component_list">mqtt_cleared;jms_cleared</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer3Rx_dest1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer3_dest1</ActionParameter>
+            <ActionParameter name="dest_id">rx_dest1</ActionParameter>
+            <ActionParameter name="session_id">session3_rx_cf1</ActionParameter>
+        </Action>
+
+        <Action name="RcvNullRetainedMessage_consumer3" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer3_dest1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg_retainedNull</ActionParameter>
+            <ApiParameter name="timeout">2000</ApiParameter>
+        </Action>
+
+        <!-- Receive the null message on consumer 1 -->
+        <Action name="RcvNullRetainedMessage_consumer1" type="ReceiveMessage">
+            <ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg_nullRetained1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgNullRetained_consumer1" type="GetMessageText">
+            <ActionParameter name="message_id">rxmsg_nullRetained1</ActionParameter>
+            <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+        
+        <Action name="GetRetainedFlagNull_consumer1" type="GetMessageProperty">
+            <ActionParameter name="message_id">rxmsg_nullRetained1</ActionParameter>
+            <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+            <ActionParameter name="verifyValue">0</ActionParameter>
+        </Action>
+
+        <!-- Receive the null message on consumer 2 -->
+        <Action name="RcvNullRetainedMessage_consumer2" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg_nullRetained2</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="GetMsgNullRetained_consumer2" type="GetMessageText">
+            <ActionParameter name="message_id">rxmsg_nullRetained2</ActionParameter>
+            <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+        
+        <Action name="GetRetainedFlagNull_consumer2" type="GetMessageProperty">
+            <ActionParameter name="message_id">rxmsg_nullRetained2</ActionParameter>
+            <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+            <ActionParameter name="verifyValue">0</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnectionRx_cf1" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_rx_cf1</ActionParameter>
+        </Action>
+    </Action>
+</LlmJmsTest>

@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_msgdelivery_021_np
+
+  Test Category:  JMS Message Delivery
+
+  Test Description:
+   Session with CLIENT_ACK set, and server goes through a reboot without
+   acking some received messages. Because NON_PERSISTENT is set, we expect
+   NOT to receive those messages.
+
+
+*****************************************************************************/
+-->
+<ImaJmsTest name="jms_msgdelivery_021_np" >
+  <SyncClient>
+        <server>
+              <include>../common/JMS_syncip.xml</include>
+              <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_msgdelivery_021_np</solution>
+  </SyncClient>
+
+
+    <!--______ rmdr _______-->
+    <Action name="rmdr" type="CompositeAction">
+
+        <Action name="syncReset" type="SyncAction">
+            <ActionParameter name="request">reset</ActionParameter>
+        </Action>
+        <Action name="sync_begin" type="SyncAction">
+            <ActionParameter name="request">init</ActionParameter>
+            <ActionParameter name="condition">syncPoint</ActionParameter>
+        </Action>
+
+        <Action name="CreateFactory_RX" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF_RX</ActionParameter>
+        <!--     <ActionParameter name="loglevel">9</ActionParameter> -->
+        <!--     <ActionParameter name="logfile">stdout</ActionParameter> -->
+        </Action>
+
+        <Action name="CreateExceptionListener_RX" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">exc_listener_rx</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_RX" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF_RX</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="RX_MD21_CLIENTID" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_RX" type="CreateConnection">
+            <ActionParameter name="structure_id">conn_rx</ActionParameter>
+            <ActionParameter name="factory_id">CF_RX</ActionParameter>
+            <ApiParameter name="exceptionListener">exc_listener_rx</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_RX" type="CreateSession">
+            <ActionParameter name="conn_id">conn_rx</ActionParameter>
+            <ActionParameter name="structure_id">sess_rx</ActionParameter>
+            <ApiParameter name="ack_mode">2</ApiParameter> <!-- CLIENT_ACK -->
+        </Action>
+
+        <Action name="CreateDestination_RX" type="CreateDestination">
+            <ApiParameter name="name">&#9872;&#9872;&#9872;</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">dest_rx</ActionParameter>
+        </Action>
+
+        <Action name="SetProps_dest_rx" type="FillIsmProps">
+            <ActionParameter name="structure_id">dest_rx</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientMessageCache" value="0" type="INT"/> <!-- holds 1 message -->
+        </Action>
+
+        <Action name="CreateConsumer" type="CreateConsumer">
+            <ActionParameter name="structure_id">cons</ActionParameter>
+            <ActionParameter name="dest_id">dest_rx</ActionParameter>
+            <ActionParameter name="session_id">sess_rx</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection_RX" type="StartConnection">
+            <ActionParameter name="conn_id">conn_rx</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_RX" type="SyncComponentAction" interval="0"> 
+            <ActionParameter name="component_name">rx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+
+        <!-- RX msgs first time (and do not ack it) -->
+        <Action name="ReceiveMessages_no_ack" type="ReceiveMessage" repeat="200" repeat_interval="0" interval="0">
+            <ActionParameter name="consumer_id">cons</ActionParameter>
+            <ActionParameter name="structure_id">msg</ActionParameter>
+            <ApiParameter name="timeout">20000</ApiParameter>
+        </Action>
+
+
+
+        <!-- reboot server -->
+        <Action name="CrashServer" type="CompositeAction" interval="100" thread="3">
+            <dependsOn name="ReceiveMessages_no_ack" interval="100"/>
+            <Action name="CrashServer" type="ShellAction">
+                <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>
+                <ActionParameter name="print_result">true</ActionParameter>
+            </Action>
+        </Action>
+
+
+
+        <Action name="CreateFactory_RX_b" type="CreateConnectionFactory">
+            <dependsOn name="CrashServer" interval="100" />
+            <ActionParameter name="structure_id">CF_RX_b</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>
+        </Action>
+
+        <Action name="CreateExceptionListener_RX_b" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">exc_listener_rx_b</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_RX_b" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF_RX_b</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="RX_MD21_CLIENTID" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_RX_b" type="CreateConnection">
+            <ActionParameter name="structure_id">conn_rx_b</ActionParameter>
+            <ActionParameter name="factory_id">CF_RX_b</ActionParameter>
+            <ApiParameter name="exceptionListener">exc_listener_rx_b</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_RX_b" type="CreateSession">
+            <ActionParameter name="conn_id">conn_rx_b</ActionParameter>
+            <ActionParameter name="structure_id">sess_rx_b</ActionParameter>
+            <ApiParameter name="ack_mode">2</ApiParameter> <!-- CLIENT_ACK -->
+        </Action>
+
+        <Action name="CreateDestination_RX_b" type="CreateDestination">
+            <ApiParameter name="name">&#9872;&#9872;&#9872;</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">dest_rx_b</ActionParameter>
+        </Action>
+
+        <Action name="SetProps_dest_rx_b" type="FillIsmProps">
+            <ActionParameter name="structure_id">dest_rx_b</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientMessageCache" value="0" type="INT"/> <!-- holds 1 message -->
+        </Action>
+
+        <Action name="CreateConsumer_b" type="CreateConsumer">
+            <ActionParameter name="structure_id">cons_b</ActionParameter>
+            <ActionParameter name="dest_id">dest_rx_b</ActionParameter>
+            <ActionParameter name="session_id">sess_rx_b</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection_RX_b" type="StartConnection">
+            <ActionParameter name="conn_id">conn_rx_b</ActionParameter>
+        </Action>
+
+        <!-- now "recover" -->
+        <Action name="Recover" type="RecoverSession">
+            <ActionParameter name="session_id">sess_rx_b</ActionParameter>
+        </Action>
+
+        <!-- we should NOT receive more messages, because NON_PERSISTENT is set, and not cached -->
+        <Action name="ReceiveNothingLeft" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">cons_b</ActionParameter>
+            <ActionParameter name="structure_id">rxd_msg</ActionParameter>
+            <ApiParameter name="timeout">1000</ApiParameter>
+        </Action>
+
+        <Action name="StopConnection_RX_b" type="StopConnection"> <!-- CLIENT_ACK NOW -->
+            <ActionParameter name="conn_id">conn_rx_b</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_RX_b" type="CloseConnection">
+            <ActionParameter name="conn_id">conn_rx_b</ActionParameter>
+        </Action>
+
+    </Action>
+
+
+
+    <!--______ rmdt _______-->
+    <Action name="rmdt" type="CompositeAction">
+
+        <Action name="CreateFactory_TX" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF_TX</ActionParameter>
+        </Action>
+
+        <Action name="CreateExceptionListener_TX" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">exc_listener_tx</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_TX" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF_TX</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="TX_MD21_CLIENTID" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+
+        <Action name="CreateConnection_TX" type="CreateConnection">
+            <ActionParameter name="structure_id">conn_tx</ActionParameter>
+            <ActionParameter name="factory_id">CF_TX</ActionParameter>
+            <ApiParameter name="exceptionListener">exc_listener_tx</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_TX" type="CreateSession">
+            <ActionParameter name="conn_id">conn_tx</ActionParameter>
+            <ActionParameter name="structure_id">sess_tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_TX" type="CreateDestination">
+            <ApiParameter name="name">&#9872;&#9872;&#9872;</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">dest_tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+            <ActionParameter name="structure_id">prod</ActionParameter>
+            <ActionParameter name="dest_id">dest_tx</ActionParameter>
+            <ActionParameter name="session_id">sess_tx</ActionParameter>
+            <ApiParameter name="deliveryMode">1</ApiParameter>
+        </Action>
+
+
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg</ActionParameter>
+            <ActionParameter name="session_id">sess_tx</ActionParameter>
+            <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessageText" type="SetMessageText">
+            <ActionParameter name="message_id">msg</ActionParameter>
+            <ApiParameter name="value">some arbitrary text</ApiParameter>
+        </Action>
+
+        <Action name="sync_components_TX2" type="SyncComponentAction" interval="0"> 
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage" type="SendMessage" repeat="200" repeat_interval="2">
+            <ActionParameter name="producer_id">prod</ActionParameter>
+            <ActionParameter name="message_id">msg</ActionParameter>
+        </Action>
+
+
+
+        <Action name="CloseConnection_TX" type="CloseConnection">
+            <ActionParameter name="conn_id">conn_tx</ActionParameter>
+        </Action>
+
+    </Action>
+
+
+</ImaJmsTest>

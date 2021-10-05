@@ -1,0 +1,700 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_shared_secUserID_001
+
+  Test Category:  JMS Shared Subscription, Security. 
+  
+  Test Description:
+    
+    Test that SubscriptionPolicy  prevents and grants 
+    authorization on shared durable subscriptions in __Shared  namespace.
+    
+    And Test that those policies do not apply to non-durable subscriptions in 
+    the shared namespace, or to subscriptions in the clientId namespace. 
+    
+    This test uses 4 userid's for authorization. (the first four are created in AdminObjs, 
+    the last is created by sssetup.
+    
+    JMSUser1: Authorized on the topic, Authorized with Control,Receive on the Subscription
+    JMSUser2: Authorized on the topic, Authorized with Control on the Subscription
+    JMSUser3: Authorized on the topic, Authorized with Receive on the Subscription
+    JMSUser4: Authorized on the topic, Not Authorized on the Subscription.
+    JMSNonSharedUser1: Not authorized on the topic. Authorized on the Subscription.  
+    
+    A note about JMSUser3. We use a second connection with this userID to verify that 
+    the authorization for the Shared DurableSubscription does not get applied for other
+    subscription types: shared non-durable subscriptions in the __SharedND namespace, 
+    SharedDurableSubscriptions in the clientID namespace, and non-shared Durable in the 
+    ClientID namespace. 
+  
+    
+    Topic Policies: (Type=Topic)
+    create TopicPolicy Name=JMSSharedSubTopicMP1 Destination=TopicSecureDS_001 UserID=JMSUser* "ActionList=Publish,Subscribe"
+	create TopicPolicy Name=JMSSharedSubTopicMP2 Destination=TopicSecureDS_002 UserID=JMSUser1 "ActionList=Publish,Subscribe"
+    
+    Subscription Policies: (Type=Subscription)
+    create SubscriptionPolicy Name=JMSSharedSubSubscriptionMP1 Destination=Durname_SecureDS_001 UserID=JMSUser1  "ActionList=Control,Receive"
+	create SubscriptionPolicy Name=JMSSharedSubSubscriptionMP2 Destination=Durname_SecureDS_001 UserID=JMSUser2  "ActionList=Control"
+	create SubscriptionPolicy Name=JMSSharedSubSubscriptionMP3 Destination=Durname_SecureDS_001 UserID=JMSUser3  "ActionList=Receive"
+	create SubscriptionPolicy Name=JMSSharedSubSubscriptionMP4 Destination=Durname_SecureDS_001 UserID=JMSNonSharedUser1  "ActionList=Control,Receive"
+
+	Endpoint:
+	create Endpoint Name=JMSSharedSubEndpoint1 Enabled=True Port=18500 ConnectionPolicies=JMSSharedConnectionPolicy1 TopicPolicies=JMSSharedSubTopicMP1,
+	JMSSharedSubTopicMP2 SubscriptionPolicies=JMSSharedSubSubscriptionMP1,JMSSharedSubSubscriptionMP2,JMSSharedSubSubscriptionMP3,JMSSharedSubSubscriptionMP4 MaxMessageSize=4MB
+	MessageHub=JMSSharedSubHub
+
+-->    
+
+<ImaJmsTest name="jms_shared_secUserID_001.xml">
+
+	<Action name="cons1" type="CompositeAction">
+
+		<!-- A connection factor without a clientID, used for shared namespaces -->
+		<Action name="Create_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+		</Action>
+		<Action name="SetProps_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="18500"/>
+		</Action>
+		
+		<!-- A 2nd connection factory that uses a ClientID. --> 
+		<Action name="Create_cf2" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf2</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+		</Action>		
+		<Action name="SetProps_cf2" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf2</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="JMSUser3_ClientID" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="18500"/>
+		</Action>
+		
+		<!-- Successfully connect with no ClientID as JMSUser1  -->
+		<Action name="CreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+			<ApiParameter name="user">JMSUser1</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<!-- Successfully connect with no ClientID as JMSUser2 -->
+		<Action name="CreateConnection2_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection2_cf1</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<!-- Successfully connect with no ClientId as JMSUser3 -->
+		<Action name="CreateConnection3_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection3_cf1</ActionParameter>
+			<ApiParameter name="user">JMSUser3</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<!-- Successfully connect with no ClientID JMSUser4  -->
+		<Action name="CreateConnection4_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection4_cf1</ActionParameter>
+			<ApiParameter name="user">JMSUser4</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<!-- Successfully connect with no ClientID as JMSNonSharedUser1 -->
+		<Action name="CreateConnection5_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection5_cf1</ActionParameter>
+			<ApiParameter name="user">JMSNonSharedUser1</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<!-- Successfully connect with a ClientID as JMSUser3 using ConnectionFactory 2. (cf2) -->
+		<Action name="CreateConnection1_cf2" type="CreateConnection">
+			<ActionParameter name="structure_id">connection1_cf2</ActionParameter>
+			<ApiParameter name="user">JMSUser3</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf2</ActionParameter>
+		</Action>		
+				
+		<!-- Create a session on Connection 1 which was UserID JMSUser1 --> 
+		<Action name="CreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>	
+		
+		<!-- Create a 2nd session on Connection 1 which was UserID JMSUser1 --> 
+		<Action name="CreateSession1b_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1b_cf1</ActionParameter>
+		</Action>				
+		
+		<!-- Create a session on Connection 2 which was UserID JMSUser2 --> 
+		<Action name="CreateSession2_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection2_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session2_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a session on Connection 3 which was UserID JMSUser3, without a ClientID --> 
+		<Action name="CreateSession3_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection3_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session3_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a session on Connection 4 which was UserID JMSUser4 --> 
+		<Action name="CreateSession4_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection4_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session4_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a session on Connection 5 which was UserID JMSNonSharedUser1 --> 
+		<Action name="CreateSession5_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection5_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session5_cf1</ActionParameter>
+		</Action>	
+			
+		<!-- Create session Connection 1 of ConnectionFactory2 which was JMSUser3 WITH  ClientID--> 
+		<Action name="CreateSession1_conn_cf2" type="CreateSession">
+			<ActionParameter name="conn_id">connection1_cf2</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf2</ActionParameter>
+		</Action>		
+		
+		<!-- Create a Destination to used to create a  shared DurableSubscription in  the __Shared namespace  -->
+		<Action name="CreateDestination_cons1" type="CreateDestination">
+			<ApiParameter name="name">TopicSecureDS_001</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">dest_TopicSecureDS_001</ActionParameter>
+		</Action>                                                                                                            
+	
+	    <!-- Create a Destination to used to create a shared non-DurableSubscription in  the __SharedND namespace  -->
+		<Action name="CreateDestination_NonDurableShared" type="CreateDestination">
+			<ApiParameter name="name">TopicSecureDS_001</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">destNonDurableShared</ActionParameter>
+		</Action>                                                                                                            
+	
+		<Action name="CreateDestination" type="CreateDestination">
+			<ApiParameter name="name">TopicSecureDS_001</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">dest_TopicSecureDS_001</ActionParameter>
+		</Action>    
+		
+		<Action name="CreateDurableConsumer1_Shared" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer1_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>
+			
+		<!-- Action name="ShowSubExists" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=Durname_SecureDS_001 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+	 <Action name="ShowSubExists" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_E</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=Durname_SecureDS_001&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CompareShowSubExists" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_E</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">Durname_SecureDS_001</ActionParameter>
+        <ObjectProperty name="PublishedMsgs" value="0"/>
+        <ObjectProperty name="MaxMessages" value="15555"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+        <ObjectProperty name="IsShared" value="true"/>
+    </Action> 					
+
+		<!-- Add a second consumer to the sharedDurableConsumer -->
+		<Action name="CreateDurableConsumer1b_Shared" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer1b_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session1b_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>	
+					
+		<!-- Create a non-durable shared consumers with JMSUser4. It has no 
+			authorization for subscription, but does not need any since
+			subscription authorization is not used for nonDurable Shared in __SharedND namespace  -->
+			
+		<Action name="CreateDurableConsumer4_SharedND" type="CreateSharedConsumer">
+			<ActionParameter name="structure_id">consumer4_destNonDurableShared</ActionParameter>
+			<ActionParameter name="dest_id">destNonDurableShared</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>
+		
+		<!-- Create a Durable (non-shared) Consumer with JMSUser3, on connection 2. 
+			This Connection has set ClientID=JMSUser3_ClientID, and will be in the ClientID namespace.
+			It should be completely independent of any of the Policy Authorization 
+			for subscriptions, which only apply in the shared namespaces.
+			JMSUser3 user had the Receive action, but not Control, in the shared Namespace, but that 
+			should not have any effect in the clientID namespace, allowing this to be created. -->
+			
+		<Action name="CreateDurableConsumer_DurableNonShared" type="CreateDurableConsumer">
+			<ActionParameter name="structure_id">JMSUser3_DurableNonShared</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session1_cf2</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>		
+		</Action>
+		
+		<!-- Variation for defect 38308 which caused a server crash. this 
+			attempts to create the DurableConsumer again, on same session, same name, etc. --> 
+		<Action name="CreateDurableConsumer_DurableNonSharedAgain" type="CreateDurableConsumer" rc="1" reason="CWLNC0021" >
+			<ActionParameter name="structure_id">JMSUser3_DurableNonShared_1a</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session1_cf2</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>							
+		
+		<!-- Create a consumer on shared subscription  with JMSUser3, on connection 2. 
+			This Connection has set ClientID=JMSUser3_ClientID, and will be in the ClientID namespace.
+			It should fail because we have a non-shared durable Subscription by this name already.  -->
+		<Action name="CreateDurableConsumer1_destSharedDurableClientError" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0021">
+			<ActionParameter name="structure_id">consumer1_destSharedDurableClient</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session1_cf2</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>			
+		</Action>	
+		
+		<Action name="CloseConsumerDurablenonSharedClient" type="CloseConsumer">
+			<ActionParameter name="consumer_id">JMSUser3_DurableNonShared</ActionParameter>
+		</Action>			
+		
+		<!-- JMSUser3 was authorized only for the Receive action (not Control) in the __Shared Namespace, but that 
+		should not have any effect in the clientID namespace. So unsubscribing there should work. -->
+		<Action name="Unsubscribe_DurablenonSharedClient" type="Unsubscribe">
+			<ActionParameter name="session_id">session1_cf2</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>
+		
+		<!-- Create a consumer and a shared durable subscription with JMSUser3, on connection 2. 
+			This Connection has set ClientID=JMSUser3_ClientID, and will be in the ClientID namespace.
+			It should be completely independent of any of the MessagubgPolicy Type=Subscription Authorization 
+			for shared subscriptions, JMSUser3 user had the Receive action, but not Control in the shared Namespace, 
+			Verify that authorization is not applied to the clientID namespace.  -->
+		<Action name="CreateDurableConsumer1_destSharedDurableClient" type="CreateSharedDurableConsumer" >
+			<ActionParameter name="structure_id">consumer1_destSharedDurableClient</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session1_cf2</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>		
+		</Action>		
+		
+		<!-- close all active consumers on all subscriptions. --> 
+		<Action name="CloseConsumer1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1_destSharedDurable</ActionParameter>
+		</Action>
+		<Action name="Closeconsumer1b" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1b_destSharedDurable</ActionParameter>
+		</Action>
+		<Action name="CloseConsumerNonDurableShared" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer4_destNonDurableShared</ActionParameter>
+		</Action>		
+		<Action name="CloseConsumerDurableSharedClientAgain" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1_destSharedDurableClient</ActionParameter>
+		</Action>
+				
+				
+		<!-- Now verify the unsubscribe authorization -->
+		<!-- JMSUser3 user had the Receive action, but not Control, in the shared Namespace. 
+		 Unsubscribing from it's sessoin in __Shared namespace should Fail -->
+		<Action name="Unsubscribe_with_JMSUser3" type="Unsubscribe" rc="1" reason="CWLNC0207">
+			<ActionParameter name="session_id">session3_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>
+		
+		<!-- JMSUser3 user had the Receive action, but not Control, in the shared Namespace. But here in 
+		the clientID namespace, that authorization does not apply. This unsubscribe should work. --> 
+		<Action name="Unsubscribe_with_JMSUser3_CF2Again" type="Unsubscribe">
+			<ActionParameter name="session_id">session1_cf2</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>
+		
+		<!-- JMSUser2 had Control action, but not Receive.  Unsubscribe should succeed.  -->
+		<Action name="Unsubscribe_withJMSUser2" type="Unsubscribe">
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>	
+		
+		<!-- in theory, at this stage of the test, we have no subscriptions of any kind. --> 
+		<!-- Action name="ShowNoSubExists_after_unsub" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=Durname_SecureDS_001 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+	 <Action name="ShowNoSubExists_after_unsub" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=Durname_SecureDS_001&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CompareNoSubExists_after_unsub" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">Durname_SecureDS_001</ActionParameter>
+    </Action> 	     			
+	
+		<!-- Try creating a consumer on a session where the userid has actions=Control,Receive on the 
+			SubscriptionPolicy  but has no authorization on the 
+			TopicPolicy.  -->
+		<Action name="CreateDurableConsumer5_destSharedDurable" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer5_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session5_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>					
+		</Action>	
+		
+		<!-- in theory, at this stage of the test, we have no subscriptions of any kind. --> 
+		<!-- Action name="ShowNoSubExists_after_Cons5_fails" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=Durname_SecureDS_001 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowNoSubExists_after_Cons5_fails" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=Durname_SecureDS_001&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CompareNoSubExists_after_Cons5_fails" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">Durname_SecureDS_001</ActionParameter>
+    </Action> 	     						
+					
+		<!-- Try JMSUser4 which has authorization to topic, but not to the subscription. It should fail. -->
+		<Action name="CreateDurableConsumer4_destSharedDurable" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer4_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session4_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>					
+		</Action>	
+					
+		<!-- Try a consumer authorized only with Control. It should not be able to create the subscription. --> 
+		<!-- and here occurs defect 37925. This returned authorization error, but as of 08/08/2013, it 
+			actually DID create the Durable Subscription. And that's a defect that will get fixed! -->					
+			<Action name="CreateDurableConsumer2_destSharedDurable" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer2_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>				
+		</Action>	
+		
+		<!-- verify defect 37925 -->
+		<!-- Action name="ShowNoSubExists_after_Failed_create" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=Durname_SecureDS_001 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowNoSubExists_after_Failed_create" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=Durname_SecureDS_001&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CompareNoSubExists_after_Failed_create" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">Durname_SecureDS_001</ActionParameter>
+    </Action> 			
+		
+		<!-- At this stage, we do still not have a subscription --> 
+		<!-- attempt to create one with JMSUser3 who has only Receive action. This should fail,
+			except it doesn't until defect 37925 is fixed, because the prior call has a bug. -->  
+		<Action name="CreateDurableConsumer3_destSharedDurable" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer3_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session3_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>					
+		</Action>				
+		
+		<!-- Recreate the subscription,  using JMSUser1 again. It has the correct authorization. -->
+		<Action name="ReCreateDurableConsumer1_destSharedDurable" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer1_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>					
+		</Action>	
+		
+		
+		<!-- Now do a series of trying to create a 2nd durableConsumer. Only userID's 
+			with "Receive" on a SubscriptionPolicy should be able to do this. -->
+			
+		<!-- Attempt to add another consumer with a JMSUser2 which has only Control  This should fail 
+			because it needs Receive to connect to an existing Shared Durable Subscription -->  
+		<Action name="CreateDurableConsumer2_destSharedDurable_Failure2" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer2_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>					
+		</Action>	
+		
+		<!-- Attempt to add another consumer with a JMSUser3 which has only Receive  This should pass --> 
+		<Action name="CreateDurableConsumer3_destSharedDurable_Success" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer3_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session3_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>				
+		</Action>	
+		
+		<!-- Attempt to add another consumer with JMSUser4, which has no authorization on a messaging policy of type Subscription. It should fail. -->
+		<Action name="CreateDurableConsumer4_destSharedDurable_again" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer4_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session4_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>					
+		</Action>	
+		
+		<!-- Attempt to add a 2nd consumer with  subscription authorization, but not topic. It should fail. -->
+		<Action name="ChangeDurableConsumer5_destSharedDurable_again" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer5_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session5_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>				
+		</Action>									
+		
+		<!--close the active consumers again  -->
+		<Action name="CloseConsumer1_again" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1_destSharedDurable</ActionParameter>
+		</Action>	
+		
+		<Action name="CloseConsumer3_again" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer3_destSharedDurable</ActionParameter>
+		</Action>										
+		
+		
+		<!-- Attempt to change the subscription  consumer with a JMSUser2 which has only Control  This should fail 
+			because it needs Receive to connect to an existing Shared Durable Subscription -->   
+		<Action name="CreateDurableConsumer2_destSharedDurable_Failure3" type="CreateSharedDurableConsumer"  rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer2_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+			<ApiParameter name="selector">Property1 = 'A'</ApiParameter>						
+		</Action>
+
+		<!-- verify defect 37925.  The above will (unfortunately) delete the subscription but 
+			not recreate it.  By design.  -->
+		<!-- Action name="ShowSubDeletedAgain" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=Durname_SecureDS_001 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowSubDeletedAgain" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=Durname_SecureDS_001&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CompareShowSubDeletedAgain" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">Durname_SecureDS_001</ActionParameter>
+    </Action> 					
+		
+		<!-- Recreate the subscription so we can try to change it again. JMSUser1 DOES have the authorization to do this.-->
+		<Action name="RecreateDurableConsumer1_destSharedDurable1" type="CreateSharedDurableConsumer">
+			<ActionParameter name="structure_id">consumer1_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+			<ApiParameter name="selector">Selector  = 'NewOne' </ApiParameter>			
+		</Action>	
+											
+		<Action name="CloseConsumer1_1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1_destSharedDurable</ActionParameter>
+		</Action>						
+		
+		<!-- Attempt to change the subscription consumer with a JMSUser3 which has only Receive  This should fail 
+			because it needs Control to create or modify a Shared Durable Subscription --> 
+		<Action name="ChangeDurableConsumer3_destSharedDurable_Failure3" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer3_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session3_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+			<ApiParameter name="selector">Property1 = 'B'</ApiParameter>						
+		</Action>	
+		
+		<!-- Action name="ShowSubExists_after_cons3Fails" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=Durname_SecureDS_001 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">0</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowSubExists_after_cons3Fails" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_E1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=Durname_SecureDS_001&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CompareSubExists_after_cons3Fails"  type="CompareREST">
+        <ActionParameter name="structureID">stat_output_E1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">Durname_SecureDS_001</ActionParameter>
+        <ObjectProperty name="PublishedMsgs" value="0"/>
+        <ObjectProperty name="MaxMessages" value="15555"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+        <ObjectProperty name="IsShared" value="true"/>
+    </Action> 				
+
+		<!-- Try Modifying the subscription with  a consumer on a session where the userid has actions=Control,Receive on the 
+			SubscriptionPolicy, but has no authorization on the TopicPolicy. 
+			The result is suprising, but by design. The subscription gets deleted, but not recreated with the 
+			new params -->
+		<Action name="ChangeDurableConsumer5_destSharedDurable" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer5_destSharedDurable</ActionParameter>
+			<ActionParameter name="dest_id">dest_TopicSecureDS_001</ActionParameter>
+			<ActionParameter name="session_id">session5_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>					
+		</Action>	
+		
+		<!-- in theory, at this stage of the test, we have no subscriptions of any kind, because the above failed attempt
+			to change the subscription would have deleted it (by design). --> 
+		<!-- Action name="ShowNoSubExists_after_Cons5_fails_to_Modify" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=Durname_SecureDS_001 ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+	 <Action name="ShowNoSubExists_after_Cons5_fails_to_Modify" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=Durname_SecureDS_001&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CompareNoSubExists_after_after_Cons5_fails_to_Modify" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">Durname_SecureDS_001</ActionParameter>
+    </Action> 						
+																	
+		<Action name="Final_Unsubscribe_withJMSUser1" type="Unsubscribe" rc="1" reason="CWLNC0227" >
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">Durname_SecureDS_001</ApiParameter>
+		</Action>			
+
+		<Action name="StartConnection_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseSession1_cf1" type="CloseSession">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>		
+		
+		<Action name="CloseSession1b_cf1" type="CloseSession">
+			<ActionParameter name="session_id">session1b_cf1</ActionParameter>
+		</Action>		
+		
+		<Action name="CloseSession2_cf1" type="CloseSession">
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+		</Action>		
+		
+		<Action name="CloseSession3_cf1" type="CloseSession">
+			<ActionParameter name="session_id">session3_cf1</ActionParameter>
+		</Action>		
+		
+		<Action name="CloseSession4_cf1" type="CloseSession">
+			<ActionParameter name="session_id">session4_cf1</ActionParameter>
+		</Action>		
+		
+		<Action name="CloseSession5_cf1" type="CloseSession">
+			<ActionParameter name="session_id">session5_cf1</ActionParameter>
+		</Action>					
+		
+		<Action name="CloseConnection_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection2_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection2_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection3_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection3_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection4_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection4_cf1</ActionParameter>
+		</Action>						
+        		
+ 		<Action name="CloseConnection5_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection5_cf1</ActionParameter>
+		</Action>       		
+        		
+		<Action name="CloseConnection1_cf2" type="CloseConnection">
+			<ActionParameter name="conn_id">connection1_cf2</ActionParameter>
+		</Action>        		
+        		
+	</Action>		
+
+</ImaJmsTest>

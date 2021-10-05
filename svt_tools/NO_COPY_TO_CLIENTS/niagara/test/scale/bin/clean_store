@@ -1,0 +1,78 @@
+#!/bin/bash
+server=`getserver`
+printf "server=%s\n" ${server}
+
+out=`ssh admin@${server} "status imaserver" | head -n 1`
+printf "${out}\n"
+
+if [ "${out}" == "Status = Stopped" ]; then
+  printf "starting..."
+  out=`ssh admin@${server} "imaserver start; status imaserver" | head -n 1`
+  printf "starting..."
+  while [ "${out}" == "Status = Stopped" ]; do
+    sleep 5s
+    printf "."
+    out=`ssh admin@${server} "status imaserver" | head -n 1`
+  done
+  printf "started\n"
+fi
+
+if [ ! "${out}" == "Status = Running (maintenance)" ]; then
+  printf "restarting imaserver in maintenance mode    "
+  out=`ssh admin@${server} "imaserver runmode maintenance; imaserver stop; status imaserver" | head -n 1`
+  printf "stopping..."
+  while [ ! "${out}" == "Status = Stopped" ]; do
+    sleep 5s
+    printf "."
+    out=`ssh admin@${server} status imaserver`
+  done
+  printf "stopped "
+
+  out=`ssh admin@${server} "imaserver start; status imaserver" | head -n 1`
+  printf "starting..."
+  while [ ! "${out}" == "Status = Running (maintenance)" ]; do
+    sleep 5s
+    printf "."
+    out=`ssh admin@${server} "status imaserver" | head -n 1`
+  done
+  printf "started\n"
+fi
+
+printf "restarting imaserver in clean_store mode    "
+out=`ssh admin@${server} "imaserver runmode clean_store; imaserver stop; status imaserver" | head -n 1`
+printf "stopping..."
+while [ ! "${out}" == "Status = Stopped" ]; do
+  sleep 5s
+  printf "."
+  out=`ssh admin@${server} status imaserver`
+done
+printf "stopped "
+
+out=`ssh admin@${server} "imaserver start; status imaserver" | head -n 1`
+printf "starting..."
+while [ ! "${out}" == "Status = Running (maintenance)" ]; do
+  sleep 5s
+  printf "."
+  out=`ssh admin@${server} "status imaserver" | head -n 1`
+done
+printf "started\n"
+
+printf "restarting imaserver in production mode    "
+out=`ssh admin@${server} "imaserver runmode production; imaserver stop; status imaserver" | head -n 1`
+printf "stopping..."
+while [ ! "${out}" == "Status = Stopped" ]; do
+  sleep 5s
+  printf "."
+  out=`ssh admin@${server} status imaserver`
+done
+printf "stopped "
+
+out=`ssh admin@${server} "imaserver start; status imaserver" | head -n 1`
+printf "starting..."
+while [[ ( ! "${out}" == "Status = Running") && ( ! "${out}" == "Status = Running (production)") ]]; do
+
+  sleep 5s
+  printf "."
+  out=`ssh admin@${server} "status imaserver" | head -n 1`
+done
+printf "started\n"

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="JCAtests" default="build_jcatests" basedir=".">
+    <property file="build.properties"/>
+
+    <property environment="env"/>
+    <property name="client.ship.lib.dir" value="${jcatests.dir}/../client_ship/lib"/>
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+	<property name="evilRAlib" location="${evil.ra.dir}/bin/lib" />
+
+    <!-- Required Classpaths -->
+    <path id="compile.classpath">
+        <pathelement location="${client.ship.lib.dir}/imaclientjms.jar" />
+    	<pathelement location="${client.ship.lib.dir}/imara.jar" />
+        <pathelement location="${testTools.ship.lib.dir}/ima.evilra.rar"/>
+    	<pathelement location="${evilRAlib}/evilra.jar" />
+    	<pathelement location="${client.deps.dir}/jms.jar"/>
+    	<pathelement location="${client.deps.dir}/j2ee.jar" />
+        <pathelement location="${testTools.ship.lib.dir}/JMSTestDriver.jar" />
+    	<pathelement location="${client.deps.dir}/db2jcc_license_cu.jar"/>
+    	<pathelement location="${client.deps.dir}/db2jcc4.jar"/>
+    	<pathelement location="${client.deps.dir}/com.ibm.ws.runtime.jar" />
+    	<pathelement location="${client.deps.dir}/com.ibm.ws.admin.core.jar" />
+    	<pathelement location="${client.deps.dir}/com.ibm.ws.sib.server.jar" />
+    </path>
+
+    <!-- Build targets  -->
+    <target name="build_jcatests"  depends="jcatests.ejb-ear, jcatests.web-war, JCAtests_publish, javadoc">
+        <echo> ==  Invoking ant for jcatests build ============= </echo>
+    </target>
+
+    <!--Compile the project-->
+    <target name="JCAtests_compile" depends="jcatests_init">
+        <echo> ==  Compile jcatests.ejb project ================ </echo>
+        <mkdir dir="${jcatests.ejb.bin.dir}/classes" />
+        <javac srcdir="${jcatests.ejb.src.dir}"
+        	source="1.6"
+        	target="1.6"
+            destdir="${jcatests.ejb.bin.dir}/classes"
+            deprecation="no"
+            includeAntRuntime="no"
+            debug="yes"
+            debuglevel="lines,source,vars"
+            optimize="yes">
+            <src path="${jcatests.ejb.src.dir}" />
+            <classpath refid="compile.classpath" />
+        </javac>
+        <jar destfile="${jcatests.ejb.lib.dir}/testTools_JCAtests.jar" manifest="${jcatests.ejb.src.dir}/META-INF/MANIFEST.MF">
+            <fileset dir="${jcatests.ejb.bin.dir}/classes" includes="**/*.class" />
+        	<metainf dir="${jcatests.ejb.src.dir}/META-INF" excludes="MANIFEST.MF"/>
+        	<zipfileset includes="**/*.class" src="${testTools.ship.lib.dir}/JMSTestDriver.jar"/>
+        </jar>
+        <echo> ==  Compile jcatests.web project ================ </echo>
+    	<delete dir="${jcatests.ejb.bin.dir}/classes"/>
+        <mkdir dir="${jcatests.web.bin.dir}/classes"/>
+        <javac srcdir="${jcatests.web.src.dir}"
+        	source="1.6"
+        	target="1.6"
+            destdir="${jcatests.web.bin.dir}/classes"
+            deprecation="no"
+            includeAntRuntime="no"
+            debug="yes"
+            debuglevel="lines,source,vars"
+            optimize="yes">
+            <src path="${jcatests.web.src.dir}" />
+            <classpath refid="compile.classpath" />
+        </javac>
+    </target>
+
+    <!-- Build EAR file -->
+    <target name="jcatests.ejb-ear" depends="JCAtests_compile, jcatests.web-war">
+        <ear destfile="${jcatests.lib.dir}/testTools_JCAtests.ear"
+            appxml="${jcatests.dir}/META-INF/application.xml">
+            <fileset dir="${jcatests.ejb.lib.dir}" includes="**/*.jar"/>
+            <fileset dir="${jcatests.web.lib.dir}" includes="**/*.war"/>
+            <metainf file="${jcatests.dir}/META-INF/was.policy"/>
+        </ear>
+    </target>
+
+    <!-- Build WAR file -->
+    <target name="jcatests.web-war" depends="JCAtests_compile">
+        <war destfile="${jcatests.web.lib.dir}/testTools_JCAtests.war" webxml="${jcatests.web.dir}/WebContent/WEB-INF/web.xml">
+            <classes dir="${jcatests.web.bin.dir}/classes"/>
+            <lib file="${testTools.ship.lib.dir}/JMSTestDriver.jar"/>
+       </war>
+    </target>
+
+    <!-- Copy the product file to ship tree -->
+    <target name="JCAtests_publish">
+        <echo> ==  Copy files to testTools_ship tree ================ </echo>
+        <copy todir="${testTools.ship.lib.dir}" preservelastmodified="yes">
+            <fileset dir="${jcatests.lib.dir}" />
+        </copy>
+    </target>
+
+    <!-- Generating JAVAD -->
+    <target name="javadoc" description="generate javadoc">
+        <javadoc packagenames="**.*" defaultexcludes="yes" destdir="${jcatests.doc.dir}/api" author="true" version="true" use="true">
+            <classpath refid="compile.classpath" />
+            <fileset dir="${jcatests.ejb.src.dir}"/>
+            <fileset dir="${jcatests.web.src.dir}"/>
+        </javadoc>
+    </target>
+
+    <!-- Initialize the build environment -->
+    <target name="jcatests_init">
+        <echo>buildType = ${buildType}</echo>
+
+        <mkdir dir="${jcatests.lib.dir}"/>
+        <mkdir dir="${jcatests.ejb.lib.dir}"/>
+        <mkdir dir="${jcatests.web.lib.dir}"/>
+
+        <exec dir="./" executable="java" resolveexecutable="true">
+            <arg value="-version" />
+        </exec>
+    </target>
+
+    <target name="clean">
+        <echo>Cleaning testTools_JCAtests</echo>
+        <delete dir="${jcatests.lib.dir}"/>
+        <delete dir="${jcatests.doc.dir}"/>
+        <delete dir="${jcatests.ejb.lib.dir}"/>
+        <delete dir="${jcatests.web.lib.dir}"/>
+        <delete dir="${jcatests.ejb.bin.dir}"/>
+        <delete dir="${jcatests.web.bin.dir}"/>
+        <delete file="${testTools.ship.lib.dir}/testTools_JCAtests.ear"/>
+    </target>
+
+</project>

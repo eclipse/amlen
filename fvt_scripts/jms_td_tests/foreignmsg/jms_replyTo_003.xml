@@ -1,0 +1,662 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_replyTo_003
+
+  Test Category:  JMS Foreign Message/Reply To
+  
+  Test Description:
+    Testing temporary topics. Have two receivers which send a message with
+    JMSreplyTo set to a temporary topic for their connections to a producer
+    on topic jmsRT-03. An anonymous producer (no destination set) then gets 
+    the destination from the replyTo for both receivers and sends messages 
+    back to them.
+    
+    Changes 9/19: Add consumer2 with a selector on both rmdr and rmdr2. rmdr
+    has selector "TestProperty = 'test value'". rmdr2 has selector
+    "TestProperty2 = 'test value 2'". Test that these selectors behave as
+    expected on temporary topics. On rmdt, add the property for rmdr to
+    message txmsg1, and add the property for rmdr2 to message txmsg2.
+    
+*****************************************************************************/
+-->
+<ImaJmsTest name="jms_replyTo_003" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_replyTo_003</solution>
+	</SyncClient>
+	
+	<Action name="rmdr" type="CompositeAction">
+		<!-- This side runs on machine 2! -->
+		<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+		<Action name="syncReset" type="SyncAction">
+			<ActionParameter name="request">reset</ActionParameter>
+		</Action>
+
+		<!-- Initialize the SyncDriver values -->
+
+		<Action name="syncInit1" type="SyncAction">
+			<ActionParameter name="request">init</ActionParameter>
+			<ActionParameter name="condition">syncPoint</ActionParameter>
+		</Action>
+
+		<Action name="CreateFactory_RX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+		</Action>
+
+		<Action name="CreateListener_RX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_RX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx_RT003_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_RX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_RX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession2_RX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses2_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession_TX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+			<ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateTempTopic" type="CreateTemporaryTopic">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ActionParameter name="dest_id">tempDest</ActionParameter>
+			<ActionParameter name="structure_id">tempDest</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_RX" type="CreateDestination">
+			<ApiParameter name="name">jmsRT-03</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateConsumer" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">tempDest</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ApiParameter name="nolocal">true</ApiParameter>
+		</Action>
+	
+		<Action name="CreateConsumer1" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">tempDest</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ApiParameter name="nolocal">true</ApiParameter>
+			<ApiParameter name="selector">TestProperty = 'test value'</ApiParameter>
+		</Action>
+	
+		<Action name="StartConnection_RX1" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+	
+		<Action name="CreateMessage1" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage1Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="value">This message contains the replyTo destination the provider should use</ApiParameter>
+		</Action>
+
+		<Action name="SetReplyToProperty" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="propertyType">ReplyTo</ApiParameter>
+			<ApiParameter name="value">tempDest</ApiParameter>
+		</Action>
+
+		<Action name="sync_components_RX1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1;rx2</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+	 	</Action>
+
+		<Action name="SendMessage1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+		</Action>
+
+		<Action name="sync_components_RX2" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx1a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a;rx2a</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+	 	</Action>
+
+		<Action name="sync_components_RX3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx1b</ActionParameter>
+			<ActionParameter name="component_list">tx1b;rx1b;rx2b</ActionParameter>
+			<ActionParameter name="timeout">40000</ActionParameter>
+	 	</Action>
+
+		<Action name="CompositeRcv" type="CompositeAction" expected="90" interval="0"> 
+			<Action name="ReceiveMessage1-1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes" type="GetMessageText">
+				<dependsOn name="ReceiveMessage1-1" interval="0"/>
+				<ActionParameter name="message_id">rxmsg1</ActionParameter>
+				<ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+			</Action>
+
+			<Action name="ReceiveMessage2" type="ReceiveMessage">
+				<dependsOn name="GetMessageBytes" interval="0"/>
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg2</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageText2" type="GetMessageText">
+				<dependsOn name="ReceiveMessage2" interval="0"/>
+				<ActionParameter name="message_id">rxmsg2</ActionParameter>
+				<ActionParameter name="verifyValue">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ActionParameter>
+			</Action>
+
+			<Action name="ReceiveMessage3" type="ReceiveMessage">
+				<dependsOn name="GetMessageText2" interval="0"/>
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg3</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes3" type="GetMessageText">
+				<dependsOn name="ReceiveMessage3" interval="0"/>
+				<ActionParameter name="message_id">rxmsg3</ActionParameter>
+				<ActionParameter name="verifyValue">symbol=MSFT|bid=27.09|ask=30.19</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="CompositeRcv1" type="CompositeAction" expected="90" interval="0"> 
+			<Action name="ReceiveMessage1-1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes" type="GetMessageText">
+				<dependsOn name="ReceiveMessage1-1" interval="0"/>
+				<ActionParameter name="message_id">rxmsg1</ActionParameter>
+				<ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="ReceiveMessageFail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+
+		<Action name="CloseSession_RX2" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession_TX2" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection_RX1" type="StopConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_RX1" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+
+	</Action>
+  
+	<Action name="rmdr2" type="CompositeAction">
+		<Action name="CreateFactory_RX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+		</Action>
+
+		<Action name="CreateListener_RX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_RX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx2_RT003_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_RX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_RX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession1_TX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+			<ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateTempTopic" type="CreateTemporaryTopic">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ActionParameter name="dest_id">tempDest</ActionParameter>
+			<ActionParameter name="structure_id">tempDest</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_RX" type="CreateDestination">
+			<ApiParameter name="name">jmsRT-03</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateConsumer" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">tempDest</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ApiParameter name="nolocal">true</ApiParameter>
+		</Action>
+	
+		<Action name="CreateConsumer1" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">tempDest</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ApiParameter name="nolocal">true</ApiParameter>
+			<ApiParameter name="selector">TestProperty2 = 'test value 2'</ApiParameter>
+		</Action>
+	
+		<Action name="StartConnection_RX1" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+	
+		<Action name="CreateMessage1" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage1Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="value">This message contains the replyTo destination the provider should use</ApiParameter>
+		</Action>
+
+		<Action name="SetReplyToProperty" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="propertyType">ReplyTo</ApiParameter>
+			<ApiParameter name="value">tempDest</ApiParameter>
+		</Action>
+
+		<Action name="sync_components_RX1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx2</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1;rx2</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+	 	</Action>
+
+		<Action name="SendMessage1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+		</Action>
+
+		<Action name="sync_components_RX2" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx2a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a;rx2a</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+	 	</Action>
+
+		<Action name="sync_components_RX3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx2b</ActionParameter>
+			<ActionParameter name="component_list">tx1b;rx1b;rx2b</ActionParameter>
+			<ActionParameter name="timeout">40000</ActionParameter>
+	 	</Action>
+
+		<Action name="CompositeRcv" type="CompositeAction" expected="90" interval="0"> 
+			<Action name="ReceiveMessage1-1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes" type="GetMessageText">
+				<dependsOn name="ReceiveMessage1-1" interval="0"/>
+				<ActionParameter name="message_id">rxmsg1</ActionParameter>
+				<ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+			</Action>
+
+			<Action name="ReceiveMessage2" type="ReceiveMessage">
+				<dependsOn name="GetMessageBytes" interval="0"/>
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg2</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageText2" type="GetMessageText">
+				<dependsOn name="ReceiveMessage2" interval="0"/>
+				<ActionParameter name="message_id">rxmsg2</ActionParameter>
+				<ActionParameter name="verifyValue">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ActionParameter>
+			</Action>
+
+			<Action name="ReceiveMessage3" type="ReceiveMessage">
+				<dependsOn name="GetMessageText2" interval="0"/>
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg3</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes3" type="GetMessageText">
+				<dependsOn name="ReceiveMessage3" interval="0"/>
+				<ActionParameter name="message_id">rxmsg3</ActionParameter>
+				<ActionParameter name="verifyValue">symbol=MSFT|bid=27.09|ask=30.19</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="CompositeRcv1" type="CompositeAction" expected="90" interval="0"> 
+			<Action name="ReceiveMessage1-1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageText2" type="GetMessageText">
+				<dependsOn name="ReceiveMessage1-1" interval="0"/>
+				<ActionParameter name="message_id">rxmsg1</ActionParameter>
+				<ActionParameter name="verifyValue">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="ReceiveMessageFail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+
+		<Action name="CloseSession_RX2" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession_TX2" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection_RX1" type="StopConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_RX1" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+
+	</Action>
+
+	<Action name="rmdt" type="CompositeAction">
+		<!-- This side runs on machine 1! -->
+		<Action name="CreateFactory_TX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+		</Action>
+
+		<Action name="CreateListener_TX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_TX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="tx_RT003_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_TX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_TX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession_TX1" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses2_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession_RX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_TX" type="CreateDestination">
+			<ApiParameter name="name">jmsRT-03</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX</ActionParameter>
+		</Action>
+
+		<Action name="CreateConsumer" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destTX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+		
+		<Action name="CreateProducer" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnection_TX" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+	
+		<Action name="CreateMessage1" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage1Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="value">This is a test string message</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage1Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="propertyName">TestProperty</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="value">test value</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage2" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg2</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage2Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+			<ApiParameter name="propertyName">TestProperty2</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="value">test value 2</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage3" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg3</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage3Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+			<ApiParameter name="value">symbol=MSFT|bid=27.09|ask=30.19</ApiParameter>
+		</Action>
+
+		<Action name="sync_components_TX1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1;rx2</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+		</Action>
+
+		<Action name="sync_components_TX2" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a;rx2a</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>
+
+		<Action name="RcvMessage" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rx_bytes_msg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+
+		<Action name="ReadMessage" type="GetMessageText">
+			<ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+			<ActionParameter name="verifyValue">This message contains the replyTo destination the provider should use</ActionParameter>
+		</Action>
+
+		<Action name="GetReplyTo" type="GetReplyToDest">
+			<ActionParameter name="structure_id">replyDest</ActionParameter>
+			<ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+		</Action>
+
+		<Action name="RcvMessage2" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rx_bytes_msg2</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+
+		<Action name="ReadMessage2" type="GetMessageText">
+			<ActionParameter name="message_id">rx_bytes_msg2</ActionParameter>
+			<ActionParameter name="verifyValue">This message contains the replyTo destination the provider should use</ActionParameter>
+		</Action>
+
+		<Action name="GetReplyTo2" type="GetReplyToDest">
+			<ActionParameter name="structure_id">replyDest2</ActionParameter>
+			<ActionParameter name="message_id">rx_bytes_msg2</ActionParameter>
+		</Action>
+
+		<Action name="CompositeSnd" type="CompositeAction" repeat="90" interval="0" repeat_interval="0"> 
+			<Action name="SendMessage1" type="SendMessage">
+				<ActionParameter name="dest_id">replyDest</ActionParameter>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg1</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage1a" type="SendMessage">
+				<dependsOn name="SendMessage1" interval="0"/>
+				<ActionParameter name="dest_id">replyDest2</ActionParameter>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg1</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage2" type="SendMessage">
+				<dependsOn name="SendMessage1" interval="0"/>
+				<ActionParameter name="dest_id">replyDest</ActionParameter>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg2</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage2a" type="SendMessage">
+				<dependsOn name="SendMessage2" interval="0"/>
+				<ActionParameter name="dest_id">replyDest2</ActionParameter>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg2</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage3" type="SendMessage">
+				<dependsOn name="SendMessage2" interval="0"/>
+				<ActionParameter name="dest_id">replyDest</ActionParameter>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg3</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage3a" type="SendMessage">
+				<dependsOn name="SendMessage3" interval="0"/>
+				<ActionParameter name="dest_id">replyDest2</ActionParameter>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg3</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="sync_components_TX3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1b</ActionParameter>
+			<ActionParameter name="component_list">tx1b;rx1b;rx2b</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+	 	</Action>
+
+		<Action name="CloseSession_TX" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession_TX2" type="CloseSession">
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession_RX" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection_TX" type="StopConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_TX" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+	</Action>
+</ImaJmsTest>

@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: testmqtt_clusterCTT_005_JMS 
+  				 testmqtt_clusterCTT_005  must be run at same time,
+
+  Test Category:  MessageSight Cluster
+  
+  Test Description:
+  
+* This is a basic CommonTopicTree(CTT) scenario.   Publish with both JMS and
+* MQTT on different topics on two clustered servers, subscribe with both JMS and 
+* MQTT on both servers, some to a specific topic and some to wildcard topics. 
+* Verify that all subscribers the correct messages.  This 
+* confirms that the BloomFilter and control channel passed things around, 
+* with Wildcards and that the Engine checked the BloomFilter. and forwarder sent the 
+* messages via the forwarding queue to the second server,and that the 
+* forwarding is for MQTT subscribers only. 
+*
+* Two servers should be configured as a cluster prior to the test starting. 
+*
+* ClusterServer1:  A non-durable MQTT QoS=0 client connects and subscribes to 
+*                  topic /CTT/005/TopicB. It expects to receive 75 messages: 
+*                       50 local sent via JMS 
+*						25 forwarded sent via MQTT. 
+* 
+*				   A QoS=0 client connects publishes 60 messages to /CTT/005/TopicA
+*				   A JMS Publisher connects and publishes 50 messages to /CTT/005/TopicB
+*
+* ClusterServer2:  A non-durable MQTT QoS=0 client connects and subscribes to 
+*                  topic  /CTT/005/+. It expects to receive 200 messages:
+*						65 local /CTT/005/TopicA sent via JMS. 
+*						25 local /CTT/005/TopicB sent via MQTT.  
+*                       60 forwarded /CTT/005/TopicA sent via JMS 
+*						50 forwarded /CTT/005/TopicB sent via MQTT.
+*
+*				   A JMS client connects and subscribes to 
+*                  topic  /CTT/005/+. It expects to receive 90 messages:
+*						65 local /CTT/005/TopicA sent via JMS. 
+*						25 local /CTT/005/TopicB sent via MQTT.  
+*                       And NONE of the forwarded messages. 
+*
+*				   QoS=0 client connects publishes 25 messages to /CTT/005/TopicB. 
+*				   A JMS Publisher connects and publishes 65 messages to /CTT/005/TopicA
+*
+*
+* Expected result: Both MQTT Subscribers should receive the messages that were sent
+*				   by MQTT and JMS publishers. JMS Subscriber gets only the local messages.
+*
+*****************************************************************************/  
+-->
+
+
+<ImaJmsTest name="testmqtt_clusterCTT_005_JMS">
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>testmqtt_clusterCTT_005</solution>
+	</SyncClient>
+  
+	<Action name="JMSPub1" type="CompositeAction">
+		<Action name="CreatePub_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">Pub_cf1</ActionParameter>
+			<!-- ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter -->
+		</Action>
+		
+		<Action name="SetPropsPub_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">Pub_cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="CTT_005_JMSPub1" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>  
+		</Action>
+		
+		<Action name="CreateConnectionPub_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_Pub_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">Pub_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession1Pub_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_Pub_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_Pub_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CreatePub_dest1" type="CreateDestination">
+			<ActionParameter name="structure_id">Pub_dest1</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">/CTT/005/TopicB</ApiParameter>
+		</Action>
+
+		<Action name="CreateProducer1Pub_dest1" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_dest1</ActionParameter>
+			<ActionParameter name="dest_id">Pub_dest1</ActionParameter>
+			<ActionParameter name="session_id">session1_Pub_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnectionPub_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_Pub_cf1</ActionParameter>
+		</Action>
+		
+		<!-- PRODUCER: Create messages -->
+		
+		<Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+			<ActionParameter name="structure_id">Pubmsg1</ActionParameter>
+			<ActionParameter name="session_id">session1_Pub_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>
+	
+		<!-- PRODUCER: Set message content -->	
+		
+		<Action name="SetTxtMsg_prod_dest1" type="SetMessageText">
+			<ActionParameter name="message_id">Pubmsg1</ActionParameter>
+			<ApiParameter name="value">Sent by testmqtt_clusterCTT_005 test JMS Producer 1</ApiParameter>
+		</Action>
+
+		<!--  -->
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">JMSpub1</ActionParameter>
+			<ActionParameter name="component_list">JMSpub1;sub1;sub2;JMSsub1</ActionParameter>
+			<ActionParameter name="timeout">45000</ActionParameter>
+		</Action>
+		
+		<Action name="SendTxtMessage_prod_dest1" type="SendMessage" interval="0" repeat="50" repeat_interval="0">  
+			<ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+			<ActionParameter name="message_id">Pubmsg1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnectionPub_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_Pub_cf1</ActionParameter>
+		</Action>
+	</Action>  <!-- end of JMSPub1 -->
+	
+	
+	<Action name="JMSPub2" type="CompositeAction">
+		<Action name="CreatePub2_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">Pub2_cf1</ActionParameter>
+			<!-- ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter -->
+		</Action>
+		
+		<Action name="SetPropsPub2_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">Pub2_cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="CTT_005_JMSPub2" type="STRING"/>
+			<include>../common/JMS_server2.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/> 
+		</Action>
+		
+		<Action name="CreateConnectionPub2_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_Pub2_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">Pub2_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession1Pub2_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_Pub2_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_Pub2_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CreatePub2_dest1" type="CreateDestination">
+			<ActionParameter name="structure_id">Pub2_dest1</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">/CTT/005/TopicA</ApiParameter>
+		</Action>
+
+		<Action name="CreateProducer1Pub2_dest1" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_dest1</ActionParameter>
+			<ActionParameter name="dest_id">Pub2_dest1</ActionParameter>
+			<ActionParameter name="session_id">session1_Pub2_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnectionPub2_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_Pub2_cf1</ActionParameter>
+		</Action>
+		
+		<!-- PRODUCER: Create messages -->
+		
+		<Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+			<ActionParameter name="structure_id">Pub2msg1</ActionParameter>
+			<ActionParameter name="session_id">session1_Pub2_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>
+	
+		<!-- PRODUCER: Set message content -->	
+		
+		<Action name="SetTxtMsg_prod_dest1" type="SetMessageText">
+			<ActionParameter name="message_id">Pub2msg1</ActionParameter>
+			<ApiParameter name="value">Sent by testmqtt_clusterCTT_005 test JMS Producer 2</ApiParameter>
+		</Action>
+
+		<!--  -->
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">JMSpub2</ActionParameter>
+			<ActionParameter name="component_list">JMSpub2;sub1;sub2;JMSsub1</ActionParameter>
+			<ActionParameter name="timeout">45000</ActionParameter>
+		</Action>
+		
+		<Action name="SendTxtMessage_prod_dest1" type="SendMessage" interval="0" repeat="65" repeat_interval="0">  
+			<ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+			<ActionParameter name="message_id">Pub2msg1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnectionPub2_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_Pub2_cf1</ActionParameter>
+		</Action>
+	</Action>  <!-- end of JMSPub2 -->	
+		
+	<Action name="JMSSub1" type="CompositeAction">
+		
+        <!--  -->
+		<Action name="CreateSub_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">Sub_cf1</ActionParameter>
+            <!--ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter -->
+		</Action>
+		
+		<Action name="SetPropsSub_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">Sub_cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="CTT_005_JMSSub1" type="STRING"/>
+			<include>../common/JMS_server2.xml</include>    
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnectionSub_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_Sub_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">Sub_cf1</ActionParameter>
+		</Action>
+				
+		<Action name="CreateSession1sub_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_Sub_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_Sub_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSub1_dest1" type="CreateDestination">
+			<ActionParameter name="structure_id">sub1_dest1</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">/CTT/005/+</ApiParameter>
+		</Action>
+		
+		<Action name="CreateConsumer1sub1_dest1" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1_dest1</ActionParameter>
+			<ActionParameter name="dest_id">sub1_dest1</ActionParameter>
+			<ActionParameter name="session_id">session1_Sub_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateMsgListener_consumer1" type="CreateMessageListener">
+			<ActionParameter name="structure_id">msg_listener_consumer1</ActionParameter>
+		</Action>
+		
+		<Action name="SetMsgListener_consumer1" type="SetMessageListener">
+			<ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+			<ActionParameter name="consumer_id">consumer1_dest1</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnectionsub_sub1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_Sub_cf1</ActionParameter>
+		</Action>
+
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">JMSsub1</ActionParameter>
+			<ActionParameter name="component_list">JMSsub1;pub1;pub2;JMSpub1;JMSpub2</ActionParameter>
+			<ActionParameter name="timeout">45000</ActionParameter>
+		</Action>
+		
+		<!-- CONSUMER 1: Receive messages -->
+		<Action name="ReceiveMessages_consumer1" type="ReceiveMessage" repeat="90" repeat_interval="0">
+			<ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+			<ActionParameter name="structure_id">msg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>	
+		
+		<Action name="ReceiveNoMore_consumer1" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" >
+			<ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+			<ActionParameter name="structure_id">msg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>	
+				
+		<Action name="CloseConnectionSub_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_Sub_cf1</ActionParameter>
+		</Action>
+				
+	</Action>
+	
+</ImaJmsTest>

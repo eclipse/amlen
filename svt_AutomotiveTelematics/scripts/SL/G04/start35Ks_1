@@ -1,0 +1,71 @@
+#!/bin/bash
+
+OUTFILE=./start1.out
+
+node()
+{
+  if [ -z $1 ]; then
+    echo [node 4-9] [start id] [end id]
+    exit
+  fi
+  if [ -z $2 ]; then
+    echo [node 4-9] [start id] [end id]
+    exit
+  fi
+  if [ -z $3 ]; then
+    echo [node 4-9] [start id] [end id]
+    exit
+  fi
+  
+# SERVERB[4]=10.113.50.31
+  SERVERB[4]=159.122.192.109
+  SERVER[4]=159.122.192.109
+  SERVER[5]=10.113.50.35
+  SERVER[6]=10.113.50.44
+  SERVER[7]=10.113.50.23
+  SERVER[8]=10.113.50.33
+  SERVER[9]=10.113.50.39
+  
+  SERVER1=${SERVER[$1]}
+  SERVERB1=${SERVERB[$1]}
+  b=10.113.50.8
+  
+  t=$2
+  MAX=$3
+  
+  s=30
+  cmd=/niagara/test/svt_atelm/SL/at
+  backend=/niagara/test/svt_atelm/SL/backends
+  
+  echo `date` |tee -a ${OUTFILE}
+  echo ssh root@$b "${backend}" ${SERVERB1} backend$1 |tee -a ${OUTFILE}
+  ssh root@$b "${backend} ${SERVERB1} backend$1 &> ./backend$1.out" &
+  sleep 20s
+  
+  while [ true ]; do
+    for i in `clientlist`; do
+      if [[ "$i" != "$b" ]]; then
+        echo `date` |tee -a ${OUTFILE}
+        echo ssh root@$i "${cmd} ${SERVER1} $t" |tee -a ${OUTFILE}
+        ssh root@$i "${cmd} ${SERVER1} $t &> ${t}.out" &
+        sleep ${s}s
+        ((t+=500))
+      fi
+      if [ $t -ge ${MAX} ]; then
+         return
+      fi
+    done
+  
+    if [ $s -lt 10 ]; then
+      ((s+=1))
+    fi
+  
+  done
+  return
+}
+
+
+> ${OUTFILE}
+
+node 4 0  34999
+

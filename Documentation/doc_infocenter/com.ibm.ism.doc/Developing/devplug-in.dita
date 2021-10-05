@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<?Pub Sty _display FontColor="red"?><?Pub Inc?><task id="devplug-in" xml:lang="en-us">
+<title>Developing a protocol plug-in</title>
+<shortdesc>You can use protocol plug-ins to add industry-specific messaging protocols to <ph conref="../TextEntities.dita#TextEntities/ISM" /> in a controlled way that does not
+      compromise the security of the server environment. The protocol plug-in can also support
+      existing sensors that are not able to change to MQTT. You can write your own protocol plug-ins
+      to use with <ph conref="../TextEntities.dita#TextEntities/ISM" /> by using the <ph conref="../TextEntities.dita#TextEntities/ISM" /> protocol plug-in SDK. The protocol plug-in
+      facility is not available in high availability environments.</shortdesc>
+<taskbody>
+<prereq>
+<p>Download and extract the contents of the SDK bundle. Then, follow the instructions in <filepath>ImaTools/ImaPlugin/README.txt</filepath> to import the sample plug-in projects that are provided with the SDK bundle.</p>
+<p>Download and install one of the following supported versions of <tm tmtype="tm" trademark="Java">Java</tm>:<ul>
+<li><tm trademark="IBM" tmtype="reg">IBM</tm> SDK, <tm trademark="Java" tmtype="tm">Java</tm> Technology Edition, Version 7 (64-bit)</li>
+<li>Oracle <tm trademark="Java" tmtype="tm">Java</tm> SE Development Kit, Version 7 (64-bit)</li>
+<?Pub Caret 31?>
+</ul></p>
+</prereq>
+<context><p>You can use the <ph conref="../TextEntities.dita#TextEntities/ISM" /> protocol plug-in SDK to extend <ph conref="../TextEntities.dita#TextEntities/ISM" /> protocol support beyond the protocols that are natively supported. Use the SDK to write <tm trademark="Java" tmtype="tm">Java</tm> plug-ins that you can then deploy in <ph conref="../TextEntities.dita#TextEntities/ISM" />.</p><p>If you want to write your own protocol plug-in to use with <ph conref="../TextEntities.dita#TextEntities/ISM" />, you need to develop the following files:<ul>
+<li>A plug-in configuration file that is written in JSON</li>
+<li>A set of JAR files to implement the plug-in</li>
+</ul></p>All of these files must be at the root level of the .zip archive. </context>
+<steps>
+<step>
+<cmd> Implement the <apiname>ImaPluginListener</apiname> and <apiname>ImaConnectionListener</apiname> interfaces and create one or more JAR files that contain the classes that you implemented.</cmd>
+<info>
+<p />
+<dl>
+<dlentry>
+<dt><apiname>ImaPluginListener</apiname> interface.</dt>
+<dd>The <apiname>ImaPluginListener</apiname> interface provides callbacks that allow custom protocol implementations to be associated with an <codeph>ImaPlugin</codeph> object that is provided by <ph conref="../TextEntities.dita#TextEntities/ISM" />. Refer to the <tm tmtype="tm" trademark="Javadoc" tmclass="IGNORE">Javadoc</tm> information that is provided with the SDK for complete details about the methods that need to be implemented for these interfaces.<p /><ul>
+<li>The <codeph>initialize()</codeph> method is used to start the custom protocol implementation when <ph conref="../TextEntities.dita#TextEntities/ISM" /> is started.</li>
+<li>The <codeph>terminate()</codeph> method is used to stop the custom protocol implementation when <ph conref="../TextEntities.dita#TextEntities/ISM" /> shuts down.</li>
+<li>The <codeph>startMessaging()</codeph> method is used to run any protocol-specific tasks that are required after the <ph conref="../TextEntities.dita#TextEntities/ISM" /> messaging engine is started.</li>
+<li>The <codeph>onProtocolCheck()</codeph> method is used to determine whether a connection belongs to the protocol. If a connection belongs to the protocol, the <apiname>ImaPluginListener</apiname> enables the protocol to instantiate an implementation of the <apiname>ImaConnectionListener</apiname> interface with the <codeph>onConnection()</codeph> method that associates the newly accepted <codeph>ImaConnection</codeph> object with the protocol.</li>
+<li>The <codeph>onConnection()</codeph> method is used when a new connection with a known protocol, such as WebSockets or HTTP, is found.</li>
+<li>The <codeph>onConfigUpdate()</codeph> method is used when the configuration of the plug-in is updated.</li>
+<li>The <codeph>onAuthenticate ()</codeph> method is not called.</li>
+</ul><p /></dd>
+</dlentry>
+<dlentry>
+<dt><apiname>ImaConnectionListener</apiname> interface.</dt>
+<dd>The <apiname>ImaConnectionListener</apiname> interface allows a connection to be associated with a custom protocol by using the <codeph>ImaConnection</codeph> object that is received from <ph conref="../TextEntities.dita#TextEntities/ISM" />. The <apiname>ImaConnectionListener</apiname> interface provides callbacks for managing connections to the custom protocol after the protocol plug-in accepts a connection. <p /><ul>
+<li>The <codeph>onConnected()</codeph> method is used to take appropriate actions when a connection is established.</li>
+<li>The <codeph>onClose()</codeph> method is used to take appropriate actions when a connection is closed.</li>
+<li>The <codeph>onData()</codeph> or <codeph>onHttpData()</codeph> method is used to manage communication activities such as handling incoming data.</li>
+<li>The <codeph>onMessage()</codeph> method is used to handle messages that are received from <ph conref="../TextEntities.dita#TextEntities/ISM" />. </li>
+<li>The <codeph>onComplete()</codeph> method is used to acknowledge the completion of a publish or subscribe operation.</li>
+<li>The <codeph>onLivenessCheck()</codeph> method is used to check whether the connection is still active.</li>
+<li>The <codeph>onHttpData()</codeph> method is used when an HTTP header is received on the connection.</li>
+<li>The <codeph>onGetMessage()</codeph> method is used as a result of an <codeph>ImaConnection.getRetainedMessage()</codeph> operation and returns the retained message for the specified topic if one exists. </li>
+</ul></dd>
+</dlentry>
+</dl>
+</info>
+</step>
+<step>
+<cmd>Create a <filepath>plugin.json</filepath> descriptor file for the new plug-in.</cmd>
+<info>
+<p>The <filepath>plugin.json</filepath> descriptor file provides information to <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> about the plug-in so that it can be started when
+<ph conref="../TextEntities.dita#TextEntities/ISM"/> is started. While the descriptor supports
+several configuration properties, four property values must be specified for any protocol plug-in
+that you implement. These values are <parmname>Name</parmname>, <parmname>Protocol</parmname>,
+<parmname>Class</parmname>, and <parmname>Classpath</parmname>. <ul>
+<li>The <parmname>Name</parmname> property specifies the plug-in name and must be unique. </li>
+<li>The <parmname>Protocol</parmname> property specifies a protocol family. Each plug-in represents
+a protocol. However, multiple plug-ins can be associated with a single protocol family. Protocol
+families allow multiple protocols to share authorization rules that are based on endpoint
+configuration and on connection and messaging policies. For example, MQTT over TCP and MQTT over
+WebSockets protocols share the same authorization rules as MQTT.</li>
+<li>The <parmname>Class</parmname> property must contain the name of the class that implements the
+<apiname>ImaPluginListener</apiname> interface. This class name must include the complete, dot
+separated path to the class.</li>
+<li>The <parmname>Classpath</parmname> property must include the full list of JAR files that
+implement the protocol plug-in that is represented as a JSON array of strings. All JAR files that
+are used by the plug-in must appear in the <parmname>Classpath</parmname> property so that they can
+be loaded by <ph conref="../TextEntities.dita#TextEntities/ISM"/>.</li>
+</ul>
+</p>
+<p>The following table shows the complete list of properties that can be used in the descriptor
+file:
+<table id="datasimpletable_qgh_zf3_qfb">
+<title>Properties of a plug-in configuration file</title>
+<tgroup cols="4">
+<thead>
+<row>
+<entry>Name</entry>
+<entry>Type</entry>
+<entry>Default</entry>
+<entry>Description</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>Class</entry>
+<entry>String</entry>
+<entry>required</entry>
+<entry>The name of the initial class to load for a plug-in. This class must be an instance of
+<parmname>ImaPluginListener</parmname>. This value must be a valid <tm tmtype="tm" trademark="Java"
+>Java</tm> package name and class name, which is separated by dots. </entry>
+</row>
+<row>
+<entry>Classpath</entry>
+<entry>String Array</entry>
+<entry>required </entry>
+<entry>A set of JAR files that contain the <tm tmtype="tm" trademark="Java">Java</tm> classes that
+are needed for the plug-in. The path must not be included, and the JAR files must be in the root
+directory of the .zip file that is used to define the plug-in. These JAR files are used only by this
+plug-in, and use a separate directory and class loader for each plug-in. The JAR files in the list
+must exist in the .zip file that is used for installation.</entry>
+</row>
+<row>
+<entry>InitialByte</entry>
+<entry>Array</entry>
+<entry>none (required for TCP connections)</entry>
+<entry>A set of initial bytes that can be specified as an array of strings of length 1 byte or as
+integers of the value 0-255. A single entry with the value <codeph>ALL</codeph> indicates that any
+initial byte is selected. If this value is not specified or the array is empty, then TCP connections
+are not accepted.</entry>
+</row>
+<row>
+<entry>Name</entry>
+<entry>String</entry>
+<entry>required </entry>
+<entry>The name of the plug-in. This name must be unique among all installed plug-ins. The name is
+limited to 64 characters and must be a valid <tm tmtype="tm" trademark="Java">Java</tm> name. It can
+start with any alphabetic character, currency symbol, or underscore, and continue with any such
+character or a digit.</entry>
+</row>
+<row>
+<entry>Properties</entry>
+<entry>Object</entry>
+<entry>none </entry>
+<entry>A set of properties that are sent to the plug-in as configuration. The names and types of
+the properties are not known to the <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+server</entry>
+</row>
+<row>
+<entry>Protocol</entry>
+<entry>String</entry>
+<entry>required</entry>
+<entry>The protocol family against which to authorize. Each plug-in represents a single protocol
+family, but the same protocol family can be used by several plug-ins. The plug-in can also use one
+of the system protocol families. All policy checking for protocol is done based on this protocol.
+The maximum length of the name is 32 characters.</entry>
+</row>
+<row>
+<entry>UseBrowse</entry>
+<entry>Boolean</entry>
+<entry>false</entry>
+<entry>The protocol uses queue browser function.</entry>
+</row>
+<row>
+<entry>UseQueue</entry>
+<entry>Boolean</entry>
+<entry>false</entry>
+<entry>The protocol uses queue send and receive.</entry>
+</row>
+<row>
+<entry>UseTopic</entry>
+<entry>Boolean</entry>
+<entry>true</entry>
+<entry>The protocol uses publish/subscribe topic support.</entry>
+</row>
+<row>
+<entry>WebSocket</entry>
+<entry>String array</entry>
+<entry>none (required for WebSockets connections)</entry>
+<entry>An array of WebSockets subprotocols supported by this plug-in. The subprotocols are checked
+in a case independent manner and must be unique among the installed plug-in set. If this property is
+missing or the array is empty, then no WebSockets protocol can connect to this plug-in. The maximum
+length of the name is 64 characters. The name must contain only ASCII-7 characters not including
+control characters (<codeph>0x00</codeph> to <codeph>0x1F</codeph> and <codeph>x07F</codeph>),
+space, or the separator characters <codeph>'()&lt;&gt;[]{},;:\/?="</codeph>. </entry>
+</row>
+</tbody>
+</tgroup>
+</table></p>
+</info>
+</step>
+<step>
+<cmd>Create a .zip archive that contains the JAR file or files and the <filepath>plugin.json</filepath> descriptor file. </cmd>
+<info>
+<note>
+<p>To deploy your protocol plug-in, you must create a .zip archive file that contains the JAR file (or files) from step 1 and the <filepath>plugin.json</filepath> file from step 2. All of these files must appear at the root level of the .zip archive so that they can be loaded.</p>
+</note>
+</info>
+</step>
+</steps>
+<example><p>An example of a plug-in configuration file for JSON-based messaging. <codeblock>/*
+ * Sample plug-in configuration file for JSON based messaging
+ */
+ {    
+    "Name":        "json_msg",
+    "Description": "A sample plug-in for JSON based messaging",
+    "Protocol":    "json_msg",
+    "Classpath":   [ "jsonprotocol.jar" ],
+    "Class":       "com.ibm.ima.samples.plugin.jsonmsg.JMPlugin",
+    "WebSocket":   [ "json-msg" ],
+    "InitialByte": [ "{" ],  /* The json_msg always starts with a JSON object */
+    "UseQueue":    false,    /* This plug-in does not implement queues */
+    "UseTopic":    true,     /* This plug-in implements topics */
+    "Properties":  {
+         "Debug": true    
+    }
+ }              </codeblock></p></example>
+<postreq>Apply your plug-in to <ph conref="../TextEntities.dita#TextEntities/ISM" />. For more
+         information about installing or updating a protocol plug-in, see <xref format="dita" href="../Administering/dv00001.dita" scope="peer" type="task">Creating and updating a
+            protocol plug-in</xref>.</postreq>
+</taskbody>
+</task><?Pub *0000012516?><?tm 1462280095981 9 Javadoc||Java||IBM ?>

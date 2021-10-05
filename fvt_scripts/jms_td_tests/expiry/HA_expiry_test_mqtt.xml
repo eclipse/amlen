@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: HA_expiry_test_mqtt
+
+  Test Category: JMS/MQTT High Availability
+
+  Test Description:
+  TestCase Name:  HA_expiry_test_jms
+
+  Test Category:  JMS/MQTT High Availability
+
+  Test Description:
+    Start JMS TestDriver
+    Start MQTT TestDriver
+
+    (JMS TestDriver component 1)
+    durable subscription to /HAEXP/#
+    durable shared subscription to /HAEXP/#
+
+    (MQTT TestDriver component 2)
+    durable QoS 0 subscription to /HAEXP/#
+    durable QoS 1 subscription to /HAEXP/#
+    durable QoS 2 subscription to /HAEXP/#
+    durable QoS 2 shared subscription to /HAEXP/#
+
+    NOTE: All JMS and MQTT subscribers are inactive/disconnected while publishing
+
+    (JMS TestDriver component 1)
+    send retained messages to (Expiration set on each publish, based on topic):
+            /HAEXP/10sec
+            /HAEXP/20sec
+            /HAEXP/40sec
+            /HAEXP/50sec
+            /HAEXP/60sec
+
+    (MQTT TestDriver component 2)
+    send retained messages to (Expiration set on messaging policy, 30 seconds)
+            /HAEXP/30sec
+
+    SYNC POINT 1
+
+    (JMS TestDriver component 1)
+    Send a lot of messages that expire in different ways:
+            Send from JMS with ttl set on the message (10 seconds)
+            Send from JMS with ttl set on messaging policy (30 seconds)
+            Send from JMS with ttl set on message that is > ttl set on messaging policy (60/10)
+            Send from JMS with ttl set on message that is < ttl set on messaging policy (60/10)
+            Send from JMS with no ttl set on the message (Never expires)
+            Send from JMS with ttl set but not expiring any time soon (240 seconds set on message)
+
+    (MQTT TestDriver component 2)
+    Send a lot of messages that expire in different ways:
+            Send from MQTT with ttl set on messaging policy (30 seconds)
+            Send from MQTT with no ttl set on the message (Never expires)
+            Send from MQTT with ttl set but not expiring any time soon (240 seconds)
+
+    (JMS TestDriver component 1)
+    Get stats for server and subscription
+
+    SYNC POINT 2
+
+    (JMS TestDriver component 1)
+    Crash imaserver
+    Get stats for server and subscription
+    Wait 20 seconds
+    Get stats for server and subscription
+    Wait 20 seconds
+    Get stats for server and subscription
+    Wait 20 seconds
+    Get stats for server and subscription
+
+    SYNC POINT 3
+
+    Reconnect JMS subscribers
+
+    SYNC POINT 4
+    
+    At this point there should be 400 messages remaining on all of the subscriptions.
+    100 with no expiration set, sent by JMS
+    100 with no expiration set, sent by MQTT
+    100 with 240sec expiration set, sent by JMS (set on message)
+    100 with 240sec expiration set, sent by MQTT (set on policy)
+
+    The other 600 messages and the 6 retained messages should have expired.
+    
+    Consume the messages from the JMS subscriptions.
+    Reconnect QoS 1 MQTT subscription and consume messages from the QoS 1 subscription
+    as well as the messages from the MQTT shared subscription.
+    Reconnect QoS 2 MQTT subscription and consume messages from the QoS 2 subscription.
+    
+	Make sure nothing is left on any subscriptions.
+
+    Collect stats a final time.
+
+    (JMS TestDriver component 1)
+    Verify:
+            Admin set ttl's were synchronized and still followed after failover.
+            Expired message statistics are correct.
+
+    SYNC POINT 5
+
+    Cleanup
+
+    TEST COMPLETE
+
+    By the end of the test, there should be 400 regular messages left
+    on the subscriptions.
+    
+-->
+<IsmWSTest name="HA_expiry_test_mqtt">
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>HA_expiry_test_Unique1</solution>
+    </SyncClient>
+
+    <Action name="mqtt" type="CompositeAction">
+        <Action name="Create_Conn" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn</ActionParameter>
+            <ActionParameter name="connection_id">CF</ActionParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_pub</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="Create_Conn_Sub0" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn_Sub0</ActionParameter>
+            <ActionParameter name="connection_id">CFSub0</ActionParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_sub0</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="Create_Conn_Sub1" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn_Sub1</ActionParameter>
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_sub1</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="Create_Conn_Sub2" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn_Sub2</ActionParameter>
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_sub2</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <!-- Create QoS 0, 1, 2 subscriptions -->
+
+        <Action name="Subscribe_0" type="Subscribe">
+            <ActionParameter name="connection_id">CFSub0</ActionParameter>
+            <ApiParameter name="topic">/HAEXP/#</ApiParameter>
+            <ApiParameter name="QoS">0</ApiParameter>
+        </Action>
+
+        <Action name="Subscribe_1" type="Subscribe">
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+            <ApiParameter name="topic">/HAEXP/#</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="Subscribe_2" type="Subscribe">
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+            <ApiParameter name="topic">/HAEXP/#</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <!-- Create a QoS 2 shared subscription -->
+
+        <Action name="SubscribeSharedA" type="Subscribe">
+            <ActionParameter name="connection_id">CFSub0</ActionParameter>
+            <ApiParameter name="topic">$SharedSubscription/MQTTExpiry//HAEXP/#</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="SubscribeSharedB" type="Subscribe">
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+            <ApiParameter name="topic">$SharedSubscription/MQTTExpiry//HAEXP/#</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="SubscribeSharedC" type="Subscribe">
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+            <ApiParameter name="topic">$SharedSubscription/MQTTExpiry//HAEXP/#</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <!-- Close subscriber connections so that they don't process all the messages
+             that we want to let expire -->
+
+        <Action name="Close_Conn_Sub0" type="CloseConnection">
+            <ActionParameter name="connection_id">CFSub0</ActionParameter>
+        </Action>
+
+        <Action name="Close_Conn_Sub1" type="CloseConnection">
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+        </Action>
+
+        <Action name="Close_Conn_Sub2" type="CloseConnection">
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+        </Action>
+
+        <!-- Sync Point 1 -->
+        <Action name="SyncPoint1" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt1</ActionParameter>
+            <ActionParameter name="component_list">jms1;mqtt1</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+
+        <!-- Send messages with various TTL settings -->
+
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">TextMessage</ActionParameter>
+            <ActionParameter name="connection_id">CF</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: HA Expiry Test</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="SendMessageRetained" type="SendMessage">
+            <ActionParameter name="connection_id">CF</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="topic">/HAEXP/Expiry</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="SendMessageA" type="SendMessage" repeat="100">
+            <ActionParameter name="connection_id">CF</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="topic">/HAEXP/Expiry/PolicySet</ActionParameter>
+        </Action>
+
+        <Action name="SendMessageB" type="SendMessage" repeat="100">
+            <ActionParameter name="connection_id">CF</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="topic">/HAEXP/Expiry/PolicyNotSet</ActionParameter>
+        </Action>
+
+        <Action name="SendMessageC" type="SendMessage" repeat="100">
+            <ActionParameter name="connection_id">CF</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="topic">/HAEXP/Expiry/PolicySetLong</ActionParameter>
+        </Action>
+
+        <!-- Sync point 2 --> 
+        <Action name="SyncPoint2" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt2</ActionParameter>
+            <ActionParameter name="component_list">jms2;mqtt2</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+
+        <!-- JMS TestDriver is taking a moment to crash imaserver -->
+
+        <!-- Sync point 3 -->
+        <Action name="SyncPoint3" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt3</ActionParameter>
+            <ActionParameter name="component_list">jms3;mqtt3</ActionParameter>
+            <ActionParameter name="timeout">120000</ActionParameter>
+        </Action>
+
+        <Action name="WaitForReconnect" type="WaitForReconnection">
+            <ActionParameter name="connection_id">CF</ActionParameter>
+            <ActionParameter name="waitTime">120</ActionParameter>
+        </Action>
+
+        <Action name="Close_Conn" type="CloseConnection">
+            <ActionParameter name="connection_id">CF</ActionParameter>
+        </Action>
+
+        <!-- Cleanup MQTT Publisher client -->
+
+        <Action name="Create_Conn_C_Clean" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn</ActionParameter>
+            <ActionParameter name="connection_id">CF</ActionParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_pub</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="Close_Conn_Clean" type="CloseConnection">
+            <ActionParameter name="connection_id">CF</ActionParameter>
+        </Action>
+
+        <!-- Sync point 4 -->
+        <Action name="SyncPoint4" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt4</ActionParameter>
+            <ActionParameter name="component_list">jms4;mqtt4</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+        
+        <!-- Reconnect MQTT Durable subscribers to consume messages that
+             haven't expired -->
+
+        <Action name="Create_Conn_Sub1_After" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn_Sub1</ActionParameter>
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_sub1</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <Action name="ReceiveMessageSub1" type="ReceiveMessage" repeat="800">
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">10000</ActionParameter>
+        </Action>
+
+        <Action name="FinalRcvSub1" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+	    
+        <Action name="Create_Conn_Sub2_After" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn_Sub2</ActionParameter>
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_sub2</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+	    
+        <Action name="ReceiveMessageSub2" type="ReceiveMessage" repeat="400">
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">5000</ActionParameter>
+        </Action>
+
+        <Action name="FinalRcvSub2" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+
+        <!-- JMS TestDriver is taking a moment to collect some server stats -->
+
+        <!-- Sync point 5 -->
+        <Action name="SyncPoint5" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt5</ActionParameter>
+            <ActionParameter name="component_list">jms5;mqtt5</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>
+
+        <!-- Done getting stats after restarting subscriber connections -->
+
+        <Action name="Close_Conn_Sub1_After" type="CloseConnection">
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+        </Action>
+
+        <Action name="Close_Conn_Sub2_After" type="CloseConnection">
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+        </Action>
+
+        <!-- Cleanup MQTT Durable Susbcribers -->
+
+        <Action name="Create_Conn_Sub0_Clean" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn_Sub0</ActionParameter>
+            <ActionParameter name="connection_id">CFSub0</ActionParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_sub0</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="Create_Conn_Sub1_Clean" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn_Sub1</ActionParameter>
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_sub1</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="Create_Conn_Sub2_Clean" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn_Sub2</ActionParameter>
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="port">20021</ApiParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="clientId">expiry_sub2</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="Close_Conn_Sub0_Clean" type="CloseConnection">
+            <ActionParameter name="connection_id">CFSub0</ActionParameter>
+        </Action>
+
+        <Action name="Close_Conn_Sub1_Clean" type="CloseConnection">
+            <ActionParameter name="connection_id">CFSub1</ActionParameter>
+        </Action>
+
+        <Action name="Close_Conn_Sub2_Clean" type="CloseConnection">
+            <ActionParameter name="connection_id">CFSub2</ActionParameter>
+        </Action>
+
+    </Action>
+</IsmWSTest>

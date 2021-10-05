@@ -1,0 +1,771 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: testMP_01
+
+   Test Category: SharedSubscription MQTT
+
+   Test Description:
+   See what happens with Durable shared subscribers with Both MQTT and JMS sharing a 
+   Subscriptions.  
+   
+   Have Subscribers come and go from the subscription. Note the layers of nesting in 
+   		BusySubs composite action.
+   
+   NOTE:  The ShellActions are on their own threads, so they give an approximate state of 
+   the server statistics.  
+
+  -->
+<IsmWSTest name="testMP_01">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>MP_01</solution>
+	</SyncClient>
+  
+	<Action name="Pubs1" type="CompositeAction">
+ 
+		<Action name="CreatePubConnection1" type="CreateConnection">
+			<ActionParameter name="structure_id">ConPub1</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MP_01Pub1</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+		</Action>
+				
+		<Action name="CreateMessage_Retained" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1Retained</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: Retained test content Message number: </ApiParameter>
+			 <ApiParameter name="RETAIN">true</ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>				
+				
+		<Action name="CreateMessage1a" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1a</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: test content Publisher 1a Message number: </ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>
+		
+		<Action name="CreateMessage2a" type="CreateMessage" >
+			<ActionParameter name="structure_id">txmsg2a</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: test content Publisher 1b Message number: </ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>
+		
+		<Action name="CreateMessage3a" type="CreateMessage" >
+			<ActionParameter name="structure_id">txmsg3a</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: test content Publisher 1c Message number: </ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>	
+	
+		<!-- Signal from the subscribers subscriptions are ready for messages to be sent. -->
+		<Action name="sync_components_1" type="SyncComponentAction">
+			<ActionParameter name="component_name">Pubs1</ActionParameter>
+			<ActionParameter name="component_list">Subs1;Subs2;Pubs1;Collector1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>					
+  
+	<Action name="LazyPubs1" type="CompositeAction" repeat="10" repeat_interval="0">	  
+		<Action name="SendMessage_1a" type="SendMessage" interval="0" repeat="10" repeat_interval="0">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessage_2a" type="SendMessage" interval="0" repeat="10"  repeat_interval="10">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg2a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+		
+		<Action name="SendMessage_3a" type="SendMessage" interval="0" repeat="10"  repeat_interval="25">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg3a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+	</Action>	
+	
+	<!-- These should be delivered in the live stream -->
+	<Action name="SendRetain_1a" type="SendMessage" interval="0" repeat="10" repeat_interval="0">
+		<ActionParameter name="connection_id">CFPub1</ActionParameter>
+		<ActionParameter name="message_id">txmsg1Retained</ActionParameter>
+		<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+		<ActionParameter name="QoS">1</ActionParameter>
+	</Action>	
+		
+	<Action name="ModeratePubs1" type="CompositeAction" repeat="90" repeat_interval="0">	  
+		<Action name="SendMessage_1b" type="SendMessage" interval="0" repeat="10" repeat_interval="0">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessage_2b" type="SendMessage" interval="0" repeat="10"  repeat_interval="1">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg2a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+		
+		<Action name="SendMessage_3b" type="SendMessage" interval="0" repeat="10"  repeat_interval="10">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg3a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+		</Action>
+		
+	<Action name="FastPubs1" type="CompositeAction" repeat="50" repeat_interval="0">	  
+		<Action name="SendMessage_1c" type="SendMessage" interval="0" repeat="10" repeat_interval="0">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessage_2c" type="SendMessage" interval="0" repeat="10"  repeat_interval="0">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg2a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+		
+		<Action name="SendMessage_3c" type="SendMessage" interval="0" repeat="10"  repeat_interval="0">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg3a</ActionParameter>
+			<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+		</Action>					
+
+		<Action name="ClosePubConnection1" type="CloseConnection">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+  		</Action>
+ 
+ 		<!--  These CreateConnections will clear out any old client info -->
+	    <Action name="CreateConnectionMP_01_Pub1reclear" type="CreateConnection">
+    	    <ActionParameter name="structure_id">ConPub1</ActionParameter>
+	        <ActionParameter name="connection_id">CFPub1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01Pub1</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionPSub1reclear" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CFPub1</ActionParameter>
+	    </Action>
+
+ 
+    </Action>
+    
+	<!-- BUSY SUBS join and leave the subscription. Note the nested loops. --> 
+	<Action name="MqttBusySubs" type="CompositeAction">
+	<!--  These CreateConnections will clear out any old client info -->
+
+	    <Action name="CreateConnectionMP_01_Quietclear" type="CreateConnection" thread="10" >
+    	    <ActionParameter name="structure_id">ConMQTT_MP_01_Quiet1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MQTT_MP_01_Quiet1_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionQuietclear" type="CloseConnection" thread="10">
+    	    <ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+	    </Action>
+	
+	    <Action name="CreateConnectionMP_01_Busy1clear" type="CreateConnection" thread="11" >
+    	    <ActionParameter name="structure_id">ConMP_01_Busy1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01_Busy1_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy1clear" type="CloseConnection" thread="11">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+	    </Action>
+
+	    <Action name="CreateConnectionMP_01_Busy2clear" type="CreateConnection" thread="22" >
+    	    <ActionParameter name="structure_id">ConMP_01_Busy2</ActionParameter>
+	        <ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01_Busy2_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy2clear" type="CloseConnection" thread="22">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+	    </Action>
+	    
+	    <Action name="CreateConnectionMP_01_Busy3clear" type="CreateConnection" thread="33" >
+    	    <ActionParameter name="structure_id">ConMP_01_Busy3</ActionParameter>
+	        <ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01_Busy3_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy3clear" type="CloseConnection" thread="33">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+	    </Action>	
+  
+  		<!-- These connections are the ones we'll use for testing --> 
+  		
+	    <Action name="CreateConnectionQuiet1" type="CreateConnection" thread="10" >
+    	    <ActionParameter name="structure_id">ConMQTT_MP_01_Quiet1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MQTT_MP_01_Quiet1_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">false</ApiParameter>
+        	<ApiParameter name="QoS">1</ApiParameter>
+	    </Action>
+	    
+		<Action name="SubscribeQuiet1_a" type="Subscribe" thread="10">
+			<ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_QOSM//SS_MP/MP_01_QOSM</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>	
+		
+		<Action name="CreateSubConnectionBusy1" type="CreateConnection" thread="11">
+			<ActionParameter name="structure_id">ConMP_01_Busy1</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MP_01_Busy1_CID</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+		<Action name="SubscribeBusy1_a" type="Subscribe" thread="11">
+			<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_QOSM//SS_MP/MP_01_QOSM</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>
+		
+	    <Action name="CloseConnectionBusy1_subscribe" type="CloseConnection" thread="11">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+	    </Action>		  		
+  		
+		<Action name="CreateSubConnectionBusy2" type="CreateConnection" thread="22">
+			<ActionParameter name="structure_id">ConMP_01_Busy2</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MP_01_Busy2_CID</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+ 		<Action name="SubscribeBusy2_a" type="Subscribe" thread="22">
+			<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_QOSM//SS_MP/MP_01_QOSM</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>	
+		
+	    <Action name="CloseConnectionBusy2_subscribe" type="CloseConnection" thread="22">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+	    </Action>		  				
+
+		<Action name="CreateSubConnectionBusy3" type="CreateConnection" thread="33">
+			<ActionParameter name="structure_id">ConMP_01_Busy3</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MP_01_Busy3_CID</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+		<Action name="SubscribeBusy3_a" type="Subscribe" thread="33">
+			<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_QOSM//SS_MP/MP_01_QOSM</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>		
+
+  	    <Action name="CloseConnectionBusy3_subscribe" type="CloseConnection" thread="33">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+	    </Action>					
+		
+		<!-- Signal to the Publisher the subscribers subscriptions are ready for messages to be sent. -->
+		<Action name="sync_components_1" type="SyncComponentAction">
+			<dependsOn action_id="SubscribeQuiet1_a"/>
+			<dependsOn action_id="CloseConnectionBusy1_subscribe"/>
+			<dependsOn action_id="CloseConnectionBusy2_subscribe"/>
+			<dependsOn action_id="CloseConnectionBusy3_subscribe"/>
+			<ActionParameter name="component_name">Subs1</ActionParameter>
+			<ActionParameter name="component_list">Subs1;Subs2;Pubs1;Collector1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>					
+		
+		<!-- Receive messages, until we close the connection later in the test. --> 
+		<Action name="CompositeReceiveQuiet1" type="CompositeAction" repeat="4000" atleast="10" thread="10" repeat_interval="25">
+			<dependsOn action_id="sync_components_1"/>
+			<Action name="ReceiveMessage_Quiet_a" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+				<ActionParameter name="structure_id">Quiet1Receives</ActionParameter>
+				<ActionParameter name="waitTime">10000</ActionParameter>
+			</Action> 
+			
+			<!-- Send message to the collector to verify all messages are processed -->
+			<Action name="SendMessage_Quiet_a" type="SendMessage" >
+				<ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+				<ActionParameter name="message_id">Quiet1Receives</ActionParameter>
+				<ActionParameter name="topic">/SS_MP/MP_01_QOSM/Mqtt/MqttQuiet1</ActionParameter>
+				<ActionParameter name="QoS">1</ActionParameter>
+			</Action>					
+			
+		</Action>   
+  		
+		<Action name="GetBusy" type="CompositeAction" repeat="10" repeat_interval="0">
+		<dependsOn action_id="sync_components_1" interval="0"/>
+		<Action name="OpenSubConnectionBusy1" type="Reconnect" thread="11">
+			<ActionParameter name="structure_id">ConMP_01_Busy1</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+  		</Action> 
+			
+		<!-- verify that we are getting some messages.. don't spend much time on that though. -->
+		<Action name="ReceiveMessages_Busy1_a" type="CompositeAction" repeat="1" interval="0" thread="11">
+			<Action name="ReceiveMessage_Busy1_a" type="ReceiveMessage"  >
+				<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+				<ActionParameter name="structure_id">Busy1Message</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<!-- Send message to the collector to verify all messages are processed -->
+			<Action name="SendMessage_1a" type="SendMessage">
+	 	  		<dependsOn action_id="ReceiveMessage_Busy1_a" interval="0" />
+				<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+				<ActionParameter name="message_id">Busy1Message</ActionParameter>
+				<ActionParameter name="topic">/SS_MP/MP_01_QOSM/Mqtt/MqttBusy1</ActionParameter>
+				<ActionParameter name="QoS">1</ActionParameter>
+			</Action>					
+			
+		</Action>	
+		<Action name="CloseSubConnectionBusy1_a" type="CloseConnection" thread="11">
+			<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+		</Action>			
+			
+		<Action name="OpenSubConnectionBusy2" type="Reconnect" thread="22">
+			<ActionParameter name="structure_id">ConMP_01_Busy2</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+  		</Action> 
+
+		<!-- verify that we are getting some messages.. don't spend much time on that though. -->
+		<Action name="ReceiveMessage_Busy2_a" type="CompositeAction" repeat="1" interval="0" thread="22">
+			<Action name="ReceiveMessage_Busy2_a" type="ReceiveMessage"  >
+				<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+				<ActionParameter name="structure_id">Busy2Message</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<!-- Send message to the collector to verify all messages are processed -->
+			<Action name="SendMessage_2a" type="SendMessage">
+	 	  		<dependsOn action_id="ReceiveMessage_Busy2_a" interval="0" />
+				<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+				<ActionParameter name="message_id">Busy2Message</ActionParameter>
+				<ActionParameter name="topic">/SS_MP/MP_01_QOSM/Mqtt/MqttBusy2</ActionParameter>
+				<ActionParameter name="QoS">1</ActionParameter>
+			</Action>	
+
+		</Action>	
+		
+		<Action name="CloseSubConnectionBusy2_a" type="CloseConnection" thread="22">
+			<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+		</Action>		
+		 
+		<!-- Action name="ShowSub_1" type="ShellAction" thread="22">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription</ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->	
+		
+	<Action name="ShowSub_1" type="RestAPI"  thread="22">
+        <ActionParameter name="structureID">stat_output_1L</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>		
+				
+		<Action name="GetBusier" type="CompositeAction" repeat="10" repeat_interval="0" thread="33">
+		
+			<Action name="OpenSubConnectionBusy3" type="Reconnect" thread="33">
+				<ActionParameter name="structure_id">ConMP_01_Busy3</ActionParameter>
+				<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+	  		</Action> 		
+
+			<!-- verify that we are getting some messages.. don't spend much time on that though. -->
+			<Action name="ReceiveMessage_Busy3" type="CompositeAction" repeat="1" interval="0" thread="33"> 
+				<Action name="ReceiveMessage_Busy3_a" type="ReceiveMessage"  >
+					<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+					<ActionParameter name="structure_id">Busy3Message</ActionParameter>
+					<ActionParameter name="waitTime">5000</ActionParameter>
+				</Action>
+			
+				<!-- Send message to the collector to verify all messages are processed -->
+				<Action name="SendMessage_3a" type="SendMessage">
+		 	  		<dependsOn action_id="ReceiveMessage_Busy3_a" interval="0" />
+					<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+					<ActionParameter name="message_id">Busy3Message</ActionParameter>
+					<ActionParameter name="topic">/SS_MP/MP_01_QOSM/Mqtt/MqttBusy3</ActionParameter>
+					<ActionParameter name="QoS">1</ActionParameter>
+				</Action>	
+			</Action>	
+						
+  		    <Action name="CloseConnectionBusy3_a" type="CloseConnection" thread="33">
+		   	    <ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+		    </Action>										
+	
+		</Action>  <!-- End of GetBusier -->
+		
+		</Action> <!-- End of GetBusy -->	
+	
+		<Action name="OpenSubConnectionBusy3_b" type="Reconnect" thread="33">
+			<dependsOn action_id="GetBusy" interval="0" />
+			<ActionParameter name="structure_id">ConMP_01_Busy3</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+		</Action> 			
+			
+		<Action name="ReceiveMessage_Busy3_Cleanup" type="CompositeAction" repeat="4500" atleast="0" interval="0" thread="33">
+			<Action name="ReceiveMessage_Busy3_b" type="ReceiveMessage"  >
+				<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+				<ActionParameter name="structure_id">Busy3Message</ActionParameter>
+				<ActionParameter name="waitTime">10000</ActionParameter>
+		</Action>
+			
+		<!-- Send message to the collector to verify all messages are processed -->
+			<Action name="SendMessage_3b" type="SendMessage">
+	 	  		<dependsOn action_id="ReceiveMessage_Busy3_b" interval="0" />
+				<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+				<ActionParameter name="message_id">Busy3Message</ActionParameter>
+				<ActionParameter name="topic">/SS_MP/MP_01_QOSM/Mqtt/MqttBusy3</ActionParameter>
+				<ActionParameter name="QoS">1</ActionParameter>
+			</Action>					
+			
+		</Action>	
+
+		<Action name="UnSubscribe_Busy3" type="Unsubscribe" thread="33">
+			<ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_QOSM//SS_MP/MP_01_QOSM</ApiParameter>
+		</Action>
+					
+	    <Action name="CloseConnectionBusy3_b" type="CloseConnection" thread="33">
+	   	    <ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+	    </Action>				
+			 	
+		<Action name="OpenSubConnectionBusy2_b" type="Reconnect" thread="22">
+			<dependsOn action_id="GetBusy" interval="0" />
+			<ActionParameter name="structure_id">ConMP_01_Busy2</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+		</Action> 			
+			
+		<Action name="ReceiveMessage_Busy2_Cleanup" type="CompositeAction" repeat="4500" atleast="0" interval="0" thread="22">
+			<Action name="ReceiveMessage_Busy2_b" type="ReceiveMessage"  >
+				<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+				<ActionParameter name="structure_id">Busy2Message</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+		</Action>
+			
+		<!-- Send message to the collector to verify all messages are processed -->
+			<Action name="SendMessage_2b" type="SendMessage">
+	 	  		<dependsOn action_id="ReceiveMessage_Busy2_b" interval="0" />
+				<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+				<ActionParameter name="message_id">Busy2Message</ActionParameter>
+				<ActionParameter name="topic">/SS_MP/MP_01_QOSM/Mqtt/MqttBusy2</ActionParameter>
+				<ActionParameter name="QoS">1</ActionParameter>
+			</Action>					
+			
+		</Action>	
+		
+		<Action name="UnSubscribe_Busy2" type="Unsubscribe" thread="22">
+			<ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_QOSM//SS_MP/MP_01_QOSM</ApiParameter>
+		</Action>
+				
+	    <Action name="CloseConnectionBusy2_b" type="CloseConnection" thread="22">
+	   	    <ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+	    </Action>		
+		 
+		<Action name="OpenSubConnectionBusy1_b" type="Reconnect" thread="11">
+			<dependsOn action_id="GetBusy" interval="0" />
+			<ActionParameter name="structure_id">ConMP_01_Busy1</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+		</Action> 			
+			
+		<Action name="ReceiveMessage_Busy1_Cleanup" type="CompositeAction" repeat="4500" atleast="0" interval="0" thread="11">
+			<Action name="ReceiveMessage_Busy1_b" type="ReceiveMessage"  >
+				<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+				<ActionParameter name="structure_id">Busy1Message</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+		<!-- Send message to the collector to verify all messages are processed -->
+			<Action name="SendMessage_1b" type="SendMessage">
+	 	  		<dependsOn action_id="ReceiveMessage_Busy1_b" interval="0" />
+				<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+				<ActionParameter name="message_id">Busy1Message</ActionParameter>
+				<ActionParameter name="topic">/SS_MP/MP_01_QOSM/Mqtt/MqttBusy1</ActionParameter>
+				<ActionParameter name="QoS">1</ActionParameter>
+			</Action>			
+		</Action>
+		
+		<Action name="UnSubscribe_Busy1" type="Unsubscribe" thread="11">
+			<ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_QOSM//SS_MP/MP_01_QOSM</ApiParameter>
+		</Action>
+
+	    <Action name="CloseConnectionBusy1_b" type="CloseConnection" thread="11">
+	   	    <ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+	    </Action>	
+	    
+		<Action name="UnSubscribeQuiet1" type="Unsubscribe" thread="10">
+			<ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_QOSM//SS_MP/MP_01_QOSM</ApiParameter>
+		</Action>	    
+
+	    <Action name="CloseConnectionQuiet" type="CloseConnection" thread="10">
+    	    <ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+	    </Action>	  	    				
+  
+		<!-- and finally clean up --> 
+		
+
+		<!--  These CreateConnections will clear out any old client info -->
+	    <Action name="CreateConnectionMP_01_Busy1reclear" type="CreateConnection" thread="11" >
+    	    <ActionParameter name="structure_id">ConMP_01_Busy1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01_Busy1_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy1reclear" type="CloseConnection" thread="11">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy1</ActionParameter>
+	    </Action>
+
+	    <Action name="CreateConnectionMP_01_Busy2reclear" type="CreateConnection" thread="22" >
+    	    <ActionParameter name="structure_id">ConMP_01_Busy2</ActionParameter>
+	        <ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01_Busy2_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy2reclear" type="CloseConnection" thread="22">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy2</ActionParameter>
+	    </Action>
+	    
+	    <Action name="CreateConnectionMP_01_Busy3reclear" type="CreateConnection" thread="33" >
+    	    <ActionParameter name="structure_id">ConMP_01_Busy3</ActionParameter>
+	        <ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01_Busy3_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy3reclear" type="CloseConnection" thread="33">
+    	    <ActionParameter name="connection_id">CFMP_01_Busy3</ActionParameter>
+	    </Action>	
+	    
+
+	    
+	    <Action name="CreateConnectionMP_01_QuietReclear" type="CreateConnection" thread="10" >
+    	    <ActionParameter name="structure_id">ConMQTT_MP_01_Quiet1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MQTT_MP_01_Quiet1_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionQuietReclear" type="CloseConnection" thread="10">
+    	    <ActionParameter name="connection_id">CFMQTT_MP_01_Quiet1</ActionParameter>
+	    </Action>	    
+	    
+	  
+	</Action>
+
+   	<Action name="Collector" type="CompositeAction">
+	<!--  These CreateConnections will clear out any old client info -->
+	    <Action name="CreateConnectionMP_01_01_Collector1clear" type="CreateConnection">
+    	    <ActionParameter name="structure_id">ConMP_01_01_Collector1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01_Collector_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionCollector1clear" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+	    </Action>
+  
+  		<!-- These connections are the ones we'll use for testing --> 
+		<Action name="CreateSubConnectionCollector1" type="CreateConnection">
+			<ActionParameter name="structure_id">ConMP_01_01_Collector1</ActionParameter>
+			<ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MP_01_Collector_CID</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>   		 
+
+		<!-- There will only be one subscriber, but the collector will be a DS as well. --> 
+		<Action name="SubscribeCollector1_a" type="Subscribe" >
+			<ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_Collector//SS_MP/MP_01_QOSM/+/+</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>			
+
+		<!-- Signal to Publishers that the subscriptions are ready for messages to be sent. -->
+		<Action name="sync_components_1" type="SyncComponentAction">
+			<dependsOn action_id="SubscribeCollector1_a"/>
+			<ActionParameter name="component_name">Collector1</ActionParameter>
+			<ActionParameter name="component_list">Subs1;Subs2;Pubs1;Collector1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+		<Action name="CompositeReceiveAll" type="CompositeAction" repeat="4550" atleast="4511" repeat_interval="0">
+			<dependsOn action_id="sync_components_1"/>
+			<Action name="ReceiveMessageCollector1_a" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgCollector1</ActionParameter>
+				<ActionParameter name="waitTime">10000</ActionParameter>
+			</Action>
+		</Action>
+
+		<!-- commenting out, since the publisher is QoS=1, meaning, at least once. And
+			with the closing and reopening, sometimes we get them more than once, which is
+			perfectly valid. --> 
+		<!-- Action name="ReceiveNoMessageCollector1_a" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+			<ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter> 
+			<ActionParameter name="structure_id">rxmsgCollector1</ActionParameter>
+			<ActionParameter name="waitTime">10000</ActionParameter>
+		</Action -->
+			
+		<!-- Action name="ShowSubAfterCollector" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=SubMP_01_Collector ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->	
+		
+	<Action name="ShowSubAfterCollector" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1L</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubMP_01_Collector&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>		
+						
+			
+		<Action name="UnSubscribe_Collector" type="Unsubscribe">
+			<ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubMP_01_Collector//SS_MP/MP_01_QOSM/+/+</ApiParameter>
+		</Action>
+		
+		<!-- Action name="ShowCollectorSubisGone" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=SubMP_01_Collector ClientID=__Shared </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+		<Action name="ShowCollectorSubisGone" type="RestAPI">
+	        <ActionParameter name="structureID">stat_output_1L</ActionParameter>
+		    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubMP_01_Collector&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+    	<Action name="compareShowCollectorSubisGone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        	<ActionParameter name="structureID">stat_output_1L</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">SubMP_01_Collector</ActionParameter>
+    	</Action>							
+		
+		<Action name="CloseSubConnectionCollector1_a" type="CloseConnection" >
+			<ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+		</Action>			
+
+		<!-- and finally clean up --> 
+		
+		<!--  These CreateConnections will clear out any old client info -->
+	    <Action name="CreateConnectionMP_01_01_Collector1reclear" type="CreateConnection" >
+    	    <ActionParameter name="structure_id">ConMP_01_01_Collector1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MP_01_Collector_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionCollector1reclear" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CFMP_01_01_Collector1</ActionParameter>
+	    </Action>
+	    
+	 </Action>  	 
+	 
+</IsmWSTest>   
+

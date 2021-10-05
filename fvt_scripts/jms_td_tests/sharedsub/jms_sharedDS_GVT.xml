@@ -1,0 +1,426 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_sharedDS_GVT.xml
+
+  Test Category:  JMS_msgdelivery
+  
+  Test Description:
+    This is a simple test to ensure that a subscription policy with GVT data
+    for the Destination field works as expected.
+
+    We will attempt to create 3 subscriptions. 1 that matches and 2 that
+    do not.
+
+    葛渚噓        - valid
+    invalid葛渚噓 - invalid
+    葛渚噓invalid - invalid
+
+    There are 3 different consumer connections. Once consumer 1 is created,
+    the producer starts sending messages.
+    Each consumer is created at the beginning, but for simplicity only 1 is 
+    active at a time.
+    
+    Consumer 1 is active for 500 messages, then the consumer is closed.
+    Consumer 2 is activated for the next 500 messages, then the consumer is closed.
+    Consumer 3 is activated for the last 500 messages, then the consumer is closed.
+    
+    Once all messages are received, unsubscribe is done from consumer2 connection.
+
+-->
+<ImaJmsTest name="jms_sharedDS_GVT">
+
+    <Action name="prod1" type="CompositeAction">
+
+        <Action name="Createprod_cf1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">prod1_cf1</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_prod" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_prod" type="FillIsmProps">
+            <ActionParameter name="structure_id">prod1_cf1</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="GVTsharedsub_prod" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="18503" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnectionprod1_cf1" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_prod1_cf1</ActionParameter>
+            <ActionParameter name="factory_id">prod1_cf1</ActionParameter>
+            <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession1prod1_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session1_prod1_cf1</ActionParameter>
+        </Action>
+
+        <Action name="Createprod1_dest1" type="CreateDestination">
+            <ActionParameter name="structure_id">prod1_dest1</ActionParameter>
+            <ApiParameter name="name">GVTsharedsub_topic</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer1prod1_dest1" type="CreateProducer">
+            <ActionParameter name="structure_id">producer1</ActionParameter>
+            <ActionParameter name="dest_id">prod1_dest1</ActionParameter>
+            <ActionParameter name="session_id">session1_prod1_cf1</ActionParameter>
+        </Action>
+
+        <Action name="StartConnectionprod1_cf1" type="StartConnection">
+            <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+        </Action>
+
+        <!-- PRODUCER: Create messages -->
+
+        <Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+            <ActionParameter name="structure_id">prod1_txt_msg1</ActionParameter>
+            <ActionParameter name="session_id">session1_prod1_cf1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>	
+
+        <!-- PRODUCER: Set message content -->                
+        <Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+            <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+            <ApiParameter name="value">TEXT: Message sent from jms_sharedDS_GVT.xml test.</ApiParameter>
+        </Action>	
+
+        <Action name="StartConnection_cf1" type="StartConnection">
+            <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+        </Action>
+
+        <!-- wait for the first consumer to create the subscription, and then publish some messages
+        that will accumulate on the server. -->
+
+        <Action name="sync_components_prod1a" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">prod1a</ActionParameter>
+            <ActionParameter name="component_list">prod1a;cons1a</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="SendBytesMessage_prod" type="SendMessage" repeat_interval="0" repeat="1500" interval="0" >
+            <ActionParameter name="producer_id">producer1</ActionParameter>
+            <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+        </Action>	
+
+        <Action name="CloseConnectionprod1_cf1" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+        </Action>
+    </Action>
+
+    <Action name="cons1" type="CompositeAction">
+
+        <SyncClient>
+            <server>
+                <include>../common/JMS_syncip.xml</include>
+				<include>../common/JMS_syncport.xml</include>
+            </server>
+            <solution>jms_sharedDS_GVT</solution>
+        </SyncClient>      
+
+        <Action name="CreateFactory_cons1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_cons1" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_cons1" type="FillIsmProps">
+            <ActionParameter name="structure_id">cf1</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="18503" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_cf1" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+            <ActionParameter name="factory_id">cf1</ActionParameter>
+            <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession1_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session_con1</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_cons1" type="CreateDestination">
+            <ApiParameter name="name">GVTsharedsub_topic</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">destCons1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumerFail1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+            <ActionParameter name="structure_id">consumer1</ActionParameter>
+            <ActionParameter name="dest_id">destCons1</ActionParameter>
+            <ActionParameter name="session_id">session_con1</ActionParameter>
+            <ApiParameter name="durableName">葛渚噓invalid</ApiParameter>
+        </Action>
+
+        <Action name="CreateConsumerFail2" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+            <ActionParameter name="structure_id">consumer1</ActionParameter>
+            <ActionParameter name="dest_id">destCons1</ActionParameter>
+            <ActionParameter name="session_id">session_con1</ActionParameter>
+            <ApiParameter name="durableName">invalid葛渚噓</ApiParameter>
+        </Action>
+
+        <!--  We use CreateSharedDurableConsumer to create a durable Shared Subscription.  -->
+        <Action name="CreateConsumer1" type="CreateSharedDurableConsumer">                        
+            <ActionParameter name="structure_id">consumer1</ActionParameter>
+            <ActionParameter name="dest_id">destCons1</ActionParameter>
+            <ActionParameter name="session_id">session_con1</ActionParameter>
+            <ApiParameter name="durableName">葛渚噓</ApiParameter>
+        </Action>
+
+        <Action name="StartConnection_cf1" type="StartConnection">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+
+        <!-- Tell the producer to send 1500 messages that accumulate on the server. -->
+        <Action name="sync_components_cons1a" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">cons1a</ActionParameter>
+            <ActionParameter name="component_list">prod1a;cons1a</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>	
+
+        <!-- wait for the other consumers to be ready -->
+        <Action name="sync_components_cons1b" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons1b</ActionParameter>
+            <ActionParameter name="component_list">cons1b;cons2b;cons3b</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="CompositeConsume" type="CompositeAction" repeat="500" repeat_interval="0">
+            <Action name="RcvTextMessage_consumer1" type="ReceiveMessage" interval="0" >
+                <ActionParameter name="consumer_id">consumer1</ActionParameter>
+                <ActionParameter name="structure_id">cons1_message</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>            
+        </Action>
+
+        <Action name="CloseConnection_cf1" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_cons1c" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons1c</ActionParameter>
+            <ActionParameter name="component_list">cons1c;cons2c;cons3c</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="sync_components_cons1d" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons1d</ActionParameter>
+            <ActionParameter name="component_list">cons1d;cons2d;cons3d</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="sync_components_cons1e" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons1e</ActionParameter>
+            <ActionParameter name="component_list">cons1e;cons2e;cons3e</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+    </Action>   <!-- End of cons1 -->
+
+
+    <Action name="cons2" type="CompositeAction">
+
+        <Action name="CreateFactory_cons2" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf2</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_cons2" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener2</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_cons2" type="FillIsmProps">
+            <ActionParameter name="structure_id">cf2</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="18503" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_cf2" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf2</ActionParameter>
+            <ActionParameter name="factory_id">cf2</ActionParameter>
+            <ApiParameter name="exceptionListener">listener2</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession2" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+            <ActionParameter name="structure_id">session_cons2</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_cons2" type="CreateDestination">
+            <ApiParameter name="name">GVTsharedsub_topic</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">destCons2</ActionParameter>
+        </Action>
+
+        <!--  We use CreateSharedDurableConsumer -->
+        <Action name="CreateConsumer2" type="CreateSharedDurableConsumer">                       
+            <ActionParameter name="structure_id">consumer2</ActionParameter>
+            <ActionParameter name="dest_id">destCons2</ActionParameter>
+            <ActionParameter name="session_id">session_cons2</ActionParameter>
+            <ApiParameter name="durableName">葛渚噓</ApiParameter>
+        </Action>
+
+        <Action name="sync_components_cons2b" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">cons2b</ActionParameter>
+            <ActionParameter name="component_list">cons1b;cons2b;cons3b</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>        
+
+        <Action name="sync_components_cons1c" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons2c</ActionParameter>
+            <ActionParameter name="component_list">cons1c;cons2c;cons3c</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="StartConnection_cf2" type="StartConnection">
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+        </Action>
+
+        <Action name="Consumer2" type="CompositeAction" repeat="500" repeat_interval="0" >
+            <Action name="RcvTextMessage_consumer1" type="ReceiveMessage" interval="0" >
+                <ActionParameter name="consumer_id">consumer2</ActionParameter>
+                <ActionParameter name="structure_id">cons2_message</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>            
+        </Action>	
+
+        <Action name="CloseConsumer2" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer2</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_cons2d" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons2d</ActionParameter>
+            <ActionParameter name="component_list">cons1d;cons2d;cons3d</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="sync_components_cons2e" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons2e</ActionParameter>
+            <ActionParameter name="component_list">cons1e;cons2e;cons3e</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="Unsubscribe" type="Unsubscribe">
+            <ActionParameter name="session_id">session_cons2</ActionParameter>
+            <ApiParameter name="durableName">葛渚噓</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnection_cf2" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+        </Action>
+
+    </Action>	      <!-- end of cons2 --> 
+
+    <Action name="cons3" type="CompositeAction">
+
+        <Action name="CreateFactory_cons3" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf3</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_cons3" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener3</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_cons3" type="FillIsmProps">
+            <ActionParameter name="structure_id">cf3</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="18503" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_cf3" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf3</ActionParameter>
+            <ActionParameter name="factory_id">cf3</ActionParameter>
+            <ApiParameter name="exceptionListener">listener3</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession3_conn_cf3" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+            <ActionParameter name="structure_id">session_con3</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_cons3" type="CreateDestination">
+            <ApiParameter name="name">GVTsharedsub_topic</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">destCons3</ActionParameter>
+        </Action>
+
+        <!--  We use CreateSharedDurableConsumer -->
+        <Action name="CreateConsumer3" type="CreateSharedDurableConsumer">                        
+            <ActionParameter name="structure_id">consumer3</ActionParameter>
+            <ActionParameter name="dest_id">destCons3</ActionParameter>
+            <ActionParameter name="session_id">session_con3</ActionParameter>
+            <ApiParameter name="durableName">葛渚噓</ApiParameter>
+        </Action>                                                                                      
+
+        <Action name="sync_components_cons3b" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons3b</ActionParameter>
+            <ActionParameter name="component_list">cons1b;cons2b;cons3b</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="sync_components_cons3c" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons3c</ActionParameter>
+            <ActionParameter name="component_list">cons1c;cons2c;cons3c</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="sync_components_cons3d" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons3d</ActionParameter>
+            <ActionParameter name="component_list">cons1d;cons2d;cons3d</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+        <Action name="StartConnection_cf3" type="StartConnection">
+            <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+        </Action>
+
+        <Action name="CompositeConsume" type="CompositeAction" repeat="500" repeat_interval="0">
+            <Action name="RcvTextMessage_consumer3" type="ReceiveMessage" interval="0" >
+                <ActionParameter name="consumer_id">consumer3</ActionParameter>
+                <ActionParameter name="structure_id">cons3_message</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>            
+        </Action>
+
+        <Action name="CloseConnection_cf3" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_cons3e" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">cons3e</ActionParameter>
+            <ActionParameter name="component_list">cons1e;cons2e;cons3e</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+
+    </Action>   <!-- End of cons3 -->
+
+
+</ImaJmsTest>

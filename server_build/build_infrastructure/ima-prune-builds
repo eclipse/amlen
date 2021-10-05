@@ -1,0 +1,129 @@
+#!/bin/bash
+
+#Set Script Name variable
+SCRIPT=$(basename "${BASH_SOURCE[0]}")
+
+#Initialize variables to default values.
+build=""
+stream=""
+basedir="/gsacache/release"
+dryrun=0
+time_to_keep="" # keep all builds this number of days old or younger
+cutoff_date=""
+declare -a buildarray
+declare -a streamarray
+streamarray=( IMADev IMAProd IMA200-IFIX IMA500-IFIX IMA-MG500-IFIX )
+
+function find_builds_to_delete {
+    check_stream="$1"
+    buildarray=()
+    if [ "$check_stream" = "IMADev" ]; then
+        stream_location="${basedir}/${check_stream}/centos_development"
+    else
+        stream_location="${basedir}/${check_stream}/centos_production"
+    fi
+
+    #echo "LOCATION: $stream_location"
+    cd "$stream_location" || exit 2
+
+    for tb in $(find . -maxdepth 1 -name '20*' | grep -P '20\d{6}-\d{4}$' | sed 's/\.//' | sed 's/\///'); do
+        # do not add to list if it is a symlink
+        if [ -L "$tb" ]; then
+            continue
+        fi
+
+        if [ ! -d "$tb" ]; then
+            continue
+        fi
+        
+        # check if it is listed in $stream-fixes.txt
+        if [ -f "${check_stream}-fixes.txt" ]; then
+            if grep -q "$tb" "${check_stream}-fixes.txt"; then
+                echo "${check_stream}: Build $tb found in ${check_stream}-fixes.txt. Keeping ..."
+                continue
+            fi
+        else
+            echo "Missing file ${check_stream}-fixes.txt."
+            exit 2
+        fi
+
+        bdate=${tb:0:8}
+        builddate=$(date -d $bdate +%s)
+        savedate=$(date -d $cutoff_date +%s)
+        if [ $builddate -lt $savedate ]; then
+            echo "${check_stream}: Build $tb is older than cutoff date."
+            echo "${check_stream}: Adding build $tb to array for removal."
+            buildarray+=("$tb")
+        else
+            echo "${check_stream}: Build $tb is newer than cutoff date $cutoff_date.  Keeping ..."
+        fi
+    done
+}
+
+#Help function
+function HELP {
+  echo -e \\n"Help documentation for ${SCRIPT}."\\n
+  echo -e "Basic usage:"\\n
+  echo "-b  --Specify base dir containing releases: eg /gsacache/release."
+  echo "-c  --Set the cutoff date manually: eg 20190620."
+  echo "-s  --Set the stream to remove this build from."
+  echo "-t  --Keep builds published within X days from current date."
+  echo "-x  --Do a dry run without deleting anything."
+  echo -e "-h  --Displays this help message. No further functions are performed."\\n
+  echo -e "Example: $SCRIPT -t 30"\\n
+  exit 1
+}
+
+while getopts :b:s:t:xh FLAG; do
+  case $FLAG in
+    b)  #set option "b"
+        buildarray+=("$OPTARG")
+      ;;
+    s)  #set option "s"
+        streamarray+=("$OPTARG")
+      ;;
+    t)  #set option "t"
+        time_to_keep=$OPTARG
+      ;;
+    x)  #set option ""
+        dryrun=1
+      ;;
+    h)  #show help
+        HELP
+      ;;
+    \?) #unrecognized option - show help
+        echo -e \\n"Option -$OPTARG not allowed."
+        HELP
+      ;;
+  esac
+done
+
+shift $((OPTIND-1))  #This tells getopts to move on to the next argument.
+
+echo "ima-prune-builds: run on $(date)"
+
+if [ -n "$time_to_keep" ] && [ ${#buildarray[@]} -gt 0 ]; then
+    echo "-t and -b are mutually exclusive options."
+    exit 2 
+fi
+
+if [ -n "$time_to_keep" ]; then
+    cutoff_date=$(date -d "-${time_to_keep} days" '+%Y%m%d')
+    echo "Builds published before $cutoff_date will be deleted."
+fi
+
+for stream in "${streamarray[@]}"; do
+
+    if [ ${#buildarray} -eq 0 ]; then
+        find_builds_to_delete "$stream"
+    fi
+
+    for build in "${buildarray[@]}"; do
+        if (( dryrun == 1 )); then
+            /root/bin/slpublish-remove-build -b "$build" -s "$stream" -x
+        else
+            /root/bin/slpublish-remove-build -b "$build" -s "$stream"
+        fi
+    done
+    buildarray=() 
+done

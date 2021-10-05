@@ -1,0 +1,225 @@
+There are a series of tests that need to be run within the Manufacturing process to verify a machine is ready for customer usage.
+If needed,  the InfoCenter:  https://infocenters.hursley.ibm.com/ism/v1/help/index.jsp
+ 
+The check list consists of the following tests:
+I. PREPARATIION OF THE SYSTEM FOR PXE INSTALL
+II. PXE Install the (Beta) Ship Ready Driver
+
+
+
+Austin Naming Convention For IP Addresses and hostnames (May differ from Guadalajara), 9.3.17x.yyy or maryyy:  
+   x is the 3rd IP address segment and its value will be either 7 or 9 for Data, 4 for IMM; 
+   yyy is the 4th IP address segment, 10.10.10.10, mar387, yyy=387 or 10.10.10.10, mar087, yyy=087)
+   
+
+
+
+
+I.  PREPARATION OF THE SYSTEM FOR PXE INSTALL
+
+1.  Once the appliance is uncrated and in a rack, you will need to check the following components were added:
+  1.1) Internal 4Gb Flash Drive
+  1.2) Two Mellanox 40GB Ethernet NICs
+  1.3) One 4-Port 1GB Ethernet NIC
+  1.4) Four SuperCapacitors with nvDIMM cables and power cable connected to motherboard
+  1.5) Memory Slots: 1,4,9,12,13,16,21,24  16GB 1600 MHz speed Memory DIMM
+  1.6) Memory Slots: 2, 5, 8, 11  16GB nvDIMMs with cable connected from SuperCaps
+
+2.  Prepare the system for network testing (Need two Servers to perform HA Tests)
+The expected Port Configuration, from left to right,  is:
+   Mellanox 40GB:  eth7 ha1
+   Mellanox 40GB:  eth6 ha2
+   4Port Eth 1GB:  eth2, eth3, eth4, eth5
+   Motherboard:    mgt0, mgt1, eth0, eth1, IMM
+assume, ethernet wiring is for both Appliances unless directed otherwise.
+
+  2.1) Connect the 40GB QSA adapter to 10Gb black ethernet cable, insert to ha1 port on Appliance 1
+       Connect the 40GB QSA adapter to 10Gb black ethernet cable, insert to ha1 port on Appliance 2
+  2.2) Connect the 40GB QSA adapter to 10Gb black ethernet cable, insert to ha2 port on Appliance 1
+       Connect the 40GB QSA adapter to 10Gb black ethernet cable, insert to ha2 port on Appliance 2
+  2.3) Insert ethernet cable in mgt0 connect to 9.net switch (labeled 903 something)
+  2.4) Insert ethernet cable in IMM connect to 9.net switch (labeled 903 something)
+  2.5) Connect the 40Gb QSA adapter to 10Gb black ethernet cable, insert into eth7 connect to 10Gb switch
+  2.6) Connect the 40Gb QSA adapter to 10Gb black ethernet cable, insert into eth6 connect to 10Gb switch
+
+
+3.  Set MACHINE NAME ProdIdentifier and configure the UEFI parameters - before updating FW with Bedrock install
+  REQUIRED:  Bootable USB Flash Drive from Austin.
+  3.1) Insert the USB Key in the Front USB Port.  
+  3.2) Boot the system and press F1 on the UEFI Flash Screen, i.e. when "ISM System X - Server Firmware", is shown.
+  3.3.1) Select:  Boot Manager >> Add Boot Option >> UEFI Full Path Option >> Select the USB Key's entry.  
+         Find the USB entry with GPT (usually the first entry)
+         The text should look something like:
+
+	NO VOLUME LABEL,
+	[PciRoot(0x0)/Pci(0x1D,0x0)/USB(0x0,0x0)/USB(0x3,0x0)/HD(1,GPT,EDF796A2-A55A-4873-B17D-6E817038DE7D,0x800,0x64000)]
+	
+        Continue selecting the path options navigating down the directories to: grub.efi, 
+        Select: 'Input the Description' and set to: IMA tools 
+        Select: Commit Changes.  
+        Press ESC until you return to 'Boot Manager' screen.
+        
+  3.3.2) Retrieve the MAC Address of first on-board ethernet interface for PXE
+         Select:  Boot Manager >> Add Boot Option >> Physically Present Device
+         Select:  NIC1:PXE4   Note the MAC Address, it will look similar to:  /MAC(6C6E8B257512,0x0)/
+         Write Down the MAC address, 6C:6E:8B:25:75:12, it will be used in later step.
+
+  3.3.3) Select: Next One-Time Boot >> Boot Next Value.  Select: IMA tools, Press Enter.  
+         Select: Commit Changes.   
+         Press ESC until you return to 'System Configuration and Boot Management' screen
+         
+  3.3.4) Select:  System Settings >> Integrated Management Module >> Network Configuration
+       a) Set Hostname:  maryyy-imm
+       b) DHCP:          Static IP
+       c) IP:            9.3.174.yyy
+       d) Subnet Mask:   255.255.255.0
+       e) Gateway:       10.10.10.10
+       f) Select:        Save Network Settings
+  
+  3.3.5) After a few seconds... Access the IMM Console, open a browser and go to the URL:
+       a) http://9.3.174.yyy
+       b) Login:  USERID/PASSW0RD   (O is a zero in passw0rd, some older machines are admin/nimda)  
+       c) Verify on System Status tab (Home tab), there are no expected Active Event errors. 
+       d) Select:  Server Management >> Server Firmware
+          
+  3.3.6) Save and Exit the UEFI 
+
+  3.4) Boot the USB Key and Login to RHEL OS Prompt:  root/password
+       a)  cd /opt/ibm/toolscenter/asu
+       b)  Find the ethernet-interface associated with the MAC address of #1 ethernet port (labelled mgt0) 
+           might need to do  ifconfig -a | more   (This is MAC address from Step 3.3.2)
+       c)  RUN:  ./runasu.sh  <IMM2 IP Address>  <9.net IP Address> <Network Interface Name, eth12>  <gateway IP>
+           for mar512, it was  ./runasu.sh  10.10.10.10  10.10.10.10  eth12   10.10.10.10
+           The script sets the expected UEFI configuration and 
+           changes the IMM System Status >> System Information >> Machine Name from 'System x3650 M4' to 'x3650 M4'
+
+
+
+
+II. PXE Install the IMA/Bedrock Ship Ready Driver
+---------------------------------------------
+NOTE:
+The Austin PXE Server is mar035 (10.10.10.10/10.10.10.10) and the current UID/PW is root/fl4shm0b
+The complete directions on how to setup the PXE Server are located @ 
+https://w3-connections.ibm.com/wikis/home?lang=en-us#!/wiki/W11ac9778a1d4_4f61_913c_a76a78c7bff7/page/Steps%20to%20Setup%20PXE%20Install%20for%209006
+
+A synopsis of the PXE Install steps are included here for convenience:
+
+Preparation for PXE Boot 
+  @ PXE Server:
+  1.1) cd /var/www/html/niagara_production/  and mkdir mmdd-hhmm  directory to match the 'build name'
+  1.2) Copy cleartext-boot,tar.gz and firmware.tar.gz to the directory you created on the PXE Server. 
+  1.3) For good measure, also copy the rel_bedrock.script2 file as well, used in subsequent tests
+      (For complete steps: See wiki page on PXE Install)
+
+How to get into PXE Boot Menus
+  @ PXE Client (i.e. the appliance):
+  2.1) Restart the machine 
+  2.2) When the UEFI Splash Screen, "ISM System X - Server Firmware", is shown, press F12
+  2.3) Select the first PXE NIC: "NIC1: PXE4 - Onboard ethernet Port 1", then press ENTER 
+  2.4) You will eventually see a DHCP connection to the PXE Server.
+
+  Interacting with PXE Install Process
+  3.1) At the 'Options for 9006 Appliance' prompt, type:  strap  (before 30 seconds or you will be starting over)  
+  3.2) Select Item 2 to open shell prompt to configure eth0 ethernet interface and default route
+        RUN: ifconfig eth0 9.3.17x.yy  netmask 255.255.255.0
+        RUN: route -n   
+           if no 0.0.0.0 route for eth0, create it with this command
+        RUN: route add default gateway 9.3.17x.1  eth0
+    
+    (Next two Steps assume mmdd-hhmm are 'build name' from Step 1.1)   
+  3.3) Select Item 8 to down load:  http://10.10.10.10/niagara_production/mmdd-hhmm/cleartext-boot.tar.gz
+  3.4) Select Item 4 to down load:  http://10.10.10.10/niagara_production/mmdd-hhmm/firmware.tar.gz
+  3.5) Select Item 1 to 'bootstrap'
+
+
+2. Configure the UEFI Bios settings
+-----------------------------------
+   RUN:  svt-MfgProcessReadinessChecklist.UEFI.Manual
+
+   
+3. Setup for Series of Automation Tests
+----------------------------------------
+   RUN:  svt-MfgProcessReadiness.ConfigPopulate.Manual
+   -- 
+   -- TODO:  how to setup passwordless ssh... or just use the manual test .vs. automation scripts
+
+4. NVDIMM Recovery can use the automation framework to run Automotive Telematics SVTVehicleScale test case (Marc)
+-----------------------------------------------------------------------------------------------------------------
+FOR GM: With NVDIMMs
+  RUN:  svt-MfgProcessReadinessChecklist.NVDIMM.Manual.txt
+
+FOR BETA: WITHOUT NVDIMMs, need to put messages into the store without having this test case.
+   RUN: until you fill the store?   
+   For 2 1Gb Networks (mgt0-eth0)
+   -- java svt.mqtt.mq.MqttSample -a subscribe -q 2 -t /topic/A -s tcp://10.10.1.87:16102 -u testuser -p testuser -i subClient -c false -vv
+   -- java svt.mqtt.mq.MqttSample -a publish   -q 2 -t /topic/A -s tcp://10.10.10.10:16102 -n 1 -m "storeMessage from java pubstore" -u testuser -p testuser -i pubstore -c false -r store
+   For 2 10Gb Networks (eth20-eth21)
+   -- java svt.mqtt.mq.MqttSample -a subscribe -q 2 -t /topic/A -s tcp://10.10.1.87:16102 -u testuser -p testuser -i subClient -c false -vv
+   -- java svt.mqtt.mq.MqttSample -a publish   -q 2 -t /topic/A -s tcp://10.10.3.87:16102 -n 1 -m "storeMessage from java pubstore" -u testuser -p testuser -i pubstore -c false -r store
+Clients:
+(Internet) mar123[10.10.2.123] <==> eth21[10.10.3.87/23]=ISM=eth20[10.10.1.87/23] <==>  mar124[10.10.0.124] (Intranet)
+
+Notes for Netmasks and NICR
+   255.255.255.0 = /24 can only see 10.10.[sameX].y
+   255.255.254.0 = /23 can see 10.10.[0|1:2|3:..].y  (odd|even pairs)
+   255.255.252.0 = /22 can see most 10.10.x.y, not sure what break down is [0-9:10-19:...] two digit groups of ten?
+   255.255.248.0 = /21 can see any 10.10.x.y
+Notes for 9.network public IPs and 10.network private IP scheme
+   9.3.177.y  - 10.10.odd.y   i.e.: 10.10.1.y, ...3.y, ...
+   9.3.179.y  - 10.10.even.y  i.e.: 10.10.0.y, ...2.y, ...
+
+
+5. Firmware Upgrade Test
+------------------------
+   RUN:  svt-MfgProcessReadinessChecklist.FirmwareUpgrade.Manual
+
+6. Series of Automation Tests to verify operation
+-------------------------------------------------
+Note:  Each of the below tests starts 10 mqtt clients, 10 paho clients, and 10 jms clients.  Each client publish messages at a rate of 1 msg/sec for 10 minutes.     
+       -- security policy was removed from the Internet endpoint since not supported by testcase
+
+   For 2 1Gb Networks (mgt0-eth0)
+   -- java svt.mqtt.mq.MqttSample -a subscribe -q 0 -t /APP/1/# -s tcp://10.10.1.87:16999 -i subClient -c false -vv -N -1
+   -- java svt.scale.vehicle.SVTVehicleScale 10.10.10.10 16111 1 10 10 10 5 1 false 0 false false
+       
+   For 2 10Gb Networks (eth20-eth21)
+   -- java svt.mqtt.mq.MqttSample -a subscribe -q 0 -t /APP/1/# -s tcp://10.10.1.87:16999 -i subClient -c false -vv -N -1
+   -- java svt.scale.vehicle.SVTVehicleScale 10.10.3.87 16111 1 10 10 10 5 1 false 0 false false
+      arguments:  <imaserver> <ismport> <appId> <#JMS vehicles> <#MQTT vehicles> <#Paho vehicles> <#TimeToRun(minutes)> <mode 0|1|2|3 where 1=connect_once> <order> <qos> <stats> <listener> 
+For both 1Gb and 10GB tests...
+
+  Subscriber should report:
+    <Press Ctrl-C to terminate subscriber>
+   
+  SVTVehicleScale should report (timing will vary...):
+    ## clients sent ### messages in       ##.## minutes.  The rate was    1785.08 msgs/min,      29.75 msgs/sec
+    SVTVehicleScale Success!!!
+
+Clients:
+(Internet) mar123[10.10.2.123] <==> eth21[10.10.3.87/23]=ISM=eth20[10.10.1.87/23] <==>  mar124[10.10.0.124] (Intranet)
+
+7. Rollback of Firmware Upgrade Test
+------------------------------------
+   RUN:  svt-MfgProcessReadinessChecklist.FirmwareRollback.Manual
+
+8. Series of Automation Tests to verify operation (3 day run)
+-------------------------------------------------------------
+tbd. This can be any MQTT or JMS Client tests you wish to run, or use Marc test case above with killing the server...
+can use cmds above with -N (hours) option
+
+9. Firmware pristine-install Test
+---------------------------------
+   RUN:  svt-MfgProcessReadinessChecklist.FirmwarePristineInstall.Manual
+
+10. (re)Establish some ISM configuration objects
+------------------------------------------------
+   RUN:  svt-MfgProcessReadiness.ConfigPopulate.Manual
+
+11. Device Reset Test
+------------------------
+   RUN:  svt-MfgProcessReadiness.DeviceReset.Manual
+
+12. Reset the IMM Address to generic IP Address 
+-----------------------------------------------
+   In the UEFI, set the IMM IP Address to a well know address: tbd (Tony?)  192.168.x.x

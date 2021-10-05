@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   Test Description:
+     Send a message to /send/heuristic which is listened to by the MDB
+     The heuristic RA will then randomly decide whether or not to crash
+     MessageSight.
+     
+     REPLACE:
+     16102
+     10.10.5.124
+     /send/heuristic
+     /reply/heuristic
+    
+  -->
+<ImaJcaTest name="jca_heuristic">
+
+  <include>../common/jms_jndi_ldap.xml</include>
+
+  <Action name="Subscribe" type="CompositeAction">
+    <!-- Retrieve the foreign connection factory from JNDI -->
+    <Action name="GetCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">cf</ActionParameter>
+      <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_JCA_TCF" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <include>../common/JMS_serverHA.xml</include>
+        <ImaProperty name="ClientID" value="heuristic_cid"/>
+        <ImaProperty name="Port" value="16102"/>
+        <ImaProperty name="Server" value="10.10.5.124"/>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">connection</ActionParameter>
+      <ActionParameter name="factory_id">cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession1" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session1</ActionParameter>
+    </Action>
+
+    <Action name="Create_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">dest</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/heuristic</ApiParameter>
+    </Action>
+
+    <Action name="Create_dest1" type="CreateDestination">
+      <ActionParameter name="structure_id">dest1</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/heuristic</ApiParameter>
+    </Action>
+
+    <Action name="CreateConsumer1" type="CreateDurableSubscriber">
+      <ActionParameter name="structure_id">consumer</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+      <ApiParameter name="durableName">replyHeurSub</ApiParameter>
+    </Action>
+
+    <Action name="CreateProducer1" type="CreateProducer">
+      <ActionParameter name="structure_id">producer</ActionParameter>
+      <ActionParameter name="dest_id">dest1</ActionParameter>
+      <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- Connected to primary server. Consumer on reply dest and log dest.
+         Producer on send dest. -->
+
+    <Action name="StartConnection" type="StartConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <!-- Receive any number of messages until we fail. -->
+
+    <Action name="CreateTxtMessage_ses3_dest1" type="CreateMessage">
+      <ActionParameter name="structure_id">message</ActionParameter>
+      <ActionParameter name="session_id">session1</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetTxtMsg" type="SetMessageText">
+        <ActionParameter name="message_id">message</ActionParameter>
+        <ApiParameter name="value">lets go create a heuristic transaction!</ApiParameter>
+    </Action>
+
+    <Action name="SendMessage" type="SendMessage">
+        <dependsOn name="StartConnection" />
+        <ActionParameter name="producer_id">producer</ActionParameter>
+        <ActionParameter name="message_id">message</ActionParameter>
+    </Action>
+
+    <Action name="Recv" type="CompositeAction">
+      <Action name="RcvObjMessage0001_consumer1" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+    </Action>
+
+    <!-- Wait a few seconds for our connection to be killed -->
+    <Action name="CloseConnection" type="CloseConnection">
+      <dependsOn name="Recv" interval="10000"/>
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+  </Action>
+
+  <Action name="Consume" type="CompositeAction">
+    <!-- Retrieve the foreign connection factory from JNDI -->
+    <Action name="GetCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">cf</ActionParameter>
+      <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_JCA_TCF" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <include>../common/JMS_serverHA.xml</include>
+        <ImaProperty name="ClientID" value="reconnect_001"/>
+        <ImaProperty name="Port" value="16102"/>
+        <ImaProperty name="Server" value="10.10.5.124"/>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">connection</ActionParameter>
+      <ActionParameter name="factory_id">cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession1" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session1</ActionParameter>
+    </Action>
+
+    <Action name="Create_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">dest</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/heuristic</ApiParameter>
+    </Action>
+
+    <Action name="CreateConsumer1" type="CreateDurableSubscriber">
+      <ActionParameter name="structure_id">consumer</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+      <ApiParameter name="durableName">replyHeurSub</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="Recv" type="CompositeAction">
+      <Action name="RcvObjMessage0001_consumer1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+    </Action>
+
+    <Action name="CloseConsumer" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+    </Action>
+
+    <Action name="unscribeConsumer" type="Unsubscribe">
+        <ApiParameter name="durableName">replyHeurSub</ApiParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="CloseSession" type="CloseSession">
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+  </Action>
+</ImaJcaTest>

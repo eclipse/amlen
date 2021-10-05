@@ -1,0 +1,637 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2016-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmClientSetTest name="RESTAPI_OrgMove_ClientSetVerify_A3A4" >
+<!--
+    A more complex common topic space. 
+-->
+
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_multiClientSet</solution>
+    </SyncClient>
+
+<!-- ***** Client 0 starts here.  Continuously active Subscriber and Publisher to the topic  -->
+<!-- *** Publish0    *** -->
+    <Action name="publish0" type="CompositeAction">
+
+        <!-- DO NOT want CleanSession, I want to resume on new Server -->
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">ConP0</ActionParameter>
+            <ActionParameter name="connection_id">CFP0</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server3.xml</include>
+            <ApiParameter name="clientId">d:OrgMove:pub:cid0</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg0</ActionParameter>
+            <ActionParameter name="connection_id">CFP0</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by Publisher 0 in ORG ${OrgMove} </ApiParameter>
+        </Action>
+        
+
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+        <Action name="sync_components_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2pub0</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec0;OrgMoveV2pub0</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToMany" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_components_0" interval="500" />
+            <ActionParameter name="connection_id">CFP0</ActionParameter>
+            <ActionParameter name="prefix">/OrgMove/000/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+  
+        <!-- it was cleansession=false, so this will leave a publisher client to delete --> 
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFP0</ActionParameter>
+        </Action>
+        
+    </Action>
+
+    
+<!-- *** Receive 0 *** -->
+    <Action name="receive0" type="CompositeAction">
+        
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">ConS0</ActionParameter>
+            <ActionParameter name="connection_id">CFS0</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server3.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-OrgMove-uid0</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2rec0</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec0;OrgMoveV2pub0</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Client should not? get any messages. -->
+
+		<!-- Receive the expected number of messages -->
+		<Action name="ReceiveMessages" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="ReceiveMessage" type="ReceiveMessage"  >
+                <ActionParameter name="connection_id">CFS0</ActionParameter>
+                <ActionParameter name="structure_id">submsg0</ActionParameter>
+                <ActionParameter name="waitTime">6000</ActionParameter>
+            </Action>
+        </Action>
+        
+
+		<!-- Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS0</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg0</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+        
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFS0</ActionParameter>
+        </Action>          
+
+
+    </Action>
+	
+
+<!-- ***** Client 1 starts here.  Only a Subscriber, no Publish history to the topic  
+     Verify Receive1 has no pending messages, 
+	 then have Publish1 publish some msgs and verify the Receive1 gets them.
+-->
+<!-- *** Publish1    *** -->
+    <Action name="publish1" type="CompositeAction">
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">ConP1</ActionParameter>
+            <ActionParameter name="connection_id">CFP1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server3.xml</include>
+            <ApiParameter name="clientId">d:OrgMove:pub:cid1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg1</ActionParameter>
+            <ActionParameter name="connection_id">CFP1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by Publisher 1 in ORG ${OrgMove} </ApiParameter>
+        </Action>
+        
+
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2pub1</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec1;OrgMoveV2pub1</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToMany" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_components_1" interval="500" />
+            <ActionParameter name="connection_id">CFP1</ActionParameter>
+            <ActionParameter name="prefix">/OrgMove/001/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+  
+        <!-- it was cleansession=false, so this will leave a publisher client to delete --> 
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFP1</ActionParameter>
+        </Action>
+        
+    </Action>
+
+    
+<!-- *** Receive 1 *** -->
+    <Action name="receive1" type="CompositeAction">
+        
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">ConS1</ActionParameter>
+            <ActionParameter name="connection_id">CFS1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server3.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-OrgMove-uid1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Client should not get any messages, since there was no Publisher. -->
+		<Action name="ReceiveNoMsgs" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+		
+        <!-- Let Publisher know to publish -->
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2rec1</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec1;OrgMoveV2pub1</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+        
+		<!-- Receive the expected number of messages -->
+		<Action name="ReceiveMessages" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="ReceiveMessage" type="ReceiveMessage"  >
+                <ActionParameter name="connection_id">CFS1</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">6000</ActionParameter>
+            </Action>
+        </Action>
+        
+		<!-- Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFS1</ActionParameter>
+        </Action>          
+
+            
+    </Action>
+	
+<!-- ***** Client 2 starts here.  Only Create the DS for Subscriber, All msgs are retained , Publish messages to the topic  
+     Verify Receive2 has pending messages to receive, 
+	 then have Publish2 publish more msgs and verify the Receive2 gets them.
+-->
+<!-- *** Publish2    *** -->
+    <Action name="publish2" type="CompositeAction">
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">ConP2</ActionParameter>
+            <ActionParameter name="connection_id">CFP2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server3.xml</include>
+            <ApiParameter name="clientId">d:OrgMove:pub:cid2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg2</ActionParameter>
+            <ActionParameter name="connection_id">CFP2</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by Publisher 2 in ORG ${OrgMove} </ApiParameter>
+        </Action>
+        
+
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+        <Action name="sync_components_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2pub2</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec2;OrgMoveV2pub2</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToMany" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_components_2" interval="500" />
+            <ActionParameter name="connection_id">CFP2</ActionParameter>
+            <ActionParameter name="prefix">/OrgMove/002/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+  
+        
+        <Action name="sync_Pub2BufferedMsgs" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2pub2c</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec2c;OrgMoveV2pub2c</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToManyBuffer" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_Pub2BufferedMsgs" interval="500" />
+            <ActionParameter name="connection_id">CFP2</ActionParameter>
+            <ActionParameter name="prefix">/OrgMove/002/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+
+        <!-- it was cleansession=false, so this will leave a publisher client to delete --> 
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFP2</ActionParameter>
+        </Action>
+        
+    </Action>
+
+    
+<!-- *** Receive 2 *** -->
+    <Action name="receive2" type="CompositeAction">
+        
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">ConS2</ActionParameter>
+            <ActionParameter name="connection_id">CFS2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server3.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-OrgMove-uid2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+		<!-- Client should Receive the OLD messages -->
+		<Action name="ReceiveOldMessages" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="ReceiveOldMessage" type="ReceiveMessage"  >
+                <ActionParameter name="connection_id">CFS2</ActionParameter>
+                <ActionParameter name="structure_id">submsg2</ActionParameter>
+                <ActionParameter name="waitTime">6000</ActionParameter>
+            </Action>
+        </Action>
+        
+		<!-- Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMsgs" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS2</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg2</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+        
+		<!-- Let Publisher know to publish -->
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2rec2</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec2;OrgMoveV2pub2</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+
+		<!-- Client should Receive the Second Set of messages -->
+		<Action name="ReceiveNewMessages" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="ReceiveNewMessage" type="ReceiveMessage"  >
+                <ActionParameter name="connection_id">CFS2</ActionParameter>
+                <ActionParameter name="structure_id">submsg2</ActionParameter>
+                <ActionParameter name="waitTime">6000</ActionParameter>
+            </Action>
+        </Action>
+        
+		<!-- Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS2</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg2</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+        
+		<!-- Let Publisher know to publish msgs to be Buffered -->
+        <Action name="sync_Sub2BufferedMsgs" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2rec2c</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec2c</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+		
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFS2</ActionParameter>
+        </Action>          
+
+
+    </Action>
+	
+	
+<!-- ***** Client 3 starts here.  A Subscriber who had recv some msgs but not all, A Publisher to the topic  
+     Verify Receive3 has pending messages to receive, 
+	 then have Publish3 publish more msgs and verify the Receive3 gets them.
+-->
+<!-- *** Publish3    *** -->
+    <Action name="publish3" type="CompositeAction">
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">ConP3</ActionParameter>
+            <ActionParameter name="connection_id">CFP3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server3.xml</include>
+            <ApiParameter name="clientId">d:OrgMove:pub:cid3</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg3</ActionParameter>
+            <ActionParameter name="connection_id">CFP3</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by Publisher 3 in ORG ${OrgMove} </ApiParameter>
+        </Action>
+        
+
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+        <Action name="sync_components_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2pub3</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec3;OrgMoveV2pub3</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToMany" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_components_3" interval="500" />
+            <ActionParameter name="connection_id">CFP3</ActionParameter>
+            <ActionParameter name="prefix">/OrgMove/003/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+        
+        <Action name="sync_Pub3BufferedMsgs" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2pub3c</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec3c;OrgMoveV2pub3c</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToManyBuffered" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_Pub3BufferedMsgs" interval="500" />
+            <ActionParameter name="connection_id">CFP3</ActionParameter>
+            <ActionParameter name="prefix">/OrgMove/003/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+  
+  
+        <!-- it was cleansession=false, so this will leave a publisher client to delete --> 
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFP3</ActionParameter>
+        </Action>
+        
+    </Action>
+
+    
+<!-- ***  Receive 3  *** -->
+    <Action name="receive3" type="CompositeAction">
+        
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">ConS3</ActionParameter>
+            <ActionParameter name="connection_id">CFS3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server3.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-OrgMove-uid3</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Client should Receive old messages. -->
+		<Action name="ReceiveOldMessages" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="ReceiveOldMessage" type="ReceiveMessage"  >
+                <ActionParameter name="connection_id">CFS3</ActionParameter>
+                <ActionParameter name="structure_id">submsg3</ActionParameter>
+                <ActionParameter name="waitTime">6000</ActionParameter>
+            </Action>
+        </Action>
+        
+		<!-- Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMsgs" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS3</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg3</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+
+       <!-- Let Publisher know to publish -->
+       <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2rec3</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec3;OrgMoveV2pub3</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+
+		<!-- Client should Receive the Second Set of messages -->
+		<Action name="ReceiveNewMessages" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="ReceiveNewMessage" type="ReceiveMessage"  >
+                <ActionParameter name="connection_id">CFS3</ActionParameter>
+                <ActionParameter name="structure_id">submsg3</ActionParameter>
+                <ActionParameter name="waitTime">6000</ActionParameter>
+            </Action>
+        </Action>
+        
+		<!-- Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS3</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg3</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+
+       <!-- Let Publisher know to publish to buffer -->
+       <Action name="sync_Sub3BufferedMsgs" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2rec3c</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec3c</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFS3</ActionParameter>
+        </Action>          
+
+		
+    </Action>
+	
+
+<!-- ***** Client 4 starts here.  Subscriber consumed all messages of Publisher on the topic  
+     Verify Receive4 has no pending messages, 
+	 then have Publish4 publish some msgs and verify the Receive4 gets them.
+-->
+<!-- *** Publish4    *** -->
+    <Action name="publish4" type="CompositeAction">
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">ConP4</ActionParameter>
+            <ActionParameter name="connection_id">CFP4</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server3.xml</include>
+            <ApiParameter name="clientId">d:OrgMove:pub:cid4</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg4</ActionParameter>
+            <ActionParameter name="connection_id">CFP4</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by Publisher 4 in ORG ${OrgMove} </ApiParameter>
+        </Action>
+        
+
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+        <Action name="sync_components_4" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2pub4</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec4;OrgMoveV2pub4</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToMany" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_components_4" interval="500" />
+            <ActionParameter name="connection_id">CFP4</ActionParameter>
+            <ActionParameter name="prefix">/OrgMove/004/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+  
+        <!-- it was cleansession=false, so this will leave a publisher client to delete --> 
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFP4</ActionParameter>
+        </Action>
+        
+    </Action>
+
+    
+<!--  ***  Receive 4  ***  -->
+    <Action name="receive4" type="CompositeAction">
+        
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">ConS4</ActionParameter>
+            <ActionParameter name="connection_id">CFS4</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server3.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-OrgMove-uid4</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Client should not get any messages, since all were consumed. -->
+		<Action name="ReceiveNoMsgs" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS4</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg4</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+		
+        <!-- Let Publisher know to publish -->
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">OrgMoveV2rec4</ActionParameter>
+            <ActionParameter name="component_list">OrgMoveV2rec4;OrgMoveV2pub4</ActionParameter>
+            <ActionParameter name="timeout">720000</ActionParameter>
+        </Action>
+		<Action name="ReceiveMessages" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="ReceiveMessage" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CFS4</ActionParameter>
+                <ActionParameter name="structure_id">submsg4</ActionParameter>
+                <ActionParameter name="waitTime">6000</ActionParameter>
+            </Action>
+        </Action>
+        
+
+		<!-- Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CFS4</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg4</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+        
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFS4</ActionParameter>
+        </Action>          
+
+
+    </Action>
+	
+
+	
+	
+</IsmClientSetTest>
+                

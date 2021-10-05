@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_ssl_003
+
+  Test Category:  JMS SSL
+  
+  Test Description:
+    Test that Connection and Messaging Policies with ClientAddress set to
+    an IPv4 address or IPv6 address do not allow the opposite.
+    Also test that a user not in the group allowed by the policy is not
+    allowed to publish or subscribe.
+  
+    Connection Policies:
+    JMSSSLConnectionPolicy2 - Allows only M1_IPv4_1 address to connect.
+    
+    MessagingPolicies:
+    JMSSSLMessagingPolicy6 - Allows only M1_IPv6_1 to publish or subscribe to dest6
+    JMSSSLMessagingPolicy10 - Allows only JMSGroup3 to publish or subscribe to dest10
+
+    Endpoints:
+    JMSSSLEndpoint2 - Port 18467
+-->
+<ImaJmsTest name="jms_ssl_003">
+
+		<Action name="Create_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="18467"/>
+		</Action>
+		
+		<!-- Successfully connect as user JMSUser3.
+		     The connection policy allows IP=M1_IPv4_1. -->
+		<Action name="CreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+			<ApiParameter name="user">JMSUser3</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="Create_dest6" type="CreateDestination">
+			<ActionParameter name="structure_id">dest6</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest6</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest10" type="CreateDestination">
+			<ActionParameter name="structure_id">dest10</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest10</ApiParameter>
+		</Action>
+
+		<!-- Create a consumer on dest6.
+		     This fails because JMSSSLMessagingPolicy6 only allows IP=M1_IPv6_1 
+		     to subscribe to dest6. -->
+		<Action name="CreateConsumer1_dest6" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1_dest6</ActionParameter>
+			<ActionParameter name="dest_id">dest6</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a producer on dest6.
+		     This fails because JMSSSLMessagingPolicy6 only allows IP=M1_IPv6_1
+		     to publish to dest6. -->
+		<Action name="CreateProducer1_dest6" type="CreateProducer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">producer1_dest6</ActionParameter>
+			<ActionParameter name="dest_id">dest6</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a consumer on dest10.
+		     This fails because JMSSSLMessagingPolicy10 allows only members of JMSGroup3
+		     to subscribe to dest10 -->
+		<Action name="CreateConsumer1_dest10" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1_dest10</ActionParameter>
+			<ActionParameter name="dest_id">dest10</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a producer on dest10.
+		     This fails because JMSSSLMessagingPolicy10 allows only members of JMSGroup3
+		     to publish to dest10 -->
+		<Action name="CreateProducer1_dest10" type="CreateProducer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">producer1_dest10</ActionParameter>
+			<ActionParameter name="dest_id">dest10</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnection_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+</ImaJmsTest>

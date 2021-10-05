@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_v5connect_AssignCID" >
+<!--
+    This test will test a create connection without a ClientID specified.   
+	The CONNACK should return an assigned ClientID in properties 0x12.
+    NOTE:  This test CANNOT be run under IoT Rules since there are strict ways Clients and ACL are created 
+           In Ken's Requirement Doc 2371: 'not returned from the proxy as the proxy does not allow a zero length ClientId'.
+-->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_v5connect_AssignCID</solution>
+    </SyncClient>
+    
+<!--  ==========  Publish  ==========  -->
+    <Action name="publish" type="CompositeAction">
+<!--        -->
+        <Action name="EstablishMonitorTopics" type="RestAPI">
+            <ActionParameter name="structureID">stat_output_1</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"TopicMonitor":["/assignCID/#"]}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId"></ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+		
+        <Action name="CheckCONNACK" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="hasAssignedClientIdentifier">true</ApiParameter>  
+        </Action>    
+<!--
+MQTT receive 10 CONNECT connect=9 rc=0: len=16 
+00044d515454 0502 0023 03 22 0000 0000  
+[..MQTT...#."....]
+
+MQTT send 20 CONNACK connect=9: len=40 
+0000 25 12 0017 5f3136392e35332e3134362e31355f36427a5630464271 21 0100 22 0008 27 00400000  
+[..%..._169.53.146.15_6BzV0FBq!.."..'.@..]
+
+0x12 has a 0x17 byte CID assigned
+
+-->        
+        <Action name="CreateMessage1a" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1a</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"TEXT":"A message from AssignedClientIdentifier."}</ApiParameter>
+        </Action>
+        
+        <Action name="sync_components_tx1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rd1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+  
+        <Action name="SendMessage_1a" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1a</ActionParameter>
+            <ActionParameter name="topic">/assignCID</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>
+        
+        <Action name="ShowSub_WithConsumers" type="RestAPI">
+            <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+                
+        <Action name="CloseConnectionTx" type="CloseConnection">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+
+
+<!--  ==========  Receive-NDS  ==========  -->
+    <Action name="receive-NDS" type="CompositeAction">
+        <Action name="CreateNDSConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId"></ApiParameter>
+            <ApiParameter name="maxPacketSize">500</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+		
+        <Action name="CheckCONNACK" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="hasAssignedClientIdentifier">true</ApiParameter>  
+        </Action>    
+        
+        <Action name="Subscribe" type="Subscribe">
+               <ActionParameter name="connection_id">CF1</ActionParameter>
+               <ApiParameter name="topic">/assignCID</ApiParameter>
+               <ApiParameter name="subscriptionID">1</ApiParameter>
+               <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        <Action name="sync_components_rx1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rd1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveMessageShort" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+         </Action>
+         
+         <Action name="CheckMessageShort" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="compareBody">{"TEXT":"A message from AssignedClientIdentifier."}</ActionParameter>
+         </Action>
+         
+         <Action name="FinalRcv2" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+        
+        <Action name="CloseConnectionRx" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+
+
+<!--  ==========  Receive-DS  ==========  -->
+    <Action name="receive-DS" type="CompositeAction">
+        <Action name="CreateDSConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId"></ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">30</ApiParameter>
+        </Action>
+		
+        <Action name="CheckCONNACK" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ActionParameter name="storeAssignedClientID">USE_ASSIGNED_CID</ActionParameter>
+            <ApiParameter name="hasAssignedClientIdentifier">true</ApiParameter>  
+        </Action>    
+        
+        <Action name="Subscribe" type="Subscribe">
+               <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+               <ApiParameter name="topic">/assignCID</ApiParameter>
+               <ApiParameter name="subscriptionID">10</ApiParameter>
+               <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+        
+        
+  <Action name="restSubExist" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+<!--        <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=connectMPS.receive_DS</ActionParameter> -->
+        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+        
+        
+        <Action name="Close_DSConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+        </Action>
+        
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rd1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rd1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+        
+        
+  <Action name="restSubMsgArrive" type="RestAPI">
+      <dependsOn  action_id="sync_components_1" interval="2000"/>
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+<!--        <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=connectMPS.receive_DS</ActionParameter> -->
+        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+<!-- there should be ONLY TWO, as the others were tooooo big for max packet size and were Dropped-->
+<!--
+    <Action name="compareSubMsgArrive" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/assignCID</ActionParameter>
+<!- -  Temp- expect B=2, R=5 only  ?? - ->
+        <ObjectProperty name="BufferedMsgs" value="7" />
+        <ObjectProperty name="PublishedMsgs" value="7" />
+        <ObjectProperty name="RejectedMsgs" value="0" />
+        <ObjectProperty name="DiscardedMsgs" value="0" />
+    </Action>
+-->
+        
+    <Action name="restTopicMsgArrive" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Topic</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+<!--  
+    <Action name="compareTopicMsgArrive" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Topic</ActionParameter>
+        <ActionParameter name="subObjectKey">TopicString</ActionParameter>
+        <ActionParameter name="subObjectName">/assignCID/#</ActionParameter>
+<!- -  Temp- expect B=2, R=5 only - ->
+        <ObjectProperty name="PublishedMsgs" value="7" />
+        <ObjectProperty name="RejectedMsgs" value="0" />
+        <ObjectProperty name="FailedPublishes" value="0" />
+    </Action>
+-->
+
+
+        <Action name="ReConnect_DS" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+<!-- !TODO!  NEED A WAY TO retrieve the Assigned CID for reconnection TASK 213881 -->
+            <ApiParameter name="useAssignedClientID">USE_ASSIGNED_CID</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">30</ApiParameter>
+        </Action>
+		
+        <Action name="reCheckCONNACK" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="hasAssignedClientIdentifier">false</ApiParameter>  
+        </Action>    
+        
+        
+        <Action name="ReceiveMessageShort" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+         </Action>
+         
+         <Action name="CheckMessageShort" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="compareBody">{"TEXT":"A message from AssignedClientIdentifier."}</ActionParameter>
+         </Action>
+
+         <Action name="FinalRcv_DS" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        
+        <Action name="CloseConnection_DS" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+        
+        <Action name="RemoveMonitorTopics" type="RestAPI">
+            <ActionParameter name="structureID">stat_output_1</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+<!--            <ActionParameter name="path">/ima/v1/configuration/TopicMonitor//assignCID/%23</ActionParameter> -->
+            <ActionParameter name="path">/ima/v1/configuration/TopicMonitor//assignCID/#</ActionParameter>
+            <ActionParameter name="action">DELETE</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+    </Action>
+    
+</IsmWSTest>
+                

@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="PDF_ad01940_" xml:lang="en-us">
+<title>Configuring administration subscriptions </title>
+<shortdesc/>
+<conbody>
+<p>Admin Subscription are the way to ensure that a subscription which is being consumed from by only
+cleanSession=true clients can persist when no clients are connected. <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"/><ph
+conref="../TextEntities.dita#TextEntities/ISM"/></p>
+<p>When multiple MQTT clients are connected to a shared subscription and one of the clients
+disconnects after having received messages but not acknowledged them then in some cases, it is
+useful to have those message sent to another client (instead of being stranded waiting for the
+original client to reconnect and complete transmission). Resending to another client stops the
+messages waiting for the original client to return but it also creates duplicate messages (as the
+message has been sent to two clients that might both process the message).</p>
+<p><ph conref="../TextEntities.dita#TextEntities/ISM"/> resends the message to a different client if the transmission happens as QoS=1 and
+the server has no memory of the client (when the session for the client has finished). Therefore if
+this resending is desirable (i.e. a slight increase in duplicate messages is allowable) then clients
+need to remove their session when they disconnect (in MQTTv3.1.1 terminology CleanSession=TRUE). The
+complication is that if all the clients connected to the subscription are disconnected then the
+subscription is usually removed and the messages would be lost.</p>
+<p>Admin Subscription are the way to ensure that a subscription which is being consumed from by only
+cleanSession=true clients can persist when no clients are connected. Using the REST interface, a
+subscription can be created (or a flag can be added to an existing subscription) to record that it
+should not be discarded even if there are no clients with an interest in that subscription.</p>
+<p>To achieve this, the suggestion is that we will allow a subscription to be administratively
+created, or in the case of an existing subscription, flagged so that it will be considered
+administratively owned.These subscriptions will be defined / taken over using the standard
+<ph conref="../TextEntities.dita#TextEntities/ISM"/> REST interface with new types of objects representing different types of shared
+subscription...</p>
+<p>AdminSubscription for shared subscriptions in the __SharedM namespace (i.e. those connected to
+MQTT Clients with subscriptions starting $share)DurableNamespaceAdminSub for shared subscriptions in
+the __Shared namespace (i.e. those attached to by CleanSession=false clients via
+$SharedSubscription)NonpersistentAdminSub for shared subscriptions in the __SharedND namespace
+(attached to by CleanSession=true clients via $SharedSubscription)</p>
+<p>For all three, the config object's name is the same as the subscription name, for
+AdminSubscriptions this means that it includes the topic filter (and a leading '/') for the others
+it means that they cannot contain slashes (and the topic filter forms part of the definition). While
+this means that AdminSubscriptions have somewhat ugly names, it means that it is possible to tie up
+results coming from Subscription monitor results with the objects.</p>
+<codeblock>
+"AdminSubscription": {
+"/{ShareName}/{TopicFilter}": {
+"SubscriptionPolicy": "{PolicyName}",
+"MaxQualityOfService": {MaxQualityOfService},
+"AddRetainedMsgs": {AddRetainedMsgs},
+"QualityOfServiceFilter": "{QualityOfServiceFilter}"
+}
+}</codeblock>
+<p>{ShareName} and {TopicFilter} come from the topic on which a shared subscriber would subscribe
+($share/{ShareName}/{TopicFilter}){PolicyName} is the SubscriptionPolicy that this subscription
+should use for properties.{MaxQualityOfService} is the maximum QoS associated with the created
+subscription (0,1 or 2 are acceptable values) default: 0{AddRetainedMsgs} indicates whether, when
+the subscription is created, it should be populated with matching retained msgs (True or False).
+default: True{QualityOfServiceFilter} indicates whether a quality of service filter is applied to
+published messages before adding them to this subscription. The value can be "None" meaning no
+filtering applied (all messages are added to the subscription), "QoS=0" meaning that only messages
+published at QoS 0 are added to the subscription or "QoS>0" meaning that only messages published at
+QoS greater than 0 (so, 1 or 2) are added to the subscription - NOTE: these are the only available
+filter options. default: None.</p>
+<codeblock>
+"DurableNamespaceAdminSub": {
+"{SubName}": {
+"SubscriptionPolicy": "{PolicyName}",
+"TopicFilter": "{TopicFilter}",
+"MaxQualityOfService": {MaxQualityOfService},
+"AddRetainedMsgs": {AddRetainedMsgs},
+"QualityOfServiceFilter": "{QualityOfServiceFilter}"
+}
+}</codeblock>
+<p>{SubName} and {TopicFilter} come from the topic on which a shared subscriber would subscribe
+($SharedSubscription/{SubName}/{TopicFilter}){PolicyName} is the SubscriptionPolicy that this
+subscription should use for properties.{MaxQualityOfService}, {AddRetainedMsgs} and
+{QualityOfServiceFilter} are as above.</p>
+<codeblock>
+"NonpersistentAdminSub": {
+"{SubName}": {
+"TopicPolicy": "{PolicyName}",
+"TopicFilter": "{TopicFilter}",
+"MaxQualityOfService": {MaxQualityOfService},
+"AddRetainedMsgs": {AddRetainedMsgs},
+"QualityOfServiceFilter": "{QualityOfServiceFilter}"
+}
+}</codeblock>
+<p>{SubName} and {TopicFilter} come from the topic on which a shared subscriber would subscribe
+($SharedSubscription/{SubName}/{TopicFilter}){PolicyName} is the TopicPolicy that this subscription
+should use for properties.{MaxQualityOfService}, {AddRetainedMsgs} and {QualityOfServiceFilter} are
+as above.</p>
+<p>Because none of these subscriptions get created by a connected client application (and so don't
+come via an endpoint) the policies used to provide their properties don't have to appear on an
+endpoint either -- so you can define these with specific policies that are never used for
+authorization and use other policies on the endpoint to allow consumers to use the subscription --
+one upshot of this is that it is possible to actually have a subscription policy that only allows
+'Read' from a subscription since the creation is handled by the existence of the admin sub.</p>
+<p>Subscription monitoring results will include a "ConfigType" field for any subscriptions that have
+a configuration object associated with them. The 'ConfigType' will be one of "AdminSubscription",
+"DurableNamespaceAdminSub" or "NonpersistentAdminSub" thus enabling a user to see which object type
+it is.</p>
+<p>In order to delete a subscription that has config type associated with it, the user needs to use
+the configuration/ConfigType interface to perform the deletion, an attempt to delete via the
+service/Subscription will result in a (helpful) error message -- we need to do this to ensure that
+the config and engine view of these subs is consistent.</p>
+<p>Delete takes an additional query parameter, DiscardSharers, indicating whether (false) the delete
+request should just stop the subscription having an associated ConfigType (so that it will be
+deleted when all clients stop sharing it again) or whether (true) to also discard sharers causing
+the subscription to be deleted. The default is False.</p>
+<p/>
+<p/>
+<p/>
+<p/>
+<p/>
+<p>The following example shows a POST method to create a CRL profile by using cURL:</p>
+<codeblock> 
+curl -X POST \
+   -H  'Content-Type: application/json'  \
+   -d  '{                       
+           "CRLProfile": {   
+             "MyCRLProfile": {
+               "CRLSource": "file_crl.pem",
+               "UpdateInterval": 5,
+               "RevalidateConnection": false,
+               "Overwrite": false
+             }
+          }
+      }
+  '   \
+http://127.0.0.1:9089/ima/v1/configuration/</codeblock>
+<p>The following example shows an example response to the POST method:</p>
+<codeblock>
+{        
+  "Version": "v1",
+  "Code": "CWLNA6011",
+  "Message": "The requested configuration change has completed successfully."
+}
+</codeblock>
+<p/>
+<p/>
+<p/>
+<p>When you configure the cluster membership of an <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> server so that it joins a cluster, you must specify
+the following components:<ul>
+<li>
+<dl>
+<dlentry>
+<dt>Enable Cluster Membership</dt>
+<dd>Specifies whether clustering is enabled.</dd>
+<dd>If the server is to join a cluster, <apiname>Enable Cluster Membership</apiname> must be set to
+true.</dd>
+<dd>After the server is configured to join or leave a cluster, the server must be restarted for the
+cluster configuration to take effect.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Cluster Name</dt>
+<dd>Specifies the name of the cluster.</dd>
+<dd>The cluster name must be unique within the local area network.</dd>
+<dd>The name must not have leading or trailing spaces and cannot contain control characters, commas,
+double quotation marks, backslashes, or equal signs. The first character must not be a number or any
+of the following special characters: ! # $ % &amp; ' ( ) * + - . / : ; &lt; > ? @</dd>
+<dd>The cluster name cannot be changed while <apiname>Enable Cluster Membership</apiname> is
+true.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Control Address</dt>
+<dd>Specifies the local IP address of the network interface for the control channel. </dd>
+</dlentry>
+</dl>
+</li>
+</ul></p>
+<p>You can also specify the following components:<ul>
+<li>
+<dl>
+<dlentry>
+<dt>Use Multicast Discovery</dt>
+<dd>Specifies whether cluster members are in a list or discovered by multicast. </dd>
+<dd>If multicast discovery is specified, multicast is used to locate other members of the
+cluster.</dd>
+<dd>If multicast discovery is not to be used, you must specify a discovery server list.</dd>
+<dd>The resulting set of servers consists of the set that is located by multicast discovery or by
+using the discovery server list or both. The set also includes any servers that are known to any of
+the servers that are found by multicast discovery or by using the discovery server list.</dd>
+<dd>The default behavior is to use multicast discovery.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Multicast Discovery TTL</dt>
+<dd>Applies only when multicast discovery is being used.</dd>
+<dd>Specifies the number of routers, or hops, that multicast traffic is allowed to pass
+through.</dd>
+<dd>The value must be in the range 1-256.</dd>
+<dd>The default value is 1.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Discovery Server List</dt>
+<dd>Required when multicast discovery is not selected.</dd>
+<dd>Comma-separated list of servers in the cluster that the server is to join.</dd>
+<dd>The format that represents each server in the list is
+<codeph>ControlAddress:ControlPort</codeph></dd>
+<dd>It is good practice to specify the same two or three servers in the <apiname>Discovery Server
+List</apiname> on each server that is to join the cluster. New members of the cluster can then find
+one of the servers and receive all the information about the rest of the cluster. The resulting set
+of servers is the known set of all cluster members</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Control Port</dt>
+<dd>The local port number to use for the control channel.</dd>
+<dd>Ensure that the port number for the control channel is unique amongst all ports that are used in
+the server.</dd>
+<dd>The value must be in the range 1-65535.</dd>
+<dd>The default value is 9104.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Control External Address</dt>
+<dd>The host name or IP address of the control channel as it is known to other servers. The
+<apiname>Control External Address</apiname> can be different from the <apiname>Control
+Address</apiname> because it allows a resolvable name. The <apiname>Control External
+Address</apiname> can also be used when address mapping is used, or when a firewall is used to route
+connections.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Control External Port</dt>
+<dd>The external port number to use for the control channel as it is known to other servers. The
+external port is needed when the ports have been mapped and the port, as known locally, is not the
+same as the port known externally.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Messaging Address</dt>
+<dd>Specifies the local IP address of the network interface for the messaging channel. </dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Messaging Port</dt>
+<dd>The local port number to use for the messaging channel.</dd>
+<dd>Ensure that the port number for the messaging channel is unique amongst all ports that are used
+in the server.</dd>
+<dd>The value must be in the range 1-65535.</dd>
+<dd>The default value is 9105.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Messaging External Address</dt>
+<dd>The host name or IP address of the messaging channel as it is known to other servers. The
+<apiname>Messaging External Address</apiname> can be different from the <apiname>Messaging
+Address</apiname> because it allows a resolvable name. The <apiname>Messaging External
+Address</apiname> can also be used when address mapping is used, or when a firewall is used to route
+connections.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Messaging External Port</dt>
+<dd>The external port number to use for the messaging channel as it is known to other servers. The
+external port is needed when the ports have been mapped and the port, as known locally, is not the
+same as the port known externally.</dd>
+<dd>The value must be in the range 1-65535.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Messaging Use TLS</dt>
+<dd>Specifies whether the messaging channel is to use use Transport Layer Security (TLS).</dd>
+<dd>The default behavior is that the messaging channel does not use TLS.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Discovery Port</dt>
+<dd>Applies only when multicast discovery is being used.</dd>
+<dd>The port number to be used for multicast discovery. </dd>
+<dd>The port number must be the same for all members of the cluster.</dd>
+<dd>Specify a value in the range 1-65535.</dd>
+<dd>The default value is 9106.</dd>
+</dlentry>
+</dl>
+</li>
+<li>
+<dl>
+<dlentry>
+<dt>Discovery Time</dt>
+<dd>The time, in seconds, that the cluster spends during server start up to discover other servers
+in the cluster and get updated information from them.</dd>
+<dd>Specify a value in the range 1-2147483647.</dd>
+<dd>The default value is 10.</dd>
+</dlentry>
+</dl>
+</li>
+</ul></p>
+<p>For more information about configuring cluster membership by using the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"/>, see <xref href="ad00941_.dita"/>.</p>
+<p>For more information about configuring cluster membership by using <ph
+conref="../TextEntities.dita#TextEntities/RESTAPIs"/>, see <xref href="ad00942_.dita"/>.</p>
+</conbody>
+</concept>

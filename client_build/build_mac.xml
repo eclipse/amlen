@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="ismclient" default="build-client" basedir=".">
+	<echo/>
+	<echo/>
+	<echo>==== invoking ant build for client ====</echo>
+    <echo message="os.name = ${os.name}" />
+	<echo message="os.arch = ${os.arch}" />
+	<echo message="os.version = ${os.version}" />
+	
+   	<property name="client.build.dir" value="${basedir}"/>
+	
+	<!-- load client properties -->
+	<property file="${client.build.dir}/client_build.properties"/>
+	<property name="client.workspace" value="${client.build.dir}/.."/> 
+	
+	<!-- set environment variable client.workspace -->
+	<property environment="env"/>
+	<property name="env.client.workspace" value="${client.workspace}"/>
+	
+    <property name="publishBuildTools" location="${client.workspace}/build_tools" />
+	<property name="external.sdk.CandI.dir" value="${publishBuildTools}/applications/devworks_CandI_clients"/>
+
+	<property name="client.common.dir" value="${client.workspace}/client_ship"/>
+	<property name="client.common.inc.dir" value="${client.common.dir}/include"/>
+	<property name="client.common.lib.dir" value="${client.common.dir}/lib"/>
+	<property name="client.common.bin.dir" value="${client.common.dir}/bin"/>
+	<property name="client.common.lib64.dir" value="${client.common.dir}/lib64"/>
+	<property name="client.common.debug.lib64.dir" value="${client.common.dir}/debug/lib64"/>
+	<property name="client.common.lib32.dir" value="${client.common.dir}/lib32"/>
+	<property name="client.common.debug.lib32.dir" value="${client.common.dir}/debug/lib32"/>
+	<property name="client.common.web.dir" value="${client.common.dir}/web"/>
+	<property name="client.common.web.js.dir" value="${client.common.web.dir}/js"/>
+	<property name="client.common.web.css.dir" value="${client.common.web.dir}/css"/>
+	<property name="client.mqttv3sample.c.dir" value="${client.build.dir}/../client_mqttv3sample_C"/>
+	<!-- the following property should be change if we put jms jars on the build machine -->
+	<property name="jms.jar.dir" value="${client.jms.dir}"/>
+	
+	<!-- build server projects first -->
+    <target name="build-client" depends="client_init">
+        <echo>==== invoking ant build for client ====</echo>
+    	<ant dir="${client.mqttv3sample.c.dir}" inheritRefs="true"/>
+    	<antcall target="client_tmp_copy"/>
+    </target>
+	
+	<target name="client_tmp_copy">
+        <mkdir dir="${client.common.dir}/test/client_jms"/>
+		<copy todir="${client.common.dir}/test/client_jms">
+                    <fileset dir="${client.jms.dir}/bin/test">
+		           <exclude name="**/*.so.map"/>
+		    </fileset>		
+		</copy>
+	</target>
+	
+	<target name="buildjmsbench" depends="build-client">
+    	<echo>==== invoking ant build for JMS perf benchmark test ====</echo>
+		<ant dir="${client.workspace}/perf_utils" inheritRefs="true"/>
+		<copy todir="${client.common.lib64.dir}">
+		    <fileset dir="${client.workspace}/perf_utils/lib64"/>
+		</copy>
+	</target>
+	
+	<target name="buildmqttbench" depends="build-client">
+    	<echo>==== invoking ant build for MQTT perf benchmark test ====</echo>
+		<ant dir="${client.workspace}/client_mqttbench" inheritRefs="true"/>
+		<copy todir="${client.common.lib64.dir}">
+		    <fileset dir="${client.workspace}/client_mqttbench/lib64"/>
+		</copy>
+	</target>
+	
+	<target name="buildmqttbench2" depends="build-client">
+    	<echo>==== invoking ant build for MQTT perf benchmark test ====</echo>
+		<ant dir="${client.workspace}/client_mqttbench2" inheritRefs="true"/>
+		<copy todir="${client.common.lib64.dir}">
+		    <fileset dir="${client.workspace}/client_mqttbench2/lib64"/>
+		</copy>
+	</target>
+	
+	<target name="buildmqttv3samples">
+    	<echo>==== invoking ant build for MQTT java samples ====</echo>
+		<ant dir="${client.workspace}/client_mqttv3sample_java" inheritRefs="true"/>
+	</target>
+	
+    <!-- Initialize the build environment -->
+	<target name="client_init">
+		<mkdir dir="${client.common.inc.dir}"/>
+		<mkdir dir="${client.common.lib.dir}"/>
+	    <mkdir dir="${client.common.bin.dir}"/>
+		<mkdir dir="${client.common.lib64.dir}"/>
+		<mkdir dir="${client.common.debug.lib64.dir}"/>
+		<mkdir dir="${client.common.web.dir}"/>
+		<mkdir dir="${client.common.web.js.dir}"/>
+		
+    	<!-- change file permissions of scripts -->
+    	<chmod perm="755">
+    		<fileset id="scripts" dir="${client.build.dir}">
+	    		<include name="build.sh"/>
+	    	</fileset>
+    	</chmod>
+	</target>
+	
+	<target name="client_clean">
+		<echo> ==  clean ISM client build ================ </echo>
+		<delete dir="${client.common.inc.dir}"/>
+		<delete dir="${client.common.lib.dir}"/>
+	    <delete dir="${client.common.bin.dir}"/>
+	    <delete dir="${client.workspace}/client_ship/bin"/>
+	    <delete dir="${client.workspace}/client_ship/include"/>
+	    <delete dir="${client.workspace}/client_ship/lib"/>
+        <delete dir="${client.workspace}/client_ship/lib64"/>
+        <delete dir="${client.workspace}/client_ship/test"/>
+        <delete dir="${client.workspace}/client_ship/debug"/>
+        <delete dir="${client.workspace}/client_ship/web"/>
+        <delete dir="${client.workspace}/client_jms/bin"/>
+   <!-- <delete dir="${client.workspace}/client_ismc/bin"/>
+        <delete dir="${client.workspace}/client_ismc/lib"/>
+        <delete dir="${client.workspace}/client_ismc/debug"/> -->
+        <delete dir="${client.workspace}/client_mqtt/bin"/>
+        <delete dir="${client.workspace}/client_mqttv3sample_C/bin"/>
+        <delete dir="${client.workspace}/client_mqttv3sample_C/lib"/>
+        <delete dir="${client.workspace}/client_mqttv3sample_C/debug"/>
+        <delete dir="${client.workspace}/client_mqttv3sample_java/bin"/>
+		<delete dir="${client.workspace}/client_mqttbench/bin"/>
+		<delete dir="${client.workspace}/client_mqttbench/debug"/>
+		<delete dir="${client.workspace}/client_mqttbench2/bin"/>
+		<delete dir="${client.workspace}/client_mqttbench2/debug"/>
+	</target>
+</project>

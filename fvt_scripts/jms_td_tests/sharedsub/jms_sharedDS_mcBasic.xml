@@ -1,0 +1,985 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_sharedDS_mcbasic.xml
+
+  Test Category:  JMS_msgdelivery
+  
+  Test Description:
+    Test concurrent consumers using a durable shared subscription and synchronous receive. 
+    Note: when consumers in different connections share a subscription, you must use a 
+    generated clientID. (or is it just two different clientID's?) 
+
+	The three consumers (1 and 2 and 3) come up, and subscribe to a durable shared subscription. 
+
+	Then the producer comes up and starts sending messages. (12,000 total).
+
+	Each consumer should get at least some of the messages, to verify they are 
+	appropriately sharing.  Exact equal sharing is NOT guaranteed.  
+
+	Consumer1 and Consumer3 then close. And Consumer2 receives an  additional  messages. 
+	
+	Consumer2 unsubscribes, and cues the producer to send messages while no subscription exists.
+	
+	Consumer1 and Consumer3 restart, verify that the messages sent while there was no consumer
+	are NOT received.  (Defect 36447 was found when at this step of the test. It is intermittent rc=212 
+	on createConsumer()).
+	
+	Then they cue the producer to send messages again, and verify they are again sharing messages
+	from a topic. (Each getting some of them.) 
+	
+	All consumers will be synchronous, and in different connections/sessions/processes.
+	
+	Finally, Consumer1 unsubscribes again. 
+    
+-->
+<ImaJmsTest name="jms_sharedDS_mcBasic">
+
+   <SyncClient>
+	<server>
+	    <include>../common/JMS_syncip.xml</include>
+		<include>../common/JMS_syncport.xml</include>
+	</server>
+	<solution>DS_mcBasic</solution>
+    </SyncClient>
+
+    <Action name="prod1" type="CompositeAction">
+    
+	<Action name="Createprod_cf1" type="CreateConnectionFactory">
+	    <ActionParameter name="structure_id">prod1_cf1</ActionParameter>
+	    <!-- ActionParameter name="loglevel">9</ActionParameter>
+	    <ActionParameter name="logfile">stdout</ActionParameter -->
+	</Action>
+
+	<Action name="CreateListener_prod" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_prod" type="FillIsmProps">
+		<ActionParameter name="structure_id">prod1_cf1</ActionParameter>
+	   <ActionParameter name="validateAll">true</ActionParameter>
+	    <ActionParameter name="validateNoWarn">false</ActionParameter>
+	    <ImaProperty name="ClientID" value="prod_sharedSub_basic_clientid" type="STRING"/>
+	    <include>../common/JMS_server.xml</include>
+	    <ImaProperty name="Port" value="18504" type="STRING"/>
+		</Action>
+        
+	<Action name="CreateConnectionprod1_cf1" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_prod1_cf1</ActionParameter>
+	    <ActionParameter name="factory_id">prod1_cf1</ActionParameter>
+		<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+        
+	<Action name="CreateSession1prod1_conn_cf1" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+	    <ActionParameter name="structure_id">session1_prod1_cf1</ActionParameter>
+	</Action>
+
+	<Action name="Createprod1_dest1" type="CreateDestination">
+	    <ActionParameter name="structure_id">prod1_dest1</ActionParameter>
+	    <ApiParameter name="name">sharedDS_mcBasic</ApiParameter>
+	    <ActionParameter name="type">topic</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer1prod1_dest1" type="CreateProducer">
+	    <ActionParameter name="structure_id">producer1</ActionParameter>
+	    <ActionParameter name="dest_id">prod1_dest1</ActionParameter>
+	    <ActionParameter name="session_id">session1_prod1_cf1</ActionParameter>
+	</Action>
+        
+	<Action name="StartConnectionprod1_cf1" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+	</Action>
+        
+	<!-- PRODUCER: Create messages -->
+        
+	<Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+	    <ActionParameter name="structure_id">prod1_txt_msg1</ActionParameter>
+	    <ActionParameter name="session_id">session1_prod1_cf1</ActionParameter>
+	    <ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>	
+        
+	<!-- PRODUCER: Set message content -->                
+	<Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	    <ApiParameter name="value">TEXT: Message sent from jms_sharedDS_mcBasic.xml test.</ApiParameter>
+	</Action>	
+        
+	<Action name="SetMessageProperty" type="SetMessageProperty">
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	    <ApiParameter name="propertyName">ID</ApiParameter>
+	    <ApiParameter name="propertyType">Common</ApiParameter>
+	    <ApiParameter name="valueType">Integer</ApiParameter>
+	    <ApiParameter name="value">1</ApiParameter>
+	</Action>
+        
+	<Action name="StartConnection_cf1" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+	</Action>
+        
+	<Action name="sync_components_prod1a" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1a</ActionParameter>
+	    <ActionParameter name="component_list">prod1a;cons1a</ActionParameter>
+	    <ActionParameter name="timeout">15000</ActionParameter>
+	</Action>
+	
+	<Action name="SendBytesMessage_prod" type="SendMessage" repeat_interval="0" repeat="1500" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	    <ActionParameter name="incrID">1</ActionParameter>
+	</Action>	
+	
+	<!-- wait for all consumers to be up to continue sending. -->
+	<Action name="sync_components_prod1" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1</ActionParameter>
+	    <ActionParameter name="component_list">prod1;cons1;cons2;cons3;Collector</ActionParameter>
+	    <ActionParameter name="timeout">15000</ActionParameter>
+	</Action>	
+	
+	<!-- Action name="ShowSubStats_1500Sent_3Subscribers" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=sharedDS_mcBasic ClientID=__Shared </ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+		<Action name="ShowSubStats_1500Sent_3Subscribers" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=sharedDS_mcBasic&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+    	<Action name="compareSubStats_1500Sent_3Subscribers" type="CompareREST">
+        	<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">sharedDS_mcBasic</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+        	<ObjectProperty name="PublishedMsgs" value="1500"/>
+        	<ObjectProperty name="Consumers" value="3"/>
+        	<ObjectProperty name="IsDurable" value="true"/>
+        	<ObjectProperty name="IsShared" value="true"/>
+    	</Action> 		    			
+
+	<Action name="SendBytesMessage_prod_more" type="SendMessage" repeat_interval="0" repeat="10500" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	    <ActionParameter name="incrID">1</ActionParameter>
+	</Action>
+
+	<!-- an unsubscribe after receiving lots of messages has been completed. So send some more messages -->
+	<Action name="sync_components_prod1b" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1b</ActionParameter>
+	    <ActionParameter name="component_list">prod1b;cons2b</ActionParameter>
+	    <ActionParameter name="timeout">250000</ActionParameter>
+	</Action>
+	
+	<Action name="SendBytesMessage_NoSubExists" type="SendMessage" repeat_interval="0" repeat="25" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	    <ActionParameter name="incrID">1</ActionParameter>
+	</Action>	
+	
+	<!-- Wake up consumer 1 and 3 and resubscribe, but the 25 messages shouldn't be received, since there was no 
+		subscription in existence when they were sent -->
+	<Action name="sync_components_prod1c" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1c</ActionParameter>
+	    <ActionParameter name="component_list">prod1c;cons1c;cons3c</ActionParameter>
+	    <ActionParameter name="timeout">25000</ActionParameter>
+	</Action>	
+	
+	<!-- Wait for them to be created, and then start sending messages again --> 
+	<Action name="sync_components_prod1d" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1d</ActionParameter>
+	    <ActionParameter name="component_list">prod1d;cons1d;cons3d;Collectord</ActionParameter>
+	    <ActionParameter name="timeout">25000</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage_RecreatedSubExists" type="SendMessage" repeat_interval="0" repeat="3000" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	    <ActionParameter name="incrID">1</ActionParameter>
+	</Action>			
+   
+	<Action name="CloseConnectionprod1_cf1" type="CloseConnection">
+	    <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+	</Action>
+    </Action>
+
+    <Action name="cons1" type="CompositeAction">
+
+	<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+	<Action name="syncReset" type="SyncAction">
+	    <ActionParameter name="request">reset</ActionParameter>
+	</Action>
+
+	<!-- Initialize the SyncDriver values -->
+	<Action name="syncInit1" type="SyncAction">
+	    <ActionParameter name="request">init</ActionParameter>
+	    <ActionParameter name="condition">syncPoint</ActionParameter>
+  	</Action>         
+
+	<Action name="CreateFactory_cons1" type="CreateConnectionFactory">
+	     <ActionParameter name="structure_id">cf1</ActionParameter>
+	    <!-- ActionParameter name="loglevel">9</ActionParameter>
+	    <ActionParameter name="logfile">stdout</ActionParameter -->
+	</Action>
+
+	<Action name="CreateListener_cons1" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_cons1" type="FillIsmProps">      
+	    <ActionParameter name="structure_id">cf1</ActionParameter>
+	    <ActionParameter name="validateAll">true</ActionParameter>
+	    <ActionParameter name="validateNoWarn">false</ActionParameter>
+	    <include>../common/JMS_server.xml</include>
+	    <ImaProperty name="Port" value="18504" type="STRING"/>
+	</Action>	
+
+	<Action name="CreateConnection_cf1" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="factory_id">cf1</ActionParameter>
+	    <ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+        
+	<Action name="CreateSession1_conn_cf1" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="structure_id">session_con1</ActionParameter>
+	</Action>
+        
+	<Action name="CreateDestination_cons1" type="CreateDestination">
+		<ApiParameter name="name">sharedDS_mcBasic</ApiParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ActionParameter name="structure_id">destCons1</ActionParameter>
+	</Action>     
+
+	<!-- create producer to resend messages to a collector -->                                                                                         	
+	<Action name="Createprod1_ToCollector" type="CreateDestination">
+	    <ActionParameter name="structure_id">prod1_cons1</ActionParameter>
+	    <ApiParameter name="name">sharedDS_mcBasic/Cons1</ApiParameter>
+	    <ActionParameter name="type">topic</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer1_ToCollector" type="CreateProducer">
+	    <ActionParameter name="structure_id">producer1</ActionParameter>
+	    <ActionParameter name="dest_id">prod1_cons1</ActionParameter>
+	    <ActionParameter name="session_id">session_con1</ActionParameter>
+	</Action>	
+
+    <!--  We use CreateSharedDurableConsumer to create a durable Shared Subscription.  -->
+	<Action name="CreateConsumer1" type="CreateSharedDurableConsumer">                        
+		<ActionParameter name="structure_id">consumer1</ActionParameter>
+		<ActionParameter name="dest_id">destCons1</ActionParameter>
+		<ActionParameter name="session_id">session_con1</ActionParameter>
+		<ApiParameter name="durableName">sharedDS_mcBasic</ApiParameter>
+	</Action>
+                                                                  
+	<Action name="StartConnection_cf1" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+
+	<Action name="sync_components_cons1a" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons1a</ActionParameter>
+	    <ActionParameter name="component_list">prod1a;cons1a</ActionParameter>
+	    <ActionParameter name="timeout">15000</ActionParameter>
+	</Action>	
+            
+	<!-- wait for the other consumers to be ready, and for the producer to send the 1500 messages -->            
+	<Action name="sync_components_cons1" type="SyncComponentAction"> 	
+	    <ActionParameter name="component_name">cons1</ActionParameter>
+	    <ActionParameter name="component_list">prod1;cons1;cons2;cons3;Collector</ActionParameter>
+	    <ActionParameter name="timeout">60000</ActionParameter>
+	</Action>	
+        
+	<Action name="CompositeConsume" type="CompositeAction" repeat="10000" repeat_interval="0" atleast="500">
+	    <Action name="RcvTextMessage_consumer1" type="ReceiveMessage" interval="0" >
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">cons1_message</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>  
+	    
+		<Action name="SendMessage_to_Collector" type="SendMessage" >
+			<dependsOn name="RcvTextMessage_consumer1" interval="0"/>
+	    	<ActionParameter name="producer_id">producer1</ActionParameter>
+	    	<ActionParameter name="message_id">cons1_message</ActionParameter>
+		</Action>	    
+	</Action>
+	
+	<Action name="CloseConnection_cf1" type="CloseConnection">
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+	
+	<!-- Consumser 2 sees this, and does an unsubscribe, thus causing the JMS shared Durable Subscription
+		to be deleted. And then it queues the producer to send 25 messages while the subscription does not
+		exist. -->
+	<Action name="sync_components_cons1_allDoneReceiving" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons1allDone</ActionParameter>
+	    <ActionParameter name="component_list">cons1allDone;cons2allDone;cons3allDone</ActionParameter>
+	    <ActionParameter name="timeout">220000</ActionParameter>
+	</Action>  		
+	
+	<!-- Wake up consumer 1 and resubscribe, but the 25 messages sent while there was no  
+		subscription shouldn't be received. -->
+	<Action name="sync_components_cons1c" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons1c</ActionParameter>
+	    <ActionParameter name="component_list">prod1c;cons1c;cons3c</ActionParameter>
+	    <ActionParameter name="timeout">250000</ActionParameter>
+	</Action>	
+ 
+ 	<Action name="reCreateConnection_cf1" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="factory_id">cf1</ActionParameter>
+	    <ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+        
+	<Action name="reCreateSession1_conn_cf1" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="structure_id">session_con1b</ActionParameter>
+	</Action>
+
+	<!--  We use CreateSharedDurableConsumer to create a durable Shared Subscription. -->
+	<Action name="reCreateConsumer1" type="CreateSharedDurableConsumer">                        
+		<ActionParameter name="structure_id">consumer1</ActionParameter>
+		<ActionParameter name="dest_id">destCons1</ActionParameter>
+		<ActionParameter name="session_id">session_con1b</ActionParameter>
+		<ApiParameter name="durableName">sharedDS_mcBasic</ApiParameter>
+	</Action>
+
+	<Action name="ReCreateProducer1_ToCollector" type="CreateProducer">
+	    <ActionParameter name="structure_id">producer1</ActionParameter>
+	    <ActionParameter name="dest_id">prod1_cons1</ActionParameter>
+	    <ActionParameter name="session_id">session_con1b</ActionParameter>
+	</Action>	
+
+	<Action name="reStartConnection_cf1" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+        
+	<Action name="RcvMessage_consumer1bfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+	    <ActionParameter name="consumer_id">consumer1</ActionParameter>
+	    <ActionParameter name="structure_id">cons1_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">2000</ApiParameter>
+	</Action> 
+	
+	<!-- Tell producer to start sending. --> 
+	<Action name="sync_components_cons1d" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons1d</ActionParameter>
+	    <ActionParameter name="component_list">prod1d;cons1d;cons3d;Collectord</ActionParameter>
+	    <ActionParameter name="timeout">120000</ActionParameter>
+	</Action>	
+	
+	<Action name="CompositeConsume_onRecreatedSub" type="CompositeAction" repeat="3000" repeat_interval="0" atleast="100">
+	    <Action name="RcvTextMessage_consumer1" type="ReceiveMessage" interval="0" >
+		<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		<ActionParameter name="structure_id">cons1_message</ActionParameter>
+		<ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>   
+	    
+	    <Action name="SendMessage_to_Collector" type="SendMessage" >
+			<dependsOn name="RcvTextMessage_consumer1" interval="0"/>
+	    	<ActionParameter name="producer_id">producer1</ActionParameter>
+	    	<ActionParameter name="message_id">cons1_message</ActionParameter>
+		</Action>	             
+	</Action>
+	
+	<!-- Action name="ShowSubStats_3000Sent_Subscribers" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=sharedDS_mcBasic ClientID=__Shared </ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+	<Action name="ShowSubStats_3000Sent_Subscribers" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=sharedDS_mcBasic&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareSubStats_3000Sent_Subscribers" type="CompareREST">
+        	<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">sharedDS_mcBasic</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+        	<ObjectProperty name="PublishedMsgs" value="3000"/>
+        	<ObjectProperty name="IsDurable" value="true"/>
+        	<ObjectProperty name="IsShared" value="true"/>
+    	</Action> 		    			 
+	
+	<!-- time to close.   --> 
+	<Action name="sync_components_cons1e" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons1e</ActionParameter>
+	    <ActionParameter name="component_list">cons1e;cons3e;Collectore</ActionParameter>
+	    <ActionParameter name="timeout">120000</ActionParameter>
+	</Action>		
+		
+	<Action name="reCloseConsumer1" type="CloseConsumer">
+		<ActionParameter name="consumer_id">consumer1</ActionParameter>
+	</Action>
+
+	<Action name="Unsubscribe" type="Unsubscribe">
+		<dependsOn name="reCloseConsumer1" interval="500"/>
+		<ActionParameter name="session_id">session_con1b</ActionParameter>
+		<ApiParameter name="durableName">sharedDS_mcBasic</ApiParameter>
+	</Action>	
+	
+	<!-- Action name="ShowNoSubAgain" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=sharedDS_mcBasic ClientID=__Shared </ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+		<ActionParameter name="expected_rc">1</ActionParameter>
+	</Action -->
+
+    <Action name="SubGoneRest" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=sharedDS_mcBasic&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CompareSubgone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">sharedDS_mcBasic</ActionParameter>
+    </Action> 	       
+
+	<Action name="reCloseConnection_cf1" type="CloseConnection">
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>	
+		
+    </Action>   <!-- End of cons1 -->
+    
+    
+    <Action name="cons2" type="CompositeAction">
+
+	<Action name="CreateFactory_cons2" type="CreateConnectionFactory">
+	<ActionParameter name="structure_id">cf2</ActionParameter>
+        <!-- ActionParameter name="loglevel">9</ActionParameter>
+	<ActionParameter name="logfile">stdout</ActionParameter -->    
+	</Action>
+
+	<Action name="CreateListener_cons2" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener2</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_cons2" type="FillIsmProps">
+	    <ActionParameter name="structure_id">cf2</ActionParameter>
+	    <ActionParameter name="validateAll">true</ActionParameter>
+	    <ActionParameter name="validateNoWarn">false</ActionParameter>
+	    <include>../common/JMS_server.xml</include>
+	    <ImaProperty name="Port" value="18504" type="STRING"/>
+	</Action>
+
+	<Action name="CreateConnection_cf2" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_cf2</ActionParameter>
+	    <ActionParameter name="factory_id">cf2</ActionParameter>
+	    <ApiParameter name="exceptionListener">listener2</ApiParameter>
+	</Action>
+        
+	<Action name="CreateSession2" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+	    <ActionParameter name="structure_id">session_cons2</ActionParameter>
+	</Action>
+        
+	<Action name="CreateDestination_cons2" type="CreateDestination">
+		<ApiParameter name="name">sharedDS_mcBasic</ApiParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ActionParameter name="structure_id">destCons2</ActionParameter>
+	</Action>
+
+	<Action name="Createprod2_ToCollector" type="CreateDestination">
+	    <ActionParameter name="structure_id">prod1_cons2</ActionParameter>
+	    <ApiParameter name="name">sharedDS_mcBasic/Cons2</ApiParameter>
+	    <ActionParameter name="type">topic</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer2_ToCollector" type="CreateProducer">
+	    <ActionParameter name="structure_id">producer2</ActionParameter>
+	    <ActionParameter name="dest_id">prod1_cons2</ActionParameter>
+	    <ActionParameter name="session_id">session_cons2</ActionParameter>
+	</Action>	
+                                                                                            
+        <!--  We use CreateSharedDurableConsumer -->
+	<Action name="CreateConsumer2" type="CreateSharedDurableConsumer">                       
+		<ActionParameter name="structure_id">consumer2</ActionParameter>
+		<ActionParameter name="dest_id">destCons2</ActionParameter>
+		<ActionParameter name="session_id">session_cons2</ActionParameter>
+		<ApiParameter name="durableName">sharedDS_mcBasic</ApiParameter>
+	</Action>			
+
+	<Action name="StartConnection_cf2" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+	</Action>
+        
+	<Action name="sync_components_cons2" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons2</ActionParameter>
+	    <ActionParameter name="component_list">prod1;cons1;cons2;cons3;Collector</ActionParameter>
+	    <ActionParameter name="timeout">60000</ActionParameter>
+	</Action>        
+        
+	<Action name="Consumer2" type="CompositeAction" repeat="10000" repeat_interval="0" atleast="300">
+	    <Action name="RcvTextMessage_consumer2" type="ReceiveMessage">
+		<ActionParameter name="consumer_id">consumer2</ActionParameter>
+		<ActionParameter name="structure_id">cons2_message</ActionParameter>
+		<ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+
+	    <Action name="SendMessage_to_Collector" type="SendMessage" >
+			<dependsOn name="RcvTextMessage_consumer2" interval="0"/>
+	    	<ActionParameter name="producer_id">producer2</ActionParameter>
+	    	<ActionParameter name="message_id">cons2_message</ActionParameter>
+		</Action>	           	    
+	                
+	</Action>	
+
+	<Action name="sync_components_cons2_allDoneReceiving" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons2allDone</ActionParameter>
+	    <ActionParameter name="component_list">cons1allDone;cons2allDone;cons3allDone</ActionParameter>
+	    <ActionParameter name="timeout">220000</ActionParameter>
+	</Action>  	
+
+        <!-- 12000 messages were sent to the shared subscription. Each Consumer received at least 2000. The Collector 
+        will verify all 12000 were received. And there should be no more to receive.  --> 
+
+	<Action name="RcvMessage_consumer2fail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+	    <ActionParameter name="consumer_id">consumer2</ActionParameter>
+	    <ActionParameter name="structure_id">cons2_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">5000</ApiParameter>
+	</Action>  
+	
+	<!-- Action name="ShowSubStats_12000Sent_Subscribers" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=sharedDS_mcBasic ClientID=__Shared </ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+	<Action name="ShowSubStats_12000Sent_Subscribers" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=sharedDS_mcBasic&amp;ClientID=__Shared</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareSubStats_12000Sent_Subscribers" type="CompareREST">
+        	<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">SubName</ActionParameter>
+        	<ActionParameter name="subObjectName">sharedDS_mcBasic</ActionParameter>
+        	<ActionParameter name="subObjectKeyB">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectNameB">__Shared</ActionParameter>
+        	<ObjectProperty name="PublishedMsgs" value="12000"/>
+        	<ObjectProperty name="BufferedMsgs" value="0"/>
+        	<ObjectProperty name="IsDurable" value="true"/>
+        	<ObjectProperty name="IsShared" value="true"/>
+    	</Action> 		    			 
+					
+
+	<!-- Action name="ShowSubStatsCollector_12000Sent_toCollector" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST``  imaserver stat Subscription ClientID=mcBasic_Coll  </ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+	<Action name="ShowSubStatsCollector_12000Sent_Subscribers" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=mcBasic_Coll</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareSubStatsCollector_12000Sent_Subscribers" type="CompareREST">
+        	<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectName">mcBasic_Coll</ActionParameter>
+        	<ObjectProperty name="PublishedMsgs" value="12000"/>
+        	<ObjectProperty name="BufferedMsgs" value="12000"/>
+        	<ObjectProperty name="IsDurable" value="false"/>
+        	<ObjectProperty name="IsShared" value="false"/>
+    	</Action> 					
+
+	<Action name="CloseConsumer2" type="CloseConsumer">
+		<ActionParameter name="consumer_id">consumer2</ActionParameter>
+	</Action>
+
+	<Action name="Unsubscribe" type="Unsubscribe">
+		<ActionParameter name="session_id">session_cons2</ActionParameter>
+		<ApiParameter name="durableName">sharedDS_mcBasic</ApiParameter>
+	</Action>
+
+	<!-- Action name="ShowNoSubExists" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=sharedDS_mcBasic ClientID=__Shared </ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+		<ActionParameter name="expected_rc">1</ActionParameter>
+	</Action -->
+	
+	 <Action name="SubGoneRest2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=sharedDS_mcBasic&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="ShowSubgone2" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_G</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">sharedDS_mcBasic</ActionParameter>
+    </Action>
+        
+	<Action name="CloseConnection_cf2" type="CloseConnection">
+	    <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+	</Action>
+	
+	<Action name="sync_components_cons2b" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons2b</ActionParameter>
+	    <ActionParameter name="component_list">prod1b;cons2b</ActionParameter>
+	    <ActionParameter name="timeout">25000</ActionParameter>
+	</Action>  	
+
+    </Action>	      <!-- end of cons2 --> 
+
+   <Action name="cons3" type="CompositeAction">
+
+	<Action name="CreateFactory_cons3" type="CreateConnectionFactory">
+	     <ActionParameter name="structure_id">cf3</ActionParameter>
+	    <!-- ActionParameter name="loglevel">9</ActionParameter>
+	    <ActionParameter name="logfile">stdout</ActionParameter -->
+	</Action>
+
+	<Action name="CreateListener_cons3" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener3</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_cons3" type="FillIsmProps">      
+	    <ActionParameter name="structure_id">cf3</ActionParameter>
+	    <ActionParameter name="validateAll">true</ActionParameter>
+	    <ActionParameter name="validateNoWarn">false</ActionParameter>
+	    <include>../common/JMS_server.xml</include>
+	    <ImaProperty name="Port" value="18504" type="STRING"/>
+	</Action>
+
+	<Action name="CreateConnection_cf3" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_cf3</ActionParameter>
+	    <ActionParameter name="factory_id">cf3</ActionParameter>
+	    <ApiParameter name="exceptionListener">listener3</ApiParameter>
+	</Action>
+        
+	<Action name="CreateSession3_conn_cf3" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+	    <ActionParameter name="structure_id">session_con3</ActionParameter>
+	</Action>
+        
+	<Action name="CreateDestination_cons3" type="CreateDestination">
+		<ApiParameter name="name">sharedDS_mcBasic</ApiParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ActionParameter name="structure_id">destCons3</ActionParameter>
+	</Action>
+
+	<Action name="Createprod3_ToCollector" type="CreateDestination">
+	    <ActionParameter name="structure_id">prod1_cons3</ActionParameter>
+	    <ApiParameter name="name">sharedDS_mcBasic/Cons3</ApiParameter>
+	    <ActionParameter name="type">topic</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer3_ToCollector" type="CreateProducer">
+	    <ActionParameter name="structure_id">producer3</ActionParameter>
+	    <ActionParameter name="dest_id">prod1_cons3</ActionParameter>
+	    <ActionParameter name="session_id">session_con3</ActionParameter>
+	</Action>	
+
+
+	<!--  We use CreateSharedDurableConsumer -->
+	<Action name="CreateConsumer3" type="CreateSharedDurableConsumer">                        
+		<ActionParameter name="structure_id">consumer3</ActionParameter>
+		<ActionParameter name="dest_id">destCons3</ActionParameter>
+		<ActionParameter name="session_id">session_con3</ActionParameter>
+		<ApiParameter name="durableName">sharedDS_mcBasic</ApiParameter>
+	</Action>                                                                                      
+
+	<Action name="StartConnection_cf3" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+	</Action>
+	
+	<Action name="sync_components_cons3" type="SyncComponentAction"> 	
+	    <ActionParameter name="component_name">cons3</ActionParameter>
+	    <ActionParameter name="component_list">prod1;cons1;cons2;cons3;Collector</ActionParameter>
+	    <ActionParameter name="timeout">60000</ActionParameter>
+	</Action>	
+        
+	<Action name="CompositeConsume" type="CompositeAction" repeat="10000" repeat_interval="0" atleast="500">
+	    <Action name="RcvTextMessage_consumer3" type="ReceiveMessage" interval="0" >
+		<ActionParameter name="consumer_id">consumer3</ActionParameter>
+		<ActionParameter name="structure_id">cons3_message</ActionParameter>
+		<ApiParameter name="timeout">5000</ApiParameter>
+	    </Action> 
+	    
+	    <Action name="SendMessage_to_Collector" type="SendMessage" >
+			<dependsOn name="RcvTextMessage_consumer3" interval="0"/>
+	    	<ActionParameter name="producer_id">producer3</ActionParameter>
+	    	<ActionParameter name="message_id">cons3_message</ActionParameter>
+		</Action>	               
+	</Action>
+
+	<Action name="CloseConnection_cf3" type="CloseConnection">
+	    <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+	</Action>
+	
+	<Action name="sync_components_cons3_allDoneReceiving" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons3allDone</ActionParameter>
+	    <ActionParameter name="component_list">cons1allDone;cons2allDone;cons3allDone</ActionParameter>
+	    <ActionParameter name="timeout">220000</ActionParameter>
+	</Action>  		
+	<!-- Wake up consumer 3 and resubscribe, but the 25 messages sent while there was no  
+		subscription shouldn't be received. -->
+	<Action name="sync_components_cons3c" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons3c</ActionParameter>
+	    <ActionParameter name="component_list">prod1c;cons1c;cons3c</ActionParameter>
+	    <ActionParameter name="timeout">200000</ActionParameter>
+	</Action>	
+ 
+ 	<Action name="reCreateConnection_cf3" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_cf3</ActionParameter>
+	    <ActionParameter name="factory_id">cf3</ActionParameter>
+	    <ApiParameter name="exceptionListener">listener3</ApiParameter>
+	</Action>
+        
+	<Action name="reCreateSession1_conn_cf3" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+	    <ActionParameter name="structure_id">session_con3b</ActionParameter>
+	</Action>
+
+	<Action name="reCreateProducer2_ToCollector" type="CreateProducer">
+	    <ActionParameter name="structure_id">producer3</ActionParameter>
+	    <ActionParameter name="dest_id">prod1_cons3</ActionParameter>
+	    <ActionParameter name="session_id">session_con3b</ActionParameter>
+	</Action>	
+
+	<Action name="reCreateConsumer3" type="CreateSharedDurableConsumer">                        
+		<ActionParameter name="structure_id">consumer3</ActionParameter>
+		<ActionParameter name="dest_id">destCons3</ActionParameter>
+		<ActionParameter name="session_id">session_con3b</ActionParameter>
+		<ApiParameter name="durableName">sharedDS_mcBasic</ApiParameter>
+	</Action>
+
+	<Action name="reStartConnection_cf3" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+	</Action>
+        
+	<Action name="RcvMessage_consumer3bfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+	    <ActionParameter name="consumer_id">consumer3</ActionParameter>
+	    <ActionParameter name="structure_id">cons3_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">2000</ApiParameter>
+	</Action> 
+	
+	<!-- Tell producer to start sending.. and bring up consumer 3 again. --> 
+	<Action name="sync_components_cons3d" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons3d</ActionParameter>
+	    <ActionParameter name="component_list">prod1d;cons1d;cons3d;Collectord</ActionParameter>
+	    <ActionParameter name="timeout">120000</ActionParameter>
+	</Action>	
+	
+	<Action name="CompositeConsume_onRecreatedSub" type="CompositeAction" repeat="3000" repeat_interval="0" atleast="100" >
+	    <Action name="RcvTextMessage_consumer3" type="ReceiveMessage" interval="0" >
+		<ActionParameter name="consumer_id">consumer3</ActionParameter>
+		<ActionParameter name="structure_id">cons3_message</ActionParameter>
+		<ApiParameter name="timeout">4000</ApiParameter>
+	    </Action> 
+	    
+	    <Action name="SendMessage_to_Collector" type="SendMessage" >
+			<dependsOn name="RcvTextMessage_consumer3" interval="0"/>
+	    	<ActionParameter name="producer_id">producer3</ActionParameter>
+	    	<ActionParameter name="message_id">cons3_message</ActionParameter>
+		</Action>	           	    
+	               
+	</Action>		
+
+	<!-- Action name="ShowSubStatsCollector_15000Sent_toCollector" type="ShellAction">
+		<dependsOn name="CompositeConsume_onRecreatedSub" interval="1200"/>
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription ClientID=mcBasic_Coll</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+	<Action name="ShowSubStatsCollector_15000Sent_toCollector" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=mcBasic_Coll</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+      	<Action name="compareSSubStatsCollector_15000Sent_toCollector" type="CompareREST">
+        	<ActionParameter name="structureID">stat_output_1</ActionParameter>
+        	<ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        	<ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        	<ActionParameter name="subObjectName">mcBasic_Coll</ActionParameter>
+        	<ObjectProperty name="PublishedMsgs" value="15000"/>
+        	<ObjectProperty name="BufferedMsgs" value="15000"/>
+        	<ObjectProperty name="IsDurable" value="false"/>
+        	<ObjectProperty name="IsShared" value="false"/>
+    	</Action> 		  		
+	
+	<!-- Tell Collector he can close.  --> 
+	<Action name="sync_components_cons3e" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons3e</ActionParameter>
+	    <ActionParameter name="component_list">cons1e;cons3e;Collectore</ActionParameter>
+	    <ActionParameter name="timeout">60000</ActionParameter>
+	</Action>		
+	
+	<Action name="reCloseConsumer3" type="CloseConsumer">
+		<dependsOn name="sync_components_cons3e" interval="0"/>
+		<ActionParameter name="consumer_id">consumer3</ActionParameter>
+	</Action>
+	
+	<Action name="reCloseConnection_cf3" type="CloseConnection">
+	    <ActionParameter name="conn_id">connection_cf3</ActionParameter>
+	</Action>
+	
+		
+    </Action>   <!-- End of cons3 -->
+
+    <Action name="collector" type="CompositeAction">
+
+	<Action name="CreateFactory_Collector" type="CreateConnectionFactory">
+	<ActionParameter name="structure_id">cfcol</ActionParameter>
+        <ActionParameter name="loglevel">9</ActionParameter>
+	<ActionParameter name="logfile">stdout</ActionParameter>    
+	</Action>
+
+	<Action name="CreateListener_Collector" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener2</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_Collector" type="FillIsmProps">
+	    <ActionParameter name="structure_id">cfcol</ActionParameter>
+	    <ActionParameter name="validateAll">true</ActionParameter>
+	    <ActionParameter name="validateNoWarn">false</ActionParameter>
+	    <ImaProperty name="ClientID" value="mcBasic_Coll" type="STRING"/>
+	    <include>../common/JMS_server.xml</include>
+	    <ImaProperty name="Port" value="18504" type="STRING"/>
+	</Action>
+
+	<Action name="CreateConnection_cfcol" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_cfcol</ActionParameter>
+	    <ActionParameter name="factory_id">cfcol</ActionParameter>
+	    <ApiParameter name="exceptionListener">listener2</ApiParameter>
+	</Action>
+        
+	<Action name="CreateSession_Collector" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_cfcol</ActionParameter>
+	    <ActionParameter name="structure_id">session_Collector</ActionParameter>
+	</Action>
+        
+	<Action name="CreateDestination_Collector" type="CreateDestination">
+		<ApiParameter name="name">sharedDS_mcBasic/+</ApiParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ActionParameter name="structure_id">destCollector</ActionParameter>
+	</Action>
+                                                                                            
+	<Action name="CreateCollector" type="CreateConsumer">                       
+		<ActionParameter name="structure_id">collector</ActionParameter>
+		<ActionParameter name="dest_id">destCollector</ActionParameter>
+		<ActionParameter name="session_id">session_Collector</ActionParameter>
+	</Action>			
+
+	<Action name="StartConnection_cfcol" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_cfcol</ActionParameter>
+	</Action>
+        
+	<Action name="sync_components_Collector" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">Collector</ActionParameter>
+	    <ActionParameter name="component_list">prod1;cons1;cons2;cons3;Collector</ActionParameter>
+	    <ActionParameter name="timeout">60000</ActionParameter>
+	</Action>        
+        
+	<!-- Action name="Collector" type="CompositeAction" repeat="1000" repeat_interval="0" >
+	    <Action name="RcvTextMessage_collector" type="ReceiveMessage" interval="0" >
+		<ActionParameter name="consumer_id">collector</ActionParameter>
+		<ActionParameter name="structure_id">Collector_message</ActionParameter>
+		<ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>            
+	</Action>	
+
+	<Action name="RcvMessage_collectorfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+	    <ActionParameter name="consumer_id">collector</ActionParameter>
+	    <ActionParameter name="structure_id">Collector_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">5000</ApiParameter>
+	</Action --> 
+	
+	 <Action name="sync_components_Collectord" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">Collectord</ActionParameter>
+	    <ActionParameter name="component_list">prod1d;cons1d;cons3d;Collectord</ActionParameter>
+	    <ActionParameter name="timeout">350000</ActionParameter>
+	</Action>	
+
+	<!-- Action name="Collector_2ndRecive" type="CompositeAction" repeat="4000" repeat_interval="0" >
+	    <Action name="RcvTextMessage_collector" type="ReceiveMessage" interval="0" >
+		<ActionParameter name="consumer_id">collector</ActionParameter>
+		<ActionParameter name="structure_id">Collector_message</ActionParameter>
+		<ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>            
+	</Action>	
+
+	<Action name="RcvMessage_collectorfail_again" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+	    <ActionParameter name="consumer_id">collector</ActionParameter>
+	    <ActionParameter name="structure_id">Collector_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">5000</ApiParameter>
+	</Action --> 
+
+	<!-- Tell Collector it is time to close.   --> 
+	<Action name="sync_components_collectore" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">Collectore</ActionParameter>
+	    <ActionParameter name="component_list">cons1e;cons3e;Collectore</ActionParameter>
+	    <ActionParameter name="timeout">200000</ActionParameter>
+	</Action>		
+	
+	<Action name="CloseCollector" type="CloseConsumer">
+		<ActionParameter name="consumer_id">collector</ActionParameter>
+	</Action>
+
+ 	<Action name="CloseConnection_cfcol" type="CloseConnection">
+	    <ActionParameter name="conn_id">connection_cfcol</ActionParameter>
+	</Action>
+
+    </Action>	      <!-- end of Collector --> 
+
+
+</ImaJmsTest>

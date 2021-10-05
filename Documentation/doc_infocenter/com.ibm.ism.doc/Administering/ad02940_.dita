@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ad02940_.dita" xml:lang="en-us">
+<title>Configuring administrative subscriptions </title>
+<shortdesc>Use administrative subscriptions to ensure that a subscription continues to exist and
+receive messages when there are no clients that are using the subscription. </shortdesc>
+<taskbody>
+<context>
+<p>You might want to use administrative subscriptions (admin subscriptions) to allow ephemeral
+clients to share a subscription that is not removed, along with any buffered messages, in the event
+of all clients being disconnected due to a network outage. Examples of ephemeral clients might
+include MQTT v3.1.1 clients with a clean session flag set to <userinput>true</userinput>, or MQTT v5
+clients with a session expiry interval set to <userinput>0</userinput>. </p>
+<p>When multiple MQTT clients are connected to a shared subscription, and one client disconnects
+after  receiving messages but  before sending an acknowledgment, it can be useful to have those
+messages sent to another client rather than waiting for the original client to reconnect and
+complete transmission of the acknowledgment. Resending the messages to another client prevents the
+messages waiting for the original client to reconnect but does create duplicate messages, as the
+message is sent to two clients that might both process the message.</p>
+<p><ph conref="../TextEntities.dita#TextEntities/ISM"/> re-sends the message to a different client
+if the transmission happens as a Quality of service (QoS) 1, and if the server has no memory of the
+client when the session for the client is finished. Therefore, if duplicate messages are acceptable
+and you want to resend a message, the clients must remove their session when on disconnecting from
+<ph conref="../TextEntities.dita#TextEntities/ISM"/>. If all clients that are connected to the
+subscription are disconnected, then the subscription might be removed, and the messages are lost.
+<note>In MQTTv3.1.1 the terminology <filepath>CleanSession=true</filepath> is used.</note>
+</p>
+<p>Use REST APIs to create a subscription, or to flag an existing subscription as an admin
+subscription to specify that the subscription is not discarded, even if there are no clients
+consuming that subscription. Admin subscriptions are defined by using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API with new types of objects that are used to
+represent the following types of shared subscription:<dl>
+<dlentry>
+<dt>AdminSubscription </dt>
+<dd>Used by shared subscriptions in the <filepath>__SharedM</filepath> namespace</dd>
+<dd>Connected to MQTT Clients with subscriptions starting with <filepath>$share</filepath></dd>
+</dlentry>
+<dlentry>
+<dt>DurableNamespaceAdminSub </dt>
+<dd>Used by shared subscriptions in the <filepath>__Shared</filepath> namespace</dd>
+<dd>Attached to by <filepath>CleanSession=false</filepath> clients by using
+<filepath>$SharedSubscription</filepath></dd>
+</dlentry>
+<dlentry>
+<dt>NonpersistentAdminSub </dt>
+<dd>Used by shared subscriptions in the <filepath>__SharedND</filepath> namespace</dd>
+<dd>Attached to by <filepath>CleanSession=true</filepath> clients by using
+<filepath>$SharedSubscription</filepath></dd>
+</dlentry>
+</dl></p>
+<p>For all three types of subscription, the name of the configuration object must match the
+subscription name. For admin subscriptions, the name must include the topic filter and a leading
+forward slash character '/' . For the other subscriptions, the name must not contain slashes, and
+the topic filter must form part of the definition. This naming convention makes it possible to link
+the results that come from Subscription monitor with the configuration objects.</p>
+<p>The following example shows the format of the payload that is required to create an admin
+subscription:</p>
+<codeblock>
+"AdminSubscription": {
+                    "/{ShareName}/{TopicFilter}": {      
+                          "SubscriptionPolicy": "{PolicyName}",
+                          "MaxQualityOfService": {MaxQualityOfService},
+                          "AddRetainedMsgs": {AddRetainedMsgs},
+                          "QualityOfServiceFilter": "{QualityOfServiceFilter}"
+                          }
+                      }
+</codeblock>
+<p>where:<ul>
+<li><codeph>{ShareName}</codeph> and <codeph>{TopicFilter}</codeph> are taken from the topic on
+which a shared subscriber subscribes. </li>
+<li><codeph>$share/{ShareName}/{TopicFilter}){PolicyName}</codeph> is the
+<parmname>SubscriptionPolicy</parmname> that this subscription uses for properties.</li>
+<li>
+<codeph>{MaxQualityOfService}</codeph> is the maximum QoS that associated with the created
+subscription. Valid values are <userinput>0</userinput>,<userinput>1</userinput>, or
+<userinput>2</userinput>. The default value is <userinput>0</userinput>.</li>
+<li><codeph>{AddRetainedMsgs}</codeph> specifies whether, when the subscription is created, it
+should be populated with matching retained messages. Valid values are <userinput>True</userinput> or
+<userinput>False</userinput>. The default value is <userinput>True</userinput>.</li>
+<li><codeph>{QualityOfServiceFilter}</codeph> specifies whether a quality of service filter is
+applied to published messages before the messages are added to the subscription. Valid values are:<ul>
+<li><userinput>None</userinput>. no filtering applied (all messages are added to the
+subscription)</li>
+<li><userinput>QoS=0</userinput>. meaning that only messages published at QoS 0 are added to the
+subscription</li>
+<li><userinput>QoS>0</userinput>. meaning that only messages published at QoS greater than 0 (so, 1
+or 2) are added to the subscription .these are the only available filter options. default:
+None.</li>
+</ul></li>
+</ul></p>
+<p>The following example shows the format of the payload that is required to create a global-shared
+durable admin subscription:</p>
+<codeblock>
+"DurableNamespaceAdminSub": {
+                     "{SubName}": {
+                             "SubscriptionPolicy": "{PolicyName}",
+                             "TopicFilter": "{TopicFilter}",
+                             "MaxQualityOfService": {MaxQualityOfService},      
+                             "AddRetainedMsgs": {AddRetainedMsgs},
+                             "QualityOfServiceFilter": "{QualityOfServiceFilter}"   
+                             } 
+                       }
+</codeblock>
+<p>where:<ul>
+<li><codeph>{SubName}</codeph> and <codeph>{TopicFilter}</codeph> are taken from the topic on which
+a shared subscriber subscribes. </li>
+<li><codeph>$SharedSubscription/{SubName}/{TopicFilter}){PolicyName}</codeph> is the
+<parmname>SubscriptionPolicy</parmname> that this subscription uses for properties.</li>
+<li>
+<codeph>{MaxQualityOfService}</codeph> is the maximum QoS that associated with the created
+subscription. Valid values are <userinput>0</userinput>,<userinput>1</userinput>, or
+<userinput>2</userinput>. The default value is <userinput>0</userinput>.</li>
+<li><codeph>{AddRetainedMsgs}</codeph> specifies whether, when the subscription is created, it
+should be populated with matching retained messages. Valid values are <userinput>True</userinput> or
+<userinput>False</userinput>. The default value is <userinput>True</userinput>.</li>
+<li><codeph>{QualityOfServiceFilter}</codeph> specifies whether a quality of service filter is
+applied to published messages before the messages are added to the subscription. Valid values are:<ul>
+<li><userinput>None</userinput>. no filtering applied (all messages are added to the
+subscription)</li>
+<li><userinput>QoS=0</userinput>. meaning that only messages published at QoS 0 are added to the
+subscription</li>
+<li><userinput>QoS>0</userinput>. meaning that only messages published at QoS greater than 0 (so, 1
+or 2) are added to the subscription .these are the only available filter options. default:
+None.</li>
+</ul></li>
+</ul></p>
+<p>The following example shows the format of the payload that is required to create a global-shared
+non-durable admin subscription:</p>
+<codeblock>
+"NonpersistentAdminSub": {
+                  "{SubName}": { 
+                      "TopicPolicy": "{PolicyName}",
+                      "TopicFilter": "{TopicFilter}",
+                      "MaxQualityOfService": {MaxQualityOfService}, 
+                      "AddRetainedMsgs": {AddRetainedMsgs},
+                      "QualityOfServiceFilter": "{QualityOfServiceFilter}"
+                          }
+                    }
+</codeblock>
+<p>where:<ul>
+<li><codeph>{SubName}</codeph> and <codeph>{TopicFilter}</codeph> are taken from the topic on which
+a shared subscriber subscribes. </li>
+<li><codeph>$SharedSubscription/{SubName}/{TopicFilter}){PolicyName}</codeph> is the
+<parmname>TopicPolicy</parmname> that this subscription uses for its properties.</li>
+<li>
+<codeph>{MaxQualityOfService}</codeph> is the maximum QoS that is associated with the subscription.
+Valid values are <userinput>0</userinput>,<userinput>1</userinput>, or <userinput>2</userinput>. The
+default value is <userinput>0</userinput>.</li>
+<li><codeph>{AddRetainedMsgs}</codeph> specifies whether, when the subscription is created, it is
+populated with matching retained messages. Valid values are <userinput>True</userinput> or
+<userinput>False</userinput>. The default value is <userinput>True</userinput>.</li>
+<li><codeph>{QualityOfServiceFilter}</codeph> specifies whether a quality of service filter is
+applied to published messages before the messages are added to the subscription. Valid values are:<ul>
+<li><userinput>None</userinput>. No filtering is applied so all messages are added to the
+subscription. This value is the default value.</li>
+<li><userinput>QoS=0</userinput>. Only messages that are published at QoS 0 are added to the
+subscription.</li>
+<li><userinput>QoS>0</userinput>. Only messages that are published at QoS greater than 0 are added
+to the subscription.</li>
+</ul></li>
+</ul></p>
+<p>These types of subscription are not created by a connected client application, and therefore do
+not come through an endpoint. The policies that are used to provide the subscription properties do
+not have to appear on an endpoint either, so you can define these types of subscription with
+specific policies that are not used for authorization, and that use other policies on the endpoint
+to allow consumers to use the subscription. This configuration means that it is possible to have a
+subscription policy that only allows a 'Read' action from a subscription, because the creation of
+the subscription is handled by the administrative subscription.</p>
+<p>Subscription monitoring results include a <uicontrol>ConfigType</uicontrol> field for
+subscriptions that have an associated configuration object. The <uicontrol>ConfigType</uicontrol>
+can be set to either <userinput>AdminSubscription</userinput>,
+<userinput>DurableNamespaceAdminSub</userinput>, or <userinput>NonpersistentAdminSub</userinput> so
+that a user can see which object type is associated with the subscription.</p>
+<p>To delete a subscription that has an associated configuration type, use the
+<filepath>configuration/ConfigType</filepath> interface to ensure that the configuration and engine
+view of the subscriptions is consistent. Using the <filepath>service/Subscription</filepath>
+interface to delete the subscription generates an error message. </p>
+<p>When deleting a subscription, the additional query parameter,
+<parmname>DiscardSharers</parmname>, can be set to either <userinput>false</userinput> or
+<userinput>true</userinput>. A value of  <userinput>false</userinput>  means that the delete request
+stops the subscription from having an associated <uicontrol>ConfigType</uicontrol>, so that the
+subscription is deleted when all clients stop sharing it. A value of  <userinput>true</userinput>
+additionally discards sharers, so the subscription is deleted. The default value is
+<userinput>false</userinput>.</p>
+</context>
+<example>
+<p>The following example shows a GET method to list MQTTv5 style $share shared subscriptions by
+using cURL:</p>
+<codeblock>
+curl -X GET \
+   -m 10 \
+   -u "admin:admin" \
+   -k  \
+https://127.0.0.1:9089/ima/v1/configuration/AdminSubscription</codeblock>
+<p>The following example shows a POST method to create an MQTTv5 style $share shared subscription by
+using cURL:</p>
+<codeblock>
+curl -X POST \
+   -m 10 \
+   -u "admin:admin" \
+   -k  \
+   -d '
+         {"AdminSubscription": 
+          {"/MySubShareName/Topic1/Topic2/Topic3/#": 
+           {"SubscriptionPolicy":"MySubscriptionPolicy"}  
+          }
+         }
+  ' \
+https://127.0.0.1:9089/ima/v1/configuration</codeblock>
+<p>The following example shows a GET method to view  MQTTv5 style $share shared subscriptions by
+using cURL:</p>
+<codeblock>
+curl -X GET \
+   -m 10 \
+   -u "admin:admin" \
+   -k  \
+http://127.0.0.1:9089/ima/v1/configuration/AdminSubscription/MySubShareName/Topic1/Topic2/Topic3/%23</codeblock>
+<p>The following example shows a DELETE method to delete an MQTTv5  style $share shared subscription
+by using cURL:</p>
+<codeblock> 
+curl -X DELETE  \
+   -m 10 \
+   -u "admin:admin" \
+   -k \
+http://127.0.0.1:9089/ima/v1/configuration/AdminSubscription/MySubShareName?DiscardSharers=false</codeblock>
+<p>The following example shows a GET method to list $SharedSubscription style durable shared
+subscription by using cURL:</p>
+<codeblock>
+curl -X GET \
+   -m 10 \
+   -u "admin:admin" \
+   -k  \
+https://127.0.0.1:9089/ima/v1/configuration/DurableNamespaceAdminSub</codeblock>
+<p>The following example shows a POST method to create a $SharedSubscription style durable shared
+subscription by using cURL:</p>
+<codeblock>
+curl -X POST \
+   -m 10 \
+   -u "admin:admin" \
+   -k  \
+   -d '
+         {"DurableNamespaceAdminSub": 
+          { "MyDNSubShareName": 
+           {"SubscriptionPolicy":"DemoSubscriptionPolicy", 
+            "TopicFilter": "Topic1/Topic2/Topic3/#"
+           }  
+          }
+         }
+  ' \
+https://127.0.0.1:9089/ima/v1/configuration</codeblock>
+<p>The following example shows a GET method to view $SharedSubscription style durable shared
+subscriptions by using cURL:</p>
+<codeblock>
+curl -X GET \
+   -m 10 \
+   -u "admin:admin" \
+   -k  \
+http://127.0.0.1:9089/ima/v1/configuration/DurableNamespaceAdminSub/MyDNSubShareName</codeblock>
+<p>The following example shows a DELETE method to delete a $SharedSubscription style durable shared
+subscription by using cURL:</p>
+<codeblock> 
+curl -X DELETE  \
+   -m 10 \
+   -u "admin:admin" \
+   -k \
+http://127.0.0.1:9089/ima/v1/configuration/DurableNamespaceAdminSub/MyDNSubShareName?DiscardSharers=false</codeblock>
+</example>
+</taskbody>
+</task>

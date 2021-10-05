@@ -1,0 +1,711 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name:  RESTAPI_jms_OrgMove_ClientSet    (derived from: JMS_DS_003)
+
+   Test Category:  JMS Durable Subscription
+
+   Test Description:
+   Test that a durable subscription receives messages that were sent while
+   the subscription is inactive.
+
+   Also, piggybacking on this test is the setup for a sequence over 3 tests
+   which will test changing the topic name of a durable subscriber on different
+   connections, and ensure we can still receive messages. Components with the
+   postfix "_lucky" are involved with this test. (part 1 of 3)
+
+   *****************************************************************************/
+  -->
+<ImaJmsTest name="RESTAPI_jms_OrgMove_ClientSet.xml" >
+  <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_multiClientSet</solution>
+  </SyncClient>
+
+<!-- Receiver0 Setup -->
+  <Action name="rx0_setup" type="CompositeAction">
+        <!-- This side runs on machine 2! -->
+
+        <Action name="CreateFactory_RX" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+          <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+          <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+        </Action>
+
+        <Action name="CreateListener_RX" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_RX" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="a-OrgMove-jms0" type="STRING"/>
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_RX" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+            <ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+            <!-- ApiParameter name="user">JMSUser1</ApiParameter -->
+            <!-- ApiParameter name="passwd">test</ApiParameter -->
+            <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_RX" type="CreateSession">
+            <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+            <ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_RX0_0" type="CreateDestination">
+            <ApiParameter name="name">/OrgMove/000/jms_0</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">destRX</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_RX0_lucky" type="CreateDestination">
+            <ApiParameter name="name">/OrgMove/000/jms_0/lucky</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">dest_rx_lucky</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer0" type="CreateDurableSubscriber">
+          <ActionParameter name="structure_id">a-OrgMove-jms0</ActionParameter>
+          <ActionParameter name="dest_id">destRX</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+          <ApiParameter name="durableName">/OrgMove/000/durableSub0</ApiParameter>
+          <ApiParameter name="selector">null</ApiParameter>
+        </Action>
+
+        <Action name="CreateConsumer_lucky" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">a-OrgMove-uid_lucky</ActionParameter>
+            <ActionParameter name="dest_id">dest_rx_lucky</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+            <ApiParameter name="durableName">/OrgMove/000/durable_sub0_lucky</ApiParameter>
+            <ApiParameter name="selector">null</ApiParameter>
+        </Action>
+
+        <Action name="StartConnection_RX1" type="StartConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_RX1" type="SyncComponentAction">
+          <ActionParameter name="component_name">rx1</ActionParameter>
+          <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+          <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv" type="CompositeAction" expected="10" interval="0" repeat_interval="0">
+            <Action name="ReceiveMessage1-1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">15000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageBytes" type="GetMessageText">
+              <dependsOn name="ReceiveMessage1-1" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage2" type="ReceiveMessage">
+              <dependsOn name="GetMessageBytes" interval="0"/>
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageText2" type="GetMessageText">
+              <dependsOn name="ReceiveMessage2" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage3" type="ReceiveMessage">
+              <dependsOn name="GetMessageText2" interval="0"/>
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageBytes3" type="GetMessageText">
+              <dependsOn name="ReceiveMessage3" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">symbol=MSFT|bid=27.09|ask=30.19</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage_lucky" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">a-OrgMove-uid_lucky</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg_lucky</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+        </Action>
+
+
+        <Action name="CloseSession_RX1" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_RX2" type="SyncComponentAction">
+          <ActionParameter name="component_name">rx1a</ActionParameter>
+          <ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+          <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection_RX1" type="StopConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_RX1" type="CloseConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+    </Action>
+	
+<!-- PRODUCER0  -->
+    <Action name="tx0_setup" type="CompositeAction">
+        <!-- This side runs on machine 1! -->
+        <Action name="CreateFactory_TX" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+          <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+          <!-- <ActionParameter name="logfile">stdout</ActionParameter>  -->
+        </Action>
+
+        <Action name="CreateListener_TX" type="CreateExceptionListener">
+          <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_TX" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <ImaProperty name="ClientID" value="d:OrgMove:pub:jms0" type="STRING"/>
+          <include>../common/JMS_server.xml</include>
+          <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_TX" type="CreateConnection">
+          <ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+          <ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+          <!-- ApiParameter name="user">JMSUser2</ApiParameter -->
+          <!-- ApiParameter name="passwd">test</ApiParameter -->
+          <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_TX" type="CreateSession">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+          <ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_TX0_0" type="CreateDestination">
+          <ApiParameter name="name">/OrgMove/000/jms_0</ApiParameter>
+          <ActionParameter name="type">topic</ActionParameter>
+          <ActionParameter name="structure_id">destTX</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_TX0_lucky" type="CreateDestination">
+            <ApiParameter name="name">/OrgMove/000/jms_0/lucky</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">dest_tx_lucky</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+          <ActionParameter name="structure_id">d:OrgMove:pub:jms0</ActionParameter>
+          <ActionParameter name="dest_id">destTX</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer_lucky" type="CreateProducer">
+            <ActionParameter name="structure_id">d:OrgMove:pub:uid_lucky</ActionParameter>
+            <ActionParameter name="dest_id">dest_tx_lucky</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection_TX" type="StartConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+          <ActionParameter name="structure_id">txmsg1</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+          <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessage1Text" type="SetMessageText">
+          <ActionParameter name="message_id">txmsg1</ActionParameter>
+          <ApiParameter name="value">This is a test string message</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage2" type="CreateMessage">
+          <ActionParameter name="structure_id">txmsg2</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+          <ApiParameter name="msgType">TEXT</ApiParameter>
+          <ApiParameter name="msgParam">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage3" type="CreateMessage">
+          <ActionParameter name="structure_id">txmsg3</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+          <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessage3Text" type="SetMessageText">
+          <ActionParameter name="message_id">txmsg3</ActionParameter>
+          <ApiParameter name="value">symbol=MSFT|bid=27.09|ask=30.19</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage_lucky" type="CreateMessage">
+            <ActionParameter name="structure_id">msg_lucky</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+            <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessageText_lucky" type="SetMessageText">
+            <ActionParameter name="message_id">msg_lucky</ActionParameter>
+            <ApiParameter name="value">Are ya feelin' lucky, punk?</ApiParameter>
+        </Action>
+
+        <Action name="sync_components_TX1" type="SyncComponentAction">
+          <ActionParameter name="component_name">tx1</ActionParameter>
+          <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+          <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeSnd" type="CompositeAction" repeat="10" interval="0" repeat_interval="0">
+            <Action name="SendMessage1" type="SendMessage">
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage2" type="SendMessage">
+              <dependsOn name="SendMessage1" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg2</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage3" type="SendMessage">
+              <dependsOn name="SendMessage2" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_lucky" type="SendMessage">
+              <dependsOn name="SendMessage3" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:uid_lucky</ActionParameter>
+                <ActionParameter name="message_id">msg_lucky</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="sync_components_TX2" type="SyncComponentAction">
+          <ActionParameter name="component_name">tx1a</ActionParameter>
+          <ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+          <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeSnd2" type="CompositeAction" repeat="10" interval="0" repeat_interval="0">
+            <Action name="SendMessage1" type="SendMessage">
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage2" type="SendMessage">
+                <dependsOn name="SendMessage1" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg2</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage3" type="SendMessage">
+                <dependsOn name="SendMessage2" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg3</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="CloseSession_TX" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+        </Action>
+        <Action name="StopConnection_TX" type="StopConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+        <Action name="CloseConnection_TX" type="CloseConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+  </Action>
+
+
+<!-- Receiver0 Post ImEx on A3 -->
+  <Action name="rx0_postA3" type="CompositeAction">
+        <!-- This side runs on machine 2! -->
+
+        <Action name="CreateFactory_RX" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+          <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+          <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+        </Action>
+
+        <Action name="CreateListener_RX" type="CreateExceptionListener">
+            <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_RX" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="ClientID" value="a-OrgMove-jms0" type="STRING"/>
+            <include>../common/JMS_server3.xml</include>
+            <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_RX" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+            <ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+            <!-- ApiParameter name="user">JMSUser1</ApiParameter -->
+            <!-- ApiParameter name="passwd">test</ApiParameter -->
+            <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_RX" type="CreateSession">
+            <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+            <ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_RX" type="CreateDestination">
+            <ApiParameter name="name">/OrgMove/000/jms_0</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">destRX</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_RX_lucky" type="CreateDestination">
+            <ApiParameter name="name">/OrgMove/000/jms_0/lucky</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">dest_rx_lucky</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer0" type="CreateDurableSubscriber">
+          <ActionParameter name="structure_id">a-OrgMove-jms0</ActionParameter>
+          <ActionParameter name="dest_id">destRX</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+          <ApiParameter name="durableName">/OrgMove/000/durableSub0</ApiParameter>
+          <ApiParameter name="selector">null</ApiParameter>
+        </Action>
+
+        <Action name="CreateConsumer_lucky" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">a-OrgMove-uid_lucky</ActionParameter>
+            <ActionParameter name="dest_id">dest_rx_lucky</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+            <ApiParameter name="durableName">/OrgMove/000/durable_sub0_lucky</ApiParameter>
+            <ApiParameter name="selector">null</ApiParameter>
+        </Action>
+
+        <Action name="StartConnection_RX1" type="StartConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+
+
+        <Action name="CompositeRcvBuffered" type="CompositeAction" expected="10" interval="0" repeat_interval="0">
+            <Action name="ReceiveMessage1-1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageBytes" type="GetMessageText">
+              <dependsOn name="ReceiveMessage1-1" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage2" type="ReceiveMessage">
+              <dependsOn name="GetMessageBytes" interval="0"/>
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageText2" type="GetMessageText">
+              <dependsOn name="ReceiveMessage2" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage3" type="ReceiveMessage">
+              <dependsOn name="GetMessageText2" interval="0"/>
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageBytes3" type="GetMessageText">
+              <dependsOn name="ReceiveMessage3" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">symbol=MSFT|bid=27.09|ask=30.19</ActionParameter>
+            </Action>
+
+       </Action>
+       
+        <Action name="sync_components_RX3" type="SyncComponentAction">
+          <ActionParameter name="component_name">rx3</ActionParameter>
+          <ActionParameter name="component_list">tx3;rx3</ActionParameter>
+          <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv" type="CompositeAction" expected="10" interval="0" repeat_interval="0">
+            <Action name="ReceiveMessage1-1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageBytes" type="GetMessageText">
+              <dependsOn name="ReceiveMessage1-1" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage2" type="ReceiveMessage">
+              <dependsOn name="GetMessageBytes" interval="0"/>
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageText2" type="GetMessageText">
+              <dependsOn name="ReceiveMessage2" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage3" type="ReceiveMessage">
+              <dependsOn name="GetMessageText2" interval="0"/>
+                <ActionParameter name="consumer_id">a-OrgMove-jms0</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="GetMessageBytes3" type="GetMessageText">
+              <dependsOn name="ReceiveMessage3" interval="0"/>
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">symbol=MSFT|bid=27.09|ask=30.19</ActionParameter>
+            </Action>
+
+            <Action name="ReceiveMessage_lucky" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">a-OrgMove-uid_lucky</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg_lucky</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+        </Action>
+
+        <Action name="sync_components_RX3a" type="SyncComponentAction">
+          <ActionParameter name="component_name">rx3a</ActionParameter>
+          <ActionParameter name="component_list">tx3a;rx3a</ActionParameter>
+          <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+
+
+        <Action name="CloseSession_RX2" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection_RX1" type="StopConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_RX1" type="CloseConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+    </Action>
+	
+	
+<!-- PRODUCER0  -->
+    <Action name="tx0_postA3" type="CompositeAction">
+        <!-- This side runs on machine 1! -->
+        <Action name="CreateFactory_TX" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+          <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+          <!-- <ActionParameter name="logfile">stdout</ActionParameter>  -->
+        </Action>
+
+        <Action name="CreateListener_TX" type="CreateExceptionListener">
+          <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_TX" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <ImaProperty name="ClientID" value="d:OrgMove:pub:jms0" type="STRING"/>
+          <include>../common/JMS_server3.xml</include>
+          <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_TX" type="CreateConnection">
+          <ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+          <ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+          <!-- ApiParameter name="user">JMSUser2</ApiParameter -->
+          <!-- ApiParameter name="passwd">test</ApiParameter -->
+          <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_TX" type="CreateSession">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+          <ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_TX0_0" type="CreateDestination">
+          <ApiParameter name="name">/OrgMove/000/jms_0</ApiParameter>
+          <ActionParameter name="type">topic</ActionParameter>
+          <ActionParameter name="structure_id">destTX</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_TX0_lucky" type="CreateDestination">
+            <ApiParameter name="name">/OrgMove/000/jms_0/lucky</ApiParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ActionParameter name="structure_id">dest_tx_lucky</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+          <ActionParameter name="structure_id">d:OrgMove:pub:jms0</ActionParameter>
+          <ActionParameter name="dest_id">destTX</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer_lucky" type="CreateProducer">
+            <ActionParameter name="structure_id">d:OrgMove:pub:uid_lucky</ActionParameter>
+            <ActionParameter name="dest_id">dest_tx_lucky</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection_TX" type="StartConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+          <ActionParameter name="structure_id">txmsg1</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+          <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessage1Text" type="SetMessageText">
+          <ActionParameter name="message_id">txmsg1</ActionParameter>
+          <ApiParameter name="value">This is a test string message</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage2" type="CreateMessage">
+          <ActionParameter name="structure_id">txmsg2</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+          <ApiParameter name="msgType">TEXT</ApiParameter>
+          <ApiParameter name="msgParam">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage3" type="CreateMessage">
+          <ActionParameter name="structure_id">txmsg3</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+          <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessage3Text" type="SetMessageText">
+          <ActionParameter name="message_id">txmsg3</ActionParameter>
+          <ApiParameter name="value">symbol=MSFT|bid=27.09|ask=30.19</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage_lucky" type="CreateMessage">
+            <ActionParameter name="structure_id">msg_lucky</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+            <ApiParameter name="msgType">BYTES</ApiParameter>
+        </Action>
+
+        <Action name="SetMessageText_lucky" type="SetMessageText">
+            <ActionParameter name="message_id">msg_lucky</ActionParameter>
+            <ApiParameter name="value">Are ya feelin' lucky, punk?</ApiParameter>
+        </Action>
+
+        <Action name="sync_components_TX3" type="SyncComponentAction">
+          <ActionParameter name="component_name">tx3</ActionParameter>
+          <ActionParameter name="component_list">tx3;rx3</ActionParameter>
+          <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeSnd" type="CompositeAction" repeat="10" interval="0" repeat_interval="0">
+            <Action name="SendMessage1" type="SendMessage">
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage2" type="SendMessage">
+              <dependsOn name="SendMessage1" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg2</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage3" type="SendMessage">
+              <dependsOn name="SendMessage2" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_lucky" type="SendMessage">
+              <dependsOn name="SendMessage3" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:uid_lucky</ActionParameter>
+                <ActionParameter name="message_id">msg_lucky</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="sync_components_TX3a" type="SyncComponentAction">
+          <ActionParameter name="component_name">tx3a</ActionParameter>
+          <ActionParameter name="component_list">tx3a;rx3a</ActionParameter>
+          <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeSnd2" type="CompositeAction" repeat="10" interval="0" repeat_interval="0">
+            <Action name="SendMessage1" type="SendMessage">
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage2" type="SendMessage">
+                <dependsOn name="SendMessage1" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg2</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage3" type="SendMessage">
+                <dependsOn name="SendMessage2" interval="0"/>
+                <ActionParameter name="producer_id">d:OrgMove:pub:jms0</ActionParameter>
+                <ActionParameter name="message_id">txmsg3</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="CloseSession_TX" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+        </Action>
+        <Action name="StopConnection_TX" type="StopConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+        <Action name="CloseConnection_TX" type="CloseConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+        </Action>
+  </Action>
+
+
+
+
+</ImaJmsTest>

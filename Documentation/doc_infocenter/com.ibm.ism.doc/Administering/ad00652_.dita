@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN"
+ "task.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<task id="ba00006_" xml:lang="en-us">
+<title>Installing a new level of firmware in a High Availability environment</title>
+<shortdesc>System administrators can install new levels of firmware
+for an <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> appliance
+in a High Availability (HA) environment. To do so, system administrators
+must first determine the remote HA appliance in the HA pair. Then,
+the system administrator must ensure that the HA pair are in production
+mode and operational with no errors reported.</shortdesc>
+<taskbody>
+<prereq>Ensure that you are aware of any migration considerations.
+For more information about migration considerations, see <xref
+format="dita" href="../Planning/pl00001_.dita" scope="local"
+type="concept"></xref>. It is good practice to create a backup of
+the current <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> configuration
+and store data on the standby appliance before installing a new level
+of firmware; if you subsequently need to revert the level of firmware,
+this data is required for the rollback operation.</prereq>
+<context><note>The commands must be capitalized as shown.</note></context>
+<steps>
+<step><cmd>Determine the remote HA Appliance in the  HA Pairing by
+using the <cmdname>imaserver show HighAvailability</cmdname> command.</cmd>
+<info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver show HighAvailability
+EnableHA = True
+StartupMode = AutoDetect
+RemoteDiscoveryNIC = 10.11.1.212
+LocalReplicationNIC = 10.12.1.87
+LocalDiscoveryNIC = 10.11.1.87
+DiscoveryTimeout = 600
+HeartbeatTimeout = 10
+PreferredPrimary = True</codeblock>For this topic:<ul>
+<li>The server at LocalDiscoveryNIC is identified as <codeph>HA1</codeph>.</li>
+<li>The server at the RemoteDiscoveryNIC is identified as <codeph>HA2</codeph>. </li>
+</ul></info></step>
+<step><cmd>Determine the role of each appliance in the HA pair by
+using the <cmdname>imaserver harole</cmdname> command at each appliance.</cmd>
+<info><ul>
+<li>At HA1:<codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver harole
+NewRole = PRIMARY
+OldRole = PRIMARY
+ActiveNodes = 2
+SyncNodes = 2
+ReasonCode = 0
+ReasonString =
+
+</codeblock></li>
+<li>At HA2:<codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver harole
+NewRole = STANDBY
+OldRole = UNSYNC
+ActiveNodes = 2
+SyncNodes = 2
+ReasonCode = 0
+ReasonString =</codeblock></li>
+</ul></info><stepresult>Verify from the <cmdname>imaserver harole</cmdname> command
+output that here are two ActiveNodes and two SyncNodes.</stepresult>
+</step>
+<step><cmd>Put the standby appliance into maintenance mode.</cmd><info><codeblock><ph conref="../TextEntities.dita#TextEntities/commandprompt"/> imaserver runmode maintenance
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is currently in "production" mode.
+When it is restarted, it will be in "maintenance" mode.
+
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"/> imaserver stop
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is stopping.
+Check the <ph conref="../TextEntities.dita#TextEntities/ISM"/> server status using "imaserver status" command.
+
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"/> imaserver start
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is starting.
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is in "maintenance" mode.
+
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"/> imaserver status
+Status = Running (maintenance)
+ServerUpTime = 0 days 0 hours 0 minutes 12 seconds</codeblock></info>
+</step>
+<step><cmd>Use the <cmdname>file get</cmdname> command to transfer
+the firmware image file from a remote location to the appliance.</cmd>
+<info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> file get <varname>url</varname> <varname>upgrade_filename</varname></codeblock>Where: <dl>
+<dlentry>
+<dt><varname>url</varname></dt>
+<dd>The location of the firmware image to be installed.</dd>
+</dlentry><dlentry>
+<dt><varname>upgrade_filename</varname></dt>
+<dd>The scrypt2 file name of the firmware image to be installed. In SoftLayer virtual server and Amazon EC2 environments, the file extension is <codeph>.slscrypt2</codeph></dd>
+</dlentry></dl><p>For example:<codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> file get scp://admin@example.com:/images/image12.scrypt2</codeblock></p></info>
+</step><?Pub Caret 104?>
+<step><cmd>Run the <cmdname>firmware upgrade</cmdname> command.</cmd>
+<info><note>It is not necessary to restart the server before you run
+the <cmdname>firmware upgrade</cmdname> command.</note><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> firmware upgrade <varname>upgrade_filename</varname></codeblock>Where: <dl>
+<dlentry>
+<dt><varname>upgrade_filename</varname></dt>
+<dd>The scrypt2 file name of the firmware image to be installed.</dd>
+</dlentry></dl><p>For example:<codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> firmware upgrade image12.scrypt2</codeblock></p></info>
+<stepresult>The appliance restarts at the conclusion of the upgrade.</stepresult>
+</step>
+<step><cmd>Change the administrator password if you have upgraded
+from version 1.1 or earlier.</cmd></step>
+<step>
+    <cmd>Accept the <ph conref="../TextEntities.dita#TextEntities/ISM"/> License.</cmd>
+   </step>
+<step><cmd>On the primary appliance, monitor the progress of the synchronization.</cmd>
+<info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver status
+Status = Running (production)
+ServerUpTime = 0 days 15 hours 9 minutes 9 seconds
+HARole = PRIMARY
+SyncProgressPercent = 16 (HighAvailability synchronization process is in progress.)</codeblock><p>Synchronization
+has completed when there is no <codeph>SyncProgressPercent</codeph> reported.</p><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver status
+Status = Running (production)
+ServerUpTime = 0 days 15 hours 11 minutes 49 seconds
+HARole = PRIMARY</codeblock></info></step>
+<step><cmd>On the standby appliance, verify that it is operational.</cmd>
+<info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver status
+Status = Standby
+ServerUpTime = 0 days 0 hours 3 minutes 45 seconds
+HARole = STANDBY</codeblock></info></step>
+<step><cmd>Prepare the primary appliance for the firmware update.</cmd>
+<info><codeblock><ph conref="../TextEntities.dita#TextEntities/commandprompt"/> imaserver runmode maintenance
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is currently in "production" mode.
+When it is restarted, it will be in "maintenance" mode.
+
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"/> imaserver stop
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is stopping.
+Check the <ph conref="../TextEntities.dita#TextEntities/ISM"/> server status using "imaserver status" command.
+
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"/> imaserver status
+Status = Stopped</codeblock><note type="tip">It might take a few minutes
+for the server to stop. Make sure you run the <cmdname>imaserver status </cmdname> command
+to check that server process is stopped.</note></info></step>
+<step><cmd>On the standby server, you might see a temporary transition
+state.</cmd><info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver status
+Status = Failover
+OldRole = STANDBY
+NewRole = PRIMARY
+ServerUpTime = 0 days 0 hours 5 minutes 3 seconds</codeblock>Wait
+a few minutes and then run the <cmdname>imaserver status</cmdname> command
+again until you see that <codeph>Status = Running</codeph>.<codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver status
+Status = Running (production)
+ServerUpTime = 0 days 0 hours 5 minutes 19 seconds
+HARole = PRIMARY</codeblock></info><stepresult>The original standby
+is now the new primary.</stepresult></step>
+<step><cmd>On the original primary (the new standby), upgrade the
+firmware:</cmd><info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> firmware upgrade <varname>upgrade_filename</varname></codeblock></info>
+<stepresult>The appliance restarts at the conclusion of the upgrade.</stepresult>
+</step>
+<step><cmd>Accept the <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> License.</cmd>
+</step>
+<step><cmd>On the new primary appliance, monitor the progress of the
+synchronization.</cmd><info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver status
+Status = Running (production)
+ServerUpTime = 0 days 0 hours 6 minutes 24 seconds
+HARole = PRIMARY
+SyncProgressPercent = 16 (HighAvailability synchronization process is in progress.)</codeblock><p>Synchronization
+has completed when there is no <codeph>SyncProgressPercent</codeph> reported.</p><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver status
+Status = Running (production)
+ServerUpTime = 0 days 0 hours 9 minutes 12 seconds
+HARole = PRIMARY
+</codeblock></info></step>
+<step><cmd>On the new standby, verify that it is operational.</cmd>
+<info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/commandprompt"></ph> imaserver status
+Status = Standby
+ServerUpTime = 0 days 16 hours 02 minutes 54 seconds
+HARole = STANDBY</codeblock></info></step>
+<step><cmd>Verify the firmware version on each appliance.</cmd><info><codeblock><ph conref="../TextEntities.dita#TextEntities/commandprompt"/> show imaserver
+<ph conref="../TextEntities.dita#TextEntities/ISM"/> version is 1.2 <varname>YYYYMMDD-HHMM</varname>
+
+<ph conref="../TextEntities.dita#TextEntities/commandprompt"/> show imaserver
+<ph conref="../TextEntities.dita#TextEntities/ISM"/> version is 1.2 <varname>YYYYMMDD-HHMM</varname></codeblock></info>
+</step>
+</steps>
+</taskbody>
+<related-links>
+<link format="dita" href="../Reference/FirmwareCmd/fun_fwupg.dita"
+scope="local" type="reference"></link>
+<link format="dita"
+href="../Reference/HACmd/cmd_imaserver_show_HighAvailability.dita"
+scope="local" type="reference"></link>
+<link format="dita"
+href="../Reference/ApplianceCmd/cmd_imaserver_runmode.dita" scope="local"
+type="reference"></link>
+<link format="dita"
+href="../Reference/ApplianceCmd/cmd_imaserver_stop.dita" scope="local"
+type="reference"></link>
+<link format="dita"
+href="../Reference/ApplianceCmd/cmd_imaserver_start.dita" scope="local"
+type="reference"></link>
+<link format="dita"
+href="../Reference/ApplianceCmd/cmd_imaserver_show.dita" scope="local"
+type="reference"></link>
+<link format="dita"
+href="../Reference/ApplianceCmd/cmd_imaserver_status.dita" scope="local"
+type="reference"></link>
+</related-links>
+<?tm 1413223995 0?>
+</task>
+<?Pub *0000011090?>

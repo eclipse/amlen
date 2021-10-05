@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: JMS_Queues_ForStoreVerification
+
+  Test Category: Message Expiration
+  
+  Test Description:
+    Send messages to a JMS Queue on a cluster member, 
+	and verify that they are still there after the member is removed from 
+	the clusters. 
+
+	Need to create the queue on each system that we are removing.. and populate the Queues. 
+		they can have the same, or different names. . does not matter. 
+
+
+	DENNY:  we need to add creating the queues to the cluster_manipulation.cli 
+
+	In the store population step (while a member of the cluster) we need to run
+	
+	component[x]=jmsDriver,m1,expiry/JMS_Queues_ForStoreVerification.xml,QProd 
+	component[x]=jmsDriver,m1,expiry/JMS_Queues_ForStoreVerification.xml,QProd2
+
+    In the verification step, we need to read from teh queues. 
+
+	component[x]=jmsDriver,m1,expiry/JMS_Queues_ForStoreVerification.xml,QCons
+	component[x]=jmsDriver,m1,expiry/JMS_Queues_ForStoreVerification.xml,QCons2
+
+
+
+
+-->
+    <ImaJmsTest name="JMS_Queues_ForStoreVerification">
+
+    <Action name="QProd" type="CompositeAction">
+    	
+	    <Action name="Create_qcf1" type="CreateConnectionFactory">
+	        <ActionParameter name="structure_id">qcf1</ActionParameter>
+	        <!-- ActionParameter name="loglevel">9</ActionParameter>
+	        <ActionParameter name="logfile">stdout</ActionParameter -->
+	    </Action>
+	
+	    <Action name="fillProps" type="FillIsmProps">
+	        <ActionParameter name="structure_id">qcf1</ActionParameter>
+	        <ActionParameter name="validateAll">true</ActionParameter>
+	        <ActionParameter name="validateNoWarn">false</ActionParameter>
+	        <ImaProperty name="Port" value="20007" />
+	        <include>../common/JMS_server4.xml</include>
+	     </Action>
+	
+	    <Action name="CreateConnection_cf1" type="CreateConnection">
+	        <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	        <ActionParameter name="factory_id">qcf1</ActionParameter>
+	    </Action>
+	
+	    <Action name="CreateSession1_conn_cf1" type="CreateSession">
+	        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	        <ActionParameter name="structure_id">session1_cf1</ActionParameter>
+	        <ApiParameter name="ack_mode">2</ApiParameter>
+	    </Action>
+	
+	    <Action name="Create_queue1" type="CreateDestination">
+	        <ActionParameter name="structure_id">queue1</ActionParameter>
+	        <ActionParameter name="type">queue</ActionParameter>
+	        <ApiParameter name="name">ClusterManipQueue1</ApiParameter>
+	    </Action>
+	
+	    <Action name="CreateProducer1_queue1" type="CreateProducer">
+	        <ActionParameter name="structure_id">producer1_queue1</ActionParameter>
+	        <ActionParameter name="dest_id">queue1</ActionParameter>
+	        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+	    </Action>
+	
+<!--	    <Action name="CreateConsumer1_queue1" type="CreateConsumer"> 
+	        <ActionParameter name="structure_id">consumer1_queue1</ActionParameter>
+	        <ActionParameter name="dest_id">queue1</ActionParameter>
+	        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+	    </Action>
+-->	
+	    <Action name="StartConnection" type="StartConnection">
+	        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    </Action>
+	
+	    <Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+	        <ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+	        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+	        <ApiParameter name="msgType">TEXT</ApiParameter>
+	    </Action>	
+	
+	    <!-- PRODUCER: Set message content -->				
+	    <Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+	        <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+	        <ApiParameter name="value">TEXT: From cluster Queue test. </ApiParameter>
+	    </Action>
+	
+	    <Action name="SendBytesMessage_prod_1" type="SendMessage" repeat="1000" repeat_interval="0" interval="0" >
+	        <ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+	        <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+	    </Action>
+	
+	    <Action name="statsBeforeClose" type="RestAPI">
+		    <ActionParameter name="structureID">statsBeforeClose</ActionParameter>
+	        <ActionParameter name="server">``A4_HOST``:``A4_PORT``</ActionParameter>
+	     	<ActionParameter name="path">/ima/v1/monitor/Queue?Name=ClusterManipQueue1</ActionParameter>
+		    <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	       	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    	
+	    <Action name="CompareStatsBeforeClose" type="CompareREST">
+	       	<ActionParameter name="structureID">statsBeforeClose</ActionParameter>
+	        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		    <ActionParameter name="subObjectKey">Name</ActionParameter>
+	       	<ActionParameter name="subObjectName">ClusterManipQueue1</ActionParameter>
+	        <ObjectProperty name="Producers" value="1"/>
+		    <ObjectProperty name="Consumers" value="0"/>
+	    </Action>
+	
+	    <Action name="CloseConnection_cf1" type="CloseConnection">
+	        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    </Action>
+	
+	    <!-- TODO: get some stats -->
+	    <Action name="stats" type="RestAPI">
+		    <ActionParameter name="structureID">stats</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	     	<ActionParameter name="path">/ima/v1/monitor/Queue?Name=ClusterManipQueue1</ActionParameter>
+		    <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	       	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    	
+	    <Action name="CompareStats" type="CompareREST">
+	       	<ActionParameter name="structureID">stats</ActionParameter>
+	        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		    <ActionParameter name="subObjectKey">Name</ActionParameter>
+	       	<ActionParameter name="subObjectName">ClusterManipQueue1</ActionParameter>
+	        <ObjectProperty name="Producers" value="0"/>
+		    <ObjectProperty name="Consumers" value="0"/>
+	    </Action>
+
+	</Action>
+    
+  <Action name="QCons" type="CompositeAction">
+    	
+	    <Action name="Create_qcf1" type="CreateConnectionFactory">
+	        <ActionParameter name="structure_id">qcf1</ActionParameter>
+	        <!-- ActionParameter name="loglevel">9</ActionParameter>
+	        <ActionParameter name="logfile">stdout</ActionParameter -->
+	    </Action>
+	
+	    <Action name="fillProps" type="FillIsmProps">
+	        <ActionParameter name="structure_id">qcf1</ActionParameter>
+	        <ActionParameter name="validateAll">true</ActionParameter>
+	        <ActionParameter name="validateNoWarn">false</ActionParameter>
+	        <ImaProperty name="Port" value="20007" />
+	        <include>../common/JMS_server4.xml</include>
+	     </Action>
+	     
+	    <Action name="CreateConnection_cf1a" type="CreateConnection">
+	        <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	        <ActionParameter name="factory_id">qcf1</ActionParameter>
+	    </Action>
+	
+	    <Action name="CreateSession1_conn_cf1a" type="CreateSession">
+	        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	        <ActionParameter name="structure_id">session1_cf1</ActionParameter>
+	    </Action>
+	    
+	    <Action name="Create_queue1" type="CreateDestination">
+		   <ActionParameter name="structure_id">queue1</ActionParameter>
+		   <ActionParameter name="type">queue</ActionParameter>
+		   <ApiParameter name="name">ClusterManipQueue1</ApiParameter>
+		</Action>
+		
+	
+	    <Action name="CreateConsumer1_queue1a" type="CreateConsumer">
+	        <ActionParameter name="structure_id">consumer1_queue1</ActionParameter>
+	        <ActionParameter name="dest_id">queue1</ActionParameter>
+	        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+	    </Action>
+	
+	    <Action name="StartConnectiona" type="StartConnection">
+	        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    </Action>
+	
+	    <Action name="Receive" type="ReceiveMessage" repeat="1000">
+	        <ActionParameter name="consumer_id">consumer1_queue1</ActionParameter>
+	        <ActionParameter name="structure_id">rxmsg</ActionParameter>
+	        <ApiParameter name="timeout">8000</ApiParameter>
+	    </Action>
+	
+	    <Action name="CloseConnection_cf1a" type="CloseConnection">
+	        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    </Action>
+	</Action>
+	    
+</ImaJmsTest>

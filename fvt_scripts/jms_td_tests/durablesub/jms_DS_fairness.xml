@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name:  JMS_DS_fairness
+
+   Test Category:  JMS Durable Subscription
+   
+   Test Description:
+   Fairness
+   
+   TX:
+	   Session 1 - Producer 1 - TopicA
+	   Session 2 - Producer 2 - TopicB
+	  
+	   Sync
+	   
+	   Send 7500 with each producer
+	   
+   RX:
+	   Session 1 - Consumer 1 - TopicA
+	   Session 2 - Consumer 2,3 - TopicB
+	   Session 3 - Consumer 4 - TopicB
+	   
+	   Sync
+	   
+	   Thread=2 - Receive 7500 on Consumer 1
+	   Thread=3 - Receive 15000 each on Consumer 2,3
+	   Thread=5 - Receive 200 messages on Consumer 4
+
+   *****************************************************************************/
+  -->
+<ImaJmsTest name="jms_DS_fairness" >
+  <SyncClient>
+    <server>
+      <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+    </server>
+    <solution>jms_DS_fairness</solution>
+  </SyncClient>
+
+  <Action name="tx" type="CompositeAction">
+
+    <Action name="syncReset" type="SyncAction">
+      <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+	  <ActionParameter name="structure_id">CF</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps" type="FillIsmProps">
+	  <ActionParameter name="structure_id">CF</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <include>../common/JMS_server.xml</include>
+	  <ImaProperty name="Port" value="16102" type="STRING"/>
+	</Action>
+
+	<Action name="CreateDestination_A" type="CreateDestination">
+	  <ApiParameter name="name">topic_A</ApiParameter>
+	  <ActionParameter name="type">topic</ActionParameter>
+	  <ActionParameter name="structure_id">topic_A</ActionParameter>
+	</Action>
+
+	<Action name="FillDestProps_A" type="FillIsmProps">
+	  <ActionParameter name="structure_id">topic_A</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="name" value="jmsDS-fairness-A" type="STRING"/>
+	</Action>
+
+	<Action name="CreateDestination_B" type="CreateDestination">
+	  <ApiParameter name="name">topic_B</ApiParameter>
+	  <ActionParameter name="type">topic</ActionParameter>
+	  <ActionParameter name="structure_id">topic_B</ActionParameter>
+	</Action>
+
+	<Action name="FillDestProps_B" type="FillIsmProps">
+	  <ActionParameter name="structure_id">topic_B</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="name" value="jmsDS-fairness-B" type="STRING"/>
+	</Action>
+
+	<Action name="CreateListener" type="CreateExceptionListener">
+	  <ActionParameter name="structure_id">tx_list</ActionParameter>
+	</Action>
+
+	<Action name="CreateConnection" type="CreateConnection">
+	  <ActionParameter name="structure_id">conn</ActionParameter>
+	  <ActionParameter name="factory_id">CF</ActionParameter>
+	  <ApiParameter name="exceptionListener">tx_list</ApiParameter>
+	</Action>
+
+	<Action name="CreateSession_p1" type="CreateSession">
+	  <ActionParameter name="conn_id">conn</ActionParameter>
+	  <ActionParameter name="structure_id">sess_p1</ActionParameter>
+	</Action>
+
+    <Action name="CreateSession_p2_p3" type="CreateSession">
+	  <ActionParameter name="conn_id">conn</ActionParameter>
+	  <ActionParameter name="structure_id">sess_p2_p3</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_p1" type="CreateProducer">
+      <ActionParameter name="structure_id">p1</ActionParameter>
+      <ActionParameter name="dest_id">topic_A</ActionParameter>
+      <ActionParameter name="session_id">sess_p1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_p2" type="CreateProducer">
+      <ActionParameter name="structure_id">p2</ActionParameter>
+      <ActionParameter name="dest_id">topic_B</ActionParameter>
+      <ActionParameter name="session_id">sess_p1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_p3" type="CreateProducer">
+      <ActionParameter name="structure_id">p3</ActionParameter>
+      <ActionParameter name="dest_id">topic_B</ActionParameter>
+      <ActionParameter name="session_id">sess_p2_p3</ActionParameter>
+    </Action>
+
+    <Action name="CreateMessage_a" type="CreateMessage">
+      <ActionParameter name="structure_id">txmsg_a</ActionParameter>
+      <ActionParameter name="session_id">sess_p1</ActionParameter>
+      <ApiParameter name="msgType">BYTES</ApiParameter>
+    </Action>
+
+    <Action name="SetMessage_a" type="SetMessageText">
+      <ActionParameter name="message_id">txmsg_a</ActionParameter>
+      <ApiParameter name="value">i am message a</ApiParameter>
+    </Action>
+
+    <Action name="CreateMessage_b" type="CreateMessage">
+      <ActionParameter name="structure_id">txmsg_b</ActionParameter>
+      <ActionParameter name="session_id">sess_p1</ActionParameter>
+      <ApiParameter name="msgType">BYTES</ApiParameter>
+    </Action>
+
+    <Action name="SetMessage_b" type="SetMessageText">
+      <ActionParameter name="message_id">txmsg_b</ActionParameter>
+      <ApiParameter name="value">i am message b</ApiParameter>
+    </Action>
+
+    <Action name="CreateMessage_c" type="CreateMessage">
+      <ActionParameter name="structure_id">txmsg_c</ActionParameter>
+      <ActionParameter name="session_id">sess_p1</ActionParameter>
+      <ApiParameter name="msgType">BYTES</ApiParameter>
+    </Action>
+
+    <Action name="SetMessage_c" type="SetMessageText">
+      <ActionParameter name="message_id">txmsg_c</ActionParameter>
+      <ApiParameter name="value">i am message c</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_TX" type="StartConnection">
+      <ActionParameter name="conn_id">conn</ActionParameter>
+    </Action>
+
+    <Action name="sync_begin_tx_and_rx" type="SyncComponentAction">
+      <ActionParameter name="component_name">tx1</ActionParameter>
+      <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+      <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+    <Action name="CompositeSnd" type="CompositeAction" repeat="7500" interval="0" repeat_interval="0">
+      <Action name="SendMessage_a" type="SendMessage"> <!-- to topic A -->
+        <ActionParameter name="producer_id">p1</ActionParameter>
+        <ActionParameter name="message_id">txmsg_a</ActionParameter>
+        <ApiParameter name="deliveryMode">1</ApiParameter>
+      </Action>
+
+      <Action name="SendMessage_b" type="SendMessage"> <!-- to topic B -->
+        <dependsOn name="SendMessage_a" interval="0"/>
+        <ActionParameter name="producer_id">p2</ActionParameter>
+        <ActionParameter name="message_id">txmsg_b</ActionParameter>
+        <ApiParameter name="deliveryMode">1</ApiParameter>
+      </Action>
+
+      <Action name="SendMessage_c" type="SendMessage"> <!-- to topic B -->
+        <dependsOn name="SendMessage_b" interval="0"/>
+        <ActionParameter name="producer_id">p3</ActionParameter>
+        <ActionParameter name="message_id">txmsg_c</ActionParameter>
+        <ApiParameter name="deliveryMode">1</ApiParameter>
+      </Action>
+    </Action>
+
+    <Action name="CloseConnection_tx" type="CloseConnection">
+      <ActionParameter name="conn_id">conn</ActionParameter>
+    </Action>
+
+
+  </Action> <!-- end tx -->
+
+
+
+
+
+
+  <Action name="rx" type="CompositeAction">
+	
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+	  <ActionParameter name="structure_id">CF</ActionParameter>
+	  <ActionParameter name="loglevel">9</ActionParameter>
+	  <ActionParameter name="logfile">stdout</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps" type="FillIsmProps">
+	  <ActionParameter name="structure_id">CF</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <include>../common/JMS_server.xml</include>
+      <ImaProperty name="ClientID" value="JMS_DS_fairness" type="STRING"/>
+	  <ImaProperty name="Port" value="16102" type="STRING"/>
+	</Action>
+
+	<Action name="CreateDestination_A" type="CreateDestination">
+	  <ApiParameter name="name">topic_A</ApiParameter>
+	  <ActionParameter name="type">topic</ActionParameter>
+	  <ActionParameter name="structure_id">topic_A</ActionParameter>
+	</Action>
+
+	<Action name="FillDestProps_A" type="FillIsmProps">
+	  <ActionParameter name="structure_id">topic_A</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="name" value="jmsDS-fairness-A" type="STRING"/>
+	</Action>
+
+	<Action name="CreateDestination_B" type="CreateDestination">
+	  <ApiParameter name="name">topic_B</ApiParameter>
+	  <ActionParameter name="type">topic</ActionParameter>
+	  <ActionParameter name="structure_id">topic_B</ActionParameter>
+	</Action>
+
+	<Action name="FillDestProps_B" type="FillIsmProps">
+	  <ActionParameter name="structure_id">topic_B</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="name" value="jmsDS-fairness-B" type="STRING"/>
+	</Action>
+
+	<Action name="CreateListener" type="CreateExceptionListener">
+	  <ActionParameter name="structure_id">rx_list</ActionParameter>
+	</Action>
+
+	<Action name="CreateConnection" type="CreateConnection">
+	  <ActionParameter name="structure_id">conn</ActionParameter>
+	  <ActionParameter name="factory_id">CF</ActionParameter>
+	  <ApiParameter name="exceptionListener">rx_list</ApiParameter>
+	</Action>
+
+    <Action name="CreateSession_c1" type="CreateSession" thread="2">
+      <dependsOn name="CreateConnection" interval="0" />
+      <ActionParameter name="conn_id">conn</ActionParameter>
+      <ActionParameter name="structure_id">sess_c1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_c2_c3" type="CreateSession" thread="3">
+      <dependsOn name="CreateConnection" interval="0" />
+      <ActionParameter name="conn_id">conn</ActionParameter>
+      <ActionParameter name="structure_id">sess_c2_c3</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_c4" type="CreateSession" thread="5">
+      <dependsOn name="CreateConnection" interval="0" />
+      <ActionParameter name="conn_id">conn</ActionParameter>
+      <ActionParameter name="structure_id">sess_c4</ActionParameter>
+    </Action>
+
+    
+    <Action name="CreateConsumer_c1" type="CreateDurableSubscriber" thread="2">
+      <ActionParameter name="structure_id">c1</ActionParameter>
+      <ActionParameter name="dest_id">topic_A</ActionParameter>
+      <ActionParameter name="session_id">sess_c1</ActionParameter>
+      <ApiParameter name="durableName">jms_DS_f_c1</ApiParameter>
+      <!-- <ApiParameter name="selector">null</ApiParameter> -->
+    </Action>
+
+    <Action name="CreateConsumer_c2" type="CreateDurableSubscriber" thread="3">
+      <ActionParameter name="structure_id">c2</ActionParameter>
+      <ActionParameter name="dest_id">topic_B</ActionParameter>
+      <ActionParameter name="session_id">sess_c2_c3</ActionParameter>
+      <ApiParameter name="durableName">jms_DS_f_c2</ApiParameter>
+      <!-- <ApiParameter name="selector">null</ApiParameter> -->
+    </Action>
+
+    <Action name="CreateConsumer_c3" type="CreateDurableSubscriber" thread="3">
+      <ActionParameter name="structure_id">c3</ActionParameter>
+      <ActionParameter name="dest_id">topic_B</ActionParameter>
+      <ActionParameter name="session_id">sess_c2_c3</ActionParameter>
+      <ApiParameter name="durableName">jms_DS_f_c3</ApiParameter>
+      <!-- <ApiParameter name="selector">null</ApiParameter> -->
+    </Action>
+
+    <Action name="CreateConsumer_c4" type="CreateDurableSubscriber" thread="5">
+      <ActionParameter name="structure_id">c4</ActionParameter>
+      <ActionParameter name="dest_id">topic_B</ActionParameter>
+      <ActionParameter name="session_id">sess_c4</ActionParameter>
+      <ApiParameter name="durableName">jms_DS_f_c4</ApiParameter>
+      <!-- <ApiParameter name="selector">null</ApiParameter> -->
+    </Action>
+
+    <Action name="CreateMsgListener_list1" type="CreateMessageListener" thread="2">
+      <ActionParameter name="structure_id">list1</ActionParameter>
+    </Action>
+
+    <Action name="CreateMsgListener_list2" type="CreateMessageListener" thread="3">
+      <ActionParameter name="structure_id">list2</ActionParameter>
+    </Action>
+
+    <Action name="CreateMsgListener_list3" type="CreateMessageListener" thread="3">
+      <ActionParameter name="structure_id">list3</ActionParameter>
+    </Action>
+
+    <Action name="CreateMsgListener_list4" type="CreateMessageListener" thread="5">
+      <ActionParameter name="structure_id">list4</ActionParameter>
+    </Action>
+
+    <Action name="SetMsgListener_c1" type="SetMessageListener" thread="2">
+      <ActionParameter name="listener_id">list1</ActionParameter>
+      <ActionParameter name="consumer_id">c1</ActionParameter>
+    </Action> 
+
+    <Action name="SetMsgListener_c2" type="SetMessageListener" thread="3">
+      <ActionParameter name="listener_id">list2</ActionParameter>
+      <ActionParameter name="consumer_id">c2</ActionParameter>
+    </Action> 
+
+    <Action name="SetMsgListener_c3" type="SetMessageListener" thread="3">
+      <ActionParameter name="listener_id">list3</ActionParameter>
+      <ActionParameter name="consumer_id">c3</ActionParameter>
+    </Action> 
+
+    <Action name="SetMsgListener_c4" type="SetMessageListener" thread="5">
+      <ActionParameter name="listener_id">list4</ActionParameter>
+      <ActionParameter name="consumer_id">c4</ActionParameter>
+    </Action> 
+
+    <Action name="StartConnection" type="StartConnection">
+      <dependsOn name="SetMsgListener_c1" interval="0" />
+      <dependsOn name="SetMsgListener_c2" interval="0" />
+      <dependsOn name="SetMsgListener_c3" interval="0" />
+      <dependsOn name="SetMsgListener_c4" interval="0" />
+      <ActionParameter name="conn_id">conn</ActionParameter>
+    </Action>
+
+    <Action name="sync_begin_tx_and_rx" type="SyncComponentAction">
+      <ActionParameter name="component_name">rx1</ActionParameter>
+      <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+      <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveMessage_c1" type="ReceiveMessage" thread="2" repeat="7500" repeat_interval="0">
+      <dependsOn name="sync_begin_tx_and_rx" interval="0" />
+      <ActionParameter name="listener_id">list1</ActionParameter>
+      <ActionParameter name="structure_id">rxdmsg_a</ActionParameter>
+      <ApiParameter name="timeout">15000</ApiParameter>
+    </Action>
+
+
+    <Action name="ReceiveMsgs_c2_c3" type="CompositeAction" thread="3" repeat="15000" repeat_interval="0">
+      <dependsOn name="sync_begin_tx_and_rx" interval="0" />
+
+      <Action name="ReceiveMessage_c2" type="ReceiveMessage">
+        <ActionParameter name="listener_id">list2</ActionParameter>
+        <ActionParameter name="structure_id">rxdmsg_b</ActionParameter>
+        <ApiParameter name="timeout">15000</ApiParameter>
+      </Action>
+
+      <Action name="ReceiveMessage_c3" type="ReceiveMessage">
+      	<dependsOn name="ReceiveMessage_c2" interval="0" />
+        <ActionParameter name="listener_id">list3</ActionParameter>
+        <ActionParameter name="structure_id">rxdmsg_c</ActionParameter>
+        <ApiParameter name="timeout">15000</ApiParameter>
+      </Action>
+    </Action>
+
+    <Action name="ReceiveMessage_c4" type="ReceiveMessage" thread="5" repeat="200" repeat_interval="0">
+      <dependsOn name="sync_begin_tx_and_rx" interval="0" />
+      <ActionParameter name="listener_id">list4</ActionParameter>
+      <ActionParameter name="structure_id">rxdmsg_d</ActionParameter>
+      <ApiParameter name="timeout">15000</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessage_c1_empty" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="2">
+      <dependsOn name="ReceiveMessage_c1" interval="0"/>
+      <ActionParameter name="listener_id">list1</ActionParameter>
+      <ActionParameter name="structure_id">rxdmsg_a</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessage_c2_empty" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="3">
+      <dependsOn name="ReceiveMsgs_c2_c3" interval="0"/>
+      <ActionParameter name="listener_id">list2</ActionParameter>
+      <ActionParameter name="structure_id">rxdmsg_b</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessage_c3_empty" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="3">
+      <dependsOn name="ReceiveMsgs_c2_c3" interval="0"/>
+      <ActionParameter name="listener_id">list3</ActionParameter>
+      <ActionParameter name="structure_id">rxdmsg_c</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+	<Action name="CloseConsumerA" type="CloseConsumer" thread="2">
+		<dependsOn name="ReceiveMessage_c1_empty" interval="0"/>
+		<ActionParameter name="consumer_id">c1</ActionParameter>
+	</Action>
+
+	<Action name="CloseConsumerB" type="CloseConsumer" thread="3">
+	    <dependsOn name="ReceiveMessage_c2_empty" interval="0"/>
+		<ActionParameter name="consumer_id">c2</ActionParameter>
+	</Action>
+		
+	<Action name="CloseConsumerC" type="CloseConsumer" thread="3">
+	    <dependsOn name="ReceiveMessage_c3_empty" interval="0"/>
+		<ActionParameter name="consumer_id">c3</ActionParameter>
+	</Action>
+		
+	<Action name="CloseConsumerD" type="CloseConsumer" thread="5">
+		<dependsOn name="ReceiveMessage_c4" interval="0"/>
+		<ActionParameter name="consumer_id">c4</ActionParameter>
+	</Action>
+	
+	<Action name="UnsubscribeA" type="Unsubscribe" thread="2">
+	    <dependsOn name="CloseConsumerA" interval="0"/>
+	    <dependsOn name="CloseConsumerB" interval="0"/>
+	    <dependsOn name="CloseConsumerC" interval="0"/>
+	    <dependsOn name="CloseConsumerD" interval="0"/>
+		<ActionParameter name="session_id">sess_c1</ActionParameter>
+		<ApiParameter name="durableName">jms_DS_f_c1</ApiParameter>
+	</Action>
+	
+	<Action name="UnsubscribeB" type="Unsubscribe" thread="3">
+		<dependsOn name="CloseConsumerA" interval="0"/>
+		<dependsOn name="CloseConsumerB" interval="0"/>
+	    <dependsOn name="CloseConsumerC" interval="0"/>
+	    <dependsOn name="CloseConsumerD" interval="0"/>
+		<ActionParameter name="session_id">sess_c2_c3</ActionParameter>
+		<ApiParameter name="durableName">jms_DS_f_c2</ApiParameter>
+	</Action>
+	
+	<Action name="UnsubscribeC" type="Unsubscribe" thread="3">
+		<dependsOn name="CloseConsumerA" interval="0"/>
+		<dependsOn name="CloseConsumerB" interval="0"/>
+	    <dependsOn name="CloseConsumerC" interval="0"/>
+	    <dependsOn name="CloseConsumerD" interval="0"/>
+		<ActionParameter name="session_id">sess_c2_c3</ActionParameter>
+		<ApiParameter name="durableName">jms_DS_f_c3</ApiParameter>
+	</Action>
+	
+	<Action name="UnsubscribeD" type="Unsubscribe" thread="5">
+		<dependsOn name="CloseConsumerA" interval="0"/>
+		<dependsOn name="CloseConsumerB" interval="0"/>
+	    <dependsOn name="CloseConsumerC" interval="0"/>
+	    <dependsOn name="CloseConsumerD" interval="0"/>
+		<ActionParameter name="session_id">sess_c4</ActionParameter>
+		<ApiParameter name="durableName">jms_DS_f_c4</ApiParameter>
+	</Action>
+	
+    <Action name="CloseConnection" type="CloseConnection">
+      <dependsOn name="UnsubscribeA" interval="0"/>
+      <dependsOn name="UnsubscribeB" interval="0"/>
+      <dependsOn name="UnsubscribeC" interval="0"/>
+      <dependsOn name="UnsubscribeD" interval="0"/>
+      <ActionParameter name="conn_id">conn</ActionParameter>
+    </Action>
+
+  </Action>
+
+
+
+
+
+</ImaJmsTest>

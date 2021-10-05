@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN"
+ "task.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<task id="ad00402_" xml:lang="en-us">
+<title>Manually configuring appliances as an HA pair by using the
+command line</title>
+<shortdesc>In this scenario, an appliance that has had high availability
+disabled is now paired with another appliance to act as its backup.
+System administrators can configure a pair of appliances for high
+availability by using the <ph
+conref="../TextEntities.dita#TextEntities/imaservercmd"></ph> <cmdname>HighAvailability</cmdname> commands
+on the command line.</shortdesc>
+<taskbody>
+<prereq>The two <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> appliances
+must be physically connected. For more information about connecting
+appliances, see <xref format="dita" href="ad00400_.dita" scope="local"
+type="concept">Configuring the system for High Availability</xref>.</prereq>
+<context><p>You can configure appliances for high availability by
+using the command line or by using the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph>. For more
+information about using the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph> to configure
+appliances for high availability, see <xref href="ad00401_.dita"></xref>.</p><note
+otherprops="delete" type="important"><!--28438-->The following scenario
+describes changing one server from standby to primary if one of the
+server is stopped.<ul>
+<li>An HA pair of appliances are identified as HA1 and HA2. Both are
+configured <codeph>StartupMode = AutoDetect</codeph>. <sl>
+<sli>HA1 is active and is the standby server</sli>
+<sli>HA2 is active and is the primary server</sli>
+</sl></li>
+<li>HA2 is stopped. So, now HA1 is active and is the standby server.</li>
+<li>Next, you stop HA1. Now both HA1 and HA2 are stopped.</li>
+<li>If you restart HA1, you will get a message saying it can't determine
+the true HA status because HA2 is still down.</li>
+<li>In order to bring HA1 up as the primary with HA2 still stopped,
+you need to update <codeph>StartupMode = StandAlone</codeph></li>
+</ul><!--28455--><p>Do <i>not</i> start a node as <codeph>StartupMode
+= StandAlone</codeph> if another node is already running and is acting
+as a primary. Doing so could create a split-brain condition, where
+both nodes act as primary nodes. In this instance, both nodes will
+go into maintenance mode. </p></note></context>
+<steps>
+<step><cmd>On Appliance A, configure the primary appliance for  high
+availability, by entering the following command:</cmd><info><note>The
+command must be capitalized as shown.</note><p><codeph><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> update
+HighAvailability "EnableHA=True" </codeph><codeph> "Group=<varname>Group</varname>"</codeph><codeph> "StartupMode=AutoDetect"</codeph><codeph> "PreferredPrimary=True" </codeph><codeph> "RemoteDiscoveryNIC=<varname>remoteDiscIP</varname>" </codeph> <codeph> "LocalDiscoveryNIC=<varname>localDiscIP</varname>" </codeph> <codeph> "LocalReplicationNIC=<varname>localRepIP</varname>"</codeph> <codeph> [
+"DiscoveryTimeout=<varname>discTimeout</varname>" ]</codeph> <codeph> [
+"HeartbeatTimeout=<varname>hbTimeout</varname><cmdname>" ]</cmdname></codeph></p><p>Where:<dl>
+<dlentry>
+<dt>Group</dt>
+<dd>The high availability group is used to automatically configure
+appliances to pair with each other. The value must be the same on
+both appliances in the pair. </dd>
+</dlentry></dl><?Pub Caret 31?><dl><dlentry>
+<dt><varname>remoteDiscIP</varname></dt>
+<dd>Specifies the IP address of the NIC that is used for HA discovery
+on the remote (standby) node in the HA pair.</dd>
+</dlentry><dlentry>
+<dt><varname>localDiscIP</varname></dt>
+<dd>Specifies the IP address of the NIC that is used for HA discovery
+on the local (primary) node in the HA pair.</dd>
+</dlentry><dlentry>
+<dt><varname>localRepIP</varname></dt>
+<dd>Specifies the IP address of the NIC that is used for HA replication
+on the local (primary) node in the HA pair.</dd>
+</dlentry><dlentry>
+<dt><varname>discTimeout</varname></dt>
+<dd>Specifies the time in seconds that the node attempts to discover
+the HA pair node.</dd>
+<dd>This value must be in the range 10-2147483647.</dd>
+<dd>The default value is 600.</dd>
+</dlentry><dlentry>
+<dt><varname>hbTimeout</varname></dt>
+<dd>Specifies the time in seconds to detect that the other node in
+the HA pair has failed.</dd>
+<dd>This value must be in the range 10-2147483647.</dd>
+<dd>The default value is 10.</dd>
+</dlentry></dl></p></info></step>
+<step><cmd>On Appliance B enter the following command:</cmd><info><p><codeph><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> update
+HighAvailability "EnableHA=True"</codeph><codeph> "Group=<varname>Group</varname>"</codeph><codeph> "StartupMode=AutoDetect" </codeph><codeph>[
+"PreferredPrimary=False" ]</codeph><codeph> "RemoteDiscoveryNIC=<varname>remoteDiscIP</varname>"</codeph><codeph> "LocalDiscoveryNIC=<varname>localDiscIP</varname>"</codeph> <codeph> "LocalReplicationNIC=<varname>localRepIP</varname>"</codeph> <codeph> [
+"DiscoveryTimeout=<varname>discTimeout</varname>" ]</codeph><codeph> [
+"HeartbeatTimeout=<varname>hbTimeout</varname><cmdname>" ]</cmdname></codeph></p></info>
+</step>
+<step><cmd>Clean the store on Appliance B only.</cmd><info> Failing
+to do so will cause both nodes to go into maintenance mode. Enter
+the following commands:<codeblock><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> runmode maintenance
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> stop
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> start
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> runmode clean_store
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> stop
+<ph conref="../TextEntities.dita#TextEntities/imaserver"></ph> start</codeblock></info>
+</step>
+<step><cmd>Change Appliance B to production mode.</cmd><info><codeblock><ph
+conref="../TextEntities.dita#TextEntities/imaserver"></ph> runmode production</codeblock></info>
+</step>
+<step><cmd>Stop and then restart the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> servers on both
+of the appliances.</cmd><info><note type="tip">As a best practice,
+stop and restart the standby server first. Then stop and restart the
+primary to limit the amount of time that the primary spends waiting
+for the standby to become available.</note></info><info><codeblock>imaserver stop
+imaserver start</codeblock></info></step>
+</steps>
+<postreq><p>You can view high availability configuration details of
+the <ph conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> appliance
+by using the <cmdname>imaserver show HighAvailability</cmdname> command.</p><p>You can view information about the high availability role of the <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"/> appliance by using the <cmdname>imaserver
+status</cmdname> command.</p></postreq>
+</taskbody>
+<related-links>
+<link format="dita" href="../Troubleshooting/tr00013_.dita" scope="local"
+type="task"></link>
+<link format="dita" href="../Troubleshooting/tr00007_.dita" scope="local"
+type="task"></link>
+<link format="dita" href="ad00280_.dita" scope="local" type="concept">
+</link>
+<link format="dita"
+href="../Reference/ApplianceCmd/cmd_imaserver_status.dita" scope="local"
+type="reference"></link>
+</related-links>
+</task>
+<?Pub *0000007496?>

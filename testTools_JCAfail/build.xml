@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="JCAfail" default="build_jcafail" basedir=".">
+    <property file="build.properties"/>
+
+    <property environment="env"/>
+    <property name="client.ship.lib.dir" value="${jcatests.dir}/../client_ship/lib"/>
+	<property name="evilRAlib" location="${evil.ra.dir}/bin/lib" />
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+
+    <!-- Required Classpaths -->
+    <path id="compile.classpath">
+        <pathelement location="${client.ship.lib.dir}/imaclientjms.jar" />
+    	<pathelement location="${evilRAlib}/evilra.jar" />
+    	<pathelement location="${client.deps.dir}/jms.jar"/>
+    	<pathelement location="${client.deps.dir}/j2ee.jar" />
+    </path>
+
+    <!-- Build targets  -->
+    <target name="build_jcafail"  depends="jcatests.ejb-ear, JCAtests_publish, javadoc">
+        <echo> ==  Invoking ant for jcatests build ============= </echo>
+    </target>
+
+    <!--Compile the project-->
+    <target name="JCAtests_compile" depends="jcatests_init">
+        <echo> ==  Compile jcatests.ejb project ================ </echo>
+        <mkdir dir="${jcatests.ejb.bin.dir}/classes" />
+        <javac srcdir="${jcatests.ejb.src.dir}"
+            destdir="${jcatests.ejb.bin.dir}/classes"
+            deprecation="no"
+            includeAntRuntime="no"
+            debug="yes"
+            debuglevel="lines,source,vars"
+            optimize="yes">
+            <src path="${jcatests.ejb.src.dir}" />
+            <classpath refid="compile.classpath" />
+        </javac>
+        <jar destfile="${jcatests.ejb.lib.dir}/testTools_JCAfail.jar" manifest="${jcatests.ejb.src.dir}/META-INF/MANIFEST.MF">
+            <fileset dir="${jcatests.ejb.bin.dir}/classes" includes="**/*.class" />
+        	<metainf dir="${jcatests.ejb.src.dir}/META-INF" excludes="MANIFEST.MF"/>
+        </jar>
+    </target>
+
+    <!-- Build EAR file -->
+    <target name="jcatests.ejb-ear" depends="JCAtests_compile">
+        <ear destfile="${jcatests.lib.dir}/testTools_JCAfail.ear"
+            appxml="${jcatests.dir}/META-INF/application.xml">
+            <fileset dir="${jcatests.ejb.lib.dir}" includes="**/*.jar"/>
+            <metainf file="${jcatests.dir}/META-INF/was.policy"/>
+        </ear>
+    </target>
+
+    <!-- Copy the product file to ship tree -->
+    <target name="JCAtests_publish">
+        <echo> ==  Copy files to testTools_ship tree ================ </echo>
+        <copy todir="${testTools.ship.lib.dir}" preservelastmodified="yes">
+            <fileset dir="${jcatests.lib.dir}" />
+        </copy>
+    </target>
+
+    <!-- Generating JAVAD -->
+    <target name="javadoc" description="generate javadoc">
+        <javadoc packagenames="**.*" defaultexcludes="yes" destdir="${jcatests.doc.dir}/api" author="true" version="true" use="true">
+            <classpath refid="compile.classpath" />
+            <fileset dir="${jcatests.ejb.src.dir}"/>
+        </javadoc>
+    </target>
+
+    <!-- Initialize the build environment -->
+    <target name="jcatests_init">
+        <echo>buildType = ${buildType}</echo>
+
+        <mkdir dir="${jcatests.lib.dir}"/>
+        <mkdir dir="${jcatests.ejb.lib.dir}"/>
+
+        <exec dir="./" executable="java" resolveexecutable="true">
+            <arg value="-version" />
+        </exec>
+    </target>
+
+    <target name="clean">
+        <echo>Cleaning testTools_JCAfail</echo>
+        <delete dir="${jcatests.lib.dir}"/>
+        <delete dir="${jcatests.doc.dir}"/>
+        <delete dir="${jcatests.ejb.lib.dir}"/>
+        <delete dir="${jcatests.ejb.bin.dir}"/>
+        <delete file="${testTools.ship.lib.dir}/testTools_JCAfail.ear"/>
+    </target>
+
+</project>

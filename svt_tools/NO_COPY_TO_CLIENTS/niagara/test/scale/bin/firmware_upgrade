@@ -1,0 +1,60 @@
+#!/usr/bin/expect -f
+### To be used for setting up production release ISM appliances that do no have busybox
+### create the known_hosts file on the ISM server for the client specified
+### syntax: build_known_hosts ismServerIP ismClientIP (ie. build_known_hosts 10.10.10.10 10.10.10.10)
+############## TO ADD ALL AF client IPs run the following bash commands from directory containing globalVARS.xml #####################################
+### for i in `grep mar globalVARS.xml | grep client | awk -F '[,,]' '{print $3}' | sed s/\'//g | sed s/\,//g | tr -d "["` ; do ./build_known_hosts.sh ISM_SERVER_IP $i ; done
+### for i in `grep mar globalVARS.xml | grep client | awk -F '[,,]' '{print $4}' | sed s/\'//g | sed s/\,//g | tr -d "["` ; do ./build_known_hosts.sh ISM_SERVER_IP $i ; done
+### ./build_known_hosts.sh 10.10.10.10 10.10.10.10
+#######################################################################################################################################################
+set timeout 5
+
+set ism_server [lindex $argv 0]
+set ism_client [lindex $argv 1]
+
+send_user "connecting to $ism_server\n"
+spawn ssh admin@$ism_server
+
+expect {
+  "> " { }
+  "(yes/no)? " {
+       send "yes\n"
+       expect { "> " }
+  }
+  default {
+       send_user "SSH to ISM Server Failed\n"
+       exit
+  }
+}
+
+send "file get scp://root@$ism_client:/niagara/appliance/rel_bedrock.scrypt2 .\n"
+expect {
+  "> " { }
+  "assword: " {
+       send "gr8wh1te\n"
+       expect { "> " }
+  }
+  "Wrote [*] bytes to local storage" {
+       send_user "Wrote file to local storage\n"
+  }
+  default { }
+}
+
+#send "firmware upgrade rel_bedrock.scrypt2\n"
+#expect {
+#  "> " { }
+#  "(yes/no)? " {
+#       send "yes\n"
+#       expect { "> " }
+#  }
+#  "Unable to parse image: rel_bedrock.scrypt2" {
+#       send_user "Unable to parse image: rel_bedrock.scrypt2\n"
+#       exit
+#  }
+#  default {
+#  }
+#}
+
+send "exit\n"
+send_user "Finshed\n"
+exit

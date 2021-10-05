@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="CreateConnection" >
+<!--
+	This test will test a 101 connection with cleanSession=false, will
+	create a subscription and then disconnect, to provide data for testing the
+	imaserver stat MQTTClient CLI command for number of responses returned.
+	After the testing is done, it will reconnect with cleanSession=true and
+	disconnect to clear out all the durable subscriptions.
+-->
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>testmqtt_stat02</solution>
+	</SyncClient>
+    <Action name="receive" type="CompositeAction">
+		<Action name="syncReset" type="SyncAction">
+			<ActionParameter name="request">reset</ActionParameter>
+		</Action>
+		<Action name="CreateNumberString1" type="CreateStoreNumberString">
+			<ActionParameter name="structure_id">stat02.receive</ActionParameter>
+			<ActionParameter name="value">stat02.receive</ActionParameter>
+			<ActionParameter name="digits">3</ActionParameter>
+			<ActionParameter name="initialCounter">0</ActionParameter>
+		</Action>
+		<Action name="createConnections" type = "CompositeAction" repeat="101">
+		    <Action name="CreateConnection1" type="CreateConnection">
+    		    <ActionParameter name="structure_id">Con1</ActionParameter>
+	    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+            	<include>../common/ConnectionType.xml</include>
+	    	    <include>../common/MQTT_server.xml</include>
+		        <ApiParameter name="clientId">stat02.receive</ApiParameter>
+                <include>../common/MQTT_port.xml</include>
+        		<ApiParameter name="cleanSession">false</ApiParameter>
+		    </Action>
+		    <Action name="Subscribe1" type="Subscribe">
+	    		<ActionParameter name="connection_id">CF1</ActionParameter>
+	    		<ApiParameter name="topic">myWillTopic</ApiParameter>
+		    	<ApiParameter name="QoS">2</ApiParameter>
+		    </Action>
+	    	<Action name="CloseConnection1" type="CloseConnection">
+    	    	<ActionParameter name="connection_id">CF1</ActionParameter>
+		    </Action>
+		</Action>
+	    <!--- connections/durable subscriptions established, now issue
+	          stat commands -->
+		<Action name="sync_set_que_wait_1" type="SyncAction"> 
+			<ActionParameter name="request">set</ActionParameter>
+			<ActionParameter name="condition">cue_wait</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+		</Action>
+		<Action name="sync_wait_que_set_1" type="SyncAction"> 
+			<ActionParameter name="request">wait</ActionParameter>
+			<ActionParameter name="condition">cue_set</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+		</Action>
+		<!-- test is done. Clean up -->
+		<Action name="ResetCounter" type="SetStoreInteger">
+			<ActionParameter name="structure_id">stat02.receive</ActionParameter>
+			<ActionParameter name="value">0</ActionParameter>
+		</Action>
+		<Action name="CleanConnections" type="CompositeAction" repeat="101">
+		    <Action name="CreateConnection1a" type="CreateConnection">
+    		    <ActionParameter name="structure_id">Con1</ActionParameter>
+	    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+            	<include>../common/ConnectionType.xml</include>
+	    	    <include>../common/MQTT_server.xml</include>
+		        <ApiParameter name="clientId">stat02.receive</ApiParameter>
+                <include>../common/MQTT_port.xml</include>
+        		<ApiParameter name="cleanSession">true</ApiParameter>
+		    </Action>
+		    <Action name="CloseConnection1a" type="CloseConnection">
+    		    <ActionParameter name="connection_id">CF1</ActionParameter>
+    		</Action>
+	    </Action>
+	    <Action name="CreateConnection3a" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">stat01.receive3</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnection3a" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>
+</IsmWSTest>
+                

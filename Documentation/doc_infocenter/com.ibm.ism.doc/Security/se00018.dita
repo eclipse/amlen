@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN"
+ "concept.dtd">
+<?Pub Inc?>
+<concept id="se00018" xml:lang="en-us">
+<title>Variable substitution in messaging policies</title>
+<shortdesc>You can use variable substitution in messaging policies to avoid configuring large numbers of messaging policies. You can set up a topic policy or queue policy so that the topic or queue parameter in the policy includes a user ID, group ID, client ID, or client certificate common name variable. The user ID, group ID, client ID, or common name is matched to the topic string or queue name, and access is granted to that topic tree or queue only.</shortdesc>
+<conbody>
+<p>The variables are:<ul>
+<li><codeph>${UserID}</codeph> for the user ID. </li>
+<li><codeph>${GroupID}</codeph> for the group ID. </li>
+<li><codeph>${ClientID}</codeph> for the client ID. You cannot use <codeph>${ClientID}</codeph> in
+a subscription messaging policy. </li>
+<li><codeph>${CommonName}</codeph> for the client certificate common
+name. </li>
+</ul></p>
+<p>The topic parameter or queue parameter can contain multiple variables, but only one instance of each variable. For example, <codeph>EXAMPLE/${ClientID}/A/${UserID}</codeph> is valid, but <codeph>EXAMPLE/${ClientID}/A/${ClientID}</codeph> is not valid. You can specify extra characters along with the variable, for example <codeph>EXAMPLE/${UserID}</codeph>. However, if you use an unknown variable, the matching of the policy fails.</p>
+<p>When you use variables, take care and be consistent with the position of the variable in your topic strings. For example, you have the following topic strings in your application:<ul>
+<li><codeph>MOBILEAPP/ACCOUNT/<varname>ClientID</varname></codeph></li>
+<li><codeph>MOBILEAPP/ACCOUNT/<varname>ClientID</varname>/PRIVILEGE</codeph></li>
+</ul>The first topic string is to authorize clients, and the second topic string is to authorize administrators. However, with these topic strings you can unintentionally allow access to the administrator topics. For example, if the topic policy has a topic of <codeph>MOBILEAPP/ACCOUNT/${ClientID}</codeph>, a malicious client can use a client ID that ends with <codeph>/PRIVILEGE</codeph>, and can gain access to the administrator topics.</p>
+<section><title>Using the <codeph>${UserID}</codeph> variable</title><p>The following example shows how you might configure a topic policy in a scenario where you have thousands of items that need tracking. You might also have thousands of users that want to subscribe to the status of one of these items. You can use the variable substitution option to avoid creating thousands of messaging policies. For example:<codeblock>    Name:SubscribeItemTracking,
+    Description:Topic policy for clients IDs with item tracking,
+    Clientid:*,
+    Topic:item/tracking/${UserID},
+    ActionList:Subscribe
+</codeblock></p><p>Using this topic policy, all clients can subscribe to topic string <codeph>item/tracking/</codeph>. However, each user can see only their items, as the <codeph>${UserID}</codeph> is replaced by the user ID in the topic string. For example, there are two users, <codeph>user_a</codeph> and <codeph>user_b</codeph>. When <codeph>user_a</codeph> accesses the topic, they can subscribe only to the topic <codeph>item/tracking/user_a</codeph>. When <codeph>user_b</codeph> accesses the topic, they can subscribe only to the topic <codeph>item/tracking/user_b</codeph>. <codeph>user_b</codeph> cannot subscribe to the topic <codeph>item/tracking/user_a</codeph>.</p></section>
+<section id="UsingGroupIDVar"><title>Using the <codeph>${GroupID}</codeph> variable</title><?Pub
+Caret -2?><p>The following example shows how you might configure a topic policy in a scenario where you want to publish a message to all drivers who operate within a particular geographic region. You can use the variable substitution option to avoid creating thousands of messaging policies. For example:<codeblock>    Name:PublishbyGeographicRegion,
+    Description:Topic policy for group IDs by geographic region,
+    Clientid:*,
+    Topic:drivers/USA/${GroupID}/*,
+    Action:Publish
+</codeblock></p><p>Using this topic policy, a message can be published to topic string <codeph>drivers/USA</codeph>. Only users in a specific group can receive messages to which they are authorized, as the <codeph>${GroupID}</codeph> is replaced by a specific group ID in the topic string. For example, there are two users, <codeph>user_a</codeph> and <codeph>user_b</codeph>. <codeph>user_a</codeph> is in the group <codeph>Los Angeles</codeph>. <codeph>user_b</codeph> is in the group <codeph>San Francisco</codeph>. <codeph>user_a</codeph> is authorized to receive only messages that are published to the topic <codeph>drivers/USA/Los Angeles</codeph>. <codeph>user_b</codeph> is authorized to receive only messages that are published to the topic <codeph>drivers/USA/San Francisco</codeph>. <codeph>user_b</codeph> cannot receive messages that are published to the topic <codeph>drivers/USA/Los Angeles</codeph>. <codeph>user_c</codeph> is in the group <codeph>Los Angeles</codeph> and the group <codeph>San Francisco</codeph>, so <codeph>user_c</codeph> is authorized to receive messages that are published to the topic <codeph>drivers/USA/Los Angeles</codeph> and the topic <codeph>drivers/USA/San Francisco</codeph>.</p><p>When you
+use the <codeph>${GroupID}</codeph> variable but have different users
+with the same user ID in different groups with the same group ID,
+consider using unique group IDs. Unique group IDs help to ensure that
+only those users that you intend to have the authority to publish
+or subscribe to a topic can do so. For example, there are two users
+with the same user ID, <codeph>Truck1</codeph>.  One user drives during
+the day and the other user drives during the night. They are both
+members of different groups which are both called <codeph>Los Angeles</codeph>;
+these groups called <codeph>Los Angeles</codeph> are nested as members
+of other groups. The driver who drives during the day has user ID <codeph>Truck1</codeph> in
+group <codeph>Los Angeles</codeph> which is nested within group <codeph>Daytime</codeph>.
+The driver who drives during the night has user ID <codeph>Truck1</codeph> in
+group <codeph>Los Angeles</codeph> which is nested within group <codeph>Nighttime</codeph>.
+If you specify the <codeph>${GroupID}</codeph> variable, when it is
+replaced by the specific group ID in the topic string, both users
+receive messages that are published to the topic <codeph>drivers/USA/Los
+Angeles</codeph>. It might not be your intention for both of these
+users to receive these messages; you might only require one of these
+users to receive these messages and for the other user to receive
+messages from a different topic string. Consider using unique group
+names in this situation. You might consider replacing the group ID <codeph>Los
+Angeles</codeph> with group IDs similar to <codeph>Los Angeles Day</codeph> and <codeph>Los
+Angeles Night</codeph>.</p><p>A user can be a member of a maximum
+of 200 groups.</p></section>
+</conbody>
+</concept>
+<?Pub *0000007256?>

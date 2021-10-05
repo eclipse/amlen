@@ -1,0 +1,45 @@
+#!/bin/bash 
+
+source ./test.cfg
+
+DEBUG=0
+
+if [ -z $1 ]; then
+  NODE=msserver01a
+  ID[3]=c00130000
+  ID[4]=c00140000
+  ID[5]=c00150000
+  ID[6]=c00160000
+  ID[7]=c00170000
+  ID[8]=c00180000
+  APPID=a01
+else
+  NODE=${APPLIANCE[$1]}
+  for i in {0..5}; do 
+    printf -v ID[$i] "c%08d" $((${CAR[$1]}+($i*500)))
+    APPID[$i]=${APP[$((3+($i%6)))]}
+  done
+fi
+
+
+ENDPOINT=`/niagara/test/scripts/getclusterserverendpointport.py -c ${CLUSTER} -e SVT-CarsInternetEndpoint -a ${NODE}`
+SERVER=${ENDPOINT/:*/}
+PORT=${ENDPOINT/*:/}
+
+
+if [ ${DEBUG} -ne 0 ]; then
+  echo CLUSTER=${CLUSTER}
+  echo NODE=${NODE}
+  echo ENDPOINT=${ENDPOINT}
+  echo QOS=${QOS}
+  echo MESSAGES=${MESSAGES}
+  echo ID=${ID}
+fi
+
+
+
+for i in {0..5}; do 
+  echo java -Xss128K -Xzero -Xms128M -Xmx128M -Xshareclasses -Djavax.net.debug=false -Djavax.net.ssl.trustStore=${CACERTS} -Djavax.net.ssl.trustStorePassword=${PASSWORD} svt.scale.vehicle.SVTVehicle -server "${SERVER}" -userName ${ID[$i]} -password "svtpvtpass" -port ${PORT} -qos ${QOS} -paho ${CARS} -messages ${MESSAGES} -vverbose ${VERBOSE} -listener false -iotf ${IOTF} -ssl ${SSL} -cleanSession false -rate 60 -verbose_connect ${VERBOsE_CONNECT} -genClientID false -verbose_connectionLost true -reconnectDelay 60000  -keepAlive 900 -connectionTimeout 600 -connectionThrottle 5 -order ${ORDER} -appid ${APPID[$i]}
+   java -Xss128K -Xzero -Xms128M -Xmx128M -Xshareclasses -Djavax.net.debug=false -Djavax.net.ssl.trustStore=${CACERTS} -Djavax.net.ssl.trustStorePassword=${PASSWORD} svt.scale.vehicle.SVTVehicle -server "${SERVER}" -userName ${ID[$i]} -password "svtpvtpass" -port ${PORT} -qos ${QOS} -paho ${CARS} -messages ${MESSAGES} -vverbose ${VERBOSE} -listener false -iotf ${IOTF} -ssl ${SSL} -cleanSession false -rate 60 -verbose_connect ${VERBOsE_CONNECT} -genClientID false -verbose_connectionLost true -reconnectDelay 60000  -keepAlive 900 -connectionTimeout 600 -connectionThrottle 5 -order ${ORDER} -appid ${APPID[$i]} &
+done
+

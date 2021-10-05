@@ -1,0 +1,728 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="server_gui" default="build_server_gui">
+    <property file="build.properties"/>
+    <property file="${server.build.dir}/server_build.properties"/>
+    <property name="guiBuildToolsDir" value="${env.DEPS_HOME}"/>
+
+    <!-- Load the "path properties" used for install paths & branding-->
+    <condition property="pathpropsfile" value="${env.IMA_PATH_PROPERTIES}" else="${server.build.dir}/paths.properties">
+        <isset property="env.IMA_PATH_PROPERTIES" />
+    </condition>
+    <property file="${pathpropsfile}" />
+
+    <!-- Build in $BROOT rather than the source tree (sroot) if $BROOT is set -->
+    <condition property="broot" value="${env.BROOT}" else="${workspace}">
+        <isset property="env.BROOT" />
+    </condition>
+
+    <condition property="separate.broot">
+        <not>
+            <equals arg1="${broot}" arg2="${workspace}" />
+        </not>
+    </condition>
+
+    <condition property="server.gui.libertyArchive" value="${server.gui.openLibertyArchive}" else="${server.gui.wasArchive}">
+        <isset property="server.gui.useOpenLiberty" />
+    </condition>
+
+    <echo>server.gui.useOpenLiberty=${server.gui.useOpenLiberty}</echo>
+    <echo>server.gui.libertyArchive=${server.gui.libertyArchive}</echo>
+    <echo>guiBuildToolsDir=${guiBuildToolsDir}</echo>
+
+
+    <!-- Load contrib library -->
+    <taskdef resource="net/sf/antcontrib/antlib.xml" />
+
+    <!--
+    <property name="beam.install" value="/opt/ibm/beam"/>
+    <taskdef name="beam" classname="com.ibm.beam.ant.BeamTask" classpath="${beam.install}/jar/ant-beam.jar" onerror="report"/>
+    -->
+
+    <fileset dir="${server.translation.dir}" id="webui_translations">
+        <include name="**/*.java" />
+        <include name="**/*.js" />
+    </fileset>
+    <pathconvert refid="webui_translations" property="translations.present" setonempty="false"/>
+
+    <condition property="real.translations">
+        <and>
+            <equals arg1="${env.USE_REAL_TRANSLATIONS}" arg2="true"/>
+            <isset property="translations.present" />
+        </and>
+    </condition>
+
+    <!-- Required Classpaths -->
+    <path id="compile.classpath">
+       <fileset dir="${server.gui.build.tools.dir}/wlp/lib">
+           <include name="*.jar"/>
+       </fileset>
+        <fileset dir="${server.gui.build.tools.dir}/wlp/dev/api/ibm">
+            <include name="*.jar"/>
+        </fileset>
+        <fileset dir="${server.gui.build.tools.dir}/wlp/dev/api/spec">
+            <include name="*.jar"/>
+        </fileset>
+        <fileset dir="${server.gui.build.tools.dir}/wlp/dev/api/third-party">
+            <include name="com.ibm.websphere.appserver.thirdparty.jaxrs_*.jar"/>
+            <include name="com.ibm.websphere.appserver.thirdparty.jpa_*.jar"/>
+        </fileset>
+       <fileset dir="${server.gui.build}/WebContent/WEB-INF/lib">
+           <include name="*.jar"/>
+       </fileset>
+    </path>
+
+    <!-- Classpath for junit tests -->
+    <path id="test.classpath">
+        <path refid="compile.classpath" />
+            <pathelement location="/opt/apache-ant/lib" />
+        <pathelement location="${server.gui.build.bin.dir}" />
+        <pathelement location="${server.gui.build.junit.dir}" />
+        <pathelement location="${server.gui.jar.dir}" />
+    </path>
+
+    <!-- Clean build -->
+    <target name="clean" depends="clean_resource_bundle">
+        <delete includeemptydirs="true" dir="${server.gui.build.bin.dir}" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.tools.dir}" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.js.dir}/dojotoolkit" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.js.dir}/idx" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.dojo.build}" failonerror="false" />
+    </target>
+
+    <!-- Private Clean (convenience target that doesn't clean resource bundles, not used in development or production builds) -->
+    <target name="private_clean">
+        <delete includeemptydirs="true" dir="${server.gui.build.bin.dir}" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.tools.dir}" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.js.dir}/dojotoolkit" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.js.dir}/idx" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.dojo.build}" failonerror="false" />
+    </target>
+
+    <!-- minimal clean necessary for a production build. this is due to the addition of the buildLevel to common.js -->
+    <target name="minimalClean" if="isProductionBuild">
+        <delete file="${server.gui.build.bin.dir}/build.profile.js" failonerror="false" />
+        <delete includeemptydirs="true" dir="${server.gui.build.dojo.build}" failonerror="false" />
+    </target>
+
+
+    <!-- Build targets  -->
+    <target name="build_server_gui"  depends="setBuildLabel, server-gui-war, gui_publish">
+        <echo> ==  Invoking ant for server_gui build ============= </echo>
+    </target>
+
+    <!-- If buildLabel is not set, set it (for local builds) -->
+    <target name="setBuildLabel" unless="webuiBuildLabel">
+        <property name="buildLabelSetLocally" value="true" />
+        <tstamp>
+            <format property="webuiBuildLabel" pattern="yyyyMMdd_HHmm"/>
+        </tstamp>
+    </target>
+
+    <target name="copyTranslations" description="Copy translated messages">
+        <copy todir="${server.gui.nls.dir}"
+              encoding="UTF-8" outputencoding="UTF-8"
+              overwrite="yes" failonerror="no">
+            <fileset dir="${server.translation.dir}/js">
+                <include name="**/*.js"/>
+            </fileset>
+        </copy>
+
+        <!-- If any Javascript translations are missing, use English original in their place -->
+        <for param="file">
+            <path>
+                <fileset dir="${server.gui.nls.dir}" includes="*.js"/>
+            </path>
+            <sequential>
+                <!-- For each English file, check every dir with translations -->
+                <local name="file.name" />
+                <basename file="@{file}" property="file.name"/>
+                <for param="dir">
+                    <path>
+                        <dirset dir="${server.gui.nls.dir}" includes="*" />
+                    </path>
+                    <sequential>
+                          <local name="dir.name" />
+                          <basename file="@{dir}" property="dir.name" />
+                          <!-- If translated file is not available, update root file to say so -->
+                          <if>
+                            <not>
+                              <available file="@{dir}/${file.name}" />
+                            </not>
+                            <then>
+                              <echo>In file: "${server.gui.nls.dir}/${file.name}" recording "${dir.name}" is missing ${file.name}</echo>
+                              <replace file="${server.gui.nls.dir}/${file.name}" encoding="utf-8"
+                                token='"${dir.name}": true' value='"${dir.name}": false' failOnNoReplacements="false"/>
+                            </then>
+                          </if>
+                    </sequential>
+                </for>
+            </sequential>
+        </for>
+
+        <copy todir="${server.gui.build.src.dir}/com/ibm/ima/msgcatalog/"
+              encoding="UTF-8" outputencoding="UTF-8"
+              overwrite="yes" failonerror="no">
+             <fileset dir="${server.translation.dir}/java">
+                 <include name="IsmUIStringsResourceBundle_*.java"/>
+             </fileset>
+        </copy>
+        <foreach target="fixClassName" param="fileName" inheritall="true" inheritrefs="true">
+            <path>
+                <fileset dir="${server.gui.build.src.dir}/com/ibm/ima/msgcatalog/" casesensitive="yes">
+                    <include name="**/IsmUIStringsResourceBundle_*.java"/>
+                </fileset>
+            </path>
+        </foreach>
+        <exec executable="python3">
+           <arg value="${basedir}/../server_build/path_parser.py"/>
+           <arg value="-mdirreplace"/>
+           <arg value="-i${server.gui.build.src.dir}/com/ibm/ima/msgcatalog"/>
+           <arg value="-o${server.gui.build.src.dir}/com/ibm/ima/msgcatalog"/>
+           <arg value="-sinfo"/>
+        </exec>
+    </target>
+
+    <target name="fixClassName">
+        <propertyregex property="val"
+                  input="${fileName}"
+                  regexp="IsmUIStringsResourceBundle_(.+)\.java"
+                  select="\1"
+                  casesensitive="true" />
+        <echo message="${fileName} - ${val}" />
+        <replace file="${fileName}" encoding="UTF-8"
+            token="public class IsmUIStringsResourceBundle extends"
+            value="public class IsmUIStringsResourceBundle_${val} extends"/>
+    </target>
+
+    <!--Compile the project-->
+    <target name="gui_compile" depends="server_gui_init, unzip-tools, copy_resource_bundle, PseudoTranslation, copyTranslations">
+        <mkdir dir="${server.gui.build.bin.dir}/classes" />
+        <echo> ==  Compile server_gui project ================ </echo>
+        <javac
+                    destdir="${server.gui.build.bin.dir}/classes"
+                    deprecation="no"
+                    includeAntRuntime="no"
+                    debug="yes"
+                    debuglevel="lines,source,vars"
+                    optimize="yes"
+                    encoding="utf-8">
+                    <src path="${server.gui.src.dir}" />
+                    <src path="${server.gui.build.src.dir}" />
+                    <classpath refid="compile.classpath" />
+        </javac>
+    </target>
+
+    <!--Copy the .properties file and perform variable subtitution -->
+    <target name="property_sub">
+         <echo> ==  Copy non-java resources ================ </echo>
+         <copy todir="${server.gui.build.bin.dir}/classes" overwrite="true" >
+            <fileset dir="${server.gui.src.dir}" includes="**/*.properties"/>
+         </copy>
+         <echo> ==  .properties variable substitution ============= </echo>
+        <exec executable="python3">
+           <arg value="${basedir}/../server_build/path_parser.py"/>
+           <arg value="-mfilereplace"/>
+           <arg value="-i${server.gui.build.bin.dir}/classes/${server.gui.propertiesPath}"/>
+           <arg value="-o${server.gui.build.bin.dir}/classes/${server.gui.propertiesPath}"/>
+           <arg value="-sinfo"/>
+        </exec>
+    </target>
+
+
+    <!--Perform variable substitution for the UI About dialog -->
+    <target name="build_id_sub" if="buildLabel" unless="buildLabelSetLocally">
+        <echo> ==  build ID substitution =============== </echo>
+        <replaceregexp file="${server.gui.build.js.dir}/ism/controller/_PageController.js"
+            match="__buildLabel__"
+            replace="${webuiBuildLabel}"
+            flags="g">
+        </replaceregexp>
+    </target>
+
+    <target name="rel_type_sub" >
+        <echo> ==  release type (BETA/GA) substitution =============== </echo>
+        <!-- Change replace value to GA when we are no longer building for Beta.
+             This value setting is used for presenting licenes in v2.0 and later -->
+        <replaceregexp file="${server.gui.build.js.dir}/ism/controller/_PageController.js"
+            match="__relTypeLabel__"
+            replace="GA">
+        </replaceregexp>
+    </target>
+
+    <!--Create an English copy of our strings bundle-->
+    <target name="create_english_strings_bundle" depends="check_strings_bundle"  unless="bundle.strings.exists">
+        <copy file="${server.gui.strings.resourceBundleSrcPath}" tofile="${server.gui.strings.resourceBundleDestPath.en}" preservelastmodified="yes"/>
+        <replace file="${server.gui.strings.resourceBundleDestPath.en}" token="IsmUIStringsResourceBundle" value="IsmUIStringsResourceBundle_en"/>
+    </target>
+
+    <!--Make sure we did not already create an English copy-->
+    <target name="check_strings_bundle" description="Check to see if the strings message bundle is available.">
+        <echo> ==  Checking for strings resource bundle ================</echo>
+        <condition property="bundle.strings.exists">
+            <and>
+                <available file="${server.gui.strings.resourceBundleDestPath.en}" />
+            </and>
+        </condition>
+    </target>
+
+    <!--Copy the resource bundle to our project-->
+    <target name="copy_resource_bundle" depends="create_bundle_if_missing, create_english_strings_bundle">
+        <echo> ==  Copy the resource bundle to server_gui project ================ </echo>
+        <copy file="${server.gui.resourceBundleSrcPath}"
+            tofile="${server.gui.resourceBundleDestPath}"
+            overwrite="true" />
+        <copy file="${server.gui.resourceBundleSrcPath.en}"
+            tofile="${server.gui.resourceBundleDestPath.en}"
+            overwrite="true" />
+    </target>
+
+    <!--If the bundle isn't in the expected location, generate it-->
+    <target name="create_bundle_if_missing" depends="check_bundle" unless="bundle.exists">
+        <echo> ==  Creating the resource bundle ================ </echo>
+        <antcall target="tmsbuild"/>
+    </target>
+
+    <target name="check_bundle" description="Check to see if the message bundle is available.">
+        <echo> ==  Checking for resource bundle ================</echo>
+        <condition property="bundle.exists">
+            <and>
+                <available file="${server.gui.resourceBundleSrcPath}" />
+            </and>
+        </condition>
+    </target>
+
+    <!-- Called even if using pseudo-translations as it generates the .java files used by pseudotrans-->
+    <target name="tmsbuild">
+        <ant antfile="${server.gui.tms.antfile}" dir="${server.gui.tms.ant.basedir}" target="webUI" />
+        <ant antfile="${server.gui.tms.antfile}" dir="${server.gui.tms.ant.basedir}" target="publish" />
+    </target>
+
+
+    <target name="clean_resource_bundle">
+        <delete file="${server.gui.tms.clean.ui.bundle.xml}" failonerror="false"></delete>
+        <delete file="${server.gui.tms.clean.ui.bundle}" failonerror="false"></delete>
+        <delete file="${server.gui.tms.clean.ui.bundle.src}" failonerror="false"></delete>
+        <delete file="${server.gui.tms.clean.ui.bundle.en}" failonerror="false"></delete>
+        <delete file="${server.gui.resourceBundleSrcPath}" failonerror="false"></delete>
+        <delete file="${server.gui.resourceBundleSrcPath.en}" failonerror="false"></delete>
+    </target>
+
+
+    <target name="check_dojo" description="Check to see if the Dojo toolkits are already extracted.">
+        <condition property="dojo.extracted">
+            <and>
+                <available file="${server.gui.build.js.dir}/dojotoolkit" type="dir" />
+                <available file="${server.gui.build.js.dir}/idx" type="dir" />
+            </and>
+        </condition>
+    </target>
+
+
+    <!-- Extract the dojo toolkit and idx toolkit if not extracted -->
+    <target name="extract_dojo_toolkits" depends="check_dojo, extract_branded_idx, use_unbranded_idx" 
+            unless="dojo.extracted" description="Extract the dojo and idx toolkits">
+        <mkdir dir="${server.gui.build.js.dir}"/>
+        <mkdir dir="${server.gui.build.js.dir}/dojotoolkit"/>
+        <unzip overwrite="true" src="${guiBuildToolsDir}/${server.gui.idtArchive}" dest="${server.gui.build.js.dir}/dojotoolkit" />
+        <unzip overwrite="true" src="${guiBuildToolsDir}/${server.gui.idxgridxArchive}" dest="${server.gui.build.js.dir}/dojotoolkit" />
+    </target>
+
+    <!-- If we have an idxArchive with branding use that -->
+    <target name="extract_branded_idx" if="server.gui.idxArchive" unless="dojo.extracted">
+        <echo>Using ${server.gui.idxArchive} for idx</echo>
+        <unzip overwrite="true" src="${guiBuildToolsDir}/${server.gui.idxArchive}" dest="${server.gui.build.js.dir}" />
+    </target>
+
+    <!-- If we don't have a branded idxArchive then use the unbranded version -->
+    <target name="use_unbranded_idx" depends="use_unbranded_idx.check" if="use_unbranded_idx.run">
+        <echo>Using unbranded idx replacement</echo>
+        <copy todir="${server.gui.build.js.dir}">
+            <fileset dir="${server.gui.dir}/unbranded">
+                <include name="idx/**"/>
+            </fileset>
+        </copy>
+    </target>
+    
+    <target name="use_unbranded_idx.check">
+        <condition property="use_unbranded_idx.run">
+            <and>
+                <not>
+                    <isset property="server.gui.idxArchive" />
+                </not>
+                <not>
+                    <isset property="dojo.extracted" />
+                </not>
+            </and>
+        </condition>
+    </target>
+
+    <!-- dojo build -->
+    <target name="dojo_build" depends="extract_dojo_toolkits, setPathLabel">
+        <antcall target="optimized_build"/>
+        <antcall target="non_optimized_build"/>
+    </target>
+
+    <target name="setPathLabel">
+
+    </target>
+
+    <!-- Optimized dojo build, for production builds only -->
+    <target name="optimized_build" if="isProductionBuild" depends="setBuildLabel">
+        <echo> ==  Optimized dojo build ================ </echo>
+        <property name="server.gui.pathLabel" value="${ISM_VERSION_ID}_${webuiBuildLabel}" />
+
+        <!-- Copy the build.profile.js to bin -->
+        <copy todir="${server.gui.build.bin.dir}">
+            <fileset dir="${server.gui.dir}">
+                <include name="build.profile.js"/>
+            </fileset>
+        </copy>
+
+        <!-- Modify build.profile.js base path since we moved it -->
+        <replace file="${server.gui.build.bin.dir}/build.profile.js" token="/WebContent" value="./WebContent" />
+        <replace file="${server.gui.build.bin.dir}/build.profile.js" token="../dojobuild" value="../dojobuild/${server.gui.pathLabel}" />
+
+        <!-- Copy the content into the dojo build except for things that will be built by the dojo builder -->
+        <copy todir="${server.gui.build.dojo.build}">
+            <fileset dir="${server.gui.build}/WebContent">
+                <exclude name="WEB-INF/classes/**"/>
+                <exclude name="js/**"/>
+                <exclude name="css/**"/>
+                <exclude name="demo/**"/>
+                <exclude name="template/**"/> 
+            </fileset>
+        </copy>
+
+        <replace file="${server.gui.build.dojo.build}/WEB-INF/web.xml" token="__PATH_LABEL__" value="${server.gui.pathLabel}" />
+
+        <!-- Copy css files to version specific location-->
+        <copy todir="${server.gui.build.dojo.build}/${server.gui.pathLabel}/css">
+            <fileset dir="${server.gui.dir}/WebContent/css" />
+        </copy>
+        <!-- duplicate images because they are directly accessed in so many <img> tags and rarely change -->
+        <copy todir="${server.gui.build.dojo.build}/css/images">
+            <fileset dir="${server.gui.dir}/WebContent/css/images" />
+        </copy>
+        <copy todir="${server.gui.build.dojo.build}/css/icons/images">
+            <fileset dir="${server.gui.dir}/WebContent/css/icons/images" />
+        </copy>
+
+        <!-- Copy dojoConfig and message files -->
+        <copy todir="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js">
+            <fileset dir="${server.gui.build.js.dir}">
+                <include name="ism/nls/*.js"/>
+                <include name="dojoConfig.js"/>
+            </fileset>
+        </copy>
+
+        <!-- Modify the dojo paths to point to built dojo -->
+        <replace dir="${server.gui.build.dojo.build}" token="dojotoolkit/">
+                    <include name="**/*.jsp"/>
+                    <include name="**/*.css"/>
+                    <include name="${server.gui.pathLabel}/js/dojoConfig.js"/>
+        </replace>
+        <replace dir="${server.gui.build.dojo.build}" token="js/" value="${server.gui.pathLabel}/js/">
+            <include name="**/*.jsp"/>
+            <include name="${server.gui.pathLabel}/js/dojoConfig.js"/>
+        </replace>
+        <replace dir="${server.gui.build.dojo.build}" token="css/" value="${server.gui.pathLabel}/css/">
+                    <include name="**/*.jsp"/>
+        </replace>
+
+
+        <!-- replace __buildLabel__ with the webui build label -->
+        <replace file="${server.gui.build.bin.dir}/build.profile.js" token="__buildLabel__" value="${webuiBuildLabel}" />
+        <replace dir="${server.gui.build.dojo.build}" token="__buildLabel__" value="${webuiBuildLabel}">
+            <include name="*.jsp" />
+        </replace>
+
+        <!-- Use the external infocenter URL -->
+        <replaceregexp file="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/dojoConfig.js"
+            match="infocenterURL:.*"
+            replace="infocenterURL: ${server.gui.infocenterURL},"
+            byline="true">
+        </replaceregexp>
+
+        <!-- Make sure dojo is not running in debug mode -->
+        <replace file="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/dojoConfig.js" token="isDebug: true" value="isDebug: false"/>
+
+        <!-- Run the dojo build -->
+        <trycatch property="dojoBuildResult">
+            <try>
+                <copy file="${server.gui.js.dir}/ism/config/Resources.js" tofile="${server.gui.build.js.dir}/ism/config/Resources.js.bak"/>
+                <replace dir="${server.gui.build.js.dir}" token="js/" value="${server.gui.pathLabel}/js/">
+                    <include name="ism/config/Resources.js"/>
+                </replace>
+
+                <antcall target="dojo_builder"/>
+
+                <!-- Dojo build is messing up d3, so copy over the built file until can figure out why -->
+                <copy file="${server.gui.build.js.dir}/d3/d3.min.js"
+                    tofile="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/d3/d3.min.js" overwrite="true"/>
+
+                <!-- if include tests, copy them, they are not built by the dojo builder -->
+                <antcall target="copyTests"/>
+            </try>
+            <catch>
+                <fail>Dojo optimized build failed!  ${dojoBuildResult}</fail>
+            </catch>
+            <finally>
+                <move file="${server.gui.build.js.dir}/ism/config/Resources.js.bak"
+                    tofile="${server.gui.build.js.dir}/ism/config/Resources.js" overwrite="true" failonerror="false"/>
+                <delete file="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/ism/config/Resources.js.bak" failonerror="false" />
+            </finally>
+        </trycatch>
+    </target>
+
+    <!-- if include tests, copy them, they are not built by the dojo builder -->
+    <target name="copyTests" if="retainTests">
+        <copy todir="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js">
+            <fileset dir="${server.gui.build.js.dir}/dojotoolkit">
+                <include name="util/doh/**"/>
+            </fileset>
+            <fileset dir="${server.gui.build.js.dir}">
+                <include name="ism/tests/**"/>
+            </fileset>
+        </copy>
+        <!-- fix up the paths -->
+        <replace file="${server.gui.build.dojo.build}/runTests.html" token="js/dojotoolkit/" value="${server.gui.pathLabel}/js/" />
+        <replace file="${server.gui.build.dojo.build}/runTests.html" token="paths=ism,../../ism" value="paths=ism,../ism" />
+    </target>
+
+    <!-- Non-optimized dojo build, for development and personal builds -->
+    <target name="non_optimized_build" unless="isProductionBuild">
+        <echo> ==  Non-optimized dojo build ================ </echo>
+
+        <delete file="${server.gui.build.dojo.build}/WEB-INF/web.xml" failonerror="false" />
+
+        <!-- Just copy WebContent folder as-is -->
+        <copy todir="${server.gui.build.dojo.build}">
+            <fileset dir="${server.gui.dir}/WebContent">
+                <exclude name="js/*.zip"/>
+            </fileset>
+        </copy>
+
+        <!-- replace __buildLabel__ with the empty string -->
+        <replace dir="${server.gui.build.dojo.build}" token="___buildLabel__" value="">
+            <include name="*.jsp" />
+        </replace>
+
+    </target>
+
+    <!-- Invoke the dojo builder tool -->
+    <target name="dojo_builder" description="run the dojo build to create layers and compress the js">
+            <echo> ==  Running dojo build ================ </echo>
+
+            <property name="releaseDir" location="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js"/>
+            <echo message="releaseDir=${releaseDir}"/>
+
+            <java classname="org.mozilla.javascript.tools.shell.Main" fork="true" failonerror="true">
+                <jvmarg value="-Xms256m"/>
+                <jvmarg value="-Xmx1024m"/>
+
+                <classpath>
+                    <pathelement location="${server.gui.build.js.dir}/dojotoolkit/util/shrinksafe/js.jar" />
+                    <pathelement location="${server.gui.build.js.dir}/dojotoolkit/util/shrinksafe/shrinksafe.jar" />
+                </classpath>
+
+                <arg value="${server.gui.build.js.dir}/dojotoolkit/dojo/dojo.js" />
+                <arg value="baseUrl=${server.gui.build.js.dir}/dojotoolkit/dojo" />
+                <arg value="load=build" />
+                <arg value="--release" />
+                <arg value="--releaseDir"/>
+                <arg value="${releaseDir}"/>
+                <arg value="--dojoConfig" />
+                <arg value="${server.gui.build.js.dir}/dojoConfig.js" />
+                <arg value="--profile" />
+                <arg value="${server.gui.build.bin.dir}/build.profile.js" />
+            </java>
+
+    </target>
+
+    <target name="setupBroot" if="separate.broot">
+        <!-- We currently copy all the WebContent to broot. -->
+        <echo>Copying GUI content to broot</echo>
+        <copy todir="${server.gui.build}">
+            <fileset dir="${server.gui.dir}">
+                <include name="WebContent/**"/>
+                <include name="ISMWebUI/**"/>
+                <include name="ISMWebUI_templates/**"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="cleanTests" unless="retainTests">
+        <!-- If retainTests is true, then don't delete them, we want them in the war file... -->
+        <echo>== Deleting tests from dojobuild =========</echo>
+        <delete includeemptydirs="true" dir="${server.gui.build.dojo.build}/js/ism/tests" failonerror="false" />
+        <delete file="${server.gui.build.dojo.build}/runTests.html" failonerror="false" />
+    </target>
+
+    <!-- Build WAR file -->
+    <target name="server-gui-war" depends="gui_compile, property_sub, build_id_sub, rel_type_sub, dojo_build, cleanTests" >
+       <!-- In case of non-optimized build, need to clean up the web.xml file -->
+       <replace file="${server.gui.build.dojo.build}/WEB-INF/web.xml" token="/__PATH_LABEL__" value="" />
+
+       <war destfile="${server.gui.build.lib.dir}/ISMWebUI.war" webxml="${server.gui.build.dojo.build}/WEB-INF/web.xml">
+           <fileset dir="${server.gui.build.dojo.build}"
+               excludes="META-INF/*.MF WEB-INF/** js/*.zip **/.jazzignore **/*.js.uncompressed.js template/** **/build-report.txt" />
+           <lib dir="${server.gui.build.dojo.build}/WEB-INF/lib" excludes="bedrock.jar"/>
+           <classes dir="${server.gui.build.bin.dir}/classes"/>
+           <webinf file="${server.gui.build.dojo.build}/WEB-INF/wink.properties" />
+       </war>
+    </target>
+
+    <!-- Copy the product file to ship tree -->
+    <target name="gui_publish">
+        <echo> ==  Copy files to server_ship tree ================ </echo>
+        <copy todir="${server.common.lib.dir}" preservelastmodified="yes">
+            <fileset dir="${server.gui.build.lib.dir}" />
+        </copy>
+    </target>
+
+    <target name="copyFromBuildTools" depends="extract_dojo_toolkits">
+        <echo>Copy tools from ${publishBuildTools} directory</echo>
+        <copy todir="${server.gui.build}/ISMWebUI">
+            <fileset dir="${guiBuildToolsDir}">
+                <include name="${server.gui.libertyArchive}" />
+            </fileset>
+        </copy>
+        <unzip overwrite="true" src="${guiBuildToolsDir}/${server.gui.d3Archive}" dest="${server.gui.build.js.dir}" />
+        <!-- Add all the jars from our dependencies that we bundle -->
+        <copy todir="${server.gui.build}/WebContent/WEB-INF/lib" overwrite="false" >
+            <fileset dir="${guiBuildToolsDir}">
+                <include name="${server.gui.icuj4Archive}" />
+                <include name="jackson-*-${server.gui.jackson.version}.jar" />
+            </fileset>
+        </copy>
+    </target>
+
+    <!-- Initialize the build environment -->
+    <target name="server_gui_init">
+        <condition property="isProductionBuild">
+            <not>
+                <equals arg1="${dojoDebug}" arg2="true" casesensitive="false" trim="true"/>
+            </not>
+        </condition>
+
+        <echo>buildType = ${buildType}</echo>
+        <condition property="retainTests">
+            <!-- Use this if we want DOH tests in optimized Development builds -->
+            <not>
+                <equals arg1="${buildType}" arg2="production" casesensitive="false" trim="true"/>
+            </not>
+            <!--
+            <isfalse value="${isProductionBuild}"/ -->
+        </condition>
+        <echo>retainTests = ${retainTests}</echo>
+
+        <antcall target="minimalClean" />
+        <antcall target="copyFromBuildTools"/>
+        <antcall target="setupBroot" />
+
+        <mkdir dir="${server.gui.build.junit.dir}"/>
+        <mkdir dir="${server.gui.build.lib.dir}"/>
+        <mkdir dir="${server.gui.build.tools.dir}"/>
+        <exec dir="./" executable="java" resolveexecutable="true">
+            <arg value="-version" />
+        </exec>
+
+        <!-- Replace the path constants in templates files with the ones we are going to use -->
+        <exec executable="python3">
+            <arg value="${basedir}/../server_build/path_parser.py"/>
+            <arg value="-mdirreplace"/>
+            <arg value="-i${broot}/server_gui/ISMWebUI_templates"/>
+            <arg value="-o${broot}/server_gui/ISMWebUI_templates"/>
+            <arg value="-sinfo"/>
+        </exec>
+        <exec executable="python3">
+            <arg value="${basedir}/../server_build/path_parser.py"/>
+            <arg value="-mdirreplace"/>
+            <arg value="-i${broot}/server_gui/config"/>
+            <arg value="-o${broot}/server_gui/config"/>
+            <arg value="-sinfo"/>
+        </exec>
+        <exec executable="python3">
+            <arg value="${basedir}/../server_build/path_parser.py"/>
+            <arg value="-mdirreplace"/>
+            <arg value="-i${broot}/server_gui/scripts"/>
+            <arg value="-o${broot}/server_gui/scripts"/>
+            <arg value="-sinfo"/>
+        </exec>
+    	<!-- Replace the Constants in the JS NLS files (product names etc -->
+	<exec executable="python3">
+		<arg value="${basedir}/../server_build/path_parser.py"/>
+		<arg value="-mdirreplace"/>
+		<arg value="-i${server.gui.build}/WebContent/js/ism/nls"/>
+		<arg value="-o${server.gui.build}/WebContent/js/ism/nls"/>
+		<arg value="-sinfo"/>
+	</exec>
+    </target>
+
+    <!-- Unzip WLP zip file -->
+    <target name="unzip-tools">
+        <unzip src="${server.gui.build}/ISMWebUI/${server.gui.libertyArchive}" dest="${server.gui.build.tools.dir}" />
+    </target>
+
+    <!-- Generate Javadoc for just this project - if any -->
+    <target name="gui_javadoc" depends="server_gui_init">
+        <!-- Find the product name -->
+        <exec executable="python3" outputproperty="IMA_PRODUCTNAME_FULL">
+            <arg value="${basedir}/../server_build/path_parser.py"/>
+            <arg value="-mvalue"/>
+            <arg value="-pIMA_PRODUCTNAME_FULL"/>
+        </exec>
+        <echo> ==  Generating complete reference javadoc for WebUI of ${IMA_PRODUCTNAME_FULL} version=${ISM_VERSION_ID}  ======= </echo>
+      <javadoc destdir="${server.gui.javadoc.dir}"
+          failonerror="false"
+          packagenames="**.*"
+          defaultexcludes="yes"
+          author="true"
+          private="true"
+          verbose="false"
+          version="true"
+          use="true"
+          noqualifier="java.*"
+          windowtitle="${IMA_PRODUCTNAME_FULL} Internal Javadoc Reference"
+      >
+         <doctitle><![CDATA[<h1>${IMA_PRODUCTNAME_FULL} Internal Javadoc Reference</h1>]]></doctitle>
+         <bottom><![CDATA[<i>Copyright &#169; Contributors to the Eclipse Foundation 2011-2021.  All Rights Reserved.</i>]]></bottom>
+         <classpath refid="compile.classpath" />
+         <fileset dir="${server.gui.src.dir}" defaultexcludes="yes" />
+      </javadoc>
+    </target>
+
+    <target name="PseudoTranslation" unless="real.translations" description="Convert english text to pseudo translation">
+        <!-- The java files used here are created by TMS from XML-->
+        <exec executable="python3">
+                    <arg value="${server.tms.dir}/nut_translations/nut_translations.py"/>
+                    <arg value="-mpseudotranslation"/>
+                    <arg value="-i${server.gui.build.src.dir}/com/ibm/ima/msgcatalog/IsmUIListResourceBundle.java"/>
+                    <arg value="-i${server.gui.src.dir}/com/ibm/ima/msgcatalog/IsmUIStringsResourceBundle.java"/>
+                    <arg value="-b${server.gui.build.src.dir}/com/ibm/ima/msgcatalog"/>
+                    <arg value="-s ${supportedlangs}"/>
+        </exec>
+        <exec executable="python3">
+                    <arg value="${server.tms.dir}/nut_translations/nut_translations.py"/>
+                    <arg value="-mpseudotranslation"/>
+                    <arg value="-x${server.gui.js.dir}/ism/nls"/>
+                    <arg value="-b${server.gui.build.js.dir}/ism/nls"/>
+                    <arg value="-s ${supportedlangs}"/>
+                    <arg value="-d"/>
+        </exec>
+    </target>
+</project>

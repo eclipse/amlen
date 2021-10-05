@@ -1,0 +1,801 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+<project name="ismserver" default="defaultbuild" basedir=".">
+	<!--<echo>java.class.path = ${java.class.path}</echo>-->
+	<property name="build.dir" location="${basedir}" />
+	<property name="workspace" location="${build.dir}/.." />
+	<property environment="env"/>
+
+	<tstamp>
+		<format property="IMA_BUILD_DATETIME" pattern="yyyyMMdd-HHmm" />
+	</tstamp>
+
+	<!-- Load contrib library -->
+	<taskdef resource="net/sf/antcontrib/antlib.xml" />
+
+	<!-- Load local properties -->
+	<property file="${build.dir}/server_build.properties" />
+
+	<!-- Load the "path properties" used for install paths & branding-->
+	<condition property="pathpropsfile" value="${env.IMA_PATH_PROPERTIES}" else="${build.dir}/paths.properties">
+		<isset property="env.IMA_PATH_PROPERTIES" />
+	</condition>
+	<property file="${pathpropsfile}" />
+
+	<condition property="buildLabel" value="${env.BUILD_LABEL}" else="${IMA_BUILD_DATETIME}_git-private">
+		<isset property="env.BUILD_LABEL" />
+	</condition>
+
+    <condition property="webuiBuildLabel" value="${env.WEBUI_BUILD_LABEL}" else="${IMA_BUILD_DATETIME}">
+                <isset property="env.WEBUI_BUILD_LABEL" />
+    </condition>
+
+	<!-- Build in $BROOT rather than the source tree (sroot) if $BROOT is set -->
+	<condition property="broot" value="${env.BROOT}" else="${workspace}">
+		<isset property="env.BROOT" />
+	</condition>
+	
+	<!-- default build target -->
+	<target name="defaultbuild" depends="build-init">
+		<property name="isFullBuild" value="true"/>
+		<echo>Building ${IMA_PRODUCTNAME_FULL}</echo>
+		<antcall target="build-server" />
+		<!-- mqcbridge requires closed source but zero-cost MQ client -->
+		<!-- <antcall target="build-mqcbridge" /> -->
+		<antcall target="build-tms" />
+		<property name="jsdoc.fails.build" value="false" />
+		<antcall target="build-serverplugin" />
+		<antcall target="build-gui" />
+		<antcall target="build-server_proxy_br" />
+		<ant dir="${workspace}/client_build" target="build_sdk_oss" inheritRefs="false" />
+		<!-- <antcall target="build-clientbundle" /> -->
+		<antcall target="pack-msgs" />
+		<antcall target="build-perf" />
+		<antcall target="check-build" />
+		<antcall target="build-rpms" />
+		<antcall target="tmp_copy"/>
+		<antcall target="cunit-server" />
+	</target>
+
+
+	<!-- full build target - getting everything here working in Amlen build is still work in progress -->
+	<target name="fullbuild" depends="build-init">
+		<property name="isFullBuild" value="true"/>
+		<property name="pkgmode" value="all_rpms" />
+		<antcall target="build-server" />
+		<antcall target="build-mqcbridge" />
+		<antcall target="build-tms" />
+		<antcall target="build-serverplugin" />
+		<antcall target="build-gui" />
+		<antcall target="build-client" />
+		<antcall target="build-clientbundle" />
+		<antcall target="build-server_proxy" />
+		<antcall target="build-client_proxy" />
+		<antcall target="build-server_proxy_br" />
+		<antcall target="pack-msgs" />
+		<antcall target="pack-licenses" />
+		<antcall target="pack-qsg" />
+		<antcall target="build-perf" />
+		<antcall target="check-build" />
+		<antcall target="build-rpms" />
+		<antcall target="tmp_copy"/>
+		<antcall target="cunit-server" />
+		<antcall target="cunit-proxy" />
+		<antcall target="ism-chkpii" />
+		<antcall target="build-publish" />
+		<antcall target="build-fvt" />
+		<antcall target="check-build-test" />
+	</target>	
+
+	<!-- This target only works after a full build as the packaging steps rely
+	     on artifacts that this doesn't build -->
+	<target name="rebuildservers" depends="build-init">
+		<antcall target="build-server" />
+		<antcall target="build-mqcbridge" />
+		<antcall target="build-tms" />
+		<antcall target="build-server_proxy" />
+		<antcall target="build-client_proxy" />
+		<antcall target="build-server_proxy_br" />
+		<antcall target="check-build" />
+		<antcall target="build-rpms" />
+		<antcall target="build-publish" />
+	</target>
+
+	<!-- Builds and arranges server files for e.g. packaging by a distro -->
+	<target name="buildserver-oss" depends="build-init">
+		<property name="pkgmode" value="prep_server" /> <!-- by default lays out files ready for separate call to rpmbuild --> 
+		<antcall target="build-server" />
+		<antcall target="build-tms" />
+		<antcall target="check-build" />
+		<antcall target="build-rpms" />
+		<antcall target="build-publish" />
+	</target>
+
+	<!-- Builds and arranges mqcbridge files for e.g. packaging by a distro -->
+	<target name="buildmqcbridge-oss" depends="build-init">
+		<property name="pkgmode" value="prep_mqcbridge" /> <!-- by default lays out files ready for separate call to rpmbuild --> 
+		<antcall target="mqbridge-broot-prep" />
+		<antcall target="build-server" />
+		<antcall target="build-mqcbridge" />
+		<antcall target="build-tms" />
+		<antcall target="check-build" />
+		<antcall target="build-rpms" />
+		<antcall target="build-publish" />
+	</target>
+
+	<!-- Builds and arranges webui files for e.g. packaging by a distro -->
+	<target name="buildwebui-oss" depends="build-init">
+		<property name="pkgmode" value="prep_webui" /> <!-- by default lays out files ready for separate call to rpmbuild --> 
+		<!-- 	<antcall target="build-tms" /> -->
+		<antcall target="build-gui" />
+		<antcall target="build-rpms" />
+		<antcall target="build-publish" />
+	</target>
+
+	<!-- Builds and arranges imabridge files for e.g. packaging by a distro -->
+	<target name="buildimabridge-oss" depends="build-init">
+		<property name="pkgmode" value="prep_imabridge" /> <!-- by default lays out files ready for separate call to rpmbuild --> 
+		<antcall target="build-tms" />
+		<build.activity label="Compiling server_utils" activityIdProperty="compilingServerUtilsId" />
+		<ant dir="${basedir}/../server_utils" inheritRefs="true" />
+		<antcall target="check-build" />
+		<antcall target="build-server_proxy_br" />
+		<antcall target="build-rpms" />
+		<antcall target="build-publish" />
+	</target>
+
+	<!-- Builds and arranges imabridge files for e.g. packaging by a distro -->
+	<target name="buildprotocolplugin-oss" depends="build-init">
+		<property name="pkgmode" value="prep_protocolplugin" /> <!-- by default lays out files ready for separate call to rpmbuild --> 
+		<antcall target="build-tms" />
+		<antcall target="build-serverplugin" />
+		<antcall target="build-rpms" />
+		<antcall target="build-publish" />
+	</target>
+
+	<!-- Builds and arranges SDK files for e.g. packaging by a distro -->
+	<target name="buildsdk-oss" depends="build-init">
+		<property name="pkgmode" value="prep_sdk" /> <!-- by default lays out files ready for separate call to rpmbuild --> 
+		<antcall target="build-tms" />
+		<antcall target="build-serverplugin" />  <!-- plugin sdk prereqs the server pieces-->
+		<build.activity label="Compiling server_utils" activityIdProperty="compilingServerUtilsId" />
+		<ant dir="${basedir}/../server_utils" inheritRefs="true" />
+		<ant dir="${workspace}/client_build" target="build_sdk_oss" inheritRefs="false" />
+		<antcall target="build-rpms" />
+		<antcall target="build-publish" />
+	</target>
+
+	<!-- build server projects first -->
+	<!-- ORDER of component builds matter -->
+	<target name="build-server" depends="build-init">
+
+		<build.activity label="Compiling server_utils" activityIdProperty="compilingServerUtilsId" />
+		<ant dir="${basedir}/../server_utils" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_admin" activityIdProperty="compilingServerAdminId" />
+		<ant dir="${basedir}/../server_admin" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_spidercast" activityIdProperty="compilingServerSpidercastId" />
+		<ant dir="${basedir}/../server_spidercast" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_cluster" activityIdProperty="compilingServerClusterId" />
+		<ant dir="${basedir}/../server_cluster" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_store" activityIdProperty="compilingServerStoreId" />
+		<ant dir="${basedir}/../server_store" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_transport" activityIdProperty="compilingServerTransportId" />
+		<ant dir="${basedir}/../server_transport" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_engine" activityIdProperty="compilingServerEngineId" />
+		<ant dir="${basedir}/../server_engine" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_monitoring" activityIdProperty="compilingServerMonitoringId" />
+		<ant dir="${basedir}/../server_monitoring" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_protocol" activityIdProperty="compilingServerProtocolId" />
+		<ant dir="${basedir}/../server_protocol" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_ismc" activityIdProperty="compilingServerIsmcId" />
+		<ant dir="${basedir}/../server_ismc" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_snmp" activityIdProperty="compilingServerSnmpId" />
+		<ant dir="${basedir}/../server_snmp" inheritRefs="true" />
+        <antcall target="check-build" />
+
+		<build.activity label="Compiling server_main" activityIdProperty="compilingServerMainId" />
+		<ant dir="${basedir}/../server_main" inheritRefs="true" />
+        <antcall target="check-build" />
+
+	</target>
+
+	<target name="build-mqcbridge" depends="build-init">
+		<build.activity label="Compiling server_mqcbridge" activityIdProperty="compilingServerMQCBridgeId" />
+		<ant dir="${basedir}/../server_mqcbridge" inheritRefs="true" />
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<target name="build-tms" depends="build-init">
+		<trycatch>
+			<try>
+				<build.activity label="Compiling server_tmsmsgtool" activityIdProperty="compilingServerTMSMsgToolId" />
+				<ant dir="${basedir}/../server_tmsmsgtool" inheritRefs="true" />
+			</try>
+			<catch>
+				<echo>Error: There are errors for ISM TMS component build.</echo>
+			</catch>
+		</trycatch>
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<target name="build-serverplugin" depends="build-init">
+		<build.activity label="Compiling server_plugin" activityIdProperty="compilingServerPluginId" />
+		<ant dir="${basedir}/../server_plugin" inheritRefs="true" />
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<target name="build-gui" depends="build-init">
+		<build.activity label="Compiling server_gui" activityIdProperty="compilingServerGuiId" />
+		<ant dir="${basedir}/../server_gui" inheritRefs="true" />
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<!-- Build server_proxy -->
+	<target name="build-server_proxy" depends="build-init">
+
+		<build.activity label="Compiling server_proxy" activityIdProperty="compilingServerProxyId" />
+		<ant dir="${basedir}/../server_proxy" inheritRefs="true" />
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<!-- Build client_proxy -->
+	<target name="build-client_proxy" depends="build-init">
+		<subant target="build_client_proxy">
+			<fileset dir="../client_proxy" includes="build.xml"/>
+		</subant>
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<!-- Build server_proxy_br MQTT bridge-->
+	<target name="build-server_proxy_br">
+
+		<build.activity label="Compiling server_proxy_br (MQTT bridge)" activityIdProperty="compilingMqttBridgeId" />
+		<ant dir="${basedir}/../server_proxy_br" inheritRefs="true" />
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<!-- clean client projects after server build and before client build for Jazz builds. -->
+	<target name="client-clean">
+		<build.activity label="Cleaning client" activityIdProperty="startClientCleanId" />
+		<ant dir="${workspace}/client_build" inheritRefs="true" target="client_clean" />
+	</target>
+
+	<!-- build client projects after server. Make sure have updated server build if build this target alone -->
+	<target name="build-client" depends="build-init">
+		<build.activity label="Building client" activityIdProperty="startClientBuildId" />
+		<ant dir="${workspace}/client_build" inheritRefs="false" />
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<!-- create client bundle after building client projects -->
+	<target name="build-clientbundle" depends="build-client">
+		<build.activity label="Building client bundle" activityIdProperty="startClientBuundleId" />
+		<ant dir="${workspace}/client_build" inheritRefs="true" target="build-clientbundle" />
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<!-- build perf projects after client. Make sure have updated client build if build this target alone -->
+	<target name="build-perf">
+		<build.activity label="Building perf utils" activityIdProperty="startPerfBuildId" />
+		<ant dir="${workspace}/perf_utils" inheritRefs="false" />
+
+		<antcall target="check-build-manual" />
+	</target>
+
+	<!-- Run CUnit Test -->
+	<target name="cunit-server" depends="build-init">
+		<build.activity label="Running server_utils CUnit Tests" activityIdProperty="runningServerUtilsId" />
+		<ant dir="${basedir}/../server_utils" inheritRefs="true" target="cunit-srv-util" />
+
+		<build.activity label="Running server_store CUnit Tests" activityIdProperty="runningServerStoreId" />
+		<ant dir="${basedir}/../server_store" inheritRefs="true" target="cunit-srv-store" />
+
+		<build.activity label="Running server_transport CUnit Tests" activityIdProperty="runningServerTransportId" />
+		<ant dir="${basedir}/../server_transport" inheritRefs="true" target="cunit-srv-transport" />
+
+		<build.activity label="Running server_admin CUnit Tests" activityIdProperty="runningServerAdminId" />
+		<ant dir="${basedir}/../server_admin" inheritRefs="true" target="cunit-srv-admin" />
+
+		<build.activity label="Running server_engine CUnit Tests" activityIdProperty="runningServerEngineId" />
+		<ant dir="${basedir}/../server_engine" inheritRefs="true" target="cunit-srv-engine">
+			<!-- Set a properly to differentiate the store files for this run from others happening at the same time -->
+			<property name="store_suffix" value="_${buildType}_${DevBuildEngine}"/>
+		</ant>
+
+		<build.activity label="Running server_protocol CUnit Tests" activityIdProperty="runningServerProtocolId" />
+		<ant dir="${basedir}/../server_protocol" inheritRefs="true" target="cunit-srv-protocol" />
+
+		<build.activity label="Running server_monitoring CUnit Tests" activityIdProperty="runningServerMonitoringId" />
+		<ant dir="${basedir}/../server_monitoring" inheritRefs="true" target="cunit-srv-monitoring" />
+	</target>
+
+	<target name="cunit-proxy" depends="build-init">
+		<build.activity label="Running server_proxy CUnit Tests" activityIdProperty="runningServerProxyUtilsId" />
+		<ant dir="${basedir}/../server_proxy" inheritRefs="true" target="cunit-srv-proxy" />
+	</target>
+
+	<!-- Build RPMS -->
+	<target name="build-rpms">
+		<build.activity label="Building RPMS" activityIdProperty="startRPMBuildId" />
+		<!-- load tmp properties -->
+
+		<property name="pkgmode" value="default_rpms" /> 
+		<exec dir="${basedir}" executable="${basedir}/build_pkg.sh" resultproperty="app-retcode" resolveexecutable="true">
+			<arg value="${pkgmode}" />
+			<arg value="${broot}" />
+			<arg value="${workspace}" />
+			<arg value="${ISM_VERSION_ID}" />
+			<arg value="${buildLabel}" />
+		</exec>
+
+		<!-- Run after check-build, so need own error checking -->
+		<condition property="app-errcode">
+			<not>
+				<equals arg1="${app-retcode}" arg2="0" />
+			</not>
+		</condition>
+		<fail message="build-rpms failed with exit code ${app-retcode}">
+			<condition>
+				<isset property="app-errcode" />
+			</condition>
+		</fail>
+	</target>
+
+	<!-- Enable the test binaries can be accessed from the publised buildtree. It is a temporary solution.
+	     evently, it will be replaced by UNIT tests and the target should be removed
+	-->
+	<target name="tmp_copy">
+		<mkdir dir="${workspace}/server_ship/test/server_utils" />
+		<copy todir="${workspace}/server_ship/test/server_utils">
+			<fileset dir="${workspace}/server_utils/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_store" />
+		<copy todir="${workspace}/server_ship/test/server_store">
+			<fileset dir="${workspace}/server_store/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_engine" />
+		<copy todir="${workspace}/server_ship/test/server_engine">
+			<fileset dir="${workspace}/server_engine/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_main" />
+		<copy todir="${workspace}/server_ship/test/server_main">
+			<fileset dir="${workspace}/server_main/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_ismc" />
+		<copy todir="${workspace}/server_ship/test/server_ismc">
+			<fileset dir="${workspace}/server_main/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_admin" />
+		<copy todir="${workspace}/server_ship/test/server_admin">
+			<fileset dir="${workspace}/server_admin/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_protocol" />
+		<copy todir="${workspace}/server_ship/test/server_protocol">
+			<fileset dir="${workspace}/server_protocol/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_transport" />
+		<copy todir="${workspace}/server_ship/test/server_transport">
+			<fileset dir="${workspace}/server_transport/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_monitoring" />
+		<copy todir="${workspace}/server_ship/test/server_monitoring">
+			<fileset dir="${workspace}/server_monitoring/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+		<mkdir dir="${workspace}/server_ship/test/server_proxy" />
+		<!-- we don't always build the proxy so don't fail if there's nothing to copy -->
+		<copy todir="${workspace}/server_ship/test/server_proxy" failonerror="false">
+			<fileset dir="${workspace}/server_proxy/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+	</target>
+
+	<!-- Run CHKPII on IMA message files for word count and to check for errors -->
+	<target name="ism-chkpii">
+		<build.activity label="Checking message files" activityIdProperty="startIMAChkpii"/>
+
+		<!-- make dir structure and copy message zip file -->
+		<mkdir dir="${workspace}/server_ship/messages" />
+		<copy file="${workspace}/server_ship/messages.zip" todir="${workspace}/server_ship/messages"/>
+
+		<exec dir="${basedir}" executable="${basedir}/runchkpii.sh" resultproperty="app-retcode" resolveexecutable="true">
+			<arg value="${workspace}" />
+		</exec>
+
+		<copy file="${workspace}/server_ship/CHKPII.SUMWC" todir="${workspace}/build_log"/>
+		<copy file="${workspace}/server_ship/CHKPII.SUMERR" todir="${workspace}/build_log"/>
+
+		<condition property="app-errcode">
+			<not>
+				<equals arg1="${app-retcode}" arg2="0" />
+			</not>
+		</condition>
+		<fail message="ism-chkpii failed with exit code ${app-retcode}">
+			<condition>
+				<isset property="app-errcode" />
+			</condition>
+		</fail>
+	</target>
+
+    <!-- Copy the built files to publish tree -->
+    <target name="build-publish" if="can.publish">
+        <build.activity label="Publishing ISM appliance and client" activityIdProperty="startISMPublishId" />
+
+        <exec dir="${basedir}" executable="${basedir}/build_publish.sh" resultproperty="app-retcode" resolveexecutable="true">
+            <arg value="${workspace}" />
+            <arg value="${RSYNCCMD}" />
+
+            <env key="BUILD_LABEL" value="${buildLabel}" />
+            <env key="ISM_VERSION_ID" value="${ISM_VERSION_ID}" />
+            <env key="BLD_TYPE" value="${buildType}" />
+            <env key="BUILD_REAL_TRANSLATIONS" value="${buildRealTranslations}" />
+            <env key="IMARELEASE" value="${imaRelease}" />
+            <env key="SHIP_OPENSSL" value="${SHIP_OPENSSL}" />
+        </exec>
+
+        <condition property="app-errcode">
+            <not>
+                <equals arg1="${app-retcode}" arg2="0" />
+            </not>
+        </condition>
+        <fail message="build-publish failed with exit code ${app-retcode}">
+            <condition>
+                <isset property="app-errcode" />
+            </condition>
+        </fail>
+    </target>
+	<target name="clean">
+		<echo> ==================  Clean TMS build ================ </echo>
+		<ant dir="${basedir}/../server_tmsmsgtool" target="clean"/>
+
+		<echo> ==================  Clean WebUI build ================ </echo>
+		<ant dir="${basedir}/../server_gui" target="clean"/>
+
+		<echo> ==================  Clean server build ================ </echo>
+		<delete dir="${workspace}/server_ship" quiet="true" />
+		<delete dir="${workspace}/build_log" quiet="true" />
+
+		<delete quiet="true">
+			<fileset dir="${workspace}/server_utils/bin" />
+			<fileset dir="${workspace}/server_utils/lib" />
+			<fileset dir="${workspace}/server_utils/lib_s" />
+			<fileset dir="${workspace}/server_utils/debug" />
+			<fileset dir="${workspace}/server_admin/bin" />
+			<fileset dir="${workspace}/server_admin/lib" />
+			<fileset dir="${workspace}/server_admin/lib_s" />
+			<fileset dir="${workspace}/server_admin/debug" />
+			<fileset dir="${workspace}/server_spidercast/bin" />
+			<fileset dir="${workspace}/server_spidercast/lib" />
+			<fileset dir="${workspace}/server_spidercast/lib_s" />
+			<fileset dir="${workspace}/server_spidercast/debug" />
+			<fileset dir="${workspace}/server_cluster/bin" />
+			<fileset dir="${workspace}/server_cluster/lib" />
+			<fileset dir="${workspace}/server_cluster/lib_s" />
+			<fileset dir="${workspace}/server_cluster/debug" />
+			<fileset dir="${workspace}/server_store/bin" />
+			<fileset dir="${workspace}/server_store/lib" />
+			<fileset dir="${workspace}/server_store/lib_s" />
+			<fileset dir="${workspace}/server_store/debug" />
+			<fileset dir="${workspace}/server_transport/bin" />
+			<fileset dir="${workspace}/server_transport/lib" />
+			<fileset dir="${workspace}/server_transport/lib_s" />
+			<fileset dir="${workspace}/server_transport/debug" />
+			<fileset dir="${workspace}/server_engine/bin" />
+			<fileset dir="${workspace}/server_engine/lib" />
+			<fileset dir="${workspace}/server_engine/lib_s" />
+			<fileset dir="${workspace}/server_engine/debug" />
+			<fileset dir="${workspace}/server_monitoring/bin" />
+			<fileset dir="${workspace}/server_monitoring/lib" />
+			<fileset dir="${workspace}/server_monitoring/lib_s" />
+			<fileset dir="${workspace}/server_monitoring/debug" />
+			<fileset dir="${workspace}/server_protocol/bin" />
+			<fileset dir="${workspace}/server_protocol/lib" />
+			<fileset dir="${workspace}/server_protocol/lib_s" />
+			<fileset dir="${workspace}/server_protocol/debug" />
+			<fileset dir="${workspace}/server_ismc/bin"/>
+			<fileset dir="${workspace}/server_ismc/lib"/>
+			<fileset dir="${workspace}/server_ismc/lib_s"/>
+			<fileset dir="${workspace}/server_ismc/debug"/>
+			<fileset dir="${workspace}/server_snmp/bin" />
+			<fileset dir="${workspace}/server_snmp/lib" />
+			<fileset dir="${workspace}/server_snmp/lib_s" />
+			<fileset dir="${workspace}/server_snmp/debug" />
+			<fileset dir="${workspace}/server_main/bin" />
+			<fileset dir="${workspace}/server_main/lib" />
+			<fileset dir="${workspace}/server_main/lib_s" />
+			<fileset dir="${workspace}/server_main/debug" />
+			<fileset dir="${workspace}/server_mqcbridge/bin"/>
+			<fileset dir="${workspace}/server_mqcbridge/lib"/>
+			<fileset dir="${workspace}/server_mqcbridge/lib_s"/>
+			<fileset dir="${workspace}/server_mqcbridge/debug"/>
+			<fileset dir="${workspace}/server_gui/bin" />
+			<fileset dir="${workspace}/server_proxy/bin" />
+			<fileset dir="${workspace}/server_proxy/lib" />
+			<fileset dir="${workspace}/server_proxy/lib_s" />
+			<fileset dir="${workspace}/server_proxy/debug" />
+			<fileset dir="${workspace}/server_proxy_br/bin" />
+			<fileset dir="${workspace}/server_proxy_br/lib" />
+			<fileset dir="${workspace}/server_proxy_br/lib_s" />
+			<fileset dir="${workspace}/server_proxy_br/debug" />
+		</delete>
+	</target>
+
+	<target name="build-init" unless="build.Initialized">
+		<build.activity label="Initialising build environment" activityIdProperty="initBuild" />
+		<echo>==================================</echo>
+		<echo> build-init (build dir: ${build.dir})</echo>
+		<echo>==================================</echo>
+
+		<!-- sort out line endings -->
+		<fixcrlf eol="unix" srcdir="${build.dir}">
+			<include name="*.sh" />
+		</fixcrlf>
+
+		<!-- change file permissions of scripts -->
+		<chmod perm="755">
+			<fileset id="scripts" dir="${build.dir}">
+				<include name="*.sh" />
+			</fileset>
+		</chmod>
+
+		<!-- remove all build_logs then create new log dir -->
+		<delete dir="${workspace}/build_log" quiet="true" />
+		<mkdir dir="${workspace}/build_log" />
+
+		<!-- create lib and include ship directories -->
+		<mkdir dir="${workspace}/server_ship/lib" />
+		<mkdir dir="${workspace}/server_ship/debug/lib" />
+		<mkdir dir="${workspace}/server_ship/include" />
+
+		<!-- clean real translations if USE_REAL_TRANSLATION env variable is NOT set to "true" -->
+		<if>
+			<not>
+				<equals arg1="${env.USE_REAL_TRANSLATIONS}" arg2="true" />
+			</not>
+			<then>
+				<echo message="Using pseudo-translation" />
+				<delete failonerror="false">
+					<fileset dir="${basedir}/../server_translation" includes="**/*.xml"/>
+					<fileset dir="${basedir}/../server_translation" includes="**/*.js"/>
+					<fileset dir="${basedir}/../server_translation" includes="**/*.java"/>
+				</delete>
+			</then>
+		</if>
+
+		<!-- Copy things from sroot to broot: (i) cfg files etc (ii) part of build that currently expect
+		     expect to build in the source tree. (We can't yet do a full build with split source and build root) -->
+		<if>
+			<not>
+				<equals arg1="${broot}" arg2="${workspace}" />
+			</not>
+			<then>
+				<echo message="Copying files to broot" />
+				<copy todir="${broot}">
+				<fileset dir="${workspace}">
+			 		<include name="server_main/**" />
+					<include name="server_build/docker_build/**" />
+					<include name="server_gui/scripts/**" />
+					<include name="server_gui/config/**" />
+					<exclude name="**/*.c" />
+					<exclude name="**/*.h" />
+				</fileset>
+				</copy>
+			</then>
+		</if>
+		
+		<!-- Replace the path constants in config files and scripts with the ones we are going to use -->
+		<exec executable="python3">
+			<arg value="${basedir}/path_parser.py"/>
+			<arg value="-mdirreplace"/>
+			<arg value="-i${broot}/server_main"/>
+			<arg value="-o${broot}/server_main"/>
+			<arg value="-sinfo"/>
+		</exec>
+
+		<property name="build.Initialized" value="true" />
+	</target>
+
+	<target name="mqbridge-broot-prep">
+		<!-- Copy things from sroot to broot: (i) cfg files etc (ii) part of build that currently expect
+		     expect to build in the source tree. (We can't yet do a full build with split source and build root) -->
+		<if>
+			<not>
+				<equals arg1="${broot}" arg2="${workspace}" />
+			</not>
+			<then>
+				<echo message="Copying mqcbridge files to broot" />
+				<copy todir="${broot}">
+				<fileset dir="${workspace}">
+					<include name="server_mqcbridge/config/**" />
+				</fileset>
+				</copy>
+			</then>
+		</if>
+                <!-- Replace the path constants in bridge config files and scripts with the ones we are going to use -->
+		<exec executable="python3">
+			<arg value="${basedir}/path_parser.py"/>
+			<arg value="-mdirreplace"/>
+			<arg value="-i${broot}/server_mqcbridge"/>
+			<arg value="-o${broot}/server_mqcbridge"/>
+			<arg value="-sinfo"/>
+		</exec>
+	</target>
+
+	<target name="check-build-test" depends="check-build-concat,check-build-fail-test" if="isFullBuild" />
+
+	<target name="check-build-manual" unless="isFullBuild">
+		<antcall target="check-build" />
+	</target>
+
+	<target name="check-build" depends="check-build-concat,check-build-fail" />
+	<target name="check-build-concat">
+		<!-- Merge the codes -->
+		<concat destfile="${workspace}/build_log/all.errorcodes">
+			<fileset dir="${workspace}/build_log" includes="*.errorcode" />
+		</concat>
+		<!-- Check for failures -->
+		<available property="errorcodes.exist" file="${workspace}/build_log/all.errorcodes" />
+	</target>
+	<target name="check-build-fail" if="errorcodes.exist">
+		<!-- Load the codes to a property -->
+		<loadfile srcfile="${workspace}/build_log/all.errorcodes" property="errorcodes" />
+		<!-- Fail the build -->
+		<fail message="${errorcodes}" />
+	</target>
+	<target name="check-build-fail-test" if="errorcodes.exist">
+		<!-- Load the codes to a property -->
+		<loadfile srcfile="${workspace}/build_log/all.errorcodes" property="errorcodes" />
+		<!-- Fail the build -->
+		<fail message="${errorcodes}" />
+	</target>
+
+
+	<!-- build fvt projects after server image. fvt build does not depend on any thing from server build. -->
+	<target name="build-fvt">
+		<build.activity label="Running fvt build" activityIdProperty="startFvtBuildId" />
+		<ant dir="${workspace}/fvt_build" inheritRefs="false" />
+	</target>
+
+	<!-- Create a message archive to be sent for translation -->
+	<target name="pack-msgs">
+		<fixcrlf srcdir="${workspace}/server_tmsmsgtool/bin/tms/xml" encoding="UTF-8"
+		         includes="**/ism_*_tms.xml" eol="crlf" />
+		<fixcrlf srcdir="${workspace}/server_gui/WebContent/js/ism/nls" encoding="UTF-8"
+		         includes="**/*.js" eol="crlf" />
+		<fixcrlf srcdir="${workspace}/server_gui/src/com/ibm/ima/msgcatalog" encoding="UTF-8"
+		         includes="**/*.java" eol="crlf" />
+		<fixcrlf srcdir="${workspace}/server_main/http" encoding="UTF-8"
+		         includes="**/*.html" eol="crlf" />
+
+		<zip destfile="${workspace}/server_ship/messages.zip">
+			<zipfileset dir="${workspace}/server_tmsmsgtool/bin/tms/xml" includes="ism_*_tms.xml" prefix="xml" />
+			<zipfileset dir="${workspace}/server_gui/WebContent/js/ism/nls" includes="*.js" prefix="js" />
+			<zipfileset dir="${workspace}/server_gui/src/com/ibm/ima/msgcatalog" includes="IsmUIStringsResourceBundle.java" prefix="java" />
+			<zipfileset dir="${workspace}/server_main/http" includes="index.html" prefix="html" />
+			<zipfileset dir="${workspace}/server_proxy_br/http" includes="index.html" prefix="html_bridge" />
+		</zip>
+	</target>
+
+	<!-- Create a license zip file -->
+	<target name="pack-licenses">
+		<!-- For BETA, use files under server_build/licenses/Developers. -->
+		<!-- <zip destfile="${workspace}/server_ship/licenses.zip">
+	         <zipfileset dir="${workspace}/server_build/licenses/Developers" includes="*" />
+	    </zip> -->
+		<!-- For GA, we need both license subdirs in the zip. -->
+		<zip destfile="${workspace}/server_ship/licenses.zip" basedir="${workspace}/server_build/licenses" />
+	</target>
+
+	<!-- Create a zip file for the Quick Start Guide -->
+	<target name="pack-qsg" depends="check-qsgs-exist" if="qsgs.exist">
+		<zip destfile="${workspace}/server_ship/${QSG_PN}.zip">
+			<zipfileset dir="${workspace}/server_build/docs" includes="QSG*.pdf" />
+		</zip>
+	</target>
+
+	<target name="check-qsgs-exist">
+		<condition property="qsgs.exist">
+			<resourcecount when="greater" count="0">
+				<fileset dir="${workspace}/server_build" includes="docs/QSG*.pdf"/>
+			</resourcecount>
+		</condition>
+	</target>
+
+	<!-- Macro for starting a build activity - starts a jazz activity if available -->
+	<macrodef name="build.activity">
+		<attribute name="label" />
+		<attribute name="activityIdProperty" />
+		<attribute name="autoComplete" default="true" />
+		<sequential>
+			<local name="now" />
+			<local name="DSTAMP" />
+			<local name="TSTAMP" />
+			<local name="TODAY" />
+			<tstamp>
+				<format property="now" pattern="yyyy-MM-dd HH:mm:ss.SSSZ" />
+			</tstamp>
+			<echo>==================================</echo>
+			<echo> @{label}  ${now}</echo>
+			<echo>==================================</echo>
+		</sequential>
+	</macrodef>
+</project>

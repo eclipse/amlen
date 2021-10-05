@@ -1,0 +1,1015 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_DS_Retained_Wildcard
+
+  Test Category:  JMS Durable Subscription
+  
+  Test Description:
+  	Test using wildcards in JMS with Retained messages on a DurableSubscriber. 
+  	
+  	The producers send four retained messages on four subtopics of \sportsDS\"somesport" before 
+  	the consumer is created and a 5th message using JMS_IBM_Retain=23, which means it 
+  	is NOT a retained message.
+  	
+  	The subscribers receive those four messages, and then close (completely, connection closed.) 
+  	
+  	Then, the producer sends retained and non-retained messages while the consumer is closed.
+  	
+  	The Consumers reconnect (with the same subscriptions) and receive all messages, but non of them 
+  	should be marked as retained messages.  
+  
+  
+  	All the additional messages should be received with JMS_IBM_Retain=0, whether they were marked as 
+  	retained on send or not. 
+  	
+  	This test is in the msgdelivery group because it relies on the MQTT deletion of retained messages that 
+  	is run in the middle of this bucket. 
+  	
+  	The Durable Subscriptions are deleted in policy_cli. (Just to be different than the other DS tests that 
+  	do an unsubscribe.) 
+  	
+  	
+*****************************************************************************/ -->
+<ImaJmsTest name="jms_DS_Retained_Wildcards" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_DS_Retained_Wildcards</solution>
+	</SyncClient>
+	
+	<Action name="rmdr" type="CompositeAction">
+		<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+		<Action name="syncReset" type="SyncAction">
+			<ActionParameter name="request">reset</ActionParameter>
+		</Action>
+
+		<!-- Initialize the SyncDriver values -->
+
+		<Action name="syncInit1" type="SyncAction">
+			<ActionParameter name="request">init</ActionParameter>
+			<ActionParameter name="condition">syncPoint</ActionParameter>
+		</Action>
+
+		<Action name="CreateFactory_RX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+                      <ActionParameter name="loglevel">9</ActionParameter>
+                      <ActionParameter name="logfile">stdout</ActionParameter>				
+		</Action>
+
+		<Action name="CreateListener_RX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>		
+		</Action>
+
+		<Action name="SetFactoryProps_RX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx_DSRet_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_RX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_RX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession_RX2" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+			<ActionParameter name="structure_id">Ses2_Rx</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession_RX3" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+			<ActionParameter name="structure_id">Ses3_Rx</ActionParameter>
+		</Action>		
+
+		<Action name="CreateDestination_RX" type="CreateDestination">
+			<ApiParameter name="name">/sportsDS/+</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_RX1" type="CreateDestination">
+			<ApiParameter name="name">/sportsDS/#</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateDestination_RX2" type="CreateDestination">
+			<ApiParameter name="name">/sportsDS/#</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX2</ActionParameter>
+		</Action>		
+		
+		<Action name="sync_components_RX1" type="SyncComponentAction"> 
+	        <ActionParameter name="component_name">rx1</ActionParameter>
+	        <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+	       	<ActionParameter name="timeout">15000</ActionParameter>
+	 	</Action>		
+
+		<Action name="CreateConsumer1" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons1</ApiParameter>
+			<ApiParameter name="selector">null</ApiParameter>			
+		</Action>
+	
+		<Action name="CreateConsumer2" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">destRX1</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons2</ApiParameter>
+			<ApiParameter name="selector">null</ApiParameter>				
+		</Action>
+		
+		<Action name="CreateConsumer3" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer3</ActionParameter>
+			<ActionParameter name="dest_id">destRX2</ActionParameter>
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons3</ApiParameter>
+			<ApiParameter name="selector">JMS_IBM_Retain = 1</ApiParameter>
+		</Action>	
+		
+		<Action name="CreateConsumer4" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer4</ActionParameter>
+			<ActionParameter name="dest_id">destRX2</ActionParameter>
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons4</ApiParameter>
+			<ApiParameter name="selector">JMS_IBM_Retain &lt; 1</ApiParameter>
+		</Action>					
+
+		<Action name="StartConnection_RX1" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+	
+
+	 	<!-- Receive the four retained messages on each consumer --> 
+		<Action name="CompositeRcvRetained1" type="CompositeAction" expected="4" repeat_interval="0" interval="0"> 	 	
+			<Action name="ReceiveMessageRetainedCons1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgRetainedCons1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+			
+			<Action name="GetMessageTextRetCons_1" type="GetMessageText">
+				<dependsOn name="ReceiveMessageRetainedCons1" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons1</ActionParameter>
+				<ActionParameter name="verifyValue">RetainedMessage for a DurableSubscription subtopic</ActionParameter>				
+			</Action>			
+				
+			<!--  It was a retained message sent from a retained source so  retained pseudo property should be set  -->
+			<Action name="GetRetainedFlag_msg_consumer1" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageRetainedCons1" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons1</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">1</ActionParameter>
+			</Action>	
+	
+			<!-- Receive the retained messages on Consumer 2. -->
+			<Action name="ReceiveMessageRetainedCons2" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgRetainedCons2</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+			
+			<Action name="GetMessageTextRetCons_2" type="GetMessageText">
+				<dependsOn name="ReceiveMessageRetainedCons2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons2</ActionParameter>
+				<ActionParameter name="verifyValue">RetainedMessage for a DurableSubscription subtopic</ActionParameter>
+			</Action>			
+				
+			<!--  It was a retained message sent from a retained source so  retained pseudo property should be set  -->
+			<Action name="GetRetainedFlag_msg_consumer2" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageRetainedCons2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons2</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">1</ActionParameter>
+			</Action>	
+
+			<!-- the third consumer has a selector for JMS_IBM_Retain --> 			
+			<Action name="ReceiveMessageRetainedCons3" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgRetainedCons3</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+			
+			<Action name="GetMessageTextRetCons_3" type="GetMessageText">
+				<dependsOn name="ReceiveMessageRetainedCons3" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons3</ActionParameter>
+				<ActionParameter name="verifyValue">RetainedMessage for a DurableSubscription subtopic</ActionParameter>				
+			</Action>			
+				
+			<!--  It was a retained message sent from a retained source so  retained pseudo property should be set  -->
+			<Action name="GetRetainedFlag_msg_consumer3" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageRetainedCons3" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons3</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">1</ActionParameter>
+			</Action>	
+
+		</Action>
+		
+		<!-- Consumer 4 had a selector for JMS_IBM_Retain<1, and should not get the retained messages --> 
+		<Action name="RcvMessageFail_consumer4a" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+			<ActionParameter name="consumer_id">consumer4</ActionParameter>
+			<ActionParameter name="structure_id">rxmsgFail</ActionParameter>
+			<ApiParameter name="timeout">1000</ApiParameter>
+		</Action>		
+		
+		<Action name="TempCloseSession_RX1" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="TempCloseSession_RX2" type="CloseSession">
+			<ActionParameter name="session_id">Ses2_Rx</ActionParameter>
+		</Action>
+		
+		<Action name="TempCloseSession_RX3" type="CloseSession">
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+		</Action>
+		
+		<Action name="TempStopConnection_RX1" type="StopConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+		
+		<Action name="TempCloseConnection_RX1" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>		
+		
+		<!-- Tell Producer to send more messages before re creating session and consumers. --> 
+		<Action name="sync_components_RX2" type="SyncComponentAction"> 
+	        <ActionParameter name="component_name">rx2</ActionParameter>
+	        <ActionParameter name="component_list">tx2;rx2</ActionParameter>
+	       	<ActionParameter name="timeout">15000</ActionParameter>
+	 	</Action>		
+		
+		<!-- Wait for Producer to finish sending then recreate Everything. -->	
+		<Action name="sync_components_RX3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx3</ActionParameter>
+			<ActionParameter name="component_list">rx3;tx3</ActionParameter>
+			<ActionParameter name="timeout">25000</ActionParameter>
+		</Action>		
+		
+		<Action name="ReCreateConnection_RX" type="CreateConnection">
+			<dependsOn name="sync_components_RX3" interval="20000"/>
+			<ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="ReCreateSession_RX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="ReCreateSession_RX2" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+			<ActionParameter name="structure_id">Ses2_Rx</ActionParameter>
+		</Action>
+		
+		<Action name="ReCreateSession_RX3" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+			<ActionParameter name="structure_id">Ses3_Rx</ActionParameter>
+		</Action>				
+
+		<Action name="ReCreateConsumer1" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons1</ApiParameter>
+			<ApiParameter name="selector">null</ApiParameter>			
+		</Action>
+	
+		<Action name="RECreateConsumer2" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">destRX1</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons2</ApiParameter>
+			<ApiParameter name="selector">null</ApiParameter>				
+		</Action>
+		
+		<Action name="ReCreateConsumer3" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer3</ActionParameter>
+			<ActionParameter name="dest_id">destRX2</ActionParameter>
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons3</ApiParameter>
+			<ApiParameter name="selector">JMS_IBM_Retain = 1</ApiParameter>
+		</Action>	
+		
+		<Action name="ReCreateConsumer4" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer4</ActionParameter>
+			<ActionParameter name="dest_id">destRX2</ActionParameter>
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons4</ApiParameter>
+			<ApiParameter name="selector">JMS_IBM_Retain &lt; 1</ApiParameter>
+		</Action>					
+
+		<Action name="ReStartConnection_RX1" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>			
+
+		<Action name="CompositeRcvNonRetained1" type="CompositeAction" expected="8" repeat_interval="0" interval="0"> 
+			<Action name="ReceiveMessageCons1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgCons1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was not retained message so retained pseudo property should not be set  -->
+			<Action name="GetZeroRetainedFlag_msg_consumer1" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageCons1" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons1</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextCons_1" type="GetMessageText">
+				<dependsOn name="GetZeroRetainedFlag_msg_consumer1" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons1</ActionParameter>
+				<ActionParameter name="verifyValue">Non-RetainedMessage for a DurableSubscription subtopic</ActionParameter>				
+			</Action>
+	
+			<!-- Receive non-retained messages on Consumer 2. -->
+			<Action name="ReceiveMessageCons2" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgCons2</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was a not a retained message so  retained pseudo property should not be set  -->
+			<Action name="GetZeroRetainedFlag_msg_consumer2" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageCons2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons2</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextCons_2" type="GetMessageText">
+				<dependsOn name="GetZeroRetainedFlag_msg_consumer2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons2</ActionParameter>
+				<ActionParameter name="verifyValue">Non-RetainedMessage for a DurableSubscription subtopic</ActionParameter>
+			</Action>
+			
+			<!-- Receive non-retained messages on Consumer 4. -->
+			<Action name="ReceiveMessageCons4" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer4</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgCons4</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was a not a retained message so  retained pseudo property should not be set  -->
+			<Action name="GetZeroRetainedFlag_msg_consumer4" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageCons4" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons4</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextCons_4" type="GetMessageText">
+				<dependsOn name="GetZeroRetainedFlag_msg_consumer4" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons4</ActionParameter>
+				<ActionParameter name="verifyValue">Non-RetainedMessage for a DurableSubscription subtopic</ActionParameter>
+			</Action>			
+		</Action>
+		
+		<!-- Consumer 3 had a selector for JMS_IBM_Retain=1, and should never get another message --> 
+		<Action name="RcvMessageFail_consumer3a" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+			<ActionParameter name="structure_id">rxmsgFail</ActionParameter>
+			<ApiParameter name="timeout">1000</ApiParameter>
+		</Action>
+		
+		
+	 	<!-- The next four messages for each consumer were sent as retained, but while the consumer was active
+			so the retained value will be zero because they came on the live stream. -->
+		<Action name="CompositeRcvRetained2" type="CompositeAction" expected="4" repeat_interval="0" interval="0"> 	 	
+			<Action name="ReceiveMessageRetainedCons1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgRetainedCons1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was a retained message sent from a non-retained (live) source so  retained pseudo property should not be set  -->
+			<Action name="GetRetainedFlag_msg_consumer1" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageRetainedCons1" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons1</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextRetCons_1" type="GetMessageText">
+				<dependsOn name="GetRetainedFlag_msg_consumer1" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons1</ActionParameter>
+				<ActionParameter name="verifyValue">RetainedMessage for a DurableSubscription subtopic</ActionParameter>				
+			</Action>
+	
+			<!-- Receive the retained message (but received live) on Consumer 2. -->
+			<Action name="ReceiveMessageRetainedCons2" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgRetainedCons2</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was a retained message sent from a non-retained (live) source so  retained pseudo property should not be set  -->
+			<Action name="GetRetainedFlag_msg_consumer2" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageRetainedCons2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons2</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextRetCons_2" type="GetMessageText">
+				<dependsOn name="GetRetainedFlag_msg_consumer2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons2</ActionParameter>
+				<ActionParameter name="verifyValue">RetainedMessage for a DurableSubscription subtopic</ActionParameter>
+			</Action>
+			
+			<!-- Receive the retained message (but received live) on Consumer 4. -->
+			<Action name="ReceiveMessageRetainedCons4" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer4</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgRetainedCons4</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was a retained message sent from a non-retained (live) source so  retained pseudo property should not be set  -->
+			<Action name="GetRetainedFlag_msg_consumer4" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageRetainedCons4" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons4</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextRetCons_4" type="GetMessageText">
+				<dependsOn name="GetRetainedFlag_msg_consumer2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons4</ActionParameter>
+				<ActionParameter name="verifyValue">RetainedMessage for a DurableSubscription subtopic</ActionParameter>
+			</Action>			
+		</Action>
+		
+	<!-- Consumer 3 had a selector for JMS_IBM_Retain=1, and should never get another message --> 
+		<Action name="RcvMessageFail_consumer3b" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+			<ActionParameter name="structure_id">rxmsgFail</ActionParameter>
+			<ApiParameter name="timeout">1000</ApiParameter>
+		</Action>		
+
+		<Action name="CompositeRcvNonRetained2" type="CompositeAction" expected="8" repeat_interval="0" interval="0"> 
+			<Action name="ReceiveMessageCons1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgCons1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was a not retained message so retained pseudo property should not be set  -->
+			<Action name="GetZeroRetainedFlag_msg_consumer1" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageCons1" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons1</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextCons_1" type="GetMessageText">
+				<dependsOn name="GetZeroRetainedFlag_msg_consumer1" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons1</ActionParameter>
+				<ActionParameter name="verifyValue">Non-RetainedMessage for a DurableSubscription subtopic</ActionParameter>				
+			</Action>
+	
+			<!-- Receive the non-retained message on Consumer 2. -->
+			<Action name="ReceiveMessageCons2" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgCons2</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was not a retained message retained pseudo property should not be set  -->
+			<Action name="GetZeroRetainedFlag_msg_consumer2" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageCons2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons2</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextCons_2" type="GetMessageText">
+				<dependsOn name="GetZeroRetainedFlag_msg_consumer2" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons2</ActionParameter>
+				<ActionParameter name="verifyValue">Non-RetainedMessage for a DurableSubscription subtopic</ActionParameter>
+			</Action>
+			
+			<!-- Receive the non-retained message on Consumer 4. -->
+			<Action name="ReceiveMessageCons4" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer4</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgCons4</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+				
+			<!--  It was not a retained message retained pseudo property should not be set  -->
+			<Action name="GetZeroRetainedFlag_msg_consumer4" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageCons4" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons4</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">0</ActionParameter>
+			</Action>	
+	
+			<Action name="GetMessageTextCons_4" type="GetMessageText">
+				<dependsOn name="GetZeroRetainedFlag_msg_consumer4" interval="0"/>
+				<ActionParameter name="message_id">rxmsgCons4</ActionParameter>
+				<ActionParameter name="verifyValue">Non-RetainedMessage for a DurableSubscription subtopic</ActionParameter>
+			</Action>			
+		</Action>
+		
+	<!-- Consumer 3 had a selector for JMS_IBM_Retain=1, and should never get another message --> 
+		<Action name="RcvMessageFail_consumer3c" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+			<ActionParameter name="structure_id">rxmsgFail</ActionParameter>
+			<ApiParameter name="timeout">1000</ApiParameter>
+		</Action>		
+		
+		<Action name="CloseConsumer1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConsumer2" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConsumer3" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConsumer4" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer4</ActionParameter>
+		</Action>
+		
+		<Action name="CreateNewConsumer3" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer3</ActionParameter>
+			<ActionParameter name="dest_id">destRX2</ActionParameter>
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons3</ApiParameter>
+			<ApiParameter name="selector">null</ApiParameter>
+		</Action>			
+		
+	 	<!-- Receive the four retained messages on each consumer --> 
+		<Action name="CompositeRcvRetainedNewConsumer3" type="CompositeAction" expected="4" repeat_interval="0" interval="0"> 	 	
+
+			<!-- the third consumer was changed. So it should see four retained messages 
+			     because it is essentially a new subscription --> 			
+			<Action name="ReceiveMessageRetainedCons3" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgRetainedCons3</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+			
+			<Action name="GetMessageTextRetCons_3" type="GetMessageText">
+				<dependsOn name="ReceiveMessageRetainedCons3" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons3</ActionParameter>
+				<ActionParameter name="verifyValue">RetainedMessage for a DurableSubscription subtopic</ActionParameter>				
+			</Action>			
+				
+			<!--  It was a retained message sent from a retained source so  retained pseudo property should be set  -->
+			<Action name="GetRetainedFlag_msg_consumer3" type="GetMessageProperty">
+				<dependsOn name="ReceiveMessageRetainedCons3" interval="0"/>
+				<ActionParameter name="message_id">rxmsgRetainedCons3</ActionParameter>
+				<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+				<ApiParameter name="valueType">Integer</ApiParameter>
+				<ActionParameter name="verifyValue">1</ActionParameter>
+			</Action>	
+
+		</Action>
+				
+		<Action name="CloseConsumer3_thirdtime" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+		</Action>
+					
+		<Action name="unsubscribe1" type="Unsubscribe">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons1</ApiParameter>
+		</Action>	
+		
+		<Action name="unsubscribe2" type="Unsubscribe">
+			<ActionParameter name="session_id">Ses2_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons2</ApiParameter>
+		</Action>		
+
+		<Action name="unsubscribe3" type="Unsubscribe">
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons3</ApiParameter>
+		</Action>		
+
+		<Action name="unsubscribe4" type="Unsubscribe">
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+			<ApiParameter name="durableName">jmsDurableRetCons4</ApiParameter>
+		</Action>		
+		
+		<Action name="CloseSession_RX1" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession_RX2" type="CloseSession">
+			<ActionParameter name="session_id">Ses2_Rx</ActionParameter>
+		</Action>
+		
+		<Action name="CloseSession_RX3" type="CloseSession">
+			<ActionParameter name="session_id">Ses3_Rx</ActionParameter>
+		</Action>		
+
+		<Action name="StopConnection_RX1" type="StopConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_RX1" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>	
+	</Action>
+  
+	<Action name="rmdt" type="CompositeAction">
+		<!-- This side runs on machine 1! -->
+		<Action name="CreateFactory_TX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener_TX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_TX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="tx_DSRet_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+			<ImaProperty name="DisableAck" value="false"/>
+		</Action>
+
+		<Action name="CreateConnection_TX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_TX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession_TX1" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses2_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_TX" type="CreateDestination">
+			<ApiParameter name="name">/sportsDS/baseball</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_TX1" type="CreateDestination">
+			<ApiParameter name="name">/sportsDS/basketball</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateDestination_TX2" type="CreateDestination">
+			<ApiParameter name="name">/sportsDS/equestrian</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX2</ActionParameter>
+		</Action>
+		
+		<Action name="CreateDestination_TX3" type="CreateDestination">
+			<ApiParameter name="name">/sportsDS/golf</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX3</ActionParameter>
+		</Action>		
+
+		<Action name="CreateProducer1" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="dest_id">destTX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+		
+		<Action name="CreateProducer2" type="CreateProducer">
+			<ActionParameter name="structure_id">producer2</ActionParameter>
+			<ActionParameter name="dest_id">destTX1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+	
+		<Action name="CreateProducer3" type="CreateProducer">
+			<ActionParameter name="structure_id">producer3</ActionParameter>
+			<ActionParameter name="dest_id">destTX2</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+		</Action>
+	
+		<Action name="CreateProducer4" type="CreateProducer">
+			<ActionParameter name="structure_id">producer4</ActionParameter>
+			<ActionParameter name="dest_id">destTX3</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+		</Action>
+	
+		<Action name="StartConnection_TX" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+	
+		<Action name="CreateMessage1" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">RetainedMessage for a DurableSubscription subtopic</ApiParameter>
+		</Action>
+		
+		<Action name="SetMessage1RetainedProperty" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>			
+			<ApiParameter name="value">1</ApiParameter>
+		</Action>			
+
+		<Action name="SetMessage1Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="propertyName">TestProperty</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="value">testing</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage2" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg2</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">RetainedMessage for a DurableSubscription subtopic</ApiParameter>
+		</Action>
+		
+		<Action name="SetMessage2RetainedProperty" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>			
+			<ApiParameter name="value">1</ApiParameter>
+		</Action>			
+		
+		<Action name="CreateMessage3" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg3</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">RetainedMessage for a DurableSubscription subtopic</ApiParameter>
+		</Action>
+		
+		<Action name="SetMessage3RetainedProperty" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>			
+			<ApiParameter name="value">1</ApiParameter>
+		</Action>			
+		
+		<Action name="CreateMessage4" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg4</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">RetainedMessage for a DurableSubscription subtopic</ApiParameter>
+		</Action>
+		
+		<Action name="SetMessage4RetainedProperty" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg4</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>			
+			<ApiParameter name="value">1</ApiParameter>
+		</Action>			
+		
+		<Action name="SetMessage4Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg4</ActionParameter>
+			<ApiParameter name="propertyName">TestProperty</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="value">testing</ApiParameter>
+		</Action>
+		
+		<Action name="CreateMessageNeverReceived" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsgNR</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">I am not a Retained message and am never received. JMS_IBM_Retain was set to 23</ApiParameter>
+		</Action>
+		
+		<!-- any value other than 1 means the message is not retained -->
+		<Action name="SetMessageNeverReceivedRetainedProperty" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsgNR</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>			
+			<ApiParameter name="value">23</ApiParameter>
+		</Action>			
+		
+		<Action name="SetMessageNeverReceivedProperty" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsgNR</ActionParameter>
+			<ApiParameter name="propertyName">TestProperty</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="value">testing</ApiParameter>
+		</Action>		
+
+		<Action name="CreateMessage5" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg5</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">Non-RetainedMessage for a DurableSubscription subtopic</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage6" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg6</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">Non-RetainedMessage for a DurableSubscription subtopic</ApiParameter>
+		</Action>
+		
+		<Action name="CreateMessage7" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg7</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">Non-RetainedMessage for a DurableSubscription subtopic</ApiParameter>
+		</Action>
+		
+		<!-- Any value other than 1 means message is not a retained message -->
+		<Action name="SetMessage7Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg7</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>			
+			<ApiParameter name="value">2</ApiParameter>
+		</Action>					
+
+		<Action name="CreateMessage8" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg8</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+			<ApiParameter name="msgParam">Non-RetainedMessage for a DurableSubscription subtopic</ApiParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>
+
+		<!-- Send the four retained messages and the Never Received message -->
+		<Action name="SendMessage1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessage2" type="SendMessage">
+			<dependsOn name="SendMessage1" interval="0"/>
+			<ActionParameter name="producer_id">producer2</ActionParameter>
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessage3" type="SendMessage">
+			<dependsOn name="SendMessage2" interval="0"/>
+			<ActionParameter name="producer_id">producer3</ActionParameter>
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+		</Action>
+
+		<Action name="SendMessage4" type="SendMessage">
+			<dependsOn name="SendMessage3" interval="0"/>
+			<ActionParameter name="producer_id">producer4</ActionParameter>
+			<ActionParameter name="message_id">txmsg4</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessageNeverReceived" type="SendMessage">
+			<dependsOn name="SendMessage4" interval="0"/>
+			<ActionParameter name="producer_id">producer4</ActionParameter>
+			<ActionParameter name="message_id">txmsgNR</ActionParameter>
+		</Action>		
+			
+		<!-- Tell the Consumer to start -->
+		<Action name="sync_components_TX1" type="SyncComponentAction"> 
+	        <ActionParameter name="component_name">tx1</ActionParameter>
+	        <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+        	<ActionParameter name="timeout">15000</ActionParameter>
+	 	</Action>
+		 	
+	 	<!--  Wait for consumer to come up, receive the 4 retained, and close down.    -->
+		<Action name="sync_components_TX2" type="SyncComponentAction"> 
+	        <ActionParameter name="component_name">tx2</ActionParameter>
+	        <ActionParameter name="component_list">tx2;rx2</ActionParameter>
+        	<ActionParameter name="timeout">15000</ActionParameter>
+	 	</Action>		 	
+
+		<Action name="CompositeSnd" type="CompositeAction" repeat="2" repeat_interval="0" interval="0"> 
+			<Action name="SendMessage5" type="SendMessage">
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg5</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage6" type="SendMessage">
+				<dependsOn name="SendMessage5" interval="0"/>
+				<ActionParameter name="producer_id">producer2</ActionParameter>
+				<ActionParameter name="message_id">txmsg6</ActionParameter>
+			</Action>
+			
+			<Action name="SendMessage7" type="SendMessage">
+				dependsOn name="SendMessage6" interval="0"/>
+				<ActionParameter name="producer_id">producer3</ActionParameter>
+				<ActionParameter name="message_id">txmsg7</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage8" type="SendMessage">
+				<dependsOn name="SendMessage7" interval="0"/>
+				<ActionParameter name="producer_id">producer4</ActionParameter>
+				<ActionParameter name="message_id">txmsg8</ActionParameter>
+			</Action>
+		</Action>
+		
+		<!-- Send the four retained messages again -->
+		<Action name="SendMessage1Again" type="SendMessage">
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessage2Again" type="SendMessage">
+			<dependsOn name="SendMessage1Again" interval="0"/>
+			<ActionParameter name="producer_id">producer2</ActionParameter>
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessage3Again" type="SendMessage">
+			<dependsOn name="SendMessage2Again" interval="0"/>
+			<ActionParameter name="producer_id">producer3</ActionParameter>
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+		</Action>
+
+		<Action name="SendMessage4Again" type="SendMessage">
+			<dependsOn name="SendMessage3Again" interval="0"/>
+			<ActionParameter name="producer_id">producer4</ActionParameter>
+			<ActionParameter name="message_id">txmsg4</ActionParameter>
+		</Action>		
+
+		<Action name="sync_components_TX3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx3</ActionParameter>
+			<ActionParameter name="component_list">tx3;rx3</ActionParameter>
+			<ActionParameter name="timeout">25000</ActionParameter>
+		</Action>
+
+		<Action name="CompositeSndAgain" type="CompositeAction" repeat="2" repeat_interval="0" interval="0"> 
+			<Action name="SendMessage5Again" type="SendMessage">
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg5</ActionParameter>
+			</Action>
+2
+			<Action name="SendMessage6Again" type="SendMessage">
+				<dependsOn name="SendMessage5Again" interval="0"/>
+				<ActionParameter name="producer_id">producer2</ActionParameter>
+				<ActionParameter name="message_id">txmsg6</ActionParameter>
+			</Action>
+			
+			<Action name="SendMessage7Again" type="SendMessage">
+				dependsOn name="SendMessage6Again" interval="0"/>
+				<ActionParameter name="producer_id">producer3</ActionParameter>
+				<ActionParameter name="message_id">txmsg7</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage8Again" type="SendMessage">
+				<dependsOn name="SendMessage7Again" interval="0"/>
+				<ActionParameter name="producer_id">producer4</ActionParameter>
+				<ActionParameter name="message_id">txmsg8</ActionParameter>
+			</Action>
+		</Action>		
+		
+		<Action name="CloseSession_TX" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession_TX1" type="CloseSession">
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection_TX" type="StopConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_TX" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+		
+	</Action>
+</ImaJmsTest>

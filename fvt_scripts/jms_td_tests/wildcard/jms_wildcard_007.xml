@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_wildcard_007
+
+  Test Category:  JMS Wildcards
+  
+  Test Description:
+    Test Topic Messaging Policies with literal '*' and '$' 
+    
+    Connection Policies:
+    DemoConnectionPolicy - Allow all connections
+    
+    Messaging Policies:
+      JMSWildcardTopicMP2 - Starts out allowing '${*}', and is updated throughout
+                            the test.
+
+    Endpoints:
+    JMSWildcardEP1 - Port 18401
+
+    Some variations to test include:
+      ${*}
+      ${$}
+      ${*}*
+      *${*}
+      ${$}${*}
+      ${$}{${*}}
+      
+      NOTE: In the Angel release, all topics starting with $ became system topics, and you cannot subscribe or publish to them. May 2015
+      
+-->
+<ImaJmsTest name="jms_wildcard_007">
+
+    <Action name="Create_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Protocol" value="tcp"/>
+        <ImaProperty name="Port" value="18401"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+    
+    <Action name="CreateConnection_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateSession1" type="CreateSession">
+        <ActionParameter name="structure_id">session1</ActionParameter>
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession2" type="CreateSession">
+        <ActionParameter name="structure_id">session2</ActionParameter>
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateMsg" type="CreateMessage">
+        <ActionParameter name="structure_id">msg</ActionParameter>
+        <ActionParameter name="session_id">session2</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetTxtMsg" type="SetMessageText">
+        <ActionParameter name="message_id">msg</ActionParameter>
+        <ApiParameter name="value">TEXT: test content 1</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateDest1" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest1</ActionParameter>
+        <ApiParameter name="name">*</ApiParameter>
+    </Action>
+
+    <Action name="CreateDest2" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest2</ActionParameter>
+        <ApiParameter name="name">/some/other/topic</ApiParameter>
+    </Action>
+
+    <Action name="CreateDest3" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest3</ActionParameter>
+        <ApiParameter name="name">*moretext</ApiParameter>
+    </Action>
+
+    <Action name="CreateDest4" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest4</ActionParameter>
+        <ApiParameter name="name">moretext*</ApiParameter>
+    </Action>
+
+    <Action name="CreateDest5" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest5</ActionParameter>
+        <ApiParameter name="name">$*</ApiParameter>
+    </Action>
+
+    <Action name="CreateDest6" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest6</ActionParameter>
+        <ApiParameter name="name">$text</ApiParameter>
+    </Action>
+
+    <Action name="CreateDest7" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest7</ActionParameter>
+        <ApiParameter name="name">$</ApiParameter>
+    </Action>
+
+    <Action name="CreateDest8" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest8</ActionParameter>
+        <ApiParameter name="name">${*}</ApiParameter>
+    </Action>
+
+    <Action name="CreateDest9" type="CreateDestination">
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest9</ActionParameter>
+        <ApiParameter name="name">${$}</ApiParameter>
+    </Action>
+
+    <!-- Only subscriptions to '*' (the literal character) are allowed at first. -->
+
+    <!-- can create subscriber to '*' -->
+    <Action name="CreateConsumer1a" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer1a</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot create subscriber to '/some/other/topic' -->
+    <Action name="CreateConsumer1b" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer1b</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot create subscriber to '$' -->
+    <Action name="CreateConsumer1d" type="CreateConsumer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">consumer1d</ActionParameter>
+        <ActionParameter name="dest_id">dest7</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot create subscriber to '${*}' -->
+    <Action name="CreateConsumer1c" type="CreateConsumer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">consumer1c</ActionParameter>
+        <ActionParameter name="dest_id">dest8</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer1a" type="CreateProducer">
+        <ActionParameter name="structure_id">producer1a</ActionParameter>
+        <ActionParameter name="session_id">session2</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+    </Action>
+
+    <Action name="SendMessage1a" type="SendMessage">
+        <ActionParameter name="message_id">msg</ActionParameter>
+        <ActionParameter name="producer_id">producer1a</ActionParameter>
+    </Action>
+
+    <Action name="RecvMsg1a" type="ReceiveMessage">
+        <ActionParameter name="structure_id">msgrecv</ActionParameter>
+        <ActionParameter name="consumer_id">consumer1a</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+    <!-- Update TopicPolicy to allow literal '*' followed 
+    by non-literal '*' -->
+    <Action name="UpdateTopicMP1" type="ShellAction">
+        <ActionParameter name="command">bash ../scripts/run-cli.sh -c wildcard/wildcard_config.cli -s update1 -f wildcard_007_update1.log</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>
+
+	<Action name="ShowTopicMP1" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/JMSWildcardTopicMP2</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- can still create subscriber to '*' -->
+    <Action name="CreateConsumer2" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer2</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot create subscriber to '/some/other/topic' -->
+    <Action name="CreateConsumer2b" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer2b</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- can create subscriber to '*moretext' -->
+    <Action name="CreateConsumer2a" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer2a</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer2a" type="CreateProducer">
+        <ActionParameter name="structure_id">producer2a</ActionParameter>
+        <ActionParameter name="session_id">session2</ActionParameter>
+        <ActionParameter name="dest_id">dest3</ActionParameter>
+    </Action>
+
+    <Action name="SendMessage2a" type="SendMessage">
+        <ActionParameter name="message_id">msg</ActionParameter>
+        <ActionParameter name="producer_id">producer2a</ActionParameter>
+    </Action>
+
+    <Action name="RecvMsg2a" type="ReceiveMessage">
+        <ActionParameter name="structure_id">msgrecv</ActionParameter>
+        <ActionParameter name="consumer_id">consumer2a</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+    <!-- Update TopicPolicy to allow literal '$' -->
+    <Action name="UpdateTopicMP2" type="ShellAction">
+        <ActionParameter name="command">bash ../scripts/run-cli.sh -c wildcard/wildcard_config.cli -s update2 -f wildcard_007_update2.log</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>
+
+	<Action name="ShowTopicMP2" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/JMSWildcardTopicMP2</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- cannot subscribe to '*' -->
+    <Action name="CreateConsumer3" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer3</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot subscribe to '$*' -->
+    <Action name="CreateConsumer3a" type="CreateConsumer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">consumer3a</ActionParameter>
+        <ActionParameter name="dest_id">dest5</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- can subscribe to '$' -->
+    <Action name="CreateConsumer3b" type="CreateConsumer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">consumer3b</ActionParameter>
+        <ActionParameter name="dest_id">dest7</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot subscribe to '${$}' -->
+    <Action name="CreateConsumer3c" type="CreateConsumer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">consumer3c</ActionParameter>
+        <ActionParameter name="dest_id">dest9</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer3b" type="CreateProducer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">producer3b</ActionParameter>
+        <ActionParameter name="session_id">session2</ActionParameter>
+        <ActionParameter name="dest_id">dest7</ActionParameter>
+    </Action>
+
+     <!-- Update TopicPolicy to allow '*${*}' -->
+    <Action name="UpdateTopicMP3" type="ShellAction">
+        <ActionParameter name="command">bash ../scripts/run-cli.sh -c wildcard/wildcard_config.cli -s update3 -f wildcard_007_update3.log</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>
+
+	<Action name="ShowTopicMP3" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/JMSWildcardTopicMP2</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- can subscribe to '*' -->
+    <Action name="CreateConsumer4" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer4</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- can subscribe to '$*' -->
+    <Action name="CreateConsumer4a" type="CreateConsumer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">consumer4a</ActionParameter>
+        <ActionParameter name="dest_id">dest5</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot subscribe to '$' -->
+    <Action name="CreateConsumer4b" type="CreateConsumer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">consumer4b</ActionParameter>
+        <ActionParameter name="dest_id">dest7</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot subscribe to '${*}' -->
+    <Action name="CreateConsumer4c" type="CreateConsumer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">consumer4c</ActionParameter>
+        <ActionParameter name="dest_id">dest8</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer4a" type="CreateProducer" rc="1" reason="CWLNC0225">
+        <ActionParameter name="structure_id">producer4a</ActionParameter>
+        <ActionParameter name="session_id">session2</ActionParameter>
+        <ActionParameter name="dest_id">dest5</ActionParameter>
+    </Action>
+
+    <!-- Update TopicPolicy to allow '${$}${*}' -->
+    <Action name="UpdateTopicMP4" type="ShellAction">
+        <ActionParameter name="command">bash ../scripts/run-cli.sh -c wildcard/wildcard_config.cli -s update4 -f wildcard_007_update4.log</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>
+
+	<Action name="ShowTopicMP4" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/JMSWildcardTopicMP2</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- cannot subscribe to '*' -->
+    <Action name="CreateConsumer5" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer5</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <!-- cannot subscribe to '/some/other/topic' -->
+    <Action name="CreateConsumer5a" type="CreateConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer5a</ActionParameter>
+        <ActionParameter name="dest_id">dest2</ActionParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+
+    <Action name="CloseConnection1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+   
+</ImaJmsTest>

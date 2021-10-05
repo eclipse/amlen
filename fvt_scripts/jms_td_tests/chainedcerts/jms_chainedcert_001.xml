@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_chainedcert_001
+
+  Test Category:  JMS Chained Certs
+  
+  Test Description: 
+    Recreate defect 42943.
+    
+    Use common_src/imaserver-crt.pem and common_src/imaserver-key.pem,
+    common_src/imaclient-crt.pem and common_src/imaclient-key.pem,
+    common_src/rootCA-crt.pem in client truststore 
+      -(chainedcerts/certs/ibm.jks)
+    common_src/rootCA-crt.pem and common_src/imaCA-crt.pem in server truststore
+
+    1. Run with UseClientCertificates=True
+    2. Run with UseClientCertificates=False
+
+    These should both fail as the server certificate being used does not
+    include its full trust chain.
+
+    Endpoints:
+    JMSChainCertEP7 - Port 18436
+
+-->
+<ImaJmsTest name="jms_chainedcert_001">
+    <Action name="Create_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <!--ActionParameter name="loglevel">9</ActionParameter>
+        <ActionParameter name="logfile">stdout</ActionParameter-->
+        <ActionParameter name="keyStore">chainedcerts/certs/ibme.jks</ActionParameter>
+        <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Protocol" value="tcps"/>
+        <ImaProperty name="Port" value="18436"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+
+    <!-- Fail to connect because we don't trust the server cert since
+    it doesn't provide its full chain, and we only have the rootCA
+    in our trust store. -->
+    <Action name="CreateConnection_cf1" type="CreateConnection" rc="1" reason="CWLNC0022">
+        <ActionParameter name="structure_id">connection_cf</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+
+	<Action name="DisableClientCerts" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"JMSChainSec7":{"UseClientCertificate":false}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action Name="RestartServer" type="ShellAction">
+        <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>"
+    </Action>
+
+    <!-- We still fail to connect because the client truststore
+    does not have the intermediate CA's, and the server cert does not
+    have its trust chain included. -->
+    <Action name="CreateConnectionFail_cf1" type="CreateConnection" rc="1" reason="CWLNC0022">
+        <ActionParameter name="structure_id">connection_cf</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+</ImaJmsTest>

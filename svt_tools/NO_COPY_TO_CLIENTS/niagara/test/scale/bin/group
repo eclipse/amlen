@@ -1,0 +1,301 @@
+#!/bin/bash
+
+
+declare scripts=/niagara/test/scripts
+declare bin=/niagara/test/scale/bin
+
+usage()
+{
+  printf "usage:  group <command>\n"
+  printf "\n"
+  printf "<command>:\n"
+  printf "        getserver <group>\n"
+  printf "            Display server for a specific group\n"
+  printf "\n"
+  printf "        clientlist <prefix>\n"
+  printf "            List the ip addresses that match prefix of clients in current group\n"
+  printf "\n"
+  printf "        listclients <groupname>\n"
+  printf "            List clients for a specific group\n"
+  printf "\n"
+  printf "        putall <filename>\n"
+  printf "            Copy the file to the machines in the current group\n"
+  printf "\n"
+  printf "        doall <cmd>\n"
+  printf "            Execute cmd on all the machines in the current group\n"
+  printf "\n"
+  printf "        rmall <filename>\n"
+  printf "            Delete the file on all the machines in the current group\n"
+  printf "\n"
+  printf "        listgroups\n"
+  printf "            List names of all groups\n"
+  printf "\n"
+  printf "        groupname\n"
+  printf "            Display groupname for current client\n"
+  printf "\n"
+  printf "        renamegroup <oldname> <newname>\n"
+  printf "            Change a groupname.  NOTE:  must still copy file to all machines\n"
+  printf "\n"
+}
+
+clientlist()
+{
+  declare start
+  declare len
+  declare host
+  declare client1
+  declare client2
+  declare client3
+  declare client4
+
+  if [ -z $1 ]; then
+    start=9
+  else
+    start=$1
+  fi
+  
+  len=${#start}
+  
+  for i in $(eval echo {1..${M_COUNT}}); do
+    host=$(eval echo \$\{M${i}_HOST\})
+    client1=$(eval echo \$\{M${i}_IPv4_1\})
+    client2=$(eval echo \$\{M${i}_IPv4_2\})
+    client3=$(eval echo \$\{M${i}_IPv4_3\})
+    client4=$(eval echo \$\{M${i}_IPv4_4\})
+  
+    if [ "${host:0:${len}}" = "${start}" ] ; then
+      echo ${host}
+    elif [ "${client1:0:${len}}" = "${start}" ] ; then
+      echo ${client1}
+    elif [ "${client2:0:${len}}" = "${start}" ] ; then
+      echo ${client2}
+    elif [ "${client3:0:${len}}" = "${start}" ] ; then
+      echo ${client3}
+    elif [ "${client4:0:${len}}" = "${start}" ] ; then
+      echo ${client4}
+    else
+      echo ${host}
+    fi
+  done
+  
+  unset start
+  unset len
+  unset host
+  unset client1
+  unset client2
+  unset client3
+  unset client4
+}
+
+putall()
+{
+
+  declare p
+  declare ip
+  declare list
+  declare local
+  
+  if [ -z "$1" ]; then
+    usage
+  else
+    list=`group clientlist`
+    local=`${bin}/getprivateaddr`
+  
+    if [[ $1 = /* ]]; then
+      f=$1
+    else
+      f=`pwd`/$1
+    fi
+  
+    for ip in ${list}
+    do
+      if [ ${ip} != ${local} ]; then
+        echo scp ${f} $ip:${f}
+        scp ${f} $ip:${f}
+      fi
+    done
+  fi
+  
+  unset p
+  unset ip
+  unset list
+  unset local
+}
+
+doall()
+{
+  declare ip
+  declare list
+  declare local
+  
+
+  list=`${bin}/group clientlist`
+
+  for ip in ${list}
+  do
+    echo ssh ${ip} "$@"
+  done
+
+  read -p "Continue (y/n)? "
+  echo
+
+  if [[ ("$REPLY" == "y")||("$REPLY" == "Y") ]]
+  then
+    for ip in ${list}
+    do
+      echo ssh ${ip} "$@"
+      ssh ${ip} "$@"
+      echo
+    done
+  fi
+
+  unset ip
+  unset list
+  unset local
+}
+
+doallp()
+{
+  declare ip
+  declare list
+  declare local
+  
+
+  list=`${bin}/group clientlist`
+
+  for ip in ${list}
+  do
+    echo ssh ${ip} "$@"
+  done
+
+  read -p "Continue (y/n)? "
+  echo
+
+  if [[ ("$REPLY" == "y")||("$REPLY" == "Y") ]]
+  then
+    for ip in ${list}
+    do
+      echo ssh ${ip} "$@"
+      ssh ${ip} "$@" &
+      echo
+    done
+  fi
+
+  unset ip
+  unset list
+  unset local
+}
+
+rmall()
+{
+  declare d
+  declare ip
+  declare f
+  declare list
+
+  d=`pwd`
+
+  list=`${bin}/group clientlist`
+
+  if [[ $1 = /* ]]; then
+    f=$1
+  else
+    f=${d}/$1
+  fi
+
+  for ip in ${list}
+  do
+    echo ssh ${ip} rm -f ${f}
+  done
+
+  read -p "Continue (y/n)? "
+  if [[ ("$REPLY" == "y")||("$REPLY" == "Y") ]]
+  then
+    for ip in ${list}
+    do
+      ssh ${ip} rm -f ${f}
+    done
+  fi
+
+  unset d
+  unset ip
+  unset f
+  unset list
+}
+
+listgroups()
+{
+  grep group= /niagara/test/scripts/ISMsetupALL.src | sed -e "s/.*group=//"
+}
+
+getserver()
+{
+  if [ -z $1 ] ; then
+    group=`/niagara/test/scale/bin/getgroup`
+  else
+    group=$1
+  fi
+
+  /niagara/test/scripts/ISMsetupALL.src ${group} | grep A._HOST= | sed -e "s/.*A._HOST=//"
+
+  unset group
+}
+
+listgroupclients()
+{
+  if [ -z $1 ] ; then
+    usage
+  else
+    /niagara/test/scripts/ISMsetupALL.src $1 | grep HOST= | grep -v A | sed -e "s/.*HOST=//"
+  fi
+}
+
+groupname()
+{
+/niagara/test/scale/bin/getgroup
+}
+
+renamegroup()
+{
+  if [ -z $2 ] ; then
+    usage
+  elif [ -z $1 ] ; then
+    usage
+  else
+    sed -i "s/\[ \$1 = $1 \]/\[ \$1 = $2 \]/" /niagara/test/scripts/ISMsetupALL.src
+    sed -i "s/  group=$1/  group=$2/" /niagara/test/scripts/ISMsetupALL.src
+  fi
+}
+
+
+
+${scripts}/ISMsetup.cfg
+source ${scripts}/ISMsetup.sh
+
+if [ -z $1 ] ; then
+  usage
+elif [ "$1" = "getserver" ] ; then
+  getserver ${@:2}
+elif [ "$1" = "clientlist" ] ; then
+  clientlist ${@:2}
+elif [ "$1" = "putall" ] ; then
+  putall ${@:2}
+elif [ "$1" = "doall" ] ; then
+  doall ${@:2}
+elif [ "$1" = "doallp" ] ; then
+  doallp ${@:2}
+elif [ "$1" = "rmall" ] ; then
+  rmall ${@:2}
+elif [ "$1" = "listgroups" ] ; then
+  listgroups ${@:2}
+elif [ "$1" = "listgroupclients" ] ; then
+  listgroupclients ${@:2}
+elif [ "$1" = "listclients" ] ; then
+  listgroupclients ${@:2}
+elif [ "$1" = "groupname" ] ; then
+  groupname ${@:2}
+elif [ "$1" = "renamegroup" ] ; then
+  renamegroup ${@:2}
+else
+  usage
+fi

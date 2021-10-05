@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN"
+ "task.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<task id="ad00379_" xml:lang="en-us">
+  <title>Updating an LDAP certificate in a High Availability environment by using <ph
+    conref="../TextEntities.dita#TextEntities/RESTAPIs"/></title>
+  <shortdesc>System administrators can update a certificate on the primary and standby nodes by using <ph
+    conref="../TextEntities.dita#TextEntities/RESTAPIs"/>.</shortdesc>
+  <taskbody>
+    <context>
+      <p>In an environment that is configured for High Availability, you must ensure that the new
+        certificate that you upload on the primary server is correctly replicated on the standby
+        server. In this scenario, server 1 is the primary server and server 2 is the standby.</p>
+      <p>You can import a certificate for an LDAP connection by using <ph
+        conref="../TextEntities.dita#TextEntities/RESTAPIs"/>, or by using the <ph
+        conref="../TextEntities.dita#TextEntities/ISMgui"/>. When you use the <ph
+        conref="../TextEntities.dita#TextEntities/ISMgui"
+        />, importing the certificate is part of creating an external LDAP connection. For more information about using the <ph
+        conref="../TextEntities.dita#TextEntities/ISMgui"/> to import the certificate, see <xref
+        href="ad00372_.dita"/>.</p>
+      <p>After the certificate is applied, it is automatically renamed to
+          <filepath>ldap.pem</filepath>.</p>
+    </context>
+    <steps>
+      <step id="CopyTheCertificateToTheByEnteringTh">
+        <cmd>On server 1, import the certificate to <ph
+            conref="../TextEntities.dita#TextEntities/ISM"/> by using the <ph
+            conref="../TextEntities.dita#TextEntities/ISM"/> REST API PUT method with the following
+            <ph conref="../TextEntities.dita#TextEntities/ISM"/> configuration URI:</cmd>
+        <info>
+          <p><codeph>curl -X PUT -T &lt;FilePath and FileName> http://&lt;admin-endpoint:port>/ima/v1/file/&lt;FileName></codeph></p>
+        </info>
+      </step>
+      <step>
+        <cmd>On server 1, apply the certificate to the LDAP connection by using the <ph
+          conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method.</cmd>
+        <substeps>
+          <substep>
+            <cmd>Use the following <ph conref="../TextEntities.dita#TextEntities/ISM"
+              /> configuration URI:</cmd>
+            <info>
+              <p><codeph>http://&lt;admin-endpoint-IP:Port>/ima/v1/configuration/</codeph></p>
+            </info>
+          </substep>
+          <substep>
+            <cmd>Provide object configuration data in the payload of the POST method by using the following schema. Content-type is set to application/json: </cmd>
+            <info>
+              <codeblock>
+{    
+  "LDAP": {
+    "Certificate>": "string",
+    "Overwrite": true|false 
+   }
+}</codeblock>
+              <p>Where:<ul>
+                <li>
+                  <dl>
+                    <dlentry>
+                      <dt>Certificate</dt>
+                      <dd>Specifies the name of the certificate that was imported in step <xref
+                        format="dita"
+                        href="ad00378_.dita#ad00378_/CopyTheCertificateToTheByEnteringTh"
+                        scope="local" type="step"/>.</dd>
+                    </dlentry>
+                  </dl>
+                </li>
+                <li>
+                  <dl>
+                    <dlentry>
+                      <dt>Overwrite: true|false</dt>
+                      <dd>Optional.</dd>
+                      <dd>Specifies whether any existing LDAP connection certificate is overwritten.</dd>
+                      <dd>The default value is false.</dd>
+                    </dlentry>
+                  </dl>
+                </li>
+                </ul></p>
+              <p>New LDAP settings will be used the next time a client or connection is authenticated or authorized.</p>
+            </info>
+          </substep>
+        </substeps>
+      </step>
+      <step>
+        <cmd>On server 2, stop the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> server process by using the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following <ph
+          conref="../TextEntities.dita#TextEntities/ISM"/> service URI: </cmd>
+        <info>
+          <p><codeph>http://&lt;admin-endpoint-IP:port>/ima/v1/service/stop</codeph> </p>
+          <p>and wait for the server to stop.</p>
+        </info>
+      </step>
+      <step>
+        <cmd>On server 2, start the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> server process by using the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following <ph
+          conref="../TextEntities.dita#TextEntities/ISM"/> service URI: </cmd>
+        <info>
+          <p><codeph>http://&lt;admin-endpoint-IP:port>/ima/v1/service/start </codeph></p>
+          <p>and wait for the synchronization to complete.</p>
+        </info>
+      </step>
+      <step>
+        <cmd>On server 1, stop the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> server process by using the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following <ph
+          conref="../TextEntities.dita#TextEntities/ISM"/> service URI: </cmd>
+        <info>
+          <p><codeph>http://&lt;admin-endpoint-IP:port>/ima/v1/service/stop</codeph> </p>
+          <p>and wait for the server 1 to stop.</p>
+        </info>
+      </step>
+      <step>
+        <cmd>On server 1, start the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> server process by using the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following <ph
+          conref="../TextEntities.dita#TextEntities/ISM"/> service URI: </cmd>
+        <info>
+          <p><codeph>http://&lt;admin-endpoint-IP:port>/ima/v1/service/start </codeph></p>
+          <p>and wait for the synchronization to complete.</p>
+        </info>
+        <stepresult>
+          <p>After steps 1 through 6 are completed, server 2 is now the primary server, and both servers have the new LDAP certificate applied and ready for use. New LDAP settings are used the next time a client or connection is authenticated or authorized.</p>
+          <p>You can optionally swap server 1 back as the primary server by completing the following steps:</p>
+        </stepresult>
+      </step>
+      <step importance="optional">
+        <cmd>On server 2, stop the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> server process by using the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following <ph
+          conref="../TextEntities.dita#TextEntities/ISM"/> service URI: </cmd>
+        <info>
+          <p><codeph>http://&lt;admin-endpoint-IP:port>/ima/v1/service/stop </codeph> </p>
+          <p>and wait for the server to stop.</p>
+        </info>
+      </step>
+      <step importance="optional">
+        <cmd>On server 2, start the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> server process by using the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following <ph
+          conref="../TextEntities.dita#TextEntities/ISM"/> service URI: </cmd>
+        <info>
+          <p><codeph>http://&lt;admin-endpoint-IP:port>/ima/v1/service/start </codeph></p>
+          <p>and wait for the synchronization to complete.</p>
+        </info>
+      </step>
+    </steps>
+    <?Pub Caret -1?>
+    <example><p>The following commands are entered on the original primary server. The example shows importing a file called <codeph>ldap.pem</codeph> from the local machine to a staging directory and applying the LDAP certificate on a primary server: </p><codeblock>curl -X PUT -T /certificates/ldap.pem http://127.0.0.1:9089/ima/v1/file/ldap.pem
+</codeblock><p>An example response to the PUT method:<codeblock>
+       {        
+         "Version": "v1",
+         "Code": "CWLNA6011",
+         "Message": "The requested configuration change has completed successfully."
+       }
+</codeblock></p>The following example applies the certificate to the LDAP connection by using cURL:<codeblock>
+curl -X POST \
+   -H 'Content-Type: application/json'  \
+   -d  '{
+          "LDAP": {   
+           "Certificate": "ldap.pem",
+           "Overwrite": true          
+        }
+      }
+      '  \
+http://127.0.0.1:9089/ima/v1/configuration/</codeblock><p>An example response to the POST method:<codeblock>
+{        
+  "Version": "v1",
+  "Code": "CWLNA6011",
+  "Message": "The requested configuration change has completed successfully."
+}
+</codeblock></p></example>
+    <postreq>After you import and apply the LDAP certificate, you can create the LDAP connection. For more information about creating the LDAP connection by using <ph
+      conref="../TextEntities.dita#TextEntities/RESTAPIs"/>, see <xref href="ad00374_.dita"
+      />.</postreq>
+  </taskbody>
+</task>
+<?Pub *0000007407?>

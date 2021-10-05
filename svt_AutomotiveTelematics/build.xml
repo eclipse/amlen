@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="svt_java" default="build_svt_java" basedir=".">
+    <!-- Loadd contrib library -->
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties" />
+
+    <property name="svt.java.src.dir" location="${basedir}/src" />
+    <property name="svt.java.bin.dir" location="${basedir}/bin" />
+    <property name="svt.java.lib.dir" location="${svt.java.bin.dir}/lib" />
+    <property name="client.ship.lib.dir" value="${basedir}/../client_ship/lib" />
+    <property name="svt.ship.lib.dir" value="${basedir}/../svt_ship/lib" />
+    <property environment="env"/>
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+<!-- NOT USED ANY MORE, uses build_tools SDK    <property name="testTools.lib.dir" location="${basedir}/../testTools_MQ_MQTTClient/lib" /> -->
+    <property name="testTools.ship.lib.dir" location="${basedir}/../testTools_ship/lib" />
+    <property name="testTools.jms.dir" location="${basedir}/../testTools_JMSTestDriver" />
+	
+    <!-- define svt_java jar file name -->
+    <property name="svtAutomotiveTelematics.jar" location="${svt.java.lib.dir}/svtAutomotiveTelematics.jar" />
+
+    <property name="svtScripts.build.dir" value="${basedir}/scripts" />
+
+    <!-- Required Classpaths -->
+    <path id="compile.classpath">
+        <pathelement location="${client.deps.dir}/jms.jar" />
+        <pathelement location="${client.deps.dir}/com.ibm.micro.client.mqttv3.jar" />
+        <pathelement location="${client.ship.lib.dir}/org.eclipse.paho.client.mqttv3.jar" />
+        <!-- pathelement location="${testTools.ship.lib.dir}/Paho.jar" -->
+        <pathelement location="${client.ship.lib.dir}/imaclientjms.jar" />
+        <pathelement location="${svt.ship.lib.dir}/javasample.jar" />
+        <pathelement location="${client.deps.dir}/com.ibm.mqjms.jar" />
+	<pathelement location="${client.deps.dir}/historian.bundleContent.v1.0/json-simple-1.1.1.jar" />
+        <pathelement location="${client.deps.dir}/com.ibm.mq.jmqi.jar" />
+        <pathelement location="${client.deps.dir}/com.ibm.ws.sib.client.thin.jms_8.0.0.jar" />
+        <pathelement location="${client.deps.dir}/com.ibm.jaxrs.thinclient_8.5.0.jar" />
+    </path>
+
+    <property name="compile_classpath" refid="compile.classpath" />
+    <echo message="compile.classpath = ${compile_classpath}" />
+
+    <!--path id="test.classpath">
+      <path refid="compile.classpath" />
+         <pathelement location="/opt/apache-ant/lib" />
+      <pathelement location="${svt.java.bin.dir}" />
+      <pathelement location="${jms.jar.dir}" />
+   </path-->
+
+    <target name="clean">
+        <delete includeemptydirs="true" dir="${svt.java.bin.dir}" />
+    </target>
+
+    <!-- Copy the product file to ship tree      -->
+    <target name="java_publish">
+        <echo> ==  java_publish called (TBD) ================ </echo>
+        <echo> ==  Copy files to svt_ship tree ================ </echo>
+        <fixcrlf eol="unix" srcdir="${svtScripts.build.dir}" includes="**/*" />
+        <copy file="${svtAutomotiveTelematics.jar}" todir="${svt.ship.lib.dir}" preservelastmodified="yes" verbose="true" />
+    </target>
+
+    <!-- Build all normal targets  -->
+    <!-- target name="production"  depends="retail, package"  -->
+    <target name="build_svt_java" depends="build_java_jar, java_publish">
+        <echo> ==  Invoking ant for svt_java build ============= </echo>
+    </target>
+
+    <!-- Build output jar file -->
+    <target name="build_java_jar" depends="java_compile">
+        <!-- copy MANIFEST.MF file -->
+        <copy file="${svt.java.src.dir}/META-INF/MANIFEST.MF" todir="${svt.java.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+        <!-- set version id in the MANIFEST.MF file -->
+        <replace file="${svt.java.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+        <!-- set build id in the MANIFEST.MF file -->
+        <replace file="${svt.java.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+        <jar destfile="${svtAutomotiveTelematics.jar}">
+            <!--fileset dir="${svt.java.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/*" /-->
+            <fileset dir="${svt.java.bin.dir}" includes="**/*.class" />
+            <!--fileset dir="${svt.java.bin.dir}/test" includes="**/*.class" /-->
+        </jar>
+        <!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+        <jar update="true" keepcompression="true" compress="false" destfile="${svtAutomotiveTelematics.jar}" manifest="${svt.java.bin.dir}/META-INF/MANIFEST.MF" />
+    </target>
+
+    <!--Compile the project-->
+    <target name="java_compile" depends="svt_java_init">
+        <!--  Compile the public api classes with no visibility to the internal files -->
+        <javac srcdir="${svt.java.src.dir}" destdir="${svt.java.bin.dir}" deprecation="no" includeAntRuntime="no" debug="yes" debuglevel="lines,source,vars" optimize="yes">
+            <src path="${svt.java.src.dir}" />
+            <classpath refid="compile.classpath" />
+        </javac>
+        <copy todir="${svt.java.bin.dir}" preservelastmodified="yes">
+            <fileset dir="${svt.java.src.dir}" excludes="**/*.java" />
+        </copy>
+    </target>
+ 
+     <!-- Initialize the build environment -->
+    <target name="svt_java_init">
+        <mkdir dir="${svt.java.lib.dir}" />
+    </target>
+</project>

@@ -1,0 +1,264 @@
+
+########################################
+# Create JCA specific messaging groups #
+########################################
+setup 0 group add GroupID=JCAGroup1
+setup 0 user add UserID=JCAUser1 Password=test Type=Messaging
+setup 0 user add UserID=JCAUser2 Password=test Type=Messaging
+
+##################################
+# Create JCA Connection Policies #
+##################################
+#####setup 0 create ConnectionPolicy Name=JCAConnectionPolicy Protocol=JMS
+setup 0 POST configuration {"ConnectionPolicy":{"JCAConnectionPolicy":{"Protocol":"JMS"}}}
+#####setup 0 create ConnectionPolicy Name=JCACPUserPass Protocol=JMS UserID=JCAUser2
+setup 0 POST configuration {"ConnectionPolicy":{"JCACPUserPass":{"Protocol":"JMS","UserID":"JCAUser2"}}}
+
+############################
+# Create MessagingPolicies #
+############################
+#####setup 0 create MessagingPolicy Name=JCATopicPolicy ActionList=Publish,Subscribe Destination=* DestinationType=Topic Protocol=JMS MaxMessages=20000000
+setup 0 POST configuration {"TopicPolicy":{"JCATopicPolicy":{"ActionList":"Publish,Subscribe","Topic":"*","Protocol":"JMS","MaxMessages":20000000}}}
+#####setup 0 create MessagingPolicy Name=JCAMaxMsgPolicy ActionList=Publish,Subscribe Destination=/reply/maxmsg DestinationType=Topic Protocol=JMS MaxMessages=10
+setup 0 POST configuration {"TopicPolicy":{"JCAMaxMsgPolicy":{"ActionList":"Publish,Subscribe","Topic":"/reply/maxmsg","Protocol":"JMS","MaxMessages":10}}}
+#####setup 0 create MessagingPolicy Name=JCAQueuePolicy ActionList=Send,Receive,Browse Destination=* DestinationType=Queue Protocol=JMS
+setup 0 POST configuration {"QueuePolicy":{"JCAQueuePolicy":{"ActionList":"Send,Receive,Browse","Queue":"*","Protocol":"JMS"}}}
+#####setup 0 create MessagingPolicy Name=JCASubscriptionPolicy ActionList=Control,Receive DestinationType=Subscription Destination=* Protocol=JMS MaxMessages=20000000
+setup 0 POST configuration {"SubscriptionPolicy":{"JCASubscriptionPolicy":{"ActionList":"Control,Receive","Subscription":"*","Protocol":"JMS","MaxMessages":20000000}}}
+#####setup 0 create MessagingPolicy Name=JCAMPUserPass ActionList=Publish,Subscribe Destination=* DestinationType=Topic Protocol=JMS MaxMessages=10
+setup 0 POST configuration {"TopicPolicy":{"JCAMPUserPass":{"ActionList":"Publish,Subscribe","Topic":"*","Protocol":"JMS","MaxMessages":10}}}
+
+
+#################################################
+# Import certificates and create security objects
+#################################################
+s#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem jcaimaserver-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-crt.pem jcaimaserver-crt.pem
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem jcaimaserver-key.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-key.pem jcaimaserver-key.pem
+#####setup 0 apply Certificate CertFileName=jcaimaserver-crt.pem "CertFilePassword=" KeyFileName=jcaimaserver-key.pem "KeyFilePassword=" Overwrite=True
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem JCArootCA-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/rootCA-crt.pem JCArootCA-crt.pem
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaCA-crt.pem JCAimaCA-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaCA-crt.pem JCAimaCA-crt.pem
+
+#####setup 0 create CertificateProfile Name=JCACertProf Certificate=jcaimaserver-crt.pem Key=jcaimaserver-key.pem
+setup 0 POST configuration {"CertificateProfile":{"JCACertProf":{"Certificate":"jcaimaserver-crt.pem","Key":"jcaimaserver-key.pem"}}}
+#####setup 0 create SecurityProfile Name=JCASecProf MinimumProtocolMethod=TLSv1 UseClientCertificate=True Ciphers=Fast UsePasswordAuthentication=False CertificateProfile=JCACertProf
+setup 0 POST configuration {"SecurityProfile":{"JCASecProf":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"Ciphers":"Fast","UsePasswordAuthentication":false,"CertificateProfile":"JCACertProf"}}}
+#####setup 0 apply Certificate TrustedCertificate=JCArootCA-crt.pem SecurityProfileName=JCASecProf Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JCArootCA-crt.pem","SecurityProfileName":"JCASecProf","Overwrite":true}]}
+#####setup 0 apply Certificate TrustedCertificate=JCAimaCA-crt.pem SecurityProfileName=JCASecProf Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JCAimaCA-crt.pem","SecurityProfileName":"JCASecProf","Overwrite":true}]}
+#####setup 0 create SecurityProfile Name=JCASecProfUserAuth MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast UsePasswordAuthentication=True CertificateProfile=JCACertProf
+setup 0 POST configuration {"SecurityProfile":{"JCASecProfUserAuth":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","UsePasswordAuthentication":true,"CertificateProfile":"JCACertProf"}}}
+
+#################################
+# Create JCA Messaging Endpoint #
+#################################
+#####setup 0 create Endpoint Name=JCAEndpoint Port=18490 MessagingPolicies=JCAMaxMsgPolicy,JCATopicPolicy,JCAQueuePolicy,JCASubscriptionPolicy ConnectionPolicies=DemoConnectionPolicy Protocol=JMS MessageHub=DemoHub
+setup 0 POST configuration {"Endpoint":{"JCAEndpoint":{"Port":18490,"TopicPolicies":"JCAMaxMsgPolicy,JCATopicPolicy","QueuePolicies":"JCAQueuePolicy","SubscriptionPolicies":"JCASubscriptionPolicy","ConnectionPolicies":"DemoConnectionPolicy","Protocol":"JMS","MessageHub":"DemoHub"}}}
+#####setup 0 create Endpoint Name=JCAEndpointSecure Port=18491 MessagingPolicies=JCATopicPolicy,JCAQueuePolicy ConnectionPolicies=DemoConnectionPolicy Protocol=JMS MessageHub=DemoHub SecurityProfile=JCASecProf
+setup 0 POST configuration {"Endpoint":{"JCAEndpointSecure":{"Port":18491,"TopicPolicies":"JCATopicPolicy","QueuePolicies":"JCAQueuePolicy","SubscriptionPolicies":"","ConnectionPolicies":"DemoConnectionPolicy","Protocol":"JMS","MessageHub":"DemoHub","SecurityProfile":"JCASecProf"}}}
+#####setup 0 create Endpoint Name=JCAEndpointUserAuth Port=18492 MessagingPolicies=JCATopicPolicy,JCAQueuePolicy ConnectionPolicies=DemoConnectionPolicy Protocol=JMS MessageHub=DemoHub SecurityProfile=JCASecProfUserAuth
+setup 0 POST configuration {"Endpoint":{"JCAEndpointUserAuth":{"Port":18492,"TopicPolicies":"JCATopicPolicy","QueuePolicies":"JCAQueuePolicy","SubscriptionPolicies":"","ConnectionPolicies":"DemoConnectionPolicy","Protocol":"JMS","MessageHub":"DemoHub","SecurityProfile":"JCASecProfUserAuth"}}}
+#####setup 0 create Endpoint Name=JCAEPUserPass Port=18493 MessagingPolicies=JCATopicPolicy ConnectionPolicies=JCACPUserPass Protocol=JMS MessageHub=DemoHub
+setup 0 POST configuration {"Endpoint":{"JCAEPUserPass":{"Port":18493,"TopicPolicies":"JCATopicPolicy","QueuePolicies":"","SubscriptionPolicies":"","ConnectionPolicies":"JCACPUserPass","Protocol":"JMS","MessageHub":"DemoHub"}}}
+
+####################################
+# Create JCA Specific Destinations #
+####################################
+#####setup 0 create Queue Name=JCA_Q AllowSend=True ConcurrentConsumers=False MaxMessages=100
+setup 0 POST configuration {"Queue":{"JCA_Q":{"AllowSend":true,"ConcurrentConsumers":false,"MaxMessages":100}}}
+#####setup 0 create Queue Name=send.Queue AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.ssl.Queue AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.ssl.Queue":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.ssl.Queue AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.ssl.Queue":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.Queue.BMT AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue.BMT":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue.BMT AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue.BMT":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.Queue.BMTUT AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue.BMTUT":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue.BMTUT AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue.BMTUT":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.Queue.CMT AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue.CMT":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue.CMT AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue.CMT":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.Queue.CMTR AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue.CMTR":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue.CMTR AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue.CMTR":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.Queue.CMTNS AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue.CMTNS":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue.CMTNS AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue.CMTNS":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.Queue.selector AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue.selector":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue.selector AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue.selector":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.Queue.jndi AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue.jndi":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue.jndi AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue.jndi":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.Queue.clientid AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.Queue.clientid":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.Queue.clientid AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.Queue.clientid":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=send.userauth.Queue AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"send.userauth.Queue":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=reply.userauth.Queue AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"reply.userauth.Queue":{"AllowSend":true,"ConcurrentConsumers":true}}}
+#####setup 0 create Queue Name=jmsapi.servlet.queue AllowSend=True ConcurrentConsumers=True
+setup 0 POST configuration {"Queue":{"jmsapi.servlet.queue":{"AllowSend":true,"ConcurrentConsumers":true}}}
+
+
+############
+# Teardown #
+############
+cleanup 0 group delete GroupID=JCAGroup1
+cleanup 0 user delete UserID=JCAUser1 Type=Messaging
+cleanup 0 user delete UserID=JCAUser2 Type=Messaging
+
+#####cleanup 0 delete Endpoint Name=JCAEndpoint
+cleanup 0 DELETE configuration/Endpoint/JCAEndpoint
+#####cleanup 0 delete Endpoint Name=JCAEndpointSecure
+cleanup 0 DELETE configuration/Endpoint/JCAEndpointSecure
+#####cleanup 0 delete Endpoint Name=JCAEndpointUserAuth
+cleanup 0 DELETE configuration/Endpoint/JCAEndpointUserAuth
+#####cleanup 0 delete Endpoint Name=JCAEPUserPass
+cleanup 0 DELETE configuration/Endpoint/JCAEPUserPass
+#####cleanup x delete MessagingPolicy Name=JCATopicPolicy
+cleanup x DELETE configuration/TopicPolicy/JCATopicPolicy
+#####cleanup 0 delete MessagingPolicy Name=JCAMaxMsgPolicy
+cleanup 0 DELETE configuration/TopicPolicy/JCAMaxMsgPolicy
+#####cleanup 0 delete MessagingPolicy Name=JCAQueuePolicy
+cleanup 0 DELETE configuration/QueuePolicy/JCAQueuePolicy
+#####cleanup x delete MessagingPolicy Name=JCASubscriptionPolicy
+cleanup x DELETE configuration/SubscriptionPolicy/JCASubscriptionPolicy
+#####cleanup 0 delete MessagingPolicy Name=JCAMPUserPass
+cleanup 0 DELETE configuration/TopicPolicy/JCAMPUserPass
+#####cleanup 0 delete ConnectionPolicy Name=JCAConnectionPolicy
+cleanup 0 DELETE configuration/ConnectionPolicy/JCAConnectionPolicy
+#####cleanup 0 delete ConnectionPolicy Name=JCACPUserPass
+cleanup 0 DELETE configuration/ConnectionPolicy/JCACPUserPass
+#####cleanup 0 delete SecurityProfile Name=JCASecProf
+cleanup 0 DELETE configuration/SecurityProfile/JCASecProf
+#####cleanup 0 delete SecurityProfile Name=JCASecProfUserAuth
+cleanup 0 DELETE configuration/SecurityProfile/JCASecProfUserAuth
+#####cleanup 0 delete CertificateProfile Name=JCACertProf
+cleanup 0 DELETE configuration/CertificateProfile/JCACertProf
+#####cleanup 0 delete Queue Name=JCA_Q DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JCA_Q?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.ssl.Queue DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.ssl.Queue?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.ssl.Queue DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.ssl.Queue?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue.BMT DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue.BMT?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue.BMT DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue.BMT?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue.BMTUT DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue.BMTUT?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue.BMTUT DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue.BMTUT?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue.CMT DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue.CMT?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue.CMT DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue.CMT?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue.CMTR DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue.CMTR?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue.CMTR DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue.CMTR?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue.CMTNS DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue.CMTNS?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue.CMTNS DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue.CMTNS?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue.selector DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue.selector?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue.selector DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue.selector?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue.jndi DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue.jndi?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue.jndi DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue.jndi?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.Queue.clientid DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.Queue.clientid?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.Queue.clientid DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.Queue.clientid?DiscardMessages=true
+#####cleanup 0 delete Queue Name=send.userauth.Queue DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/send.userauth.Queue?DiscardMessages=true
+#####cleanup 0 delete Queue Name=reply.userauth.Queue DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/reply.userauth.Queue?DiscardMessages=true
+#####cleanup 0 delete Queue Name=jmsapi.servlet.queue DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/jmsapi.servlet.queue?DiscardMessages=true
+
+# Durable subscriptions created by MDB's
+#####durableSingle 0 delete Subscription "SubName=durableSub" "ClientID=durableSubClient"
+durableSingle 0 DELETE service/Subscription/durableSubClient/durableSub
+#####durableSingle 0 delete Subscription "SubName=durableSharedSub" "ClientID=durableSharedSubClient"
+durableSingle 0 DELETE service/Subscription/durableSharedSubClient/durableSharedSub
+#####durableSingle 0 delete Subscription "SubName=clientIDConflictsub" "ClientID=clientIDConflict"
+durableSingle 0 DELETE service/Subscription/clientIDConflict/clientIDConflictsub
+#####durableSingle 0 delete Subscription "SubName=durableSharedSubGlobal" "ClientID=__Shared"
+durableSingle 0 DELETE service/Subscription/__Shared/durableSharedSubGlobal
+#####durableSingle 0 delete Subscription "SubName=durableCMTRsub" "ClientID=__Shared"
+durableSingle 0 DELETE service/Subscription/__Shared/durableCMTRsub
+#####durableSingle 0 delete Subscription "SubName=durableBMTUTsub" "ClientID=__Shared"
+durableSingle 0 DELETE service/Subscription/__Shared/durableBMTUTsub
+
+# Durable subscriptions created by JMSAPIServlet
+#####durableSingle x delete Subscription "SubName=STGlobalDurableSub" "ClientID=__Shared"
+durableSingle x DELETE service/Subscription/__Shared/STGlobalDurableSub
+#####durableSingle x delete Subscription "SubName=STNonGlobalDurableSub" "ClientID=JCAClient"
+durableSingle x DELETE service/Subscription/JCAClient/STNonGlobalDurableSub
+#####durableSingle x delete MessagingPolicy Name=JCATopicPolicy
+durableSingle x DELETE configuration/TopicPolicy/JCATopicPolicy
+#####durableSingle x delete MessagingPolicy Name=JCASubscriptionPolicy
+durableSingle x DELETE configuration/SubscriptionPolicy/JCASubscriptionPolicy
+
+# Durable subscriptions created by MDB's
+#####durableCluster 0 delete Subscription "SubName=durableSub" "ClientID=durableSubClient.0"
+durableCluster 0 DELETE service/Subscription/durableSubClient.0/durableSub
+#####durableCluster 0 delete Subscription "SubName=durableSub" "ClientID=durableSubClient.1"
+durableCluster 0 DELETE service/Subscription/durableSubClient.1/durableSub
+#####durableCluster 0 delete Subscription "SubName=durableSub" "ClientID=durableSubClient.2"
+durableCluster 0 DELETE service/Subscription/durableSubClient.2/durableSub
+#####durableCluster 0 delete Subscription "SubName=clientIDConflictsub" "ClientID=clientIDConflict"
+durableCluster 0 DELETE service/Subscription/clientIDConflict/clientIDConflictsub
+#####durableCluster 0 delete Subscription "SubName=durableSharedSub" "ClientID=durableSharedSubClient.0"
+durableCluster 0 DELETE service/Subscription/durableSharedSubClient.0/durableSharedSub
+#####durableCluster 0 delete Subscription "SubName=durableSharedSub" "ClientID=durableSharedSubClient.1"
+durableCluster 0 DELETE service/Subscription/durableSharedSubClient.1/durableSharedSub
+#####durableCluster 0 delete Subscription "SubName=durableSharedSub" "ClientID=durableSharedSubClient.2"
+durableCluster 0 DELETE service/Subscription/durableSharedSubClient.2/durableSharedSub
+#####durableCluster 0 delete Subscription "SubName=durableSharedSubGlobal" "ClientID=__Shared"
+durableCluster 0 DELETE service/Subscription/__Shared/durableSharedSubGlobal
+#####durableCluster 0 delete Subscription "SubName=durableCMTRsub" "ClientID=__Shared"
+durableCluster 0 DELETE service/Subscription/__Shared/durableCMTRsub
+#####durableCluster 0 delete Subscription "SubName=durableBMTUTsub" "ClientID=__Shared"
+durableCluster 0 DELETE service/Subscription/__Shared/durableBMTUTsub
+
+# Durable subscriptions created by JMSAPIServlet
+#####durableCluster x delete Subscription "SubName=STGlobalDurableSub" "ClientID=__Shared"
+durableCluster x DELETE service/Subscription/__Shared/STGlobalDurableSub
+#####durableCluster x delete Subscription "SubName=STNonGlobalDurableSub" "ClientID=JCAClient"
+durableCluster x DELETE service/Subscription/JCAClient/STNonGlobalDurableSub
+#####durableCluster x delete MessagingPolicy Name=JCATopicPolicy
+durableCluster x DELETE configuration/TopicPolicy/JCATopicPolicy
+#####durableCluster x delete MessagingPolicy Name=JCASubscriptionPolicy
+durableCluster x DELETE configuration/SubscriptionPolicy/JCASubscriptionPolicy
+
+#####enabletrace 0 set TraceLevel=9
+enabletrace 0 POST configuration {"TraceLevel":"9"}
+#####disabletrace 0 set TraceLevel=7
+disabletrace 0 POST configuration {"TraceLevel":"7"}

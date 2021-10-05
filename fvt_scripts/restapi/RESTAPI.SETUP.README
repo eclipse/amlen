@@ -1,0 +1,108 @@
+
+How to setup for RESTAPI Testing using NODEJS and MOCHA
+
+ONE TIME SETUP on a CLIENT:
+Information partially from node.js's tar.gz:  README.md
+---------------------------------------------------------------
+NodeJS tar.gz is in RTC @ /build-tools/application/nodejs
+UPDATE 08/2018:  the package is now a *tar.xz, this will change step 2 slightly
+
+Download it to a TEMP Dir on the test client and follow these steps:
+
+PreReq of NodeJS:  G++ compiler. 
+When running a mocha test, if missing mocha will return: 
+  "Throw err   Error: Cannot find module  'supertest'"
+The npm install must be done AFTER g++ is installed.  
+RUN-->  yum install gcc-c++*
+
+1.  cd /usr/local 
+
+2.  tar --strip-components 1 -xzf  /path/to/node-<version>-<platform>-<arch>.tar.gz
+
+3.  add: /usr/local/bin  to PATH in ~/.bash_profile and ~/.ssh/environment
+
+4.  cd /${M*_TESTROOT}/restapi
+        verify package.json file exists
+
+5.  npm install    (reads package.json)
+    if you see DEPRECATED Warnings, do:  npm update
+
+6.  npm install -g mocha    (for some odd reason)
+
+7.  npm install ssh2      (for SSH from mocha to IMA to get HOSTNAME for ServerName Default)
+
+8.  node --version    >> should say >>  v0.12.3 or highter
+    mocha --version    >> should say >>  2.2.5 or highter
+
+	
+
+To Execute the scripts
+---------------------------------------------------
+The ENV VAR, IMA_AdminEndpoint, needs to exists somewhere: 
+Set it in the env:
+(A1_HOST is IP ONLY, might need to use A1_IPv4_1 as alternative)  
+   export IMA_AdminEndpoint=${A1_HOST}:{A1_HOST}
+  
+OR  Add it to and source one of the env setup files
+   . ./testEnv.sh    or
+   . ./ISMsetup.sh  
+
+OR  pass on CLI as ism-RESTAPI-01.sh does.
+   component[1]=cAppDriverRC,m1,"-e|mocha","-o|${M1_TESTROOT}/restapi/test/logging/restapi-ConnectionLog.js","-s|IMA_AdminEndpoint=${A1_IPv4_1}:${A1_PORT}"
+
+
+then manually run a test:
+   mocha test/<path>/<filename>   
+or the autoFW script to run a batch: 
+   ismAuto-RESTAPI.sh    
+
+
+Hints and Tips
+-----------------------------------------------------
+1.  If you get an error with the mocha version command or a dependency not found,
+    try to re-do the npm install with '-g' to set the usage to be globally accessible.
+
+    npm install -g <package-name>
+
+
+2.  If you get an error complaining about dns.js:
+
+ Uncaught Error: getaddrinfo ENOTFOUND undefined
+      at errnoException (dns.js:44:10)
+      at GetAddrInfoReqWrap.onlookup [as oncomplete] (dns.js:94:26)
+
+MOST LIKELY, IMA_AdminEndpoint is NOT SET in the env where mocha is running.
+
+
+3. MOCHA's RC will be the number of FAILING tests, if any.
+
+
+4.  NOT All the necessary Env Vars were able to be sourced by TestEnv.sh for AF.  
+Here is a little history about what was done and as best I recall, why.
+
+4.1:  testTools_scripts/scripts/getA_Hostnames.sh   and is call by the ismAuto-RESTAPI*.sh file
+
+The Variables:  $A1_HOSTNAME_OS, $A1_SERVERNAME, and $A1_HOSTNAME_OS_SHORT have a bit of sorted history with AF.  
+AF was not able to add to TestEnv.sh in a consistent way as SL would change how `hostname` would reply every week and by ENV/Machine's A1_Type.  
+So those VARs had to be *set in the ENV on the fly* by the test suite BEFORE any test were run.   
+Which I still think was a little convoluted, but what ever - it seemed to work - i don't recall all the history, just it was bumpy ride getting Mocha, JS, EnvVars into AF....     
+     Refer to the reference in ../test/restapi-CommonFunctions.js:
+FVT.A1_HOSTNAME_OS      = process.env.A1_HOSTNAME_OS;           // Set in getA_Hostnames.sh file( passed in run-scenario seed file), ISMSetup.sh testEnv.sh does not have a reliable parameter in all envs.
+FVT.A1_HOSTNAME_OS_SHORT = process.env.A1_HOSTNAME_OS_SHORT;    // Set in getA_Hostnames.sh file( passed in run-scenario seed file), ISMSetup.sh testEnv.sh does not have a reliable parameter in all envs.
+FVT.A1_SERVERNAME       = process.env.A1_SERVERNAME;            // Set in getA_Hostnames.sh file( passed in run-scenario seed file), ISMSetup.sh testEnv.sh does not have a reliable parameter in all envs.
+
+THE imaAuto*.log should document the values used, but I did not see it -- must not be getting captured in the log, ONLY shows in STDOUT... there are other line like that...but it would look like this:
+    echo "A${appliance}_HOSTNAME_OS is $(eval echo \$${A_HOSTNAME_OS}), while A${appliance}_HOSTNAME_OS_SHORT is $(eval echo \$${A_HOSTNAME_OS_SHORT}) and A${appliance}_SERVERNAME is $(eval echo \$${A_SERVERNAME})"
+
+
+4.2: @  fvt_scripts/restapi/getIfname.sh.   and is call by the ism-RESTAPI-*.sh (run scenario seed file)
+It sources the Variables:   A1_INTFNAME_1 and A1_INTFNAME_2  AND  if A2 exists:  A2_INTFNAME_1 and A2_INTFNAME_2
+ 
+
+5. When the Bridge test cases were written there was inconsistency parsing the Connection Object.  
+To resolve this the Bridge JS files will have this line: 
+
+FVT.MS_RESTAPI_TYPE=false  // Not MessageSight RESTAPI, but a Bridge RESTAPI -- refer to Defect 217232 - Connection object parsing for validate FVT.getSuccessCallback
+
+This flag is checked in restapi-CommonFunctions.js and will handle the parsing differences based on TRUE|FALSE setting.
+

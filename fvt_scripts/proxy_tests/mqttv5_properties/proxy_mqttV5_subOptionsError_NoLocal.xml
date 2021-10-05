@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="mqttV5_subOptions_NoLocal" >
+<!--
+    Test MQTTv5 Spec 3.8.3.1.  Subscribe Options - No Local (bit 2)
+    If the value is 1, Application Messages MUST NOT be forwarded to a connection with a 
+	ClientID equal to the ClientID of the publishing connection [MQTT-3.8.3-3]. 
+    Protocol ERROR 0x82(130) set noLocal=1 on $SharedSubscription /$share
+From Ken July 19 email:	
+Although the proxy can be configured in ways not used by WIoTP, such as enabling AllowShared, there is very little unit testing of this.  
+It is best to not use such configuration in AF.
+ -->    
+	
+<!-- $share SUB noLocal Client -->
+    <Action name="noLocal_share" type="CompositeAction">
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!--            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>			
+			
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:subOptsNoLocal:share</ApiParameter>  
+            <ApiParameter name="user">d:org4iot2:subOptsNoLocal:share</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        
+        
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">$share/subOptsErrorNoLocal/iot-2/cmd/subOptsErrorNoLocal/fmt/share</ApiParameter>
+<!-- Missing TD Code : Defect 208655 -->
+<!-- WS can pass SubOpts with QoS: NoLocal 0x04 + QoS 0x02            <ApiParameter name="nolocal">true</ApiParameter> -->
+            <ApiParameter name="QoS">6</ApiParameter>
+<!-- Proxy is returning 143, not 130 even when AllowShared:true  -->
+            <ApiParameter name="expectedrc">143</ApiParameter>
+        </Action>
+        
+        <Action name="CheckConnectAfterSubError" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+
+	
+<!--  $SharedSub Nolocal Client  -->
+    <Action name="noLocal_sharedSub" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!--            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>			
+			
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:subOptsErrorNoLocal:SharedSub</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:subOptsErrorNoLocal:SharedSub</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">$SharedSubscription/subOptsErrorNoLocal/iot-2/type/+/id/+/evt/subOptsErrorNoLocal/fmt/sharedSub</ApiParameter>
+<!-- Missing TD Code : Defect 208655 -->
+<!-- WS can pass SubOpts with QoS: NoLocal 0x04 + QoS 0x02            <ApiParameter name="nolocal">true</ApiParameter> -->
+            <ApiParameter name="QoS">6</ApiParameter>
+<!-- Proxy not returning 130 when AllowShared:true, and not disconnecting when 143 -->
+            <ApiParameter name="expectedrc">143</ApiParameter>
+        </Action>
+
+        <Action name="CheckConnectAfterSubError" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter> 
+        </Action>    
+        
+        <Action name="CloseConnectionV5" type="CloseConnection" >
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+    
+    
+
+    
+</IsmWSTest>
+                

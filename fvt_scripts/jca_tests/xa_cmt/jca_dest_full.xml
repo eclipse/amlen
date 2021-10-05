@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_dest_full
+
+   Test Category:  JCA XA Tests
+   
+   Test Description:
+   Send 10 messages to hostname/reply/maxmsg which has MaxMessages=10.
+   Then send 1 message to hostname/send/Topic/CMTR and set the replyTo topic
+   to hostname/reply/maxmsg.
+   
+   This should cause the MDB to fail sending the reply, and it will retry 6 times per 
+   server until errorcount > 5 on each and it will pause the MDB's.
+   
+   Consume the 10 messages from the subscription then resume the MDB's.
+   Then send another message to the MDB and successfully receive the reply.
+
+  -->
+<ImaJcaTest name="jca_dest_full">
+
+    <Action name="Cluster" type="CompositeAction">
+        <include>../common/jms_jndi_ldap.xml</include>
+        
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+        </Action>
+        
+		<Action name="SetFactoryProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="maxmsg_clientid" type="STRING"/>
+		</Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session2</ActionParameter>
+        </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyMaxMsg</ActionParameter>
+        </Action>
+
+        <Action name="Create_dest2" type="CreateDestination">
+            <ActionParameter name="structure_id">dest2</ActionParameter>
+            <ActionParameter name="jndiName">sendTopic_ContainerR</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+            <ActionParameter name="structure_id">producer</ActionParameter>
+            <ActionParameter name="dest_id">dest2</ActionParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer2" type="CreateProducer">
+            <ActionParameter name="structure_id">producer2</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session2</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+            <ApiParameter name="durableName">maxmsgdurable</ApiParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CreateTestPropsMessage" type="CreateTestPropsMessage">
+            <ActionParameter name="structure_id">message</ActionParameter>
+            <ApiParameter name="msgParam">1219</ApiParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="SetReplyToProperty" type="SetMessageProperty">
+            <ActionParameter name="message_id">message</ActionParameter>
+            <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+            <ApiParameter name="value">dest</ApiParameter>
+        </Action>
+
+        <Action name="SendMessage" type="SendMessage" repeat="10">
+            <ActionParameter name="producer_id">producer2</ActionParameter>
+            <ActionParameter name="message_id">message</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage2" type="SendMessage">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">message</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage_emptysub" type="ReceiveMessage" repeat="10">
+            <dependsOn name="SendMessage2" interval="10000" />
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvObjMessage" type="ReceiveMessage" repeat="3">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="CloseConsumer" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+        </Action>
+
+        <Action name="unsubscribe" type="Unsubscribe">
+            <ActionParameter name="session_id">session</ActionParameter>
+            <ApiParameter name="durableName">maxmsgdurable</ApiParameter>
+        </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+    
+    <Action name="Single" type="CompositeAction">
+        <include>../common/jms_jndi_ldap.xml</include>
+        
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+        </Action>
+        
+		<Action name="SetFactoryProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="maxmsg_clientid" type="STRING"/>
+		</Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session2</ActionParameter>
+        </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyMaxMsg</ActionParameter>
+        </Action>
+
+        <Action name="Create_dest2" type="CreateDestination">
+            <ActionParameter name="structure_id">dest2</ActionParameter>
+            <ActionParameter name="jndiName">sendTopic_ContainerR</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+            <ActionParameter name="structure_id">producer</ActionParameter>
+            <ActionParameter name="dest_id">dest2</ActionParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer2" type="CreateProducer">
+            <ActionParameter name="structure_id">producer2</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session2</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+            <ApiParameter name="durableName">maxmsgdurable</ApiParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CreateTestPropsMessage" type="CreateTestPropsMessage">
+            <ActionParameter name="structure_id">message</ActionParameter>
+            <ApiParameter name="msgParam">1219</ApiParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="SetReplyToProperty" type="SetMessageProperty">
+            <ActionParameter name="message_id">message</ActionParameter>
+            <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+            <ApiParameter name="value">dest</ApiParameter>
+        </Action>
+
+        <Action name="SendMessage" type="SendMessage" repeat="10">
+            <ActionParameter name="producer_id">producer2</ActionParameter>
+            <ActionParameter name="message_id">message</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage2" type="SendMessage">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">message</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage_emptysub" type="ReceiveMessage" repeat="10">
+            <dependsOn name="SendMessage2" interval="10000" />
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="RcvObjMessage" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="CloseConsumer" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+        </Action>
+
+        <Action name="unsubscribe" type="Unsubscribe">
+            <ActionParameter name="session_id">session</ActionParameter>
+            <ApiParameter name="durableName">maxmsgdurable</ApiParameter>
+        </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+</ImaJcaTest>

@@ -1,0 +1,215 @@
+First you need to determine the LDAP ROOT.  Going to build the SVT BaseDN path off of that.
+Second you need to know the BindDN and BindPW these are found in /etc/openldap/slapd.conf
+
+							 								(run: slappasswd to chg. passwd)
+	Variable:		"suffix"		"rootdn"					"rootpw"	"?"	    "directory"
+LDAP Srv			LDAP Root		BindDN						BindPW		Port    DB_HOME
+------------------	--------------	--------------------------	---------	----    --------------------------
+mar099				o=jndiTest		cn=Manager,o=jndiTest		secret		389    /var/lib/ldap
+mar080 (OpenLDAP)	dc=IBM,c=US		cn=root,dc=SVT,dc=IBM,c=US	ima4test	389    ?/var/lib/ldap?
+					dc=IBM,c=US		cn=root,dc=AIM,dc=IBM,c=US	ima4test 	
+mar080 (ITDS)		O=IBM,C=US		cn=root						ima4test	5389   ?DB2?
+mar032				o=IBM,c=US		cn=root,o=IBM,c=US			ima4test	389    /home/var/lib/ldap
+mar345				o=IBM,c=US		cn=root,o=IBM,c=US			ima4test	389    /etc/openldap/openldap-data
+
+BUILD TOP_OBJECTS:
+------------------
+SVT will want it's own 'limb' in the LDAP Tree off the LDAP ROOT
+Edit the SVT_TOP_OBJECT.ldif to configure that....
+For example, in mar099 you would build a DN named:
+
+	DN: ou=SVT,o=jndiTest
+
+and a 'users' and 'groups' branch off the SVT limb:
+
+	DN: ou=users,ou=SVT,o=jndiTest
+	DN: ou=groups,ou=SVT,o=jndiTest
+
+Save the SVT_TOP_OBJECTS.mar099.ldif file, you will execute a ldapmodify command after doing the DB PREP
+
+
+DB_PREP:
+--------
+!!BEFORE!! you start LDAP check the location of the DBHOME "directory" variable, 
+!!VERIFY!! : 
+  --  DBHOME directory exists per location specified as 'directory' parameter in /etc/openldap/slapd.conf 
+  		e.g. (mar032)  directory       /home/var/lib/ldap
+  --  cp ..(RTC)../svt_tools/scripts/LDAP/DB_CONFIG to "DBHOME" 
+  --  	LEARNED that PPC version of LDAP can not share the X86 perftools version of LDAP config files
+  
+  --  chmod -Rc 700 "DBHOME"  
+  --  chown -Rc ldap:ldap  "DBHOME"
+  At this point I tried to covert perftools 'startLdapServer.sh' and 'createLdapDb.sh', 
+  yet they were not robust enough to handle the errors I was seeing YOU CAN follow along and do the commands by hand.
+  
+  --  run db_checkpoint and slapindex cmd (see scripts mentioned above)
+  
+  --  tar -cvzf SvtLdapDb.tar.gz ldap/
+		IT IS A GOOD Idea to actually restore the backup and verify you can run from that backup rather than just assume it's good
+
+You now have an indexed empty database ready for the first TOP OBJECTS.
+
+Create the TOP_OBJECTS:
+------------------------
+With these TOP OBJECTS defined in LDIF, create them via an LDAP Modify command:
+
+	/usr/bin/ldapmodify -x -D cn=Manager,o=jndiTest -w secret -h 10.10.10.10 -p 389 -f SVT_TOP_OBJECTS.mar099.ldif
+	
+Now that the TOP OBJECTS exist in LDAP, you can use the following scripts to create and populate UIDs and GROUP Members
+
+!!!NOTE:  IF NEW LDAPS ARE CREATED - EVERY ONE OF THE FOLLOW SCRIPTS WILL NEED TO BE UPDATED IN TWO PLACES!!!!
+
+svtInternetBasic.sh  (no input or editing required)
+	Creates the LDAP Config used in Beta v1.0:
+	
+	DN: cn=svtGroup,ou=groups,${BASE_DN}
+		member: uid=svtUser,ou=users,ou=SVT,o=IBM,c=US
+		member: cn=svtPubGroup,ou=groups,ou=SVT,o=IBM,c=US
+		member: cn=svtSubGroup,ou=groups,ou=SVT,o=IBM,c=US
+		member: uid=dummy
+	DN: uid=svtUser,ou=users,${BASE_DN}
+
+	DN: cn=svtPubGroup,ou=groups,${BASE_DN}
+		member: uid=svtPubUser,ou=users,ou=SVT,o=IBM,c=US
+		member: uid=dummy
+	DN: uid=svtPubUser,ou=users,${BASE_DN}
+
+	DN: cn=svtSubGroup,ou=groups,${BASE_DN}
+		member: uid=svtSubUser,ou=users,ou=SVT,o=IBM,c=US
+		member: uid=dummy
+	DN: uid=svtSubUser,ou=users,${BASE_DN}
+	
+	DN: cn=svtBadGroup,ou=groups,${BASE_DN}
+		member: uid=svtBadUser,ou=users,ou=SVT,o=IBM,c=US
+		member: uid=dummy
+	DN: uid=svtBadUser,ou=users,${BASE_DN}
+
+	DN: uid=svtOrphan,ou=users,${BASE_DN}
+
+
+----------------------------------------------------------------------------------------------------
+THE REST OF THE SCRIPTS SUPPORT THE AUTOMOTIVE TELEMATICS TEST ENVIORNMENT:
+----------------------------------------------------------------------------------------------------
+The targets initially desired for LDAP UIDs:
+	Applications - 10
+	Cars - 1,000,000
+	Users - 1,000,000
+The following scripts were created with that goal in mind.  
+The ONLY thing you need to edit:
+The variables:  NO_APPS, NO_CARS, NO_USERS for total number of elements desired 
+The starting value of the FOR LOOP since 50 Cars and Users were pre-populated in the svtCarsInternet and svtUsersInternet.
+The stopping value of the FOR LOOP since a variable ${NO_*} in the FOR LOOP was not working for me.
+----------------------------------------------------------------------------------------------------
+svtATELMBasic.sh  (no input, minimal editing required:  NO_APPS, NO_CARS, NO_USERS)
+	Creates the Automotive Telematic Objects:  Initially create a small number of members in the group.
+	We have found LDAP does not like adding all members at once.
+	There are subsequent scripts to run, if more members are needed.
+	
+	DN: cn=svtInternet,ou=groups,${BASE_DN}
+		member: cn=svtCarsInternet,ou=groups,ou=SVT,o=IBM,c=US
+		member: cn=svtUsersInternet,ou=groups,ou=SVT,o=IBM,c=US
+		member: uid=dummy
+	DN: cn=svtCarsInternet,ou=groups,${BASE_DN}
+		50 Initial members (want 1,000,000) c0000000-c0000050
+	DN: cn=svtUsersInternet,ou=groups,${BASE_DN}
+		50 Initial members (want 1,000,000) u0000000-u0000050
+ 	DN: cn=svtAppsIntranet,ou=groups,${BASE_DN} 	
+		10 Initial members (complete) a00-a10 
+
+----------------------------------------------------------------------------------------------------
+Create UIDs:		
+You now have the Groups, but you don't have any of the UIDs created that the Groups reference.
+Create the Users, Cars, and Apps UIDs.  Create all the UIDs you need, we can add any extra UID as members to the 
+groups in the next step.
+----------------------------------------------------------------------------------------------------
+add-svtAppsIntranet-UIDs.sh  (no input, no/minimal editing required: NO_APPS=10)
+	Creates the a00-a10 UIDs that were referenced as members of svtAppsIntranet group.
+
+add-svtCarsInternet-UIDs.sh  (no input, minimal editing required: NO_CARS=50000, For Loop)
+	Creates the c0000000-c1000000 UIDs that were referenced as members of svtCarsInternet group.
+	
+add-svtUsersInternet-UIDs.sh  (no input, minimal editing required: NO_USERS=10)
+	Creates the u0000000-u1000000 UIDs that were referenced as members of svtUsersInternet group.
+
+----------------------------------------------------------------------------------------------------
+Add Group Members:
+Initially, only a subset of members were added to groups due to LDAP limitation on size. 
+	10 App UID Members were created in svtAppsIntranet, 
+	50 Car UID Members were created in svtCarsInternet
+	50 User UID Members were created in svtUsersInternet
+If more UIDs were created and want them to be members of the appropriate group, use these commands:
+----------------------------------------------------------------------------------------------------
+add-svtAppsIntranet-Members.sh  (no input, no/minimal editing required: NO_APPS=10, For Loop)
+	Adds a## UIDs as members of svtAppsIntranet group.
+
+add-svtCarsInternet-Members.sh  (no input, minimal editing required: NO_CARS=50, For Loop)
+	Adds c####### UIDs as members of svtCarsInternet group.
+	
+add-svtUsersInternet-Members.sh  (no input, minimal editing required: NO_USERS=50, For Loop)
+	Adds u####### UIDs as members of svtUsersInternet group.
+
+
+----------------------------------------------------------------------------------------------------
+Modify Group Members:
+I created these when mar080 was having some problems, I have maintained them yet haven't needed them.
+Basically to reset a UID's definition when we were having some questions about passwords, etc.
+----------------------------------------------------------------------------------------------------
+modify-svtAppsIntranet-Members.sh  (no input, no/minimal editing required: NO_APPS=10, For Loop)
+	modify a## UIDs 
+
+modify-svtCarsInternet-Members.sh  (no input, minimal editing required: NO_CARS=50, For Loop)
+	modify c####### UIDs 
+	
+modify-svtUsersInternet-Members.sh  (no input, minimal editing required: NO_USERS=50, For Loop)
+	modify u####### UIDs 
+
+
+----------------------------------------------------------------------------------------------------
+Deleting UIDs and Groups:
+When mar032 crashed, attemtped to repair/rebuild the database, while that was unsuccessful, these scripts were created.
+----------------------------------------------------------------------------------------------------
+DELETE THE GROUPS:
+delete-svtAppsIntranet-GROUP.sh  
+delete-svtCarsInternet-GROUP.sh  
+delete-svtUsersInternet-GROUP.sh
+
+DELETE THE USER's UIDs
+delete-svtAppsIntranet-UIDs.sh   
+delete-svtCarsInternet-UIDs.sh   
+delete-svtUsersInternet-UIDs.sh
+
+Some useful commands to know that might help in the future... from RTC Defect 51790 recovery efforts.
+(assumes mar032 configured locations)
+	db_recover -h /home/var/lib/ldap -cv
+	
+	db_checkpoint -1 -h /home/var/lib/ldap
+	slapindex -f /etc/openldap/slapd.conf
+	
+	slappasswd   to change/set passwd for cn=root
+	
+	/etc/openldap/..  SLAPD.CONF is what is used, LDAP.CONF is no longer used according to Mike Tran.
+
+NEVER EVER delete a LOG FILE in /home/var/lib/ldap!
+
+Finally, in perf_tools, Eric/Bing have some LDAP command script that might give additional clues how to do LDAP tasks.
+I have tried to port them to default openldap configuration locations and checked into svt_tools/scripts/LDAP, 
+HOWEVER found it easier to follow the scripts and manually enter the commands
+
+ -- startLdapServer.sh
+ -- createLdapDb.sh
+ -- initializeLdapDb.sh (see perftools, not useful for SVT at first glance)
+
+Some new scripts I made to validate the rebuild of the LDAP DB:
+
+-- checkLdapDB.sh  - ldapsearches query and trims output UIDs into smaller collection ranges then reports Entry Count of each collection
+-- checkLdapDBDetails.sh - Using checkLdapDB.sh results, drill into the collections to determine the missing Entries
+   The checkLdapDB Suite is better once add-svt*.sh scripts are completed, to check on the fly progress, use the next command
+   
+-- check_rebuild_status.sh - similar to checkLdapDB Suite, but does not create the collection files  (all on the fly queries)
+
+-- statusldap.sh  - a quick way to check slapd process status and restart cleanly if necessary.
+
+also checked in OpenLDAP config files from mar032
+-- /etc/openladap/slapd.conf
+-- /home/var/lib/ldap/DB_CONFIG
+

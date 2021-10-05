@@ -1,0 +1,47 @@
+# Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+
+# Set the base image to centos7
+FROM %OS_BUILD%
+
+#File author / Maintainer
+MAINTAINER ISM Build
+
+WORKDIR %WORKSPACE_DIR%
+
+# Add RPM in a temporary directory inside the container
+# Make sure that msserver.rpm is available in the directory where "docker build" command
+# is being executed
+ADD .bashrc /root/.bashrc
+ADD IBMWIoTPMessageGatewayWebUI*.rpm /tmp/
+
+# Install packages 
+# EAK - latest docker builds failing due to docker compat breaking change (add yum upgrade temporarily, remove later)
+RUN yum -y upgrade && \
+	yum -y install bc gdb net-tools openldap openldap-servers openldap-clients tar openssl && \
+    yum -y localinstall /tmp/IBMWIoTPMessageGatewayWebUI*.rpm && \
+#post setup
+	mkdir -p /var/crash && \
+#cleanup build artifacts
+	rm -Rf /seed
+	
+# Delete msserver.rpm from temporary directory
+RUN rm -f /tmp/IBMWIoTPMessageGatewayWebUI*.rpm
+
+
+# Set file permissions
+RUN chmod -R +x /opt/ibm/imawebui/wlp
+
+#change workdir to /root for initial docker exec directory		
+WORKDIR /root
+
+ENTRYPOINT [ "/opt/ibm/imawebui/bin/startWebUI.sh" ]

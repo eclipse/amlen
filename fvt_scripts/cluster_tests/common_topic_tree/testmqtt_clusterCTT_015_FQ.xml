@@ -1,0 +1,559 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_cluster_015_FQ" >
+<!--
+	
+-->
+	
+    <Action name="prepare" type="CompositeAction">
+	
+    	<!-- Clean up any old subs hanging around  and create new Sub -->
+		<Action name="CreateConnection_cleanM2" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con3</ActionParameter>
+	        <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+    	    <include>../common/MQTT_server2.xml</include>
+	        <ApiParameter name="clientId">CTT_015_subM2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>	 
+	    
+	    <Action name="CloseConnection_cleanM2" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF3</ActionParameter>
+	    </Action>  	   	        
+	    <Action name="CreateConnectionM2" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con3</ActionParameter>
+	        <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+    	    <include>../common/MQTT_server2.xml</include>
+	        <ApiParameter name="clientId">CTT_015_subM2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+        	<ApiParameter name="cleanSession">false</ApiParameter>
+	    </Action>
+	    
+   <!-- server A1 was just restarted, so all the stats should be zero. -->	    
+   <Action name="StatCluster_onA1" type="RestAPI">
+        <ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        <ActionParameter name="server">``A1_IPv4_1``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+   	<Action name="compareClusterA1HOST" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        <ActionParameter name="serverName">``A2_IPv4_HOSTNAME_1``</ActionParameter>
+        <ObjectProperty name="Status" value="Active"/>
+        <ObjectProperty name="Health" value="Green"/>
+        <ObjectProperty name="Memory" value="0"/>
+        <ObjectProperty name="HAStatus" value="None"/>
+        <ObjectProperty name="Reconnect" value="0"/>
+        <ObjectProperty name="ReadMsg" value="0"/>
+        <ObjectProperty name="ReadBytes" value="0"/>
+        <ObjectProperty name="WriteMsg" value="0"/>
+        <ObjectProperty name="WriteBytes" value="0"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Reliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Reliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Reliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Reliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Reliable:Suspend" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Unreliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Unreliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:Suspend" value="0"/>
+    </Action>   	    
+	    
+	    <Action name="SubscribeM2" type="Subscribe">
+			<ActionParameter name="connection_id">CF3</ActionParameter>
+			<ApiParameter name="topic">/CTT/015/A</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>	   
+       
+    	<Action name="CloseConnectionM2" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF3</ActionParameter>
+	    </Action>  
+	    
+    <Action name="StatSub_onA2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_A2</ActionParameter>
+        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/CTT/015/A&amp;ClientID=CTT_015_subM2</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareStatSub_onA2" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_A2</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/CTT/015/A</ActionParameter>
+        <ObjectProperty name="BufferedMsgs" value="0"/>
+        <ObjectProperty name="PublishedMsgs" value="0"/>
+    </Action>
+	    	    	    
+	<Action name="CreateConnection" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+	    <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+    	<include>../common/MQTT_server.xml</include>
+	    <ApiParameter name="clientId">CTT_015_pub1</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+    	<ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+	 </Action>
+	    
+     <Action name="CreateMessage" type="CreateMessage">
+        <ActionParameter name="structure_id">msg</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">Message sent by testmqtt_clusterCTT_015 test: </ApiParameter>
+        <ActionParameter name="incrementing">true</ActionParameter>
+     </Action>            
+   	      
+     <Action name="SendMessage" type="SendMessage" repeat="50">
+     	<dependsOn action_id="SubscribeM2" interval="500"/>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+       	<ActionParameter name="message_id">msg</ActionParameter>
+        <ActionParameter name="topic">/CTT/015/A</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+     </Action>     
+		
+		<!-- take some stats here on both members. Give 1000 ms for publishing and 
+		forwarding to complete before taking the stats.   --> 
+		
+	<Action name="StatServerA1_AfterPubA1" type="RestAPI">
+		<dependsOn action_id="SendMessage" interval="1000"/>
+        <ActionParameter name="structureID">stat_server_A1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareStatServer_AfterPubA1" type="CompareREST">
+        <ActionParameter name="structureID">stat_server_A1</ActionParameter>
+        <ActionParameter name="topLevelKey">Server</ActionParameter>
+        <ActionParameter name="topLevelType">JSONObject</ActionParameter>
+        <ObjectProperty name="BufferedMessages" value="0"/>
+    </Action> 
+    
+    <Action name="StatSub_onA2_AfterPub" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_A2</ActionParameter>
+        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/CTT/015/A&amp;ClientID=CTT_015_subM2</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compare_StatSub_onA2_AfterPub" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_A2</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/CTT/015/A</ActionParameter>
+        <ObjectProperty name="BufferedMsgs" value="50"/>
+        <ObjectProperty name="PublishedMsgs" value="50"/>
+    </Action>     
+    
+	<Action name="StatCluster_onA1_AfterPub" type="RestAPI">
+        <ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>  
+    
+	<Action name="StatCluster_onA2_AfterPub" type="RestAPI">
+        <ActionParameter name="structureID">stat_Cluster_A2</ActionParameter>
+        <ActionParameter name="server">``A2_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>      
+   	   
+   	    
+     <Action name="CloseConnection" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>
+    
+    
+   <!-- After the above action, we take down A2 and then publish some more. They should be buffered on A1 
+   until A2 is restarted. --> 
+    
+    
+   <Action name="Pubmore" type="CompositeAction">
+   
+   <Action name="StatCluster_onA1_BeforePub2" type="RestAPI">
+        <ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        <ActionParameter name="server">``A1_IPv4_1``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+   	<Action name="compareClusterA1HOST" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        <ActionParameter name="serverName">``A2_IPv4_HOSTNAME_1``</ActionParameter>
+        <ObjectProperty name="Status" value="Inactive"/>
+        <ObjectProperty name="Health" value="Unknown"/>
+        <ObjectProperty name="Memory" value="0"/>
+        <ObjectProperty name="HAStatus" value="Unknown"/>
+        <ObjectProperty name="Reconnect" value="0"/>
+        <ObjectProperty name="ReadMsg" value="0"/>
+        <ObjectProperty name="ReadBytes" value="0"/>
+        <ObjectProperty name="WriteMsg" value="50"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Reliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Reliable:SentMsgs" value="50"/>
+        <ObjectProperty name="Reliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Reliable:Suspend" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Unreliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Unreliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:Suspend" value="0"/>
+    </Action>    
+    
+  	<Action name="CreateConnection" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_015_pub1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+    	    <ApiParameter name="protocol">mqtt</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	</Action>
+	    
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Message sent by testmqtt_clusterCTT_015 test: </ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>            
+   	      
+      <Action name="SendMessage" type="SendMessage" repeat="55">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+           	<ActionParameter name="message_id">msg</ActionParameter>
+       	    <ActionParameter name="topic">/CTT/015/A</ActionParameter>
+       	    <ActionParameter name="QoS">2</ActionParameter>
+       </Action>     
+     
+		
+		<!-- take some stats here on A1. Really want to verify the buffered messages when those stats are available   --> 
+		
+     <Action name="StatCluster_onA1_AfterPub2" type="RestAPI">
+     	<dependsOn action_id="SendMessage" interval="1000"/>
+        <ActionParameter name="structureID">stat_Cluster_A2</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareClusterAfter" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_Cluster_A2</ActionParameter>
+        <ActionParameter name="serverName">``A2_IPv4_HOSTNAME_1``</ActionParameter>
+        <ObjectProperty name="Status" value="Inactive"/>
+        <ObjectProperty name="Health" value="Unknown"/>
+        <ObjectProperty name="Memory" value="0"/>
+        <ObjectProperty name="HAStatus" value="Unknown"/>
+        <ObjectProperty name="Reconnect" value="0"/>
+        <ObjectProperty name="ReadMsg" value="0"/>
+        <ObjectProperty name="ReadBytes" value="0"/>
+        <ObjectProperty name="WriteMsg" value="50"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="55"/>
+        <ObjectProperty name="Reliable:BufferedMsgsHWM" value="55"/>
+        <ObjectProperty name="Reliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Reliable:SentMsgs" value="50"/>
+        <ObjectProperty name="Reliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Reliable:Suspend" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Unreliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Unreliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:Suspend" value="0"/>
+    </Action>    
+   	    
+     <Action name="CloseConnection" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>    
+    
+<Action name="UnSub" type="CompositeAction">
+    
+    <Action name="StatCluster_onA1_BeforeUnsub" type="RestAPI">
+        <ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>  
+    
+    <!-- the A2 server came up, so buffered messages should go to zero on A1 when we can dig down to those stats.--> 
+    <Action name="compareClusterBeforeUnsub" type="CompareClusterStats">
+    
+    <!-- A note about the Reconnect value. Defect 110276 was written, because it was sometimes incorrect.  
+    	But after that is fixed, it will hopefully always be 2, as we reconnected two channels at this 
+    	stage. However, it is possible that the Reconnect will more than two if we are breaking a channel and 
+    	reconnecting.   That shouldn't happen, but might. If reconnect becomes a problem, we can change it
+    	here to indicate it should be 2 or greater than 2 in this verification. --> 
+    	
+        <ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        <ActionParameter name="serverName">``A2_IPv4_HOSTNAME_1``</ActionParameter>
+        <ObjectProperty name="Status" value="Active"/>     
+        <ObjectProperty name="Health" value="Green"/>
+        <ObjectProperty name="Memory" value="0"/>
+        <ObjectProperty name="HAStatus" value="None"/>
+        <ObjectProperty name="Reconnect" value="2"/>
+        <ObjectProperty name="ReadMsg" value="0"/>
+        <ObjectProperty name="ReadBytes" value="0"/>
+        <ObjectProperty name="WriteMsg" value="105"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:BufferedMsgsHWM" value="55"/>
+        <ObjectProperty name="Reliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Reliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Reliable:SentMsgs" value="105"/>
+        <ObjectProperty name="Reliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Reliable:Suspend" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Unreliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Unreliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:Suspend" value="0"/>
+    </Action>    
+  
+ 	<Action name="StatCluster_onA2_BeforeUnsub" type="RestAPI">
+        <ActionParameter name="structureID">stat_Cluster_A2</ActionParameter>
+        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>  
+    
+   <!-- the A2 server came up, so ReadMsgs from A1 should be 55. (these stats reset on server start -->     
+    <!-- the A2 server came up, so buffered messages should go to zero on A1 when we can dig down to those stats.--> 
+    <Action name="compareCluster_onA2_BeforeUnsub" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_Cluster_A2</ActionParameter>
+        <ActionParameter name="serverName">``A1_IPv4_HOSTNAME_1``</ActionParameter>
+ 		<ObjectProperty name="Status" value="Active"/>     
+        <ObjectProperty name="Health" value="Green"/>
+        <ObjectProperty name="Memory" value="0"/>
+        <ObjectProperty name="HAStatus" value="None"/>
+        <ObjectProperty name="ReadMsg" value="55"/>
+        <ObjectProperty name="WriteMsg" value="0"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Reliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Reliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Reliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Reliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Reliable:Suspend" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Unreliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Unreliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:Suspend" value="0"/>
+                
+    </Action>    
+
+    	<!-- Unsub by doing a cleansession=true. this should update the cluster -->
+		<Action name="CreateConnection_cleanM2" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con3</ActionParameter>
+	        <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+    	    <include>../common/MQTT_server2.xml</include>
+	        <ApiParameter name="clientId">CTT_015_subM2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>	 
+	    
+	    <Action name="CloseConnection_cleanM2" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF3</ActionParameter>
+	    </Action>  	   	        
+
+     <Action name="CreateConnection" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_015_pub1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+    	    <ApiParameter name="protocol">mqtt</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Message sent by testmqtt_clusterCTT_015 test: </ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>            
+   	      
+   	  <!-- slight delay is to allow the BloomFilter to propagate via Spidercast --> 
+      <Action name="SendMessage" type="SendMessage" repeat="25">
+      		<dependsOn action_id="CloseConnection_cleanM2" interval="500"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+           	<ActionParameter name="message_id">msg</ActionParameter>
+       	    <ActionParameter name="topic">/CTT/015/A</ActionParameter>
+       	    <ActionParameter name="QoS">2</ActionParameter>
+       </Action>     
+     
+		
+		<!-- Aftr sending more messages, verify that they were not forwarded.   --> 
+		
+
+   <Action name="StatClusterCall_onA1__AfterPubA2" type="RestAPI">
+        <ActionParameter name="structureID">stat_cluster_A1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- the Subscription was gone, so the messages published on A1 should not be forwarded. ReadMsg remains 55 --> 
+    <Action name="compareStatCluster_onA1_AfterUnsub" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        <ActionParameter name="serverName">``A2_IPv4_HOSTNAME_1``</ActionParameter>
+        <ObjectProperty name="Status" value="Active"/>     
+        <ObjectProperty name="Health" value="Green"/>
+        <ObjectProperty name="Memory" value="0"/>
+        <ObjectProperty name="HAStatus" value="None"/>
+        <ObjectProperty name="ReadMsg" value="0"/>
+        <ObjectProperty name="WriteMsg" value="105"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:BufferedMsgsHWM" value="55"/>
+        <ObjectProperty name="Reliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Reliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Reliable:SentMsgs" value="105"/>
+        <ObjectProperty name="Reliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Reliable:Suspend" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Unreliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Unreliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:Suspend" value="0"/>
+    </Action>    
+    
+  <Action name="StatClusterCall_onA2__AfterPubA2" type="RestAPI">
+        <ActionParameter name="structureID">stat_cluster_A2</ActionParameter>
+        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- the Subscription was gone, so the messages published on A1 should not be forwarded. ReadMsg remains 55 --> 
+    <Action name="compareStatCluster_onA2_AfterUnsub" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_Cluster_A2</ActionParameter>
+        <ActionParameter name="serverName">``A1_IPv4_HOSTNAME_1``</ActionParameter>
+        <ObjectProperty name="Status" value="Active"/>     
+        <ObjectProperty name="Health" value="Green"/>
+        <ObjectProperty name="Memory" value="0"/>
+        <ObjectProperty name="HAStatus" value="None"/>
+        <ObjectProperty name="ReadMsg" value="55"/>
+        <ObjectProperty name="WriteMsg" value="0"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Reliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Reliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Reliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Reliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Reliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Reliable:Suspend" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedBytes" value="0"/>
+        <ObjectProperty name="Unreliable:MaxBytes" value="0"/>
+        <ObjectProperty name="Unreliable:SentMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:DiscardedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:ExpiredMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:Suspend" value="0"/>
+    </Action>    
+    
+     <Action name="CloseConnection" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>
+            
+     
+</IsmWSTest>
+                

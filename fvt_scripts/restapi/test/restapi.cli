@@ -1,0 +1,93 @@
+#Basic ClientSet 
+#(No Cluster, No HA - First restart without CleanStore is necessary when coming out of Cluster, Second restart is necessary to get expected ServerName - HA alters it to HOSTNAME.)
+setup 0 POST configuration {"HighAvailability":{"EnableHA":false}}
+setup 0 POST configuration {"ClusterMembership":{"EnableClusterMembership": false}}
+setup 0 POST service/restart {"Service":"Server"}
+setup 0 sleep 33
+setup 0 GET service/status
+# Update: 09/19/16: '{"Reset":"config"}' does a CleanStore...8/12/16 defect 151664,
+# BUT it REMOVES TRACE!!! of past restapi tests, so do a clean store without a reset config 
+setup 0 POST service/restart {"Service":"Server", "CleanStore":true}   
+setup 0 sleep 33
+setup 0 GET service/status
+#setup 0 POST service/restart {"Service":"Server", "Reset":"config"}
+#setup 0 sleep 33
+#setup 0 GET service/status
+# SETUP: Enable Messaging Endpoints
+setup  0  POST configuration {"Endpoint":{"DemoEndpoint":{"Enabled":true}}}
+setup  0  POST configuration {"Endpoint":{"DemoMqttEndpoint":{"Enabled":true}}}
+
+
+
+#HA ClientSet (Pair A1-A2, A3-A4)
+HA1CS 0 POST configuration {"ServerName":"${A1_NAME}:${A1_PORT}"}
+HA1CS 0 POST configuration {"HighAvailability":{"EnableHA":true, "LocalDiscoveryNIC": "${A1_IPv4_HA0}", "LocalReplicationNIC": "${A1_IPv4_HA1}", "RemoteDiscoveryNIC": "${A2_IPv4_HA0}", "Group":"FVT_HAPair12", "PreferredPrimary":true }}
+HA1CS 0 POST configuration {"ClusterMembership":{"EnableClusterMembership": false}}
+HA1CS 0 POST service/restart {"Service":"Server"}
+HA1CS 0 sleep 33
+HA1CS 0 GET service/status
+
+HA2CS 0 POST configuration {"ServerName":"${A2_NAME}:${A2_PORT}"}
+HA2CS 0 POST configuration {"HighAvailability":{"EnableHA":true, "LocalDiscoveryNIC": "${A2_IPv4_HA0}", "LocalReplicationNIC": "${A2_IPv4_HA1}", "RemoteDiscoveryNIC": "${A1_IPv4_HA0}", "Group":"FVT_HAPair12", "PreferredPrimary":false }}
+HA2CS 0 POST configuration {"ClusterMembership":{"EnableClusterMembership": false}}
+HA2CS 0 POST service/restart {"Service":"Server"}
+HA2CS 0 sleep 22
+HA2CS 0 GET service/status
+
+HA3CS 0 POST configuration {"ServerName":"${A3_NAME}:${A3_PORT}"}
+HA3CS 0 POST configuration {"HighAvailability":{"EnableHA":true, "LocalDiscoveryNIC": "${A3_IPv4_HA0}", "LocalReplicationNIC": "${A3_IPv4_HA1}", "RemoteDiscoveryNIC": "${A4_IPv4_HA0}", "Group":"FVT_HAPair34","PreferredPrimary":true }}
+HA3CS 0 POST configuration {"ClusterMembership":{"EnableClusterMembership": false}}
+HA3CS 0 POST service/restart {"Service":"Server"}
+HA3CS 0 sleep 33
+HA3CS 0 GET service/status
+
+HA4CS 0 POST configuration {"ServerName":"${A4_NAME}:${A4_PORT}"}
+HA4CS 0 POST configuration {"HighAvailability":{"EnableHA":true, "LocalDiscoveryNIC": "${A4_IPv4_HA0}", "LocalReplicationNIC": "${A4_IPv4_HA1}", "RemoteDiscoveryNIC": "${A3_IPv4_HA0}", "Group":"FVT_HAPair34", "PreferredPrimary":false }}
+HA4CS 0 POST configuration {"ClusterMembership":{"EnableClusterMembership": false}}
+HA4CS 0 POST service/restart {"Service":"Server"}
+HA4CS 0 sleep 22
+HA4CS 0 GET service/status
+
+
+#Cluster ClientSet (Group A1-A2, A3-A4)
+CM1CS 0 POST configuration {"ServerName":"${A1_NAME}:${A1_PORT}"}
+CM1CS 0 POST configuration {"HighAvailability":{"EnableHA":false}}
+CM1CS 0 POST configuration {"ClusterMembership": {"ClusterName": "A1A2Cluster","ControlAddress": "${A1_IPv4_INTERNAL_1}", "EnableClusterMembership":true, "DiscoveryServerList":"${A2_IPv4_INTERNAL_1}:9104", "UseMulticastDiscovery":false  }}
+CM1CS 0 POST service/restart {"Service":"Server"}
+CM1CS 0 sleep 22
+CM1CS 0 GET service/status
+
+CM2CS 0 POST configuration {"ServerName":"${A2_NAME}:${A2_PORT}"}
+CM2CS 0 POST configuration {"HighAvailability":{"EnableHA":false}}
+CM2CS 0 POST configuration {"ClusterMembership": {"ClusterName": "A1A2Cluster","ControlAddress": "${A2_IPv4_INTERNAL_1}", "EnableClusterMembership":true, "DiscoveryServerList":"${A1_IPv4_INTERNAL_1}:9104", "UseMulticastDiscovery":false  }}
+CM2CS 0 POST service/restart {"Service":"Server"}
+CM2CS 0 sleep 22
+CM2CS 0 GET service/status
+
+CM3CS 0 POST configuration {"ServerName":"${A3_NAME}:${A3_PORT}"}
+CM3CS 0 POST configuration {"HighAvailability":{"EnableHA":false}}
+CM3CS 0 POST configuration {"ClusterMembership": {"ClusterName": "A3A4Cluster","ControlAddress": "${A3_IPv4_INTERNAL_1}", "EnableClusterMembership":true, "DiscoveryServerList":"${A4_IPv4_INTERNAL_1}:9104", "UseMulticastDiscovery":false  }}
+CM3CS 0 POST service/restart {"Service":"Server"}
+CM3CS 0 sleep 22
+CM3CS 0 GET service/status
+
+CM4CS 0 POST configuration {"ServerName":"${A4_NAME}:${A4_PORT}"}
+CM4CS 0 POST configuration {"HighAvailability":{"EnableHA":false}}
+CM4CS 0 POST configuration {"ClusterMembership": {"ClusterName": "A3A4Cluster","ControlAddress": "${A4_IPv4_INTERNAL_1}", "EnableClusterMembership":true, "DiscoveryServerList":"${A3_IPv4_INTERNAL_1}:9104", "UseMulticastDiscovery":false  }}
+CM4CS 0 POST service/restart {"Service":"Server"}
+CM4CS 0 sleep 22
+CM4CS 0 GET service/status
+
+# Session Expiry Setup
+setupSE 0 POST configuration {"MessageHub":{"SessionExpiryHub":{}}}
+setupSE 0 POST configuration {"ConnectionPolicy":{"SessionExpiryCP":{"Protocol":"MQTT","ClientID":"*","MaxSessionExpiryInterval":90}}}
+setupSE 0 POST configuration {"SubscriptionPolicy":{"SessionExpirySP":{"Description":"Subscription policy for sessionexpiry tests","Subscription":"*","ClientID":"*","ClientAddress":"*","GroupID":"","CommonNames":"","Protocol":"MQTT","ActionList":"Receive,Control","MaxMessages":5000,"MaxMessagesBehavior":"RejectNewMessages"}}}
+setupSE 0 POST configuration {"TopicPolicy":{"SessionExpiryTP":{"Protocol":"MQTT","ActionList":"Publish,Subscribe","Topic":"*","MaxMessages":20000000}}}
+setupSE 0 POST configuration {"Endpoint":{"SessionExpiryEndpoint":{"Port":25000,"ConnectionPolicies":"SessionExpiryCP","TopicPolicies":"SessionExpiryTP","QueuePolicies":"","SubscriptionPolicies":"SessionExpirySP","MessageHub":"SessionExpiryHub"}}}
+
+# Session Expiry Cleanup
+cleanupSE 0 DELETE configuration/Endpoint/SessionExpiryEndpoint
+cleanupSE 0 DELETE configuration/TopicPolicy/SessionExpiryTP
+cleanupSE 0 DELETE configuration/SubscriptionPolicy/SessionExpirySP
+cleanupSE 0 DELETE configuration/ConnectionPolicy/SessionExpiryCP
+cleanupSE 0 DELETE configuration/MessageHub/SessionExpiryHub

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="svt_client_tests" default="build"  basedir="." >
+	<property name="project.name" value="svt_client_tests" />
+	<property name="src.dir" location="${basedir}/src" />
+	<property name="bin.dir" location="${basedir}/bin" />
+	<property name="lib.dir" location="${bin.dir}/lib" />
+	<property environment="env"/>
+	<property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+	<property name="client.ship.lib.dir" value="${basedir}/../client_ship/lib"/>
+	<property name="svt.ship.dir" value="${basedir}/../svt_ship"/>
+	<property name="testTools.ship.lib.dir" value="${basedir}/../testTools_ship/lib"/>
+	<property name="timeout" value="100000"/>
+	
+	<property name="testHarnessBuildTools" location="${thirdPartyLibs}/applications/test_harness" />
+
+	<!-- define jar file name -->
+	<property name="jar.filename" location="${lib.dir}/${project.name}.jar"/>
+	
+	<path id="compile.classpath">
+		<fileset dir="${client.deps.dir}/">
+			<include name="*.jar" />
+			<!--	<include name="**/*.jar" /> -->
+		</fileset>		
+		<!--<fileset dir="${client.deps.dir}/">
+			<include name="*.jar" />
+		</fileset>			
+		<fileset dir="${client.deps.dir}/">
+			<include name="**/*.jar" />
+		</fileset> -->	
+		<fileset dir="${client.ship.lib.dir}/">
+			<include name="*.jar" />
+		</fileset>	
+		<fileset dir="${svt.ship.dir}/">
+			<include name="*.jar" />
+		</fileset>			
+		<fileset dir="${testTools.ship.lib.dir}/">
+			<include name="*.jar" />
+		</fileset>	
+	</path>
+	
+	<pathconvert pathsep="${line.separator}|   |-- " property="formatted.compile.classpath" refid="compile.classpath" />
+	<echo message="|-- compile.classpath" />
+	<echo message="|   |-- ${formatted.compile.classpath}" />	
+
+
+	<target name="clean">
+		<delete includeemptydirs="true" dir="${bin.dir}" />
+	</target>
+
+	<!-- Build all normal targets  -->
+	<target name="build"  depends="init, compile, wrap_jars, publish, run_test, report">
+		<echo> ==  Invoking ant for ${project.name} build ============= </echo>
+	</target>
+	
+	<!-- Initialize the build environment -->
+	<target name="init">
+		<mkdir dir="${bin.dir}"/>
+		<mkdir dir="${lib.dir}"/>
+	</target>
+
+
+	<!--Compile the project-->
+	<target name="compile">
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac  source="1.6" target="1.6" srcdir="${src.dir}" destdir="${bin.dir}" deprecation="no"
+	             includeAntRuntime="no"
+	             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+		<copy todir="${bin.dir}" preservelastmodified="yes">
+			<fileset dir="${src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+	
+	
+	<!-- Build output jar file -->
+	<target name="wrap_jars" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${src.dir}/META-INF/MANIFEST.MF" todir="${bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${jar.filename}">
+			<fileset dir="${bin.dir}" includes="**/*.class" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+	           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${jar.filename}" manifest="${bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	
+	<!-- Copy the product file to ship tree      -->
+	<target name="publish">
+		<echo> ==  ${project.name} publish called (TBD) ================ </echo>
+		<echo> ==  Copy files to svt_ship tree ================ </echo>
+		<copy file="${jar.filename}" todir="${svt.ship.dir}/lib" preservelastmodified="yes" verbose="true"/>
+	</target>
+	
+	
+	<target name="run_test">
+		<path id="runtime.classpath">
+				<fileset dir="${lib.dir}">
+					<include name="*.jar" />
+					<!--	<include name="**/*.jar" /> -->
+				</fileset>		
+				<fileset dir="${client.deps.dir}/">
+					<include name="*.jar" />
+					<!--	<include name="**/*.jar" /> -->
+				</fileset>		
+				<fileset dir="${client.ship.lib.dir}/">
+					<include name="*.jar" />
+				</fileset>	
+				<fileset dir="${svt.ship.dir}/">
+					<include name="*.jar" />
+				</fileset>			
+				<fileset dir="${testTools.ship.lib.dir}/">
+					<include name="*.jar" />
+				</fileset>	
+			</path>
+				
+				<pathconvert pathsep="${line.separator}|   |-- " property="formatted.runtime.classpath" refid="runtime.classpath" />
+				<echo message="|-- runtime.classpath" />
+				<echo message="|   |-- ${formatted.runtime.classpath}" />
+		
+		<mkdir dir="${bin.dir}/RawUnitTestResults"/>
+		<echo>=============Running test for ${project.name}===========</echo>
+		<echo>=============AJ===========</echo>
+		<junit fork="yes" timeout="${timeout}" printsummary="yes" showoutput="true">
+			<classpath refid="runtime.classpath" />
+			<formatter type="xml" />	                  
+			<batchtest todir="${bin.dir}/RawUnitTestResults" filtertrace="no">
+				<fileset dir="${bin.dir}">
+					<include name="com/ibm/ima/test/TestSampleJunit4.class" />
+				</fileset>
+			</batchtest>
+			<sysproperty key="WORKSPACE" value="${sroot}"/>
+			<sysproperty key="BUILD.OUTPUT" value="${broot}"/>
+			<sysproperty key="java.library.path" value="${xr.library.path}"/>
+		</junit>	
+		
+		<echo>=============Running the JUNIT 3 test===========</echo>
+		<junit fork="yes" timeout="${timeout}" printsummary="yes" showoutput="true">
+			<classpath refid="runtime.classpath" />
+			<formatter type="xml" />	                  
+			<batchtest todir="${bin.dir}/RawUnitTestResults" filtertrace="no">
+				<fileset dir="${bin.dir}">
+					<include name="com/ibm/ima/test/TestSampleJunit3.class" />
+				</fileset>
+			</batchtest>
+			<sysproperty key="WORKSPACE" value="${sroot}"/>
+			<sysproperty key="BUILD.OUTPUT" value="${broot}"/>
+			<sysproperty key="java.library.path" value="${xr.library.path}"/>
+		</junit>
+		
+		
+		<echo>=============Running the JUNIT 3 IMA test===========</echo>
+		<junit fork="yes" timeout="${timeout}" printsummary="yes" showoutput="true">
+			<classpath refid="runtime.classpath" />
+			<formatter type="xml" />	                  
+			<batchtest todir="${bin.dir}/RawUnitTestResults" filtertrace="no">
+				<fileset dir="${bin.dir}">
+					<include name="com/ibm/ima/test/TestImaStatus.class" />
+				</fileset>
+			</batchtest>
+			<sysproperty key="WORKSPACE" value="${sroot}"/>
+			<sysproperty key="BUILD.OUTPUT" value="${broot}"/>
+			<sysproperty key="java.library.path" value="${xr.library.path}"/>
+		</junit>
+		<echo>=============AJ Tests has been run===========</echo>
+	</target>
+	
+	
+	<!-- Produce the JUnit Report for the complete output -->
+	<target name="report" description="JUnit Report for Simple Tests">
+		<echo>============AJ Publish Test Results===========</echo>
+		<mkdir dir="${bin.dir}/RawUnitTestResults" />
+		<junitreport todir="${bin.dir}/RawUnitTestResults">
+			<fileset dir="${bin.dir}/RawUnitTestResults">
+				<include name="TEST-*.xml" />
+			</fileset>
+			<report format="frames" todir="${bin.dir}/RawUnitTestResults" />
+		</junitreport>
+		<echo>============AJ Test Results Published Successfully===========</echo>
+		<!-- Publish the raw junit log. 
+		<logPublisher buildResultUUID="${buildResultUUID}"
+		repositoryAddress="${repositoryAddress}"
+		userId="${userId}"
+		password="${password}"
+		filePath="${build.dir}/testreports/"
+		label="Raw JUnit logs for ${projectName}" /> -->
+
+		<!-- Publish the JUnit log to Jazz.
+		<junitLogPublisher filePath="${build.dir}/testreports/"
+		buildResultUUID="${buildResultUUID}"
+		repositoryAddress="${repositoryAddress}"
+		userId="${userId}"
+		password="${password}" /> -->
+	</target>	
+</project>

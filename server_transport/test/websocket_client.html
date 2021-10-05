@@ -1,0 +1,81 @@
+<head>
+    <style type="text/css">
+        span.red {
+            color: red;
+        }
+        span.green {
+            color: green;
+        }
+    </style>
+    <script language="javascript" type="text/javascript">
+        var ws_handles = new Array();
+
+        function appendText(id, text) {
+            if (!document.getElementById(id)) return false;
+            var elt = document.getElementById(id);
+            elt.innerHTML = elt.innerHTML + text + "<br>";
+        }
+        function appendBody(text) {
+            appendText("log", text);
+        }
+        function sendWSMessage(text) {
+            for (var i = 0; i < ws_handles.length; i++) {
+                var handle = ws_handles[i];
+                handle.send(text);
+                appendBody("Sending: <span class=\"red\">" + text + "</span>");
+            }
+        }
+        function checkState() {
+            for (var i = 0; i < ws_handles.length; i++) {
+                var handle = ws_handles[i];
+                appendBody("handle["+i+"].readyState = " + handle.readyState);
+            }
+        }
+
+        function createWebSocket () {
+            var protocols = ["monitoring.ism.ibm.com", "admin.ism.ibm.com"];
+            if ("MozWebSocket" in window) {
+                var ws = new MozWebSocket("ws://9.3.179.145:16103/admin", protocols);
+            } else if ("WebSocket" in window) {
+            //if ("WebSocket" in window) {
+                try {
+                    //var ws = new WebSocket("ws://9.3.179.145:16102/admin", protocols);
+                    //var ws = new WebSocket("ws://9.41.63.128:16103/admin", protocols);
+                    //var ws = new WebSocket("ws://9.3.179.145:16102/admin");
+					var ws = new WebSocket("ws://9.3.179.145:16102/admin", protocols);
+                } catch (err) {
+                    alert(err);
+                }
+			} else {
+                alert("Browser does not support WebSockets.");
+				return; 
+            }
+			
+                ws.onopen = function() {
+                    appendBody("Connected to WebSocket server (" + ws_handles.length + ")");
+                };
+                ws.onmessage = function (evt) {
+                    var received_msg = evt.data;
+                    appendBody("Received: <span class=\"green\">" + received_msg + "</span>");
+                };
+                ws.onclose = function(evt) {
+                    appendBody("WebSocket closing...");
+                    appendBody("wasClean = " + evt.wasClean);
+                    appendBody("code = " + evt.code);
+                    appendBody("reason = " + evt.reason);
+                };
+                ws_handles.push(ws);
+
+        }
+    </script>
+</head>
+
+<body id="body">
+    Test of WebSockets<br/>
+    <input type="button" name="create_socket" value="Create new socket" onclick="createWebSocket();" /><br><br>
+    Message:<br> <input type="text" id="message" size="40" name="message" value=""/>
+    <input type="button" name="send_button" value="Send" onclick="sendWSMessage(document.getElementById('message').value); document.getElementById('message').value=''" /><br><br>
+    Log:<br>
+    <div style="border: 1px solid red; padding: 10px; width: 600px;" id="log">
+    </div>
+</body>

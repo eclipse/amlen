@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="mqttV5_connect_SEI" >
+<!--
+    Test MQTTv5 Spec 
+	3.1.2.11.2 CONNECT Properties - Session Expiry Interval
+	3.2.2.3.2  CONNACK Properties - Session Expiry Interval
+    0x11 - Session Expiry Interval for both
+	
+Connection Policy has sent MaxSessionExpiryinterval = 45 days in IoT (3888000 secs)
+SEI:Lower will have CONNECT Expiry Interval less than Server's POLICY Default
+SEI:Higher will have CONNECT Expiry Interval greater than Server's POLICY Default
+
+VERIFY the CONNACK will have SEI value that is the Least Common Denominator of the two SEI values CONNNECT or Server's Connection POLICY
+ -->    
+<!--  ==========  Session Expiry Interval  0x11(+4 bytes)  ==========  -->
+<!-- 
+-->
+    <Action name="SEI_lessThanPolicy" type="CompositeAction">
+
+        <Action name="CreateConnectionLesser" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:SEIsmall</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+        </Action>
+        
+<!--  NEED TO VERIFY THE CONNACK SessionPresent Flag -  Defect 206814
+
+MQTT receive 10 CONNECT connect=5 rc=0: len=50 
+00044d515454 05 02 0023 08 11 00000006 22 0000  001d 643a6f 72673469 6f74323a 636f6e6e 50726f70 733a5345 49736d61 6c6c 
+[..MQTT...#......"....d:org4iot2:connProps:SEIsmall]
+
+
+MQTT send 20 CONNACK connect=5: len=14 
+00 000b21 01002200 08270040 0000 
+[...!.."..'.@..]
+0x00 Session WAS NOT Present
+-->
+        <Action name="CheckCONNACK_SEI" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+<!--  SEI is not returned if it is agreed to, best Check is to say an Alternamtive was not proposed on ACK
+            <ApiParameter name="compareSessionExpiryInterval">6</ApiParameter>  
+-->
+            <ApiParameter name="hasSessionExpiryInterval">false</ApiParameter>  
+            <ApiParameter name="compareSessionPresent">false</ApiParameter>
+        </Action>    
+
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+		
+        <Action name="reConnectionLesser" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:SEIsmall</ApiParameter>  
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+        </Action>
+
+<!--
+2018-06-08T20:17:26.798Z tcpiop.0 mqtt.c:1626: MQTT receive 10 CONNECT connect=6 rc=0: len=50 
+00044d51 54540500 00230811 00000006 22000000 1d643a6f 72673469 6f74323a 636f6e6e 50726f70 733a5345 49736d61 6c6c 
+[..MQTT...#......"....d:org4iot2:connProps:SEIsmall]
+
+2018-06-08T20:17:26.799Z tcpiop.0 frame.c:290: MQTT send 20 CONNACK connect=6: len=14 
+01 00 0b 21 01002200 08270040 0000 
+[...!.."..'.@..]
+0x01 Session Is Present
+-->
+        
+        <Action name="CheckCONNACK_SEI_Present" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="hasSessionExpiryInterval">false</ApiParameter>  
+            <ApiParameter name="compareSessionPresent">true</ApiParameter>
+        </Action>    
+
+        <Action name="CloseConnection2" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+		
+        <Action name="freshConnectionLesser" type="CreateConnection" >
+		  <dependsOn action_id="CloseConnection2" interval="12000" />
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:SEIsmall</ApiParameter>  
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">69</ApiParameter>    
+        </Action>
+        
+<!--
+2018-06-08T20:17:38.861Z tcpiop.0 mqtt.c:1626: MQTT receive 10 CONNECT connect=8 rc=0: len=50 
+00044d51 54540500 00230811 00000045 22000000 1d643a6f 72673469 6f74323a 636f6e6e 50726f70 733a5345 49736d61 6c6c 
+[..MQTT...#......"....d:org4iot2:connProps:SEIsmall]
+
+2018-06-08T20:17:38.862Z tcpiop.0 frame.c:290: MQTT send 20 CONNACK connect=8: len=14 
+00000b21 01002200 08270040 0000 
+[...!.."..'.@..]
+0x00 Session WAS NOT Present, it expired.
+-->        
+        <Action name="CheckCONNACK_SEI_Expire" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="hasSessionExpiryInterval">false</ApiParameter>  
+            <ApiParameter name="compareSessionPresent">false</ApiParameter>
+        </Action>    
+		
+        <Action name="CloseConnection3" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>
+
+<!--  ==========  Session Expiry Interval  0x11(+4 bytes)  ==========  -->
+<!-- updateMaxSessionExpiryInterval.sh needs to be called before and after this Composite Action
+-->
+    <Action name="SEI_MAXedToPolicy" type="CompositeAction">
+
+        <Action name="CreateConnectionGreaterMAX" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="clientId">d:org4iot2:connProps:SEImax</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967295</ApiParameter>  
+        </Action>
+<!--
+MQTT receive 10 CONNECT connect=7 rc=0: len=48 
+00044d51 54540502 0023 08 11 ffffffff 22000000 1b643a6f 72673469 6f74323a 636f6e6e 50726f70 733a5345 496d6178  
+[..MQTT...#......"....d:org4iot2:connProps:SEImax]
+0x11 ffffffff  MAX value, means NEVER EXPIRE
+ 
+MQTT send 20 CONNACK connect=19: len=19 
+0000 10 21 0100 22 0008 27 00100000 11 0000001e 
+[...!.."..'.........]
+
+0x11 0000001e (Overridden From ConnectionPolicy 30sec)
+-->        
+        <Action name="CheckCONNACK_SEIonMAX" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+<!-- Defect 208303 Not Honoring MAX in Proxy/Server Policy Cfg -->
+            <ApiParameter name="compareSessionExpiryInterval">30</ApiParameter>  
+
+        </Action>    
+
+        <Action name="CloseConnectionMAX" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>    
+	
+	
+    <Action name="SEI_greaterThanPolicy" type="CompositeAction">
+
+        <Action name="CreateConnectionGreaterBIG" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="clientId">d:org4iot2:connProps:SEIbig</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+        </Action>
+<!-- 
+MQTT receive 10 CONNECT connect=20 rc=0: len=48 
+00044d51 54540502 0023 08 11 fffffff0 22000000 1b643a6f 72673469 6f74323a 636f6e6e 50726f70 733a5345 49626967  
+[..MQTT...#......"....d:org4iot2:connProps:SEIbig]
+
+MQTT send 20 CONNACK connect=20: len=19 
+00001021 01002200 08270010 0000 11 0000001e 
+[...!.."..'.........]
+
+0x11 0000001e (Overridden From ConnectionPolicy 30sec)
+-->
+        
+        <Action name="CheckCONNACK_SEIonMBIG" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+<!-- Defect 208303 Not Honoring MAX in Proxy/Server Policy Cfg -->			
+            <ApiParameter name="compareSessionExpiryInterval">30</ApiParameter>  
+        </Action>    
+
+        <Action name="CloseConnectionBIG" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+	</Action>
+    
+</IsmWSTest>
+                

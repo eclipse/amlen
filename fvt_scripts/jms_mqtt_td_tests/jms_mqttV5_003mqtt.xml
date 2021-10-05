@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_mqtt_003
+
+  Test Category: JMS to MQTT
+
+  Test Description:
+      Test the ability to send messages back and forth between the JMS
+      and MQTT clients.
+      This test sends 10 messages in each direction and check properties on both ends.
+
+-->
+<IsmWSTest name="jms_mqttV5_003mqtt">
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_mqttV5_003jms</solution>
+    </SyncClient>
+
+    <Action name="CreateConnection" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionTypeV5.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">mqttV5_003_pub</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="CreateConnection2" type="CreateConnection">
+        <ActionParameter name="structure_id">Con2</ActionParameter>
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <include>../common/ConnectionTypeV5.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">mqttV5_003_sub</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="Subscribe" type="Subscribe">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="topic">/JmsToMqtt</ApiParameter>
+        <ApiParameter name="QoS">0</ApiParameter>
+    </Action>
+
+    <Action name="Subscribe2" type="Subscribe">
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ApiParameter name="topic">/MqttToJms</ApiParameter>
+        <ApiParameter name="QoS">0</ApiParameter>
+    </Action>
+
+    <Action name="CreateMessage" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">{"TEXT":"test content from MQTT"}</ApiParameter>
+            <ApiParameter name="msgExpire">2</ApiParameter>
+            <ApiParameter name="userprop.0">Name=Value1</ApiParameter>
+            <ApiParameter name="userprop.1">Number=1112223334445556667778889990000</ApiParameter>
+            <ApiParameter name="userprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+            <ApiParameter name="userprop.3">JMSTimestamp=1958-11-29T20:00:00.000Z</ApiParameter>
+            <ApiParameter name="userprop.4">JMSMessageID=ID:B52</ApiParameter>
+            <ApiParameter name="contentType">MQTT Hosted JSON Message contentType</ApiParameter>
+            <ApiParameter name="responseTopic">/MQTT/ResponseTopic/JMSReplyTo</ApiParameter>
+            <ApiParameter name="correlationData">MQTT_CorrelationData</ApiParameter>
+    </Action>
+    <Action name="sync_components_tx1" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">mqtt1</ActionParameter>
+        <ActionParameter name="component_list">mqtt1;jms1</ActionParameter>
+        <ActionParameter name="timeout">20000</ActionParameter>
+    </Action>
+    
+
+    <Action name="CompositeReceiveJMS" type="CompositeAction" repeat="10">
+        <Action name="ReceiveMessageJMS" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">10000</ActionParameter>
+        </Action>
+
+        <Action name="CompareMessageDataJMS" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">{"TEXT":"test content from JMS"}</ActionParameter>
+            <ActionParameter name="compareQoS">0</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+            <ApiParameter name="compareUserprop.2">SomeFloatProperty=3.1415</ApiParameter>
+            <ApiParameter name="compareUserprop.3">SomeBooleanProperty=true</ApiParameter>
+            <ApiParameter name="compareUserprop.4">SomeByteProperty=69</ApiParameter>  
+            <ApiParameter name="compareUserprop.5">SomeStringProperty=GVT葛渚噓testingUserPropertiesJMS2MQTT</ApiParameter>
+            <ApiParameter name="compareUserprop.6">SomeIntegerProperty=2147483647</ApiParameter>
+<!-- DEFECT 212231 - need hasUserProperty for JMSMessageID and JMSTimestamp as their value get reset in JMS -->
+<!--  waiting on hasUserProperty(); 
+            <ApiParameter name="compareUserprop.0">JMSTimestamp=2020-10-10T20:10:10.000Z</ApiParameter>
+-->
+<!-- Defect 213137 and Ken Question  this passed, but that was not the value, it was randomized ID:<jmsrandom>  -->
+            <ApiParameter name="compareUserprop.1">JMSMessageID=ID:MyMessageID</ApiParameter> 
+
+            <ApiParameter name="contentType">JMS Hosted JSON Message JMSType</ApiParameter>
+            <ApiParameter name="responseTopic">/JMS/ReplyTo/MQTT_ResponseTopic</ApiParameter>
+            <ApiParameter name="correlationData">JMS_CorrelationID</ApiParameter>
+        </Action>
+			
+    </Action>
+<!--
+
+JMS receive messageWait connect=4: len=350 
+00000: 02820006 04000004 00000000 00000002 00000003 4b000124 1509cb2f 4a6d7354  [....................K..$.../JmsT]
+00032: 6f4d7174 74001502 76016549 d475df15 04d44944 3a423539 37413742 4e544132  [oMqtt...v.eI.u....ID:B597A7BNTA2]
+00064: 37303030 31001505 d24a4d53 5f436f72 72656c61 74696f6e 49440015 06e04a4d  [70001....JMS_CorrelationID....JM]
+00096: 5320486f 73746564 204a534f 4e204d65 73736167 65204a4d 53547970 65001508  [S Hosted JSON Message JMSType...]
+00128: e02f4a4d 532f5265 706c7954 6f2f4d51 54545f52 6573706f 6e736554 6f706963  [./JMS/ReplyTo/MQTT_ResponseTopic]
+00160: 00b2536f 6d65466c 6f617450 726f7065 72747900 0540490e 56b4536f 6d65426f  [..SomeFloatProperty..@I.V.SomeBo]
+00192: 6f6c6561 6e50726f 70657274 790003b1 536f6d65 42797465 50726f70 65727479  [oleanProperty...SomeByteProperty]
+00224: 001045b3 536f6d65 53747269 6e675072 6f706572 747900ea 475654e8 919befa9  [..E.SomeStringProperty..GVT.....]
+00256: 86e59993 74657374 696e6755 73657250 726f7065 72746965 734a4d53 324d5154  [....testingUserPropertiesJMS2MQT]
+00288: 5400b453 6f6d6549 6e746567 65725072 6f706572 74790064 7fffffff 91207b22  [T..SomeIntegerProperty.d..... {"]
+00320: 54455854 223a2274 65737420 636f6e74 656e7420 66726f6d 204a4d53 227d      [TEXT":"test content from JMS"}]
+
+MQTT send 30 PUBLISH connect=5: len=388 
+00000: 000a2f4a 6d73546f 4d717474 d6022600 0c4a4d53 54696d65 7374616d 70001832  [../JmsToMqtt..&..JMSTimestamp..2]
+00032: 3031382d 30382d31 37543231 3a33393a 34352e32 34375a26 000c4a4d 534d6573  [018-08-17T21:39:45.247Z&..JMSMes]
+00064: 73616765 49440013 49443a42 35393741 37424e54 41323730 30303109 00114a4d  [sageID..ID:B597A7BNTA270001...JM]
+00096: 535f436f 7272656c 6174696f 6e494403 001f4a4d 5320486f 73746564 204a534f  [S_CorrelationID...JMS Hosted JSO]
+00128: 4e204d65 73736167 65204a4d 53547970 6508001f 2f4a4d53 2f526570 6c79546f  [N Message JMSType.../JMS/ReplyTo]
+00160: 2f4d5154 545f5265 73706f6e 7365546f 70696326 0011536f 6d65466c 6f617450  [/MQTT_ResponseTopic&..SomeFloatP]
+00192: 726f7065 72747900 06332e31 34313526 0013536f 6d65426f 6f6c6561 6e50726f  [roperty..3.1415&..SomeBooleanPro]
+00224: 70657274 79000474 72756526 0010536f 6d654279 74655072 6f706572 74790002  [perty..true&..SomeByteProperty..]
+00256: 36392600 12536f6d 65537472 696e6750 726f7065 72747900 29475654 e8919bef  [69&..SomeStringProperty.)GVT....]
+00288: a986e599 93746573 74696e67 55736572 50726f70 65727469 65734a4d 53324d51  [.....testingUserPropertiesJMS2MQ]
+00320: 54542600 13536f6d 65496e74 65676572 50726f70 65727479 000a3231 34373438  [TT&..SomeIntegerProperty..214748]
+00352: 33363437 7b225445 5854223a 22746573 7420636f 6e74656e 74206672 6f6d204a  [3647{"TEXT":"test content from J]
+00384: 4d53227d                                                                 [MS"}]
+
+-->
+
+    <Action name="CompositePublish" type="CompositeAction" thread="3" repeat="10">
+        <dependsOn action_id="sync_components_tx1"/>
+		
+        <Action name="SendMessage_a" type="SendMessage" thread="3">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">/MqttToJms</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>
+    </Action>
+<!--
+MQTT receive 30 PUBLISH connect=5: len=322 
+00000: 000a2f4d 71747454 6f4a6d73 93020200 00000203 00244d51 54542048 6f737465  [../MqttToJms.........$MQTT Hoste]
+00032: 64204a53 4f4e204d 65737361 67652063 6f6e7465 6e745479 70650800 1e2f4d51  [d JSON Message contentType.../MQ]
+00064: 54542f52 6573706f 6e736554 6f706963 2f4a4d53 5265706c 79546f09 00144d51  [TT/ResponseTopic/JMSReplyTo...MQ]
+00096: 54545f43 6f727265 6c617469 6f6e4461 74612300 01260004 4e616d65 00065661  [TT_CorrelationData#..&..Name..Va]
+00128: 6c756531 2600064e 756d6265 72001f31 31313232 32333333 34343435 35353636  [lue1&..Number..11122233344455566]
+00160: 36373737 38383839 39393030 30302600 0c475654 e8919bef a986e599 93002256  [67778889990000&..GVT.........."V]
+00192: 616c7565 e8919bef a986e599 93656469 626c6542 65616e48 61707079 42656163  [alue.........edibleBeanHappyBeac]
+00224: 6826000c 4a4d5354 696d6573 74616d70 00183139 35382d31 312d3239 5432303a  [h&..JMSTimestamp..1958-11-29T20:]
+00256: 30303a30 302e3030 305a2600 0c4a4d53 4d657373 61676549 44000649 443a4235  [00:00.000Z&..JMSMessageID..ID:B5]
+00288: 327b2254 45585422 3a227465 73742063 6f6e7465 6e742066 726f6d20 4d515454  [2{"TEXT":"test content from MQTT]
+00320: 227d                                                                     ["}]
+
+JMS send message connect=4: len=337 
+00000: 01000006 04000000 00000000 00000001 00000001 4a011715 09cb2f4d 71747454  [....................J...../MqttT]
+00032: 6f4a6d73 001506e5 4d515454 20486f73 74656420 4a534f4e 204d6573 73616765  [oJms....MQTT Hosted JSON Message]
+00064: 20636f6e 74656e74 54797065 001508df 2f4d5154 542f5265 73706f6e 7365546f  [ contentType..../MQTT/ResponseTo]
+00096: 7069632f 4a4d5352 65706c79 546f0015 0591144d 5154545f 436f7272 656c6174  [pic/JMSReplyTo.....MQTT_Correlat]
+00128: 696f6e44 617461a5 4e616d65 00c75661 6c756531 00a74e75 6d626572 00e03131  [ionData.Name..Value1..Number..11]
+00160: 31323232 33333334 34343535 35363636 37373738 38383939 39303030 3000ad47  [12223334445556667778889990000..G]
+00192: 5654e891 9befa986 e5999300 e356616c 7565e891 9befa986 e5999365 6469626c  [VT...........Value.........edibl]
+00224: 65426561 6e486170 70794265 61636800 ad4a4d53 54696d65 7374616d 7000d931  [eBeanHappyBeach..JMSTimestamp..1]
+00256: 3935382d 31312d32 39543230 3a30303a 30302e30 30305a00 ad4a4d53 4d657373  [958-11-29T20:00:00.000Z..JMSMess]
+00288: 61676549 4400c749 443a4235 32009121 7b225445 5854223a 22746573 7420636f  [ageID..ID:B52..!{"TEXT":"test co]
+00320: 6e74656e 74206672 6f6d204d 51545422 7d                                   [ntent from MQTT"}]
+
+MQTT send 30 PUBLISH connect=6: len=319 
+00000: 000a2f4d 71747454 6f4a6d73 90020200 00000103 00244d51 54542048 6f737465  [../MqttToJms.........$MQTT Hoste]
+00032: 64204a53 4f4e204d 65737361 67652063 6f6e7465 6e745479 70650800 1e2f4d51  [d JSON Message contentType.../MQ]
+00064: 54542f52 6573706f 6e736554 6f706963 2f4a4d53 5265706c 79546f09 00144d51  [TT/ResponseTopic/JMSReplyTo...MQ]
+00096: 54545f43 6f727265 6c617469 6f6e4461 74612600 044e616d 65000656 616c7565  [TT_CorrelationData&..Name..Value]
+00128: 31260006 4e756d62 6572001f 31313132 32323333 33343434 35353536 36363737  [1&..Number..11122233344455566677]
+00160: 37383838 39393930 30303026 000c4756 54e8919b efa986e5 99930022 56616c75  [78889990000&..GVT.........."Valu]
+00192: 65e8919b efa986e5 99936564 69626c65 4265616e 48617070 79426561 63682600  [e.........edibleBeanHappyBeach&.]
+00224: 0c4a4d53 54696d65 7374616d 70001831 3935382d 31312d32 39543230 3a30303a  [.JMSTimestamp..1958-11-29T20:00:]
+00256: 30302e30 30305a26 000c4a4d 534d6573 73616765 49440006 49443a42 35327b22  [00.000Z&..JMSMessageID..ID:B52{"]
+00288: 54455854 223a2274 65737420 636f6e74 656e7420 66726f6d 204d5154 54227d    [TEXT":"test content from MQTT"}]
+
+-->
+    <Action name="CompositeReceiveMQTT" type="CompositeAction" repeat="10">
+        <dependsOn action_id="CompositePublish"/>
+        <Action name="ReceiveMessageMQTT" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+            <ActionParameter name="waitTime">10000</ActionParameter>
+        </Action>
+
+        <Action name="CompareMessageDataMQTT" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+            <ActionParameter name="compareBody">{"TEXT":"test content from MQTT"}</ActionParameter>
+            <ActionParameter name="compareQoS">0</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+            <ApiParameter name="compareUserprop.0">Name=Value1</ApiParameter>
+            <ApiParameter name="compareUserprop.1">Number=1112223334445556667778889990000</ApiParameter>
+            <ApiParameter name="compareUserprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+            <ApiParameter name="compareUserprop.3">JMSTimestamp=1958-11-29T20:00:00.000Z</ApiParameter>
+            <ApiParameter name="compareUserprop.4">JMSMessageID=ID:B52</ApiParameter>
+            <ApiParameter name="compareContentType">MQTT Hosted JSON Message contentType</ApiParameter>
+            <ApiParameter name="compareResponseTopic">/MQTT/ResponseTopic/JMSReplyTo</ApiParameter>
+            <ApiParameter name="compareCorrelationData">MQTT_CorrelationData</ApiParameter>
+
+        </Action>
+    </Action>
+    
+    
+    <Action name="CloseConnection2" type="CloseConnection">
+          <dependsOn action_id="CompositeReceiveMQTT"/>
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnection" type="CloseConnection">
+          <dependsOn action_id="CompositePublish"/>
+          <dependsOn action_id="CompositeReceiveJMS"/>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+</IsmWSTest>
+                

@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="imaclient" default="build-client" basedir=".">
+	<echo/>
+	<echo/>
+	<echo>==== invoking ant build for client ====</echo>
+    <echo message="os.name = ${os.name}" />
+	<echo message="os.arch = ${os.arch}" />
+	<echo message="os.version = ${os.version}" />
+
+    <property environment="env"/>
+   	<property name="client.build.dir" value="${basedir}"/>
+    <property name="client.workspace" value="${client.build.dir}/.."/>
+    <property name="clientBuildToolsDir" value="${env.DEPS_HOME}"/>
+    <echo>clientBuildToolsDir=${clientBuildToolsDir}</echo>
+
+	<!-- Load contrib library -->
+	<taskdef resource="net/sf/antcontrib/antcontrib.properties" />
+
+	<!-- load client properties -->
+	<property file="${client.build.dir}/client_build.properties"/>
+    <condition property="buildLabel" value="${env.BUILD_LABEL}" else="${IMA_BUILD_DATETIME}_git-private">
+        <isset property="env.BUILD_LABEL" />
+    </condition>
+
+	<property name="env.client.workspace" value="${client.workspace}"/>
+
+    <property name="publishBuildTools" location="${client.workspace}/build_tools" />
+
+	<property name="client.deps.dir" value="${clientBuildToolsDir}"/>
+
+	<property name="client.common.dir" value="${client.workspace}/client_ship"/>
+	<property name="client.common.sdk.dir" value="${client.common.dir}/ImaClient"/>
+	<property name="client.common.techpreview.sdk.dir" value="${client.common.dir}/ImaTools"/>
+	<property name="client.common.sdk.jms.dir" value="${client.common.sdk.dir}"/>
+	<property name="client.common.ra.dir" value="${client.common.sdk.jms.dir}/ImaResourceAdapter"/>
+	<property name="client.common.jmssdk.dir" value="${client.common.sdk.jms.dir}/jms"/>
+	<property name="client.common.pluginsdk.dir" value="${client.common.techpreview.sdk.dir}/ImaPlugin"/>
+	<property name="client.common.inc.dir" value="${client.common.dir}/include"/>
+	<property name="client.common.lib.dir" value="${client.common.dir}/lib"/>
+	<property name="client.common.bin.dir" value="${client.common.dir}/bin"/>
+	<property name="client.common.lib64.dir" value="${client.common.dir}/lib64"/>
+	<property name="client.common.debug.lib64.dir" value="${client.common.dir}/debug/lib64"/>
+	<property name="client.common.lib32.dir" value="${client.common.dir}/lib32"/>
+	<property name="client.common.debug.lib32.dir" value="${client.common.dir}/debug/lib32"/>
+	<property name="client.common.web.dir" value="${client.common.dir}/web"/>
+	<property name="client.common.web.js.dir" value="${client.common.web.dir}/js"/>
+	<property name="client.common.web.css.dir" value="${client.common.web.dir}/css"/>
+	<property name="client.common.python.dir" value="${client.common.dir}/python"/>
+	<property name="server.ship.dir" value="${client.build.dir}/../server_ship"/>
+	<property name="server.common.lib.dir" value="${server.ship.dir}/lib"/>
+	<property name="server.common.debug.lib.dir" value="${server.ship.dir}/debug/lib"/>
+
+	<property name="client.jms.dir" value="${client.workspace}/client_jms"/>
+	<property name="client.plugin.dir" value="${client.workspace}/client_plugin"/>
+	<property name="client.python.dir" value="${client.workspace}/client_python"/>
+	<property name="client.proxy.dir" value="${client.workspace}/client_proxy"/>
+	<property name="client.ra.dir" value="${client.workspace}/client_ra"/>
+	<property name="client.mqtt.dir" value="${client.workspace}/client_mqtt"/>
+	<property name="client.mqttv3sample.java.dir" value="${client.build.dir}/../client_mqttv3sample_java"/>
+    <property name="client.jms.rpx.dir" value="${pseudoTranslation}"/>
+	<!-- the following property should be change if we put jms jars on the build machine -->
+	<property name="jms.jar.dir" value="${client.jms.dir}"/>
+	<property name="jms.xlated_readmes.dir" value="${client.build.dir}/translated_readmes/jms" />
+
+	<property environment="lxenv" />
+	<condition property="ISM_VERSION_ID" else="${lxenv.ISM_VERSION}" >
+		<isset property="ISM_VERSION_ID" />
+	</condition>
+
+	<echo message="Client build version=${ISM_VERSION_ID}" />
+
+
+	<!-- the following property reflects how the version will look like in a file name -->
+	<propertyregex property="ISM_VERSION_ID_NAME"
+	               input="${ISM_VERSION_ID}"
+	               regexp=" "
+	               replace="."
+	               global="true"
+	               override="true"
+		           defaultValue="${ISM_VERSION_ID}" />
+
+	<!-- build server projects first -->
+	<target name="build-client" depends="client_init2, build_jms">
+		<echo>==== invoking ant build for client ====</echo>
+		<ant dir="${client.plugin.dir}" inheritRefs="true" />
+		<ant dir="${client.ra.dir}" inheritRefs="true"/>
+		<ant dir="${client.python.dir}" inheritRefs="true"/>
+		<ant dir="${client.mqtt.dir}" inheritRefs="true"/>
+		<ant dir="${client.build.dir}/../client_js" inheritRefs="true"/>
+		<ant dir="${client.mqttv3sample.java.dir}" inheritRefs="true"/>
+		<ant dir="${client.build.dir}/../client_mqttv3sample_C" inheritRefs="true"/>
+		<ant dir="${client.workspace}/client_mqttbench" inheritRefs="true"/>
+		<ant dir="${client.workspace}/client_mqbench" inheritRefs="true"/>
+		<antcall target="client_tmp_copy"/>
+	</target>
+
+	<target name="build_jms">
+		<ant dir="${client.jms.dir}" inheritRefs="true"/>
+	</target>
+
+	<target name="build_sdk_oss" depends="build_jms">
+		<!-- Build the RA if we have the WAS jars available -->
+		<ant dir="${client.ra.dir}" target="optional_build_client_ra" inheritRefs="true"/>
+		<ant dir="${client.plugin.dir}" inheritRefs="true" />
+	</target>
+
+
+	<target name="build_client_proxy" depends="client_proxy_init">
+        <echo>==== invoking ant build for client proxy ====</echo>
+        <ant dir="${client.proxy.dir}" inheritRefs="true"/>
+    </target>
+
+    <target name="build-clientbundle" depends="build-client">
+		<echo file="${client.common.sdk.jms.dir}/jms/version.txt"
+                      message="${version.info}"
+        />
+    	<echo file="${client.common.ra.dir}/version.txt"
+    	              message="${raversion.info}"
+    	/>
+    	<echo file="${client.common.pluginsdk.dir}/version.txt"
+                      message="${pluginversion.info}"
+        />
+
+		<echo> ==  Copy python files to client_ship tree ================ </echo>
+        <mkdir dir="${client.common.python.dir}"/>
+		<copy todir="${client.common.python.dir}" preservelastmodified="yes">
+			<fileset dir="${client.python.dir}/scripts" />
+		</copy>
+		<chmod perm="755" dir="${client.common.python.dir}" includes="*.py" />
+
+        <copy todir="${client.common.sdk.jms.dir}/jms">
+            <fileset dir="${client.build.dir}/sample_projects/jmssamples">
+                <exclude name="README*" />
+             </fileset>
+        </copy>
+        <copy todir="${client.common.pluginsdk.dir}/samples/jsonmsgPlugin">
+            <fileset dir="${client.build.dir}/sample_projects/pluginsamples/jsonmsgPlugin"/>
+        </copy>
+        <copy todir="${client.common.pluginsdk.dir}/samples/jsonmsgClient">
+            <fileset dir="${client.build.dir}/sample_projects/pluginsamples/jsonmsgClient"/>
+        </copy>
+        <copy todir="${client.common.sdk.dir}/license" >
+            <fileset dir="${client.build.dir}/license"/>
+        </copy>
+
+    	<copy todir="${client.common.pluginsdk.dir}/samples/restmsgPlugin">
+    	                 <fileset dir="${client.build.dir}/sample_projects/pluginsamples/restmsgPlugin"/>
+        </copy>
+        <copy todir="${client.common.pluginsdk.dir}/samples/restmsgClient">
+                 <fileset dir="${client.build.dir}/sample_projects/pluginsamples/restmsgClient"/>
+        </copy>
+    	<copy todir="${client.common.techpreview.sdk.dir}/license" >
+    	    <fileset dir="${client.build.dir}/sdk_license"/>
+    	</copy>
+
+        <copy todir="${client.common.sdk.jms.dir}"
+            file="${client.build.dir}/sample_projects/jmssamples/README.txt" />
+        <copy todir="${client.common.sdk.jms.dir}">
+                 <fileset dir="${jms.xlated_readmes.dir}"/>
+        </copy>
+
+    	<copy todir="${client.common.pluginsdk.dir}"
+            file="${client.build.dir}/sample_projects/pluginsamples/README.txt" />
+
+        <copy todir="${client.common.pluginsdk.dir}"
+             file="${client.build.dir}/sample_projects/pluginsamples/README_de.txt" />
+
+    	<copy todir="${client.common.pluginsdk.dir}"
+    	    file="${client.build.dir}/sample_projects/pluginsamples/README_fr.txt" />
+
+    	<copy todir="${client.common.pluginsdk.dir}"
+    	    file="${client.build.dir}/sample_projects/pluginsamples/README_zh.txt" />
+
+    	<copy todir="${client.common.pluginsdk.dir}"
+    	    file="${client.build.dir}/sample_projects/pluginsamples/README_ja.txt" />
+
+        <copy todir="${client.common.pluginsdk.dir}"
+            file="${client.build.dir}/sample_projects/pluginsamples/README_ko.txt" />
+
+    	<!-- Copy Plugin PDF -->
+    	<!--
+    	<copy todir="${client.common.pluginsdk.dir}"
+    	            file="${client.build.dir}/sample_projects/pluginsamples/ProtocolPluginSDKTechPreview.pdf" />
+    	-->
+
+
+    	<!-- Zip the JMS Client -->
+        <zip destfile="${client.common.dir}/ImaJmsClientV${ISM_VERSION_ID_NAME}.zip"
+                basedir="${client.common.dir}"
+                includes="ImaClient/**"
+        />
+    	<!-- Zip the Plugin -->
+        <zip destfile="${client.common.dir}/ProtocolPluginV${ISM_VERSION_ID_NAME}.zip"
+                basedir="${client.common.dir}"
+                includes="ImaTools/**"
+        />
+    </target>
+
+	<target name="client_tmp_copy">
+        <mkdir dir="${client.common.dir}/test/client_jms"/>
+		<copy todir="${client.common.dir}/test/client_jms">
+                    <fileset dir="${client.jms.dir}/bin/test">
+		           <exclude name="**/*.so.map"/>
+		    </fileset>
+		</copy>
+	</target>
+
+	<target name="buildjmsbench" depends="build-client">
+    	<echo>==== invoking ant build for JMS perf benchmark test ====</echo>
+		<ant dir="${client.workspace}/perf_utils" inheritRefs="true"/>
+		<copy todir="${client.common.lib64.dir}">
+		    <fileset dir="${client.workspace}/perf_utils/lib64"/>
+		</copy>
+		<copy todir="${client.common.debug.lib64.dir}">
+		    <fileset dir="${client.workspace}/perf_utils/debug/lib64"/>
+		</copy>
+	</target>
+
+
+	<target name="buildmqttv3samples">
+    	<echo>==== invoking ant build for MQTT java samples ====</echo>
+		<ant dir="${client.workspace}/client_mqttv3sample_java" inheritRefs="true"/>
+	</target>
+
+	<target name="client_python_init">
+        <mkdir dir="${client.common.python.dir}"/>
+    </target>
+
+	<target name="client_proxy_init">
+        <mkdir dir="${client.common.lib.dir}"/>
+
+    </target>
+
+    <!-- Initialize the build environment -->
+	<target name="client_init" >
+		<mkdir dir="${client.common.inc.dir}"/>
+        <mkdir dir="${client.common.lib.dir}"/>
+        <mkdir dir="${client.common.bin.dir}"/>
+        <mkdir dir="${client.common.lib64.dir}"/>
+        <mkdir dir="${client.common.debug.lib64.dir}"/>
+        <mkdir dir="${client.common.web.dir}"/>
+        <mkdir dir="${client.common.web.js.dir}"/>
+
+        <mkdir dir="${client.common.sdk.jms.dir}"/>
+        <mkdir dir="${client.common.ra.dir}"/>
+        <mkdir dir="${client.common.jmssdk.dir}"/>
+        <mkdir dir="${client.common.jmssdk.dir}/doc"/>
+        <mkdir dir="${client.common.jmssdk.dir}/doc/javadoc"/>
+        <mkdir dir="${client.common.jmssdk.dir}/lib"/>
+        <mkdir dir="${client.common.jmssdk.dir}/samples"/>
+        <mkdir dir="${client.common.jmssdk.dir}/samples/com"/>
+
+        <!--Create directory for Plugin -->
+
+		<mkdir dir="${client.common.techpreview.sdk.dir}"/>
+		<mkdir dir="${client.common.techpreview.sdk.dir}/license"/>
+        <mkdir dir="${client.common.pluginsdk.dir}"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/doc"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/doc/javadoc"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/lib"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgPlugin"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgPlugin/src"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgPlugin/src/com"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgPlugin/config"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgPlugin/doc"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgClient"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgClient/css"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgClient/doc"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples/jsonmsgClient/js"/>
+		<mkdir dir="${client.common.inc.dir}"/>
+        <mkdir dir="${client.common.inc.dir}"/>
+		<mkdir dir="${client.common.lib.dir}"/>
+	    <mkdir dir="${client.common.bin.dir}"/>
+		<mkdir dir="${client.common.lib64.dir}"/>
+		<mkdir dir="${client.common.debug.lib64.dir}"/>
+		<mkdir dir="${client.common.web.dir}"/>
+		<mkdir dir="${client.common.web.js.dir}"/>
+		<!--Create directory for Plugin -->
+		<mkdir dir="${client.common.pluginsdk.dir}"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/doc"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/doc/javadoc"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/lib"/>
+        <mkdir dir="${client.common.pluginsdk.dir}/samples"/>
+    </target>
+
+	<target name="client_init2" depends="client_init">
+		<!-- copy libismutil.so into client_ship -->
+		<copy todir="${client.common.lib64.dir}" overwrite="true"
+			file="${server.common.lib.dir}/libismutil.so"/>
+		<copy todir="${client.common.debug.lib64.dir}" overwrite="true"
+			file="${server.common.debug.lib.dir}/libismutil.so"/>
+
+
+		<!-- copy JS SDK from C&I until into CLIENT_SHIP until SDK decision is made -->
+		<copy todir="${client.common.web.js.dir}" overwrite="true"
+			file="${client.deps.dir}/mqttws31.js"/>
+		<copy todir="${client.common.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/com.ibm.micro.client.mqttv3.jar"/>
+        <copy tofile="${client.common.lib.dir}/org.eclipse.paho.client.mqttv3.jar" overwrite="true"
+			file="${client.deps.dir}/org.eclipse.paho.client.mqttv3-1.2.5.jar"/>
+        <copy tofile="${client.common.lib.dir}/org.eclipse.paho.mqttv5.client.jar" overwrite="true"
+			file="${client.deps.dir}/org.eclipse.paho.mqttv5.client-1.2.5.jar"/>
+		<copy todir="${client.common.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/vertx-core-3.8.1.jar"/>
+		<copy todir="${client.common.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/netty-buffer-4.1.39.Final.jar"/>
+		<copy todir="${client.common.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/netty-common-4.1.39.Final.jar"/>
+		<copy todir="${client.common.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/netty-transport-4.1.39.Final.jar"/>
+		<copy todir="${client.common.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/netty-resolver-4.1.39.Final.jar"/>
+		<copy todir="${client.common.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/netty-handler-4.1.39.Final.jar"/>
+		<copy todir="${client.common.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/netty-handler-proxy-4.1.39.Final.jar"/>
+
+
+		<!-- copy JS Sample Application: HTML, JS, and CSS files -->
+		<copy todir="${client.common.web.js.dir}" overwrite="true"
+			file="${client.build.dir}/../client_js/web/samples/js/ism_sample_web.js"/>
+		<copy todir="${client.common.web.dir}" overwrite="true"
+			file="${client.build.dir}/../client_js/web/samples/ism_sample_pub.html"/>
+		<copy todir="${client.common.web.dir}" overwrite="true"
+			file="${client.build.dir}/../client_js/web/samples/ism_sample_sub.html"/>
+		<copy todir="${client.common.web.css.dir}" overwrite="true"
+			file="${client.build.dir}/../client_js/web/samples/css/ism_sample_web.css"/>
+        <copy todir="${client.common.web.css.dir}" overwrite="true" failonerror="false">
+                <fileset dir="${client.build.dir}/../client_js/web/template/css"/>
+        </copy>
+        <copy todir="${client.common.web.css.dir}" overwrite="true" failonerror="false">
+                <fileset dir="${client.build.dir}/../client_js/web/template/css"/>
+        </copy>
+
+
+    	<!-- change file permissions of scripts -->
+    	<chmod perm="755">
+    		<fileset id="scripts" dir="${client.build.dir}">
+	    		<include name="build.sh"/>
+	    	</fileset>
+    	</chmod>
+	</target>
+
+	<target name="client_clean">
+		<echo> ==  clean Ima client build ================ </echo>
+		<delete dir="${client.common.inc.dir}"/>
+		<delete dir="${client.common.lib.dir}"/>
+	    <delete dir="${client.common.bin.dir}"/>
+	    <delete dir="${client.workspace}/client_ship/bin"/>
+	    <delete dir="${client.workspace}/client_ship/ImaClient"/>
+		<delete dir="${client.workspace}/client_ship/ImaResourceAdapter"/>
+	    <delete file="${client.workspace}/client_ship/ImaJmsClientV${ISM_VERSION_ID_NAME}.zip"/>
+	    <delete dir="${client.workspace}/client_ship/include"/>
+	    <delete dir="${client.workspace}/client_ship/lib"/>
+        <delete dir="${client.workspace}/client_ship/lib64"/>
+        <delete dir="${client.workspace}/client_ship/test"/>
+        <delete dir="${client.workspace}/client_ship/debug"/>
+        <delete dir="${client.workspace}/client_ship/python"/>
+        <delete dir="${client.workspace}/client_ship/web"/>
+        <delete dir="${client.workspace}/client_jms/bin"/>
+        <delete dir="${client.workspace}/client_ra/bin"/>
+        <delete dir="${client.workspace}/client_mqtt/bin"/>
+        <delete dir="${client.workspace}/client_mqttv3sample_C/bin"/>
+        <delete dir="${client.workspace}/client_mqttv3sample_C/lib"/>
+        <delete dir="${client.workspace}/client_mqttv3sample_C/debug"/>
+        <delete dir="${client.workspace}/client_mqttv3sample_java/bin"/>
+        <delete dir="${client.workspace}/client_mqttbench/bin"/>
+        <delete dir="${client.workspace}/client_mqttbench/debug"/>
+        <delete dir="${client.workspace}/client_mqbench/bin"/>
+        <delete dir="${client.workspace}/client_mqbench/debug"/>
+	</target>
+
+	<target name="coverage" depends="client_init">
+		<clientJUnitAndCoverage project="client_jms" />
+		<clientJUnitAndCoverage project="client_ra" />
+		<clientJUnitAndCoverage project="client_mqtt" />
+		<clientJUnitAndCoverage project="client_proxy" />
+	</target>
+
+	<macrodef name="clientJUnitAndCoverage">
+		<attribute name="project" />
+		<sequential>
+			<echo message="Running @{project} JUnit tests and publishing coverage to SonarQube" />
+			<ant dir="${basedir}/../@{project}" inheritRefs="true">
+				<property name="generate_coverage" value="true" />
+			</ant>
+			<local name="retcode" />
+			<exec
+				dir="${basedir}/../@{project}"
+				executable="${build.dir}/coverage/run-sonar-scanner.sh"
+				resultproperty="retcode"
+				resolveexecutable="true"
+				failonerror="false">
+				<arg value="java" />
+				<arg value="@{project}" />
+				<arg value="${ISM_VERSION_ID}.${buildLabel}" />
+			</exec>
+        	<if>
+            	<equals arg1="${retcode}" arg2="0"/>
+	            <else>
+	                <echo>==== @{project} coverage failed ====</echo>
+	                <echo file="${workspace}/build_log/@{project}.errorcode"
+	                      message="@{project} coverage failed with exit code ${retcode} "/>
+        	    </else>
+	        </if>
+		</sequential>
+	</macrodef>
+</project>

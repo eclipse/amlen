@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: testMP_Setup
+
+   Test Category: SharedSubscription MQTT
+
+	Clean up any retained messages.. and then send any we need for later tests. 
+  -->
+<IsmWSTest name="testMP_Setup">
+  
+	<Action name="Setup" type="CompositeAction">
+	
+		<Action name="CreatePubConnection1" type="CreateConnection">
+			<ActionParameter name="structure_id">ConPub1</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MPSetup</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>CFPub1
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+		</Action>
+
+	    <Action name="DeleteAllRetained" type="DeleteAllRetainedMessages">
+	    	<!-- Make sure there are no RETAINed messages left that
+   	 		 I would receive -->
+   	   	  <ActionParameter name="connection_id">CFPub1</ActionParameter>
+		</Action>	
+  	  			
+		<Action name="CreateMessage_Retained_MP_01" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1Retained</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: A true retained message for a follow on test to find.</ApiParameter>
+			 <ApiParameter name="RETAIN">true</ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>				
+				
+	
+	<!-- The last one of these should be delivered as a retained message -->
+	<Action name="SendRetain_MP_01" type="SendMessage" interval="0" repeat="10" repeat_interval="0">
+		<ActionParameter name="connection_id">CFPub1</ActionParameter>
+		<ActionParameter name="message_id">txmsg1Retained</ActionParameter>
+		<ActionParameter name="topic">/SS_MP/MP_01_QOSM</ActionParameter>
+		<ActionParameter name="QoS">1</ActionParameter>
+	</Action>	
+	
+	<!-- The last one of these should be delivered as a retained message to another topic -->
+	<Action name="SendRetain_MP_02" type="SendMessage" interval="0" repeat="10" repeat_interval="0">
+		<ActionParameter name="connection_id">CFPub1</ActionParameter>
+		<ActionParameter name="message_id">txmsg1Retained</ActionParameter>
+		<ActionParameter name="topic">/SS_MP/MP_02_QOSM</ActionParameter>
+		<ActionParameter name="QoS">1</ActionParameter>
+	</Action>	
+	
+	<!-- The last one of these should be delivered as a retained message to another topic -->
+	<Action name="SendRetain_MP_03" type="SendMessage" interval="0" repeat="10" repeat_interval="0">
+		<ActionParameter name="connection_id">CFPub1</ActionParameter>
+		<ActionParameter name="message_id">txmsg1Retained</ActionParameter>
+		<ActionParameter name="topic">/SS_MP/MP_03_QOSM</ActionParameter>
+		<ActionParameter name="QoS">2</ActionParameter>
+	</Action>
+	
+		<!-- Action name="ShowRetainedMessagesStats" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Server </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowRetainedMessagesStats_With_Three" type="RestAPI">
+        <ActionParameter name="structureID">stat_imaserver_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- should be the three retained messages --> 
+    <Action name="compareShowRetainedMessagesStats_With_Three" type="CompareREST">
+        <ActionParameter name="structureID">stat_imaserver_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Server</ActionParameter>
+        <ActionParameter name="topLevelType">JSONObject</ActionParameter>
+        <ObjectProperty name="RetainedMessages" value="3"/>
+    </Action>					
+				
+
+		<Action name="ClosePubConnection1" type="CloseConnection">
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+  		</Action>
+ 		
+	
+	 </Action>  	 
+	 
+</IsmWSTest>   
+

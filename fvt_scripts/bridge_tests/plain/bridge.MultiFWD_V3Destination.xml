@@ -1,0 +1,650 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="bridge.MultiFwd_V3Destination" >
+
+<!--  MessageSight Bridge V3 Destination will loose V5 properties.  The Source and Destination tc's are identical and duplicated only to save logs from overwriting each other.
+    Using a Bridge Config with multiple forwards to same MS Servers, V3 and V5 Publishers will send messages to MS:A1 
+    The Bridge should ONLY receive/forward 4 messages that match the Forwarder Topic pattern transform to MS:A2
+    The V3 messages have no Properties other than QoS and Retain, the V5 messages will have many V5 Properties
+    and are checked when received from MS:A2 by the V3 and V5 subscriber mix.
+    
+-->
+
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>bridge.MultiFwd_V3Destination</solution>
+    </SyncClient>
+ 
+    
+<!--  ==========  v3v3Subscriber  ==========  -->
+    <Action name="v3v3Subscriber" type="CompositeAction">
+    
+    <!-- FAILs with 401, need to pass: -u "admin:admin" like with CURL -->
+        <Action name="GetForwarderStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``B1_HOST``:``B1_BRIDGEPORT``</ActionParameter>
+            <ActionParameter name="path">/admin/forwarder</ActionParameter>
+            <ActionParameter name="userID">``B1_REST_USER``</ActionParameter>
+            <ActionParameter name="password">``B1_REST_PW``</ActionParameter>
+            <ActionParameter name="requireSSL">false</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA1ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA2ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+    
+
+        <Action name="Connectv3v3Subscriber" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA2</ActionParameter>
+            <ActionParameter name="connection_id">CFv3v3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">A:x:v3v3Sub.MultiFWD</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+               
+<!--  When Proxy in between
+        <Action name="SubscribeIoT2" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv3v3</ActionParameter>
+            <ApiParameter name="topic">iot-2/evt/+/fmt/MultiFwd</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+-->
+<!--  When MS Servers ONLY in between -->
+        <Action name="SubscribeMS" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv3v3</ActionParameter>
+            <ApiParameter name="topic">iot-2/evt/+/fmt/MultiFwd</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+    
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">v3v3.1</ActionParameter>
+            <ActionParameter name="component_list">v3v3.1;v3v5.1;v5v3.1;v5v5.1;p3.1;p5.1</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveLoop" type="CompositeAction" repeat="1000" >
+        
+            <Action name="ReceiveMessage" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CFv3v3</ActionParameter>
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="compareBody">MSG :{ clientId:d:x:A1:v3Pub.MultiFWD , Client:v3}</ActionParameter>
+                <ActionParameter name="compareQoS">1</ActionParameter>
+                <ActionParameter name="compareRetain">false</ActionParameter> 
+            </Action>
+            
+        </Action>
+
+
+        
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143" >
+            <ActionParameter name="connection_id">CFv3v3</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+
+
+        <Action name="UnsubscribeMS" type="Unsubscribe" >
+            <ActionParameter name="connection_id">CFv3v3</ActionParameter>
+            <ApiParameter name="topic">iot-2/evt/+/fmt/MultiFwd</ApiParameter>
+        </Action>
+        
+        <Action name="Disconnectv3v3Subscriber" type="CloseConnection">
+            <ActionParameter name="connection_id">CFv3v3</ActionParameter>
+        </Action>
+               
+    </Action>
+
+
+<!--  ==========  v3v5Subscriber  ==========  -->
+    <Action name="v3v5Subscriber" type="CompositeAction">
+        
+        <Action name="Connectv3v5Subscriber" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA2</ActionParameter>
+            <ActionParameter name="connection_id">CFv3v5</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">A:x:v3v5Sub.MultiFWD</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+<!--  When Proxy in between
+        <Action name="SubscribeIoT2" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv3v5</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/+/fmt/MultiFwd</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+-->
+<!--  When MS Servers ONLY in between -->
+        <Action name="SubscribeMS" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv3v5</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/+/fmt/MultiFwd</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+        
+    
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">v3v5.1</ActionParameter>
+            <ActionParameter name="component_list">v3v3.1;v3v5.1;v5v3.1;v5v5.1;p3.1;p5.1</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveLoop" type="CompositeAction" repeat="1000" >
+        
+            <Action name="ReceiveMessage" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CFv3v5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="compareBody">MSG :{ clientId:d:x:A1:v3Pub.MultiFWD , Client:v3}</ActionParameter>
+                <ActionParameter name="compareQoS">1</ActionParameter>
+                <ActionParameter name="compareRetain">false</ActionParameter> 
+            </Action>
+            
+        </Action>
+
+
+        
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143" >
+            <ActionParameter name="connection_id">CFv3v5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+
+
+        <Action name="UnsubscribeMS" type="Unsubscribe" >
+            <ActionParameter name="connection_id">CFv3v5</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/+/fmt/MultiFwd</ApiParameter>
+        </Action>
+        
+        <Action name="Disconnectv3v5Subscriber" type="CloseConnection">
+            <ActionParameter name="connection_id">CFv3v5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+    </Action>
+
+ 
+    
+<!--  ==========  v5v3Subscriber  ==========  -->
+    <Action name="v5v3Subscriber" type="CompositeAction">
+        
+        <Action name="Connectv5v3Subscriber" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA2</ActionParameter>
+            <ActionParameter name="connection_id">CFv5v3</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">A:x:v5v3Sub.MultiFWD</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+               
+<!--  When Proxy in between
+        <Action name="SubscribeIoT2" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv5v3</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/+/id/+/evt/+/fmt/MultiFwd</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+-->
+<!--  When MS Servers ONLY in between -->
+        <Action name="SubscribeMS" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv5v3</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/+/id/+/evt/+/fmt/MultiFwd</ApiParameter>
+            <ApiParameter name="QoS">9</ApiParameter>
+            <!-- QoS:1 + RetainAsPublished:8 -->
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+    
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">v5v3.1</ActionParameter>
+            <ActionParameter name="component_list">v3v3.1;v3v5.1;v5v3.1;v5v5.1;p3.1;p5.1</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveLoop" type="CompositeAction" repeat="1000" >
+        
+            <Action name="ReceiveMessage" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CFv5v3</ActionParameter>
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="compareBody">{"MSG" :{ "clientId":"d:x:A1:v5Pub.MultiFWD" , "Client":"v5 with Properties"}}</ActionParameter>
+                <ActionParameter name="compareQoS">1</ActionParameter>
+                <ActionParameter name="compareRetain">false</ActionParameter> 
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <ApiParameter name="hasContentType">false</ApiParameter> 
+                <ApiParameter name="hasResponseTopic">false</ApiParameter> 
+                <ApiParameter name="hasCorrelationData">false</ApiParameter> 
+                <ApiParameter name="hasUserProperties">false</ApiParameter> 
+                <ApiParameter name="hasSubscriptionIdentifier">false</ApiParameter> 
+                <ApiParameter name="hasTopicAlias">false</ApiParameter> 
+            </Action>
+            
+        </Action>
+
+
+        
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143" >
+            <ActionParameter name="connection_id">CFv5v3</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+
+        
+        <Action name="UnsubscribeMS" type="Unsubscribe" >
+            <ActionParameter name="connection_id">CFv5v3</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/+/id/+/evt/+/fmt/MultiFwd</ApiParameter>
+        </Action>
+    
+        <Action name="Disconnectv5v3Subscriber" type="CloseConnection">
+            <ActionParameter name="connection_id">CFv5v3</ActionParameter>
+        </Action>
+               
+    </Action>
+
+
+<!--  ==========  v5v5Subscriber  ==========  -->
+    <Action name="v5v5Subscriber" type="CompositeAction">
+        
+        <Action name="Connectv3v5Subscriber" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA2</ActionParameter>
+            <ActionParameter name="connection_id">CFv5v5</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">A:x:v5v5Sub.MultiFWD</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+<!--  When Proxy in between
+        <Action name="SubscribeIoT2" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv5v5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/+/id/+/cmd/+/fmt/MultiFwd</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+-->
+<!--  When MS Servers ONLY in between -->
+        <Action name="SubscribeMS" type="Subscribe" >
+            <ActionParameter name="connection_id">CFv5v5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/+/id/+/cmd/+/fmt/MultiFwd</ApiParameter>
+            <ApiParameter name="QoS">9</ApiParameter>
+            <!-- QoS:1 + RetainAsPublished:8 -->
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+        
+    
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">v5v5.1</ActionParameter>
+            <ActionParameter name="component_list">v3v3.1;v3v5.1;v5v3.1;v5v5.1;p3.1;p5.1</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveLoop" type="CompositeAction" repeat="1000" >
+        
+            <Action name="ReceiveMessage" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CFv5v5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+                <ActionParameter name="compareBody">{"MSG" :{ "clientId":"d:x:A1:v5Pub.MultiFWD" , "Client":"v5 with Properties"}}</ActionParameter>
+                <ActionParameter name="compareQoS">1</ActionParameter>
+                <ActionParameter name="compareRetain">false</ActionParameter> 
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <ApiParameter name="hasContentType">false</ApiParameter> 
+                <ApiParameter name="hasResponseTopic">false</ApiParameter> 
+                <ApiParameter name="hasCorrelationData">false</ApiParameter> 
+                <ApiParameter name="hasUserProperties">false</ApiParameter> 
+                <ApiParameter name="hasSubscriptionIdentifier">false</ApiParameter> 
+                <ApiParameter name="hasTopicAlias">false</ApiParameter> 
+            </Action>
+            
+        </Action>
+
+
+        
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143" >
+            <ActionParameter name="connection_id">CFv5v5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">1000</ActionParameter>
+        </Action>
+
+
+        <Action name="UnsubscribeMS" type="Unsubscribe" >
+            <ActionParameter name="connection_id">CFv5v5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/+/id/+/cmd/+/fmt/MultiFwd</ApiParameter>
+        </Action>
+        
+        <Action name="Disconnectv3v5Subscriber" type="CloseConnection">
+            <ActionParameter name="connection_id">CFv5v5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+    </Action>
+    
+    
+<!--  ==========  v3Publisher  ==========  -->
+    <Action name="v3Publisher" type="CompositeAction">
+            
+        <Action name="ConnectV3Publisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">d:x:A1:v3Pub.MultiFWD</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+               
+
+        <Action name="CreateMessage_V3" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">MSG :{ clientId:d:x:A1:v3Pub.MultiFWD , Client:v3}</ApiParameter>
+        </Action>
+        
+    
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p3.1</ActionParameter>
+            <ActionParameter name="component_list">v3v3.1;v3v5.1;v5v3.1;v5v5.1;p3.1;p5.1</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+        
+        <Action name="PublishLoop" type="CompositeAction" repeat="250" >
+
+            <Action name="SendMessage_1evt" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">wiotp/evt/Bridge/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_1evt" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_1cmd" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">wiotp/cmd/Bridge/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_1cmd" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_2evt" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">wiotp/evt/Viaduct/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_2evt" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_2cmd" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">wiotp/cmd/Viaduct/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_2cmd" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_3evt" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">wiotp/evt/Catwalk/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_3evt" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_3cmd" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">wiotp/cmd/Catwalk/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_3cmd" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_4evt" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">wiotp/evt/Overpass/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_4evt" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_4cmd" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">wiotp/cmd/Overpass/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_4cmd" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+            </Action>
+
+            
+        </Action>            
+           
+
+        <Action name="DisconnectV3Publisher" type="CloseConnection">
+            <ActionParameter name="connection_id">CFA1v3</ActionParameter>
+        </Action>
+        
+    </Action>           
+
+    
+    
+<!--  ==========  v5Publisher  ==========  -->
+    <Action name="v5Publisher" type="CompositeAction">
+    
+        
+        <Action name="ConnectV5Publisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">d:x:A1:v5Pub.MultiFWD</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage_V5" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg5</ActionParameter>
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"MSG" :{ "clientId":"d:x:A1:v5Pub.MultiFWD" , "Client":"v5 with Properties"}}</ApiParameter>
+            <ApiParameter name="correlationData">69</ApiParameter>
+            <ApiParameter name="payloadFormatIndicator">true</ApiParameter>
+            <ApiParameter name="msgExpire">4294967295</ApiParameter>
+            <ApiParameter name="contentType">json</ApiParameter>
+            <ApiParameter name="responseTopic">reply/to/here/topic</ApiParameter>
+            <ApiParameter name="topicAlias">29</ApiParameter>
+            <ApiParameter name="userprop.0">Name=Value1</ApiParameter>
+            <ApiParameter name="userprop.1">Name=Value2</ApiParameter>
+            <ApiParameter name="userprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+        </Action>
+           
+        
+    
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p5.1</ActionParameter>
+            <ActionParameter name="component_list">v3v3.1;v3v5.1;v5v3.1;v5v5.1;p3.1;p5.1</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+        
+        <Action name="PublishLoop" type="CompositeAction" repeat="250" >
+
+            <Action name="SendMessage_1typeEvt" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">wiotp/type/A1/id/v3Publisher/evt/Bridge/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_1typeEvt" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_1typeCmd" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">wiotp/type/A1/id/v3Publisher/cmd/Bridge/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_1typeCmd" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_2typeEvt" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">wiotp/type/A1/id/v3Publisher/evt/Viaduct/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_2typeEvt" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_2typeCmd" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">wiotp/type/A1/id/v3Publisher/cmd/Viaduct/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_2typeCmd" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            </Action>
+            
+            <Action name="SendMessage_3typeEvt" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">wiotp/type/A1/id/v3Publisher/evt/Catwalk/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_3typeEvt" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_3typeCmd" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">wiotp/type/A1/id/v3Publisher/cmd/Catwalk/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_3typeCmd" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_4typeEvt" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">wiotp/type/A1/id/v3Publisher/evt/Overpass/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_4typeEvt" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            </Action>
+
+            <Action name="SendMessage_4TypeCmd" type="SendMessage">
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+                <ActionParameter name="message_id">txmsg5</ActionParameter>
+                <ActionParameter name="topic">wiotp/type/A1/id/v3Publisher/cmd/Overpass/fmt/MultiFwd</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery_4TypeCmd" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            </Action>
+            
+            
+        </Action>            
+           
+
+        <Action name="DisconnectA1Publisher" type="CloseConnection">
+            <ActionParameter name="connection_id">CFA1v5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+    </Action>           
+
+    
+</IsmWSTest>
+                

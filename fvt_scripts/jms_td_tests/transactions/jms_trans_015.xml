@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+	Test case:  jms_trans_015.xml
+
+	Description:
+		Acceptance test for the commit() operation on a transacted session.
+		Testing both synchronous and asynchronous consumers.
+
+		During a commit, the following actions occur:
+			1) All received packets are acked.
+			2) The queue of received messages is emptied
+			3) All messages in the send queue are sent
+
+		2 Producer connections, 
+		One with DisableAck = true
+		One with DisableAck = false
+		
+		DisableAck=True connection creates 1 producer with DeliveryMode NonPersistent
+		and sends 100 messages.
+		
+		DisableAck=False connection creates 2 producers
+		One producer is transacted with DeliveryMode NonPersistent
+		One producer is non-transacted with DeliveryMode NonPersistent
+		Both producers send 100 messages.
+		
+		The transacted JMS consumer receives the 300 messages and then does a rollback.
+		After rollback, it only receives 200 messages.
+		(The 200 sent be DisableAck=False connection. The DisableAck=True messages
+		 are the equivalent of QoS 0 and are already gone when the consumer does rollback.)
+        
+-->
+<ImaJmsTest name="jms_trans_015" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_trans_015</solution>
+	</SyncClient>
+  <Action name="rmdr" type="CompositeAction">
+
+
+	<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+	<Action name="syncReset" type="SyncAction">
+	  <ActionParameter name="request">reset</ActionParameter>
+	</Action>
+
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102" type="STRING"/>
+		<include>../common/JMS_server.xml</include>
+		<ImaProperty name="ClientMessageCache" value="0" type="INT"/>
+	</Action>
+	<Action name="CreateConnection" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateSession" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Ses1</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+	<Action name="CreateDestination" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans015</ApiParameter>
+	 	<ActionParameter name="structure_id">destRX</ActionParameter>
+	</Action>
+	<Action name="CreateConsumer" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer1</ActionParameter>
+		<ActionParameter name="dest_id">destRX</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="CreateConsumer2" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer2</ActionParameter>
+		<ActionParameter name="dest_id">destRX</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="CreateMessageListener" type="CreateMessageListener">
+		<ActionParameter name="structure_id">msg_listener_consumer2</ActionParameter>
+	</Action>
+	<Action name="SetMsgListener_consumer2" type="SetMessageListener">
+		<ActionParameter name="listener_id">msg_listener_consumer2</ActionParameter>
+		<ActionParameter name="consumer_id">consumer2</ActionParameter>
+	</Action>
+	<Action name="StartConnection" type="StartConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+
+	<!-- sync before sending/receiving messages -->
+	<Action name="sync_components" type="SyncComponentAction">
+		<ActionParameter name="component_name">rx1</ActionParameter>
+		<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<!-- A receive will be attempted before the Commit is called at the producer, which should fail. -->
+	<!--<Action name="ReceiveBeforeCommit" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">-->
+		<!--<ActionParameter name="consumer_id">consumer1</ActionParameter>-->
+		<!--<ActionParameter name="structure_id">rxmsg1</ActionParameter>-->
+		<!--<ApiParameter name="timeout">2000</ApiParameter>-->
+	<!--</Action>-->
+
+	<!--<Action name="ReceiveBeforeCommitAsync" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">-->
+		<!--<ActionParameter name="listener_id">msg_listener_consumer2</ActionParameter>-->
+		<!--<ActionParameter name="structure_id">rxmsg1</ActionParameter>-->
+		<!--<ApiParameter name="timeout">2000</ApiParameter>-->
+	<!--</Action>-->
+
+	<!-- sync after attempted receive, before producer commit -->
+	<!--<Action name="sync_components2" type="SyncComponentAction">-->
+		<!--<ActionParameter name="component_name">rx1_2</ActionParameter>-->
+		<!--<ActionParameter name="component_list">tx1_2;rx1_2</ActionParameter>-->
+		<!--<ActionParameter name="timeout">60000</ActionParameter>-->
+	<!--</Action>-->
+
+	<Action name="CompositeRcv" type="CompositeAction" expected="300" repeat_interval="0">
+		<Action name="ReceiveMessage" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+		<Action name="GetMessage" type="GetMessageText">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="CompositeRcvAsync" type="CompositeAction" expected="300" repeat_interval="0">
+		<Action name="ReceiveMessageAsync" type="ReceiveMessage">
+			<ActionParameter name="listener_id">msg_listener_consumer2</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+		<Action name="GetMessageAsync" type="GetMessageText">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+		</Action>
+	</Action>
+
+    <Action name="Rollback" type="SessionRollback">
+		<dependsOn name="CompositeRcv" interval="10000" />
+        <ActionParameter name="session_id">Ses1</ActionParameter>
+    </Action>
+
+	<Action name="CompositeRcvAfterRB" type="CompositeAction" expected="200" repeat_interval="0">
+		<Action name="ReceiveMessage" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+		<Action name="GetMessage" type="GetMessageText">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="CompositeRcvAsyncAfterRB" type="CompositeAction" expected="200" repeat_interval="0">
+		<Action name="ReceiveMessageAsync" type="ReceiveMessage">
+			<ActionParameter name="listener_id">msg_listener_consumer2</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+		<Action name="GetMessageAsync" type="GetMessageText">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="ReceiveFail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+		<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+		<ApiParameter name="timeout">2000</ApiParameter>
+	</Action>
+
+	<Action name="ReceiveAsyncFail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+		<ActionParameter name="listener_id">msg_listener_consumer2</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+		<ApiParameter name="timeout">2000</ApiParameter>
+	</Action>
+
+	<Action name="Commit" type="SessionCommit">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<Action name="ReceiveAfterCommit" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+		<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+		<ApiParameter name="timeout">2000</ApiParameter>
+	</Action>
+
+	<Action name="ReceiveAfterCommitAsync" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+		<ActionParameter name="listener_id">msg_listener_consumer2</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+		<ApiParameter name="timeout">2000</ApiParameter>
+	</Action>
+
+	<!-- sync after consumer commit -->
+	<Action name="sync_components3" type="SyncComponentAction">
+		<ActionParameter name="component_name">rx1_3</ActionParameter>
+		<ActionParameter name="component_list">tx1_3;rx1_3</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession" type="CloseSession">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="StopConnection" type="StopConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CloseConnection" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+  </Action>
+
+
+
+  <Action name="rmdt" type="CompositeAction">
+	<Action name="CreateFactoryDisableAckTrue" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1_true</ActionParameter>
+	</Action>
+	<Action name="CreateFactoryDisableAckFalse" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1_false</ActionParameter>
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryPropsDisableAckTrue" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1_true</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102"/>
+		<include>../common/JMS_server.xml</include>
+        <ImaProperty name="DisableAck" value="true"/>
+	</Action>
+	<Action name="SetFactoryPropsDisableAckFalse" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1_false</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102"/>
+		<include>../common/JMS_server.xml</include>
+	</Action>
+	<Action name="CreateConnectionDisableAckTrue" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1_true</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1_true</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateConnectionDisableAckFalse" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1_false</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1_false</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateSessionDisableAckTrue" type="CreateSession">
+		<ActionParameter name="conn_id">Con1_true</ActionParameter>
+	 	<ActionParameter name="structure_id">Ses1_true</ActionParameter>
+	</Action>
+	<Action name="CreateSessionDisableAckFalse" type="CreateSession">
+		<ActionParameter name="conn_id">Con1_false</ActionParameter>
+	 	<ActionParameter name="structure_id">Ses1_false</ActionParameter>
+	</Action>
+	<Action name="CreateSessionTransacted" type="CreateSession">
+		<ActionParameter name="conn_id">Con1_false</ActionParameter>
+	 	<ActionParameter name="structure_id">Ses1_transacted</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+	<Action name="CreateDestination" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">trans015</ApiParameter>
+		<ActionParameter name="structure_id">destRX</ActionParameter>
+	</Action>
+	<Action name="CreateProducerDisableAckTrue" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1_true</ActionParameter>
+		<ActionParameter name="dest_id">destRX</ActionParameter>
+		<ActionParameter name="session_id">Ses1_true</ActionParameter>
+        <ApiParameter name="deliveryMode">1</ApiParameter>
+	</Action>
+
+	<Action name="CreateProducerDisableAckFalse" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1_false</ActionParameter>
+		<ActionParameter name="dest_id">destRX</ActionParameter>
+		<ActionParameter name="session_id">Ses1_false</ActionParameter>
+        <ApiParameter name="deliveryMode">1</ApiParameter>
+	</Action>
+
+	<Action name="CreateProducerTransacted" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1_transacted</ActionParameter>
+		<ActionParameter name="dest_id">destRX</ActionParameter>
+		<ActionParameter name="session_id">Ses1_transacted</ActionParameter>
+        <ApiParameter name="deliveryMode">1</ApiParameter>
+	</Action>
+
+	<Action name="StartConnectionDisableAckTrue" type="StartConnection">
+		<ActionParameter name="conn_id">Con1_true</ActionParameter>
+	</Action>
+
+	<Action name="StartConnectionDisableAckFalse" type="StartConnection">
+		<ActionParameter name="conn_id">Con1_false</ActionParameter>
+	</Action>
+
+	<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+	<!-- Initialize the SyncDriver values -->
+	<Action name="CreateMessage1" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg1</ActionParameter>
+		<ActionParameter name="session_id">Ses1_false</ActionParameter>
+		<ApiParameter name="msgType">BYTES</ApiParameter>
+	</Action>
+	<Action name="SetMessage1Text" type="SetMessageText">
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+		<ApiParameter name="value">This is a test string message</ApiParameter>
+	</Action>
+
+	<!-- sync before sending/receiving messages -->
+	<Action name="sync_components" type="SyncComponentAction">
+		<ActionParameter name="component_name">tx1</ActionParameter>
+		<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<Action name="SendMessage1DisableAckTrue" type="SendMessage" repeat="100" repeat_interval="0">
+		<ActionParameter name="producer_id">producer1_true</ActionParameter>
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+	</Action>
+
+	<Action name="SendMessage1DisableAckFalse" type="SendMessage" repeat="100" repeat_interval="0">
+		<ActionParameter name="producer_id">producer1_false</ActionParameter>
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+	</Action>
+
+	<Action name="SendMessage1Transacted" type="SendMessage" repeat="100" repeat_interval="0">
+		<ActionParameter name="producer_id">producer1_transacted</ActionParameter>
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+	</Action>
+
+	<!-- sync after attempted receive, before producer commit -->
+	<!--<Action name="sync_components2" type="SyncComponentAction">-->
+		<!--<ActionParameter name="component_name">tx1_2</ActionParameter>-->
+		<!--<ActionParameter name="component_list">tx1_2;rx1_2</ActionParameter>-->
+		<!--<ActionParameter name="timeout">60000</ActionParameter>-->
+	<!--</Action>-->
+
+    <Action name="CommitSesTransacted" type="SessionCommit">
+        <ActionParameter name="session_id">Ses1_transacted</ActionParameter>
+    </Action>
+
+	<!-- sync after consumer commit -->
+	<Action name="sync_components3" type="SyncComponentAction">
+		<ActionParameter name="component_name">tx1_3</ActionParameter>
+		<ActionParameter name="component_list">tx1_3;rx1_3</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<Action name="CloseSessionDisableAckTrue" type="CloseSession">
+		<ActionParameter name="session_id">Ses1_true</ActionParameter>
+	</Action>
+	<Action name="CloseSessionDisableAckFalse" type="CloseSession">
+		<ActionParameter name="session_id">Ses1_false</ActionParameter>
+	</Action>
+	<Action name="CloseSessionTransacted" type="CloseSession">
+		<ActionParameter name="session_id">Ses1_transacted</ActionParameter>
+	</Action>
+	<Action name="StopConnectionDisableAckTrue" type="StopConnection">
+		<ActionParameter name="conn_id">Con1_true</ActionParameter>
+	</Action>
+	<Action name="StopConnectionDisableAckFalse" type="StopConnection">
+		<ActionParameter name="conn_id">Con1_false</ActionParameter>
+	</Action>
+	<Action name="CloseConnectionDisableAckTrue" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1_true</ActionParameter>
+	</Action>
+	<Action name="CloseConnectionDisableAckFalse" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1_false</ActionParameter>
+	</Action>
+  </Action>
+</ImaJmsTest>

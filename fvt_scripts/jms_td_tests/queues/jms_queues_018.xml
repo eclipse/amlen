@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name:
+
+   Test Category:  JMS Queues 018
+
+   Test Description: Simple Test that tries to use a QueueBrowser after it has
+   already been closed. Intended as a platform for adding other edge case tests.
+
+  -->
+<ImaJmsTest name="jms_queues_x">
+  <include>../common/jms_jndi_ldap.xml</include>
+
+  <Action name="Create_qcf1" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">qcf1</ActionParameter>
+    <ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+    <ActionParameter name="loglevel">9</ActionParameter>
+    <ActionParameter name="logfile">stdout</ActionParameter>
+  </Action>
+
+  <Action name="CreateConnection" type="CreateConnection">
+    <ActionParameter name="structure_id">conn</ActionParameter>
+    <ActionParameter name="factory_id">qcf1</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession" type="CreateSession">
+    <ActionParameter name="conn_id">conn</ActionParameter>
+    <ActionParameter name="structure_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="Create_JMSQueue06" type="CreateDestination">
+    <ActionParameter name="structure_id">Q06</ActionParameter>
+    <ActionParameter name="jndiName">jndi_queue6</ActionParameter>
+  </Action>
+
+  <Action name="CreateProducer" type="CreateProducer">
+    <ActionParameter name="structure_id">prod</ActionParameter>
+    <ActionParameter name="dest_id">Q06</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="CreateConsumer" type="CreateConsumer">
+    <ActionParameter name="structure_id">cons</ActionParameter>
+    <ActionParameter name="dest_id">Q06</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="CreateBrowser" type="CreateQueueBrowser">
+    <ActionParameter name="structure_id">Qbrowser</ActionParameter>
+    <ActionParameter name="queue_id">Q06</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="GetEnum" type="GetBrowserEnumeration">
+    <ActionParameter name="structure_id">enum1</ActionParameter>
+    <ActionParameter name="browser_id">Qbrowser</ActionParameter>
+  </Action>
+
+  <Action name="CreateTxtMessage" type="CreateMessage">
+    <ActionParameter name="structure_id">txtmsg</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+  </Action>
+
+  <Action name="SetTxtMsgText" type="SetMessageText">
+    <ActionParameter name="message_id">txtmsg</ActionParameter>
+    <ApiParameter name="value">Hello, World.</ApiParameter>
+  </Action>
+
+  <Action name="SetTxtMsgIDProp" type="SetMessageProperty">
+    <ActionParameter name="message_id">txtmsg</ActionParameter>
+    <ApiParameter name="propertyName">ID</ApiParameter>
+    <ApiParameter name="propertyType">Common</ApiParameter>
+    <ApiParameter name="valueType">Integer</ApiParameter>
+    <ApiParameter name="value">1</ApiParameter>
+  </Action>
+
+  <Action name="StartConnection" type="StartConnection">
+    <ActionParameter name="conn_id">conn</ActionParameter>
+  </Action>
+
+  <!-- put some messages on the Q -->
+  <Action name="SendMessages" type="SendMessage" repeat="10" repeat_interval="0">
+    <ActionParameter name="producer_id">prod</ActionParameter>
+    <ActionParameter name="message_id">txtmsg</ActionParameter>
+    <ActionParameter name="incrID">1</ActionParameter>
+  </Action>
+
+
+  <!-- poll before close -->
+  <Action name="PollBrowser_before_close" type="PollBrowser">
+    <ActionParameter name="enum_id">enum1</ActionParameter>
+    <ActionParameter name="maxID">10</ActionParameter>
+    <ActionParameter name="checkIDS">true</ActionParameter>
+    <ActionParameter name="messageIDS">messages</ActionParameter>
+    <ActionParameter name="existing_msgIDS">false</ActionParameter>
+  </Action>
+
+  <!-- CLOSE BROWSER -->
+  <Action name="CloseBrowser" type="CloseQueueBrowser">
+    <ActionParameter name="browser_id">Qbrowser</ActionParameter>
+  </Action>
+
+  <!-- THEN poll browser again -->
+  <Action name="PollBrowser_after_close" type="PollBrowser" rc="1" reason="JMSTDBrowseMissing">
+    <ActionParameter name="enum_id">enum1</ActionParameter>
+    <ActionParameter name="maxID">10</ActionParameter>
+    <ActionParameter name="checkIDS">true</ActionParameter> <!-- correctly fails if true -->
+    <ActionParameter name="messageIDS">messages</ActionParameter>
+    <ActionParameter name="existing_msgIDS">false</ActionParameter>
+  </Action>
+
+
+  <!-- receive the messages (cleanup) -->
+  <Action name="ReceiveCleanup" type="ReceiveMessage" repeat="10" repeat_interval="0">
+    <ActionParameter name="consumer_id">cons</ActionParameter>
+    <ActionParameter name="structure_id">rxdmsg</ActionParameter>
+    <ApiParameter name="timeout">2000</ApiParameter>
+  </Action>
+
+  <Action name="StopConnection" type="StopConnection">
+    <ActionParameter name="conn_id">conn</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection" type="CloseConnection">
+    <ActionParameter name="conn_id">conn</ActionParameter>
+  </Action>
+
+
+</ImaJmsTest>

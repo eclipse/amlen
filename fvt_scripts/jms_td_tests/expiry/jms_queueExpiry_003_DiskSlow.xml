@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_queueExpiry_003_Diskslow
+
+  Test Category: Message Expiration on systems where the reaper is SUPER slow because
+  the store is persisted to disk. 
+  
+  Test Description:
+    ExpiryA
+    Verify that messages on a queue are discarded at rest when the queue
+    has 1 consumer.
+    Set a large message cache so that messages are delivered to the consumer,
+    and set ClientAcknowledge so that the messages are not ack'd.
+    Keep the messages in the cache long enough for them to expire.
+    Close the connection without ack'ing the messages so that they
+    are still not ack'd.
+    Verify that the engine still goes and discards them at rest eventually.
+
+    ExpiryB
+    Verify that messages on a queue are discarded at rest when the queue
+    has 1 consumer.
+    Set a large message cache so that messages are delivered to the consumer,
+    and set ClientAcknowledge so that the messages are not ack'd.
+    Keep the messages in the cache long enough that the reaper thread
+    would have tried to expire them at rest.
+    Close the connection without ack'ing the messages so that they
+    are still not ack'd.
+    Verify that the engine still goes and discards them at rest eventually.
+-->
+<ImaJmsTest name="jms_queueExpiry_003">
+    <Action name="expiryA" type="CompositeAction">
+        <Action name="Create_qcf1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">qcf1</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>
+        </Action>
+
+        <Action name="fillProps" type="FillIsmProps">
+            <ActionParameter name="structure_id">qcf1</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="Port" value="20020" />
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="ClientMessageCache" value="500" type="INT"/>
+        </Action>
+
+        <Action name="CreateConnection_cf1" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+            <ActionParameter name="factory_id">qcf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateSession1_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session1_cf1</ActionParameter>
+            <ApiParameter name="ack_mode">2</ApiParameter>
+        </Action>
+
+        <Action name="Create_queue1" type="CreateDestination">
+            <ActionParameter name="structure_id">queue1</ActionParameter>
+            <ActionParameter name="type">queue</ActionParameter>
+            <ApiParameter name="name">expiryqueue</ApiParameter>
+        </Action>
+
+        <Action name="CreateProducer1_queue1" type="CreateProducer">
+            <ActionParameter name="structure_id">producer1_queue1</ActionParameter>
+            <ActionParameter name="dest_id">queue1</ActionParameter>
+            <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1_queue1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1_queue1</ActionParameter>
+            <ActionParameter name="dest_id">queue1</ActionParameter>
+            <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+            <ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+            <ActionParameter name="session_id">session1_cf1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>	
+
+        <!-- PRODUCER: Set message content -->				
+        <Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+            <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+            <ApiParameter name="value">TEXT: From my JNDI Factory objects</ApiParameter>
+        </Action>
+
+        <Action name="SendBytesMessage_prod_topic1" type="SendMessage" repeat="500" repeat_interval="0" interval="0" >
+            <ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+            <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+            <ApiParameter name="ttl">1000</ApiParameter>
+        </Action>
+
+        <Action name="statsBeforeClose" type="RestAPI">
+		    <ActionParameter name="structureID">statsBeforeClose</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	     	<ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueue</ActionParameter>
+		    <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	       	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    	
+	    <Action name="CompareStatsBeforeClose" type="CompareREST">
+	       	<ActionParameter name="structureID">statsBeforeClose</ActionParameter>
+	        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		    <ActionParameter name="subObjectKey">Name</ActionParameter>
+	       	<ActionParameter name="subObjectName">expiryqueue</ActionParameter>
+	        <ObjectProperty name="Producers" value="1"/>
+		    <ObjectProperty name="Consumers" value="1"/>
+		    <ObjectProperty name="ProducedMsgs" value="600"/>
+		    <ObjectProperty name="MaxMessages" value="2000"/>
+	    </Action>
+
+        <Action name="CloseConnection_cf1" type="CloseConnection">
+            <dependsOn name="statsBeforeClose" interval="2000"/>
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+
+        <!-- TODO: get some stats -->
+        <Action name="stats" type="RestAPI">
+		    <ActionParameter name="structureID">stats</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	     	<ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueue</ActionParameter>
+		    <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	       	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    	
+	    <Action name="CompareStats" type="CompareREST">
+	       	<ActionParameter name="structureID">stats</ActionParameter>
+	        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		    <ActionParameter name="subObjectKey">Name</ActionParameter>
+	       	<ActionParameter name="subObjectName">expiryqueue</ActionParameter>
+	        <ObjectProperty name="Producers" value="0"/>
+		    <ObjectProperty name="Consumers" value="0"/>
+	    </Action>
+	
+		<Action name="stats2" type="RestAPI">
+			<dependsOn name="CompareStats" interval="65000"/>
+		    <ActionParameter name="structureID">stats2</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	     	<ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueue</ActionParameter>
+		    <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	       	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    	
+	    <Action name="CompareStats2" type="CompareREST">
+	       	<ActionParameter name="structureID">stats2</ActionParameter>
+	        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		    <ActionParameter name="subObjectKey">Name</ActionParameter>
+	       	<ActionParameter name="subObjectName">expiryqueue</ActionParameter>
+	        <ObjectProperty name="Producers" value="0"/>
+		    <ObjectProperty name="Consumers" value="0"/>
+		    <ObjectProperty name="ExpiredMsgs" value="600"/>
+	    </Action>
+    </Action>
+
+    <Action name="expiryB" type="CompositeAction">
+        <Action name="Create_qcf1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">qcf1</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>
+        </Action>
+
+        <Action name="fillProps" type="FillIsmProps">
+            <ActionParameter name="structure_id">qcf1</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <ImaProperty name="Port" value="20020" />
+            <include>../common/JMS_server.xml</include>
+            <ImaProperty name="ClientMessageCache" value="500" type="INT"/>
+        </Action>
+
+        <Action name="CreateConnection_cf1" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+            <ActionParameter name="factory_id">qcf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateSession1_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session1_cf1</ActionParameter>
+            <ApiParameter name="ack_mode">2</ApiParameter>
+        </Action>
+
+        <Action name="Create_queue1" type="CreateDestination">
+            <ActionParameter name="structure_id">queue1</ActionParameter>
+            <ActionParameter name="type">queue</ActionParameter>
+            <ApiParameter name="name">expiryqueue2</ApiParameter>
+        </Action>
+
+        <Action name="CreateProducer1_queue1" type="CreateProducer">
+            <ActionParameter name="structure_id">producer1_queue1</ActionParameter>
+            <ActionParameter name="dest_id">queue1</ActionParameter>
+            <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1_queue1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1_queue1</ActionParameter>
+            <ActionParameter name="dest_id">queue1</ActionParameter>
+            <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+            <ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+            <ActionParameter name="session_id">session1_cf1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+
+        <!-- PRODUCER: Set message content -->
+        <Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+            <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+            <ApiParameter name="value">TEXT: From my JNDI Factory objects</ApiParameter>
+        </Action>
+
+        <Action name="SendBytesMessage_prod_topic1" type="SendMessage" repeat="500" repeat_interval="0" interval="0" >
+            <ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+            <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+            <ApiParameter name="ttl">1000</ApiParameter>
+        </Action>
+
+        <Action name="statsBeforeClose" type="RestAPI">
+		    <ActionParameter name="structureID">statsBeforeClose</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	     	<ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueue2</ActionParameter>
+		    <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	       	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    	
+	    <Action name="CompareStatsBeforeClose" type="CompareREST">
+	       	<ActionParameter name="structureID">statsBeforeClose</ActionParameter>
+	        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		    <ActionParameter name="subObjectKey">Name</ActionParameter>
+	       	<ActionParameter name="subObjectName">expiryqueue2</ActionParameter>
+	        <ObjectProperty name="Producers" value="1"/>
+		    <ObjectProperty name="Consumers" value="1"/>
+		    <ObjectProperty name="ProducedMsgs" value="4500"/>
+	    </Action>
+
+        <Action name="CloseConnection_cf1" type="CloseConnection">
+            <dependsOn name="statsBeforeClose" interval="2000"/>
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+
+        <!-- TODO: get some stats -->
+        <Action name="stats" type="RestAPI">
+        	<dependsOn name="CloseConnection_cf1" interval="2000"/>
+		    <ActionParameter name="structureID">stats</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	     	<ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueue2</ActionParameter>
+		    <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	       	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    	
+	    <Action name="CompareStats" type="CompareREST">
+	       	<ActionParameter name="structureID">stats</ActionParameter>
+	        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		    <ActionParameter name="subObjectKey">Name</ActionParameter>
+	       	<ActionParameter name="subObjectName">expiryqueue2</ActionParameter>
+	        <ObjectProperty name="Producers" value="0"/>
+		    <ObjectProperty name="Consumers" value="0"/>
+	    </Action>
+	
+		<Action name="stats2" type="RestAPI">
+			<dependsOn name="CompareStats" interval="65000"/>
+		    <ActionParameter name="structureID">stats2</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	     	<ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueue2</ActionParameter>
+		    <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	       	<ActionParameter name="printResult">true</ActionParameter>
+		    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    	
+	    <Action name="CompareStats2" type="CompareREST">
+	       	<ActionParameter name="structureID">stats2</ActionParameter>
+	        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		    <ActionParameter name="subObjectKey">Name</ActionParameter>
+	       	<ActionParameter name="subObjectName">expiryqueue2</ActionParameter>
+	        <ObjectProperty name="Producers" value="0"/>
+		    <ObjectProperty name="Consumers" value="0"/>
+		    <ObjectProperty name="ExpiredMsgs" value="4500"/>
+	    </Action>
+    </Action>
+</ImaJmsTest>

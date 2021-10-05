@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_ssl_002
+
+  Test Category:  JMS SSL
+  
+  Test Description: 
+    Test that attempting to connect with an invalid username or invalid
+    password fails. Test that we cannot create a producer or consumer on
+    a topic that is not covered by any Messaging Policy.
+
+    Connection Policies:
+    JMSSSLConnectionPolicy1 - Allows ClientID jms* to connect.
+    
+    Messaging Policies:
+    JMSSSLMessagingPolicy01  - Allows publish and subscribe to dest1 using JMS
+    JMSSSLMessagingPolicy02  - Allows publish to dest2
+    JMSSSLMessagingPolicy03  - Allows subscribe to dest3
+    JMSSSLMessagingPolicy04  - Allows publish and subscribe to dest4 using MQTT
+    JMSSSLMessagingPolicy05  - Allows UserID=JMSUser2 GroupID=JMSGroup1 to 
+                               publish and subscribe to dest5.
+                               (NOTE: UserID, GroupID are an AND condition.
+                                JMSUser2 must be a member of JMSGroup1.) 
+
+    Endpoints:
+    JMSSSLEndpoint1 - Port 18466
+
+-->
+<ImaJmsTest name="jms_ssl_002">
+
+		<Action name="Create_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="Port" value="18466"/>
+			<ImaProperty name="ClientID" value="jmsClient"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>
+		
+		<!-- Attempting to connect with a username that does not exist -->
+		<Action name="CreateConnectionFailUser_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connectionFailUser_cf</ActionParameter>
+			<ApiParameter name="user">JMSUser2fail</ApiParameter>
+			<ApiParameter name="passwd">admin</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession1Fail_user_cf1" type="CreateSession" rc="1" reason="CWLNC0207">
+			<ActionParameter name="conn_id">connectionFailUser_cf</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+	
+		<!-- Attempting to connect with a valid user, but incorrect password -->
+		<Action name="CreateConnectionFailPasswd_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connectionFailPasswd_cf</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">testfail</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+	
+		<Action name="CreateSession1Fail_pass_cf1" type="CreateSession" rc="1" reason="CWLNC0207">
+			<ActionParameter name="conn_id">connectionFailPasswd_cf</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+	
+		<!-- Create a connection with valid username and password -->
+		<Action name="CreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession2_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session2_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession3_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session3_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession4_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session4_cf1</ActionParameter>
+		</Action>
+
+		<Action name="Create_destFail" type="CreateDestination">
+			<ActionParameter name="structure_id">destFail</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">destFail</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest2" type="CreateDestination">
+			<ActionParameter name="structure_id">dest2</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest2</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest3" type="CreateDestination">
+			<ActionParameter name="structure_id">dest3</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest3</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest4" type="CreateDestination">
+			<ActionParameter name="structure_id">dest4</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest4</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest5" type="CreateDestination">
+			<ActionParameter name="structure_id">dest5</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest5</ApiParameter>
+		</Action>
+
+		<!-- None of the messaging policies on JMSSSLEndpoint1 allow subscription
+		     to destFail. -->
+		<Action name="CreateConsumer1_destFail" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1_destFail</ActionParameter>
+			<ActionParameter name="dest_id">destFail</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- None of the messaging policies on JMSSSLEndpoint1 allow publishing
+		     to destFail. -->
+		<Action name="CreateProducer1_destFail" type="CreateProducer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">producer1_destFail</ActionParameter>
+			<ActionParameter name="dest_id">destFail</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a consumer on dest2.
+		     This fails because JMSSSLMessagingPolicy2 only allows publishing to dest2 -->
+		<Action name="CreateConsumer1_dest2" type="CreateDurableSubscriber" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1_dest2</ActionParameter>
+			<ActionParameter name="dest_id">dest2</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">failDS</ApiParameter>
+		</Action>
+		
+		<!-- Create a consumer on dest3.
+		     This fails because JMSSSLMessagingPolicy3 only allows subscribing to dest3 -->
+		<Action name="CreateProducer1_dest3" type="CreateProducer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">producer1_dest3</ActionParameter>
+			<ActionParameter name="dest_id">dest3</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+
+		<!-- Create a consumer on dest4.
+		     This fails because JMSSSLMessagingPolicy4 only allows MQTT clients -->
+		<Action name="CreateConsumer1_dest4" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1_dest4</ActionParameter>
+			<ActionParameter name="dest_id">dest4</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+
+		<!-- Create a producer on dest4.
+		     This fails because JMSSSLMessagingPolicy4 only allows MQTT clients -->
+		<Action name="CreateProducer1_dest4" type="CreateProducer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">producer1_dest4</ActionParameter>
+			<ActionParameter name="dest_id">dest4</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a producer on dest2.
+		     This is allowed by JMSSSLMessagingPolicy2. -->
+		<Action name="CreateProducer1_dest2" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_dest2</ActionParameter>
+			<ActionParameter name="dest_id">dest2</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a consumer on dest3.
+		     This is allowed by JMSSSLMessagingPolicy3 -->
+		<Action name="CreateConsumer1_dest3" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1_dest3</ActionParameter>
+			<ActionParameter name="dest_id">dest3</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+		</Action>
+
+		<!-- Create a consumer on dest5.
+		     This is allowed by JMSSSLMessagingPolicy5 for JMSUser2 -->
+		<Action name="CreateConsumer1_dest5" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1_dest5</ActionParameter>
+			<ActionParameter name="dest_id">dest5</ActionParameter>
+			<ActionParameter name="session_id">session4_cf1</ActionParameter>
+		</Action>
+
+		<!-- Create a producer on dest5.
+		     This is allowed by JMSSSLMessagingPolicy5 for JMSUser2 -->
+		<Action name="CreateProducer1_dest5" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_dest5</ActionParameter>
+			<ActionParameter name="dest_id">dest5</ActionParameter>
+			<ActionParameter name="session_id">session3_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnection_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnectionUser_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connectionFailUser_cf</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnectionFailPasswd_cf1" type="CloseConnection">
+			<ActionParameter name="conn_id">connectionFailPasswd_cf</ActionParameter>
+		</Action>
+</ImaJmsTest>

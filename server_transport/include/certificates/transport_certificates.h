@@ -1,0 +1,29 @@
+#ifndef TRANS_CERT_H_DEFINED
+#define TRANS_CERT_H_DEFINED
+static char * fwd_certdata =
+    "&-----BEGIN CERTIFICATE-----\n"
+    "MIICBjCCAa2gAwIBAgIUM5gkIiRFFMWnPeJxCg2ulXjtTbgwCgYIKoZIzj0EAwIw\n"
+    "WDELMAkGA1UEBhMCWFgxFTATBgNVBAcMDERlZmF1bHQgQ2l0eTEQMA4GA1UECgwH\n"
+    "RWNsaXBzZTEOMAwGA1UECwwFQW1sZW4xEDAOBgNVBAMMB2NsdXN0ZXIwIBcNMjEw\n"
+    "NjI5MDk1NDM3WhgPMjEyMTA2MDUwOTU0MzdaMFgxCzAJBgNVBAYTAlhYMRUwEwYD\n"
+    "VQQHDAxEZWZhdWx0IENpdHkxEDAOBgNVBAoMB0VjbGlwc2UxDjAMBgNVBAsMBUFt\n"
+    "bGVuMRAwDgYDVQQDDAdjbHVzdGVyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE\n"
+    "tyXJyVD3v9mtclt7sSFKMWiK8W9pkGa/OfpQ2vrOP/TNr2DT6oz+JU4tGd3z6s7U\n"
+    "S7nGDKiu0jvPqjQ/HgwYz6NTMFEwHQYDVR0OBBYEFAlUsXJ1vSTIQROjyfVl/Hnz\n"
+    "odvrMB8GA1UdIwQYMBaAFAlUsXJ1vSTIQROjyfVl/HnzodvrMA8GA1UdEwEB/wQF\n"
+    "MAMBAf8wCgYIKoZIzj0EAwIDRwAwRAIgJg8vZj/un1jKatpgBuXMPLbwvOryNdtN\n"
+    "Hew/aqvlNwgCIAjbfgMEGtXy67IHxNSjZETxdngUEn+zPEuf3LlMwgyV\n"
+    "-----END CERTIFICATE-----\n";
+
+
+static char * fwd_keydata =
+    "&-----BEGIN EC PARAMETERS-----\n"
+    "BggqhkjOPQMBBw==\n"
+    "-----END EC PARAMETERS-----\n"
+    "-----BEGIN EC PRIVATE KEY-----\n"
+    "MHcCAQEEIF/3si6oSFuCdt4VJu7EClPLzNAATW9HR0RaV2zMzv4DoAoGCCqGSM49\n"
+    "AwEHoUQDQgAEtyXJyVD3v9mtclt7sSFKMWiK8W9pkGa/OfpQ2vrOP/TNr2DT6oz+\n"
+    "JU4tGd3z6s7US7nGDKiu0jvPqjQ/HgwYzw==\n"
+    "-----END EC PRIVATE KEY-----\n";
+
+#endif

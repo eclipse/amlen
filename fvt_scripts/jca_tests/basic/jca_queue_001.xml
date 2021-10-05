@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_queue_001
+
+   Test Category:  JCA Basic Tests
+   
+   Test Description:
+   Send 500 messages to hostname.send.Queue using a servlet. These messages are
+   then forwarded to hostname.reply.Queue which the test driver is consuming
+   the messages from.
+
+  -->
+<ImaJcaTest name="jca_basic_queue">
+
+  <include>../common/jms_jndi_ldap.xml</include>
+  
+  <!-- Retrieve the foreign connection factory from JNDI -->
+  <Action name="GetCF" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">cf</ActionParameter>
+    <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    <ActionParameter name="loglevel">9</ActionParameter>
+    <ActionParameter name="logfile">stdout</ActionParameter>
+  </Action>
+  
+  <Action name="CreateConnection" type="CreateConnection">
+    <ActionParameter name="structure_id">connection</ActionParameter>
+    <ActionParameter name="factory_id">cf</ActionParameter>
+  </Action>
+  
+  <Action name="CreateSession" type="CreateSession">
+    <ActionParameter name="conn_id">connection</ActionParameter>
+    <ActionParameter name="structure_id">session</ActionParameter>
+  </Action>
+  
+  <!-- log topic -->
+    <Action name="Create_log_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest</ActionParameter>
+      <ApiParameter name="name">/log/Topic/100</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+
+  <!-- log consumer -->
+  <Action name="CreateConsumerLog" type="CreateConsumer">
+    <ActionParameter name="structure_id">logConsumer</ActionParameter>
+    <ActionParameter name="dest_id">logDest</ActionParameter>
+    <ActionParameter name="session_id">session</ActionParameter>
+  </Action>
+  
+  <!--  Retrieve the replyTo topic from jndi.
+        Messages received by the MDB will be forwarded to this topic. -->
+  <Action name="Create_dest" type="CreateDestination">
+    <ActionParameter name="structure_id">dest</ActionParameter>
+    <ActionParameter name="jndiName">replyQueue</ActionParameter>
+  </Action>
+
+  <Action name="CreateConsumer1" type="CreateConsumer">
+    <ActionParameter name="structure_id">consumer</ActionParameter>
+    <ActionParameter name="dest_id">dest</ActionParameter>
+    <ActionParameter name="session_id">session</ActionParameter>
+  </Action>
+
+  <Action name="StartConnection" type="StartConnection">
+    <ActionParameter name="conn_id">connection</ActionParameter>
+  </Action>
+
+
+  <Action name="RX" type="CompositeAction" thread="4" repeat="5" interval="0" repeat_interval="0">
+    <dependsOn name="StartConnection"/>    
+
+	<Action name="ShowReplyQueue" type="RestAPI">
+	    <ActionParameter name="structureID">stat_output_1</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/monitor/Queue?Name=reply.Queue</ActionParameter>
+	    <ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	    <ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	<Action name="ShowSendQueue" type="RestAPI">
+	    <ActionParameter name="structureID">stat_output_2</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/monitor/Queue?Name=send.Queue</ActionParameter>
+	    <ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	    <ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	
+	<Action name="RXinner" type="CompositeAction" repeat="50" interval="0" repeat_interval="0">
+	    <Action name="RcvObjMessage0002_consumer1" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">consumer</ActionParameter>
+	        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+	        <ApiParameter name="timeout">60000</ApiParameter>
+	    </Action>
+	
+	    <Action name="GetTestProps0002" type="GetTestPropsMsg">
+	    	<dependsOn name="RcvObjMessage0002_consumer1" interval="0"/>
+	        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+	        <ActionParameter name="verifyValue">0100</ActionParameter>
+	    </Action>
+	</Action>
+  </Action>
+
+  <Action name="HitServlet" type="HttpAction" thread="3">
+    <dependsOn name="StartConnection"/>
+    <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+    <ActionParameter name="parameter">0100</ActionParameter>
+    <ActionParameter name="output">JCAServlet.jca_queue_001.log</ActionParameter>
+  </Action>
+  
+  <Action name="RX_and_Check_Log_Msgs" type="CompositeAction" repeat="250" repeat_interval="0">
+    <dependsOn name="HitServlet"/>
+    <dependsOn name="RX"/>
+    <Action name="RX_Log" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">logConsumer</ActionParameter>
+      <ActionParameter name="structure_id">log_msg</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+    <Action name="ShowLogs" type="GetMessageText">
+       <dependsOn name="RX_Log" interval="0"/>
+      <ActionParameter name="message_id">log_msg</ActionParameter>
+    </Action>
+  </Action>
+    
+  <Action name="CloseSession" type="CloseSession">
+    <dependsOn name="RX"/>
+    <ActionParameter name="session_id">session</ActionParameter>
+  </Action>
+
+  <Action name="StopConnection" type="StopConnection">
+    <ActionParameter name="conn_id">connection</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection" type="CloseConnection">
+    <ActionParameter name="conn_id">connection</ActionParameter>
+  </Action>
+</ImaJcaTest>

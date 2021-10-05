@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+	Test case:  jms_shared_scgMixed.xml
+	
+	Description:
+	
+	Tests the co-existance of shared durable and shared non-durable
+	subscriptions with the same durable name and generated clientID. 
+	
+	The closing and opening of consumers/sessions for one type should not
+	affect the subscription or buffered messages of the other type.  
+
+	Last Updated:      2013/07/28
+-->
+<ImaJmsTest name="jms_shared_scgMixed" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_shared_scgMixed</solution>
+	</SyncClient>
+  <Action name="cons1" type="CompositeAction">
+
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+	    <ActionParameter name="loglevel">9</ActionParameter>
+	    <ActionParameter name="logfile">stdout</ActionParameter>		
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102"/>
+		<include>../common/JMS_server.xml</include>
+	</Action>
+	
+	<!-- Create destination and consumer #1 to 4 -->
+	<Action name="CreateDestinationSDS" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">Shared_Mixed</ApiParameter>
+	 	<ActionParameter name="structure_id">dest_shared_mixed</ActionParameter>
+	</Action>
+		
+	<Action name="CreateConnection" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateSession1" type="CreateSession">
+		<dependsOn name="CreateConnection"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session1</ActionParameter>
+	</Action>
+	<Action name="CreateSession2" type="CreateSession" thread="2">
+		<dependsOn name="CreateConnection"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session2</ActionParameter>
+	</Action>
+	<Action name="CreateSession3" type="CreateSession" thread="3">
+		<dependsOn name="CreateConnection"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session3</ActionParameter>
+	</Action>
+	<Action name="CreateSession4" type="CreateSession" thread="4">
+		<dependsOn name="CreateConnection"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session4</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSharedDurableSubscriber1" type="CreateSharedDurableConsumer">
+		<ActionParameter name="structure_id">consumer1_SDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session1</ActionParameter>		
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>
+	
+	<Action name="CreateSharedDurableSubscriber2" type="CreateSharedDurableConsumer" thread="2">
+		<ActionParameter name="structure_id">consumer2_SDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session2</ActionParameter>
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>
+
+	<Action name="CreateSharedNonDurableSubscriber3" type="CreateSharedConsumer" thread="3">
+		<ActionParameter name="structure_id">consumer3_SNDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session3</ActionParameter>
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>
+	
+	<Action name="CreateSharedNonDurableSubscriber4" type="CreateSharedConsumer" thread="4">
+		<ActionParameter name="structure_id">consumer4_SNDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session4</ActionParameter>
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>
+	
+	<Action name="StartConnection" type="StartConnection">
+		<dependsOn name="CreateSharedDurableSubscriber1"/>
+		<dependsOn name="CreateSharedDurableSubscriber2"/>
+		<dependsOn name="CreateSharedNonDurableSubscriber3"/>
+		<dependsOn name="CreateSharedNonDurableSubscriber4"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+
+	<!-- sync before sending/receiving messages -->
+	<Action name="sync_components" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">cons1</ActionParameter>
+		<ActionParameter name="component_list">prod1;cons1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<!-- receive some messages on each consumer, then close sessions. 
+		Close the shared Durable first. then the shared non-durable -->
+	<Action name="CompositeRcv1_1" type="CompositeAction" repeat="300" repeat_interval="0"> 
+		<dependsOn name="sync_components"/>
+		<Action name="ReceiveMessage1_1" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1_SDS</ActionParameter>
+			<ActionParameter name="structure_id">consmsg1</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+	</Action>
+	
+	<Action name="CloseSession1" type="CloseSession">
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>	
+	
+	<Action name="CompositeRcv2_1" type="CompositeAction" repeat="300" repeat_interval="0" thread="2"> 
+		<Action name="ReceiveMessage2_1" type="ReceiveMessage" thread="2">
+			<ActionParameter name="consumer_id">consumer2_SDS</ActionParameter>
+			<ActionParameter name="structure_id">consmsg2</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+	</Action>
+	
+	<Action name="CloseSession2" type="CloseSession" thread="2">
+		<ActionParameter name="session_id">Session2</ActionParameter>
+	</Action>
+		
+	<Action name="CompositeRcv3_1" type="CompositeAction" repeat="300" repeat_interval="0" thread="3"> 
+		<Action name="ReceiveMessage3_1" type="ReceiveMessage" thread="3">
+			<ActionParameter name="consumer_id">consumer3_SNDS</ActionParameter>
+			<ActionParameter name="structure_id">consmsg3</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+	</Action>
+	
+	<Action name="CloseSession3" type="CloseSession" thread="3">
+		<dependsOn name="CloseSession1"/>
+		<dependsOn name="CloseSession2"/>
+		<ActionParameter name="session_id">Session3</ActionParameter>
+	</Action>	
+	
+	<Action name="CompositeRcv4_1" type="CompositeAction" repeat="300" repeat_interval="5" thread="4"> 
+		<Action name="ReceiveMessage4_1" type="ReceiveMessage" thread="4">
+			<ActionParameter name="consumer_id">consumer4_SNDS</ActionParameter>
+			<ActionParameter name="structure_id">consmsg4</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+	</Action>
+	
+	<Action name="CloseSession4" type="CloseSession" thread="4">
+		<dependsOn name="CloseSession1"/>
+		<dependsOn name="CloseSession2"/>
+		<ActionParameter name="session_id">Session4</ActionParameter>
+	</Action>		
+
+           <!-- we've received some msgs on each consumer, and closed them all. 
+           The durable subscription should have 400 buffered messages
+           The non-durable subscription should have left 400 messages in 
+           the buffer, but since it no longer exists, they should have been
+           discarded at this point, and an unsubscribe should have completed. --> 
+           
+	<!-- Cue sender to send another 1000 messages. -->
+	<Action name="sync_components1b" type="SyncComponentAction"> 
+		<dependsOn name="CloseSession3"/>
+		<dependsOn name="CloseSession4"/>
+		<ActionParameter name="component_name">cons1b</ActionParameter>
+		<ActionParameter name="component_list">prod1b;cons1b</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>           
+	
+	<!-- Wait for sender to send those 1000 messages. -->
+	<Action name="sync_components1c" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">cons1c</ActionParameter>
+		<ActionParameter name="component_list">prod1c;cons1c</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>        	
+           
+           
+	<!-- Now, recreate three sessions and consumers, and verify that
+		buffered messages (both those unreceived, and sent while no active
+		subscribers) are received on the shared durable subscription, and that none of those 
+		are received on the shared non-durable subscriptions --> 
+
+	<!-- Action name="ReCreateSession1" type="CreateSession">
+		<dependsOn name="sync_components1c"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session1</ActionParameter>
+	</Action -->
+	<Action name="ReCreateSession2" type="CreateSession" thread="2">
+		<dependsOn name="sync_components1c"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session2</ActionParameter>
+	</Action>
+	<Action name="ReCreateSession3" type="CreateSession" thread="3">
+		<dependsOn name="sync_components1c"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session3</ActionParameter>
+	</Action>
+	<Action name="ReCreateSession4" type="CreateSession" thread="4">
+		<dependsOn name="sync_components1c"/>
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session4</ActionParameter>
+	</Action>
+	
+	<!-- Action name="ReCreateSharedDurableSubscriber1" type="CreateSharedDurableConsumer">
+		<ActionParameter name="structure_id">consumer1_SDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session1</ActionParameter>		
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action -->
+	
+	<Action name="ReCreateSharedDurableSubscriber2" type="CreateSharedDurableConsumer" thread="2">
+		<ActionParameter name="structure_id">consumer2_SDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session2</ActionParameter>
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>
+
+	<Action name="ReCreateSharedNonDurableSubscriber3" type="CreateSharedConsumer" thread="3">
+		<ActionParameter name="structure_id">consumer3_SNDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session3</ActionParameter>
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>
+	
+	<Action name="ReCreateSharedNonDurableSubscriber4" type="CreateSharedConsumer" thread="4">
+		<ActionParameter name="structure_id">consumer4_SNDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session4</ActionParameter>
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>	
+
+	<!--Action name="CompositeRcv1_2" type="CompositeAction" repeat="300" repeat_interval="5"> 
+		< Action name="ReceiveMessage1_2" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1_SDS</ActionParameter>
+			<ActionParameter name="structure_id">consmsg1</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+	</Action -->
+	
+	<Action name="CompositeRcv2_2" type="CompositeAction" repeat="1400" repeat_interval="0" thread="2"> 
+		<Action name="ReceiveMessage2_2" type="ReceiveMessage"  thread="2">
+			<ActionParameter name="consumer_id">consumer2_SDS</ActionParameter>
+			<ActionParameter name="structure_id">consmsg2</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+	</Action>
+	
+	<Action name="CloseConsumer2" type="CloseConsumer" thread="2">
+		<ActionParameter name="consumer_id">consumer2_SDS</ActionParameter>
+	</Action>	
+	
+	<Action name="VerifyNoMsgOn_SNDS_cons3" type="ReceiveMessage" thread="3" rc="1" reason="JMSTDNullMsg">
+		<ActionParameter name="consumer_id">consumer3_SNDS</ActionParameter>
+		<ActionParameter name="structure_id">consmsg3</ActionParameter>
+		<ApiParameter name="timeout">2000</ApiParameter>
+	</Action>		
+	
+	<Action name="CloseConsumer3" type="CloseConsumer" thread="3">
+		<ActionParameter name="consumer_id">consumer3_SNDS</ActionParameter>
+	</Action>		
+	
+	<Action name="VerifyNoMsgOn_SNDS_cons4" type="ReceiveMessage" thread="4" rc="1" reason="JMSTDNullMsg">
+		<ActionParameter name="consumer_id">consumer4_SNDS</ActionParameter>
+		<ActionParameter name="structure_id">consmsg4</ActionParameter>
+		<ApiParameter name="timeout">2000</ApiParameter>
+	</Action>	
+
+	<Action name="CloseConsumer4" type="CloseConsumer" thread="4">
+		<ActionParameter name="consumer_id">consumer4_SNDS</ActionParameter>
+	</Action>	
+	
+
+	<!-- All consumers are inactive again. Unsubscribe the shared Durable Consumer. -->
+	
+	<Action name="Unsubscribe" type="Unsubscribe" thread="2">
+		<dependsOn name="CloseConsumer2"/>
+		<dependsOn name="CloseConsumer3"/>
+		<dependsOn name="CloseConsumer4"/>
+		<ActionParameter name="session_id">Session2</ActionParameter>
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>		
+
+
+	<Action name="ReCreateSharedNonDurableSubscriber3_again" type="CreateSharedConsumer" thread="3">
+		<dependsOn name="Unsubscribe"/>
+		<ActionParameter name="structure_id">consumer3_SNDS</ActionParameter>
+		<ActionParameter name="dest_id">dest_shared_mixed</ActionParameter>
+		<ActionParameter name="session_id">Session3</ActionParameter>
+		<ApiParameter name="durableName">shared_Mixed</ApiParameter>
+	</Action>
+	
+	<!-- Cue sender to send another 500 messages. -->
+	<Action name="sync_components1d" type="SyncComponentAction"> 
+		<dependsOn name="ReCreateSharedNonDurableSubscriber3_again"/>
+		<ActionParameter name="component_name">cons1d</ActionParameter>
+		<ActionParameter name="component_list">prod1d;cons1d</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action> 
+
+	<Action name="CompositeRcv3_3" type="CompositeAction" repeat="500" repeat_interval="0" thread="3"> 
+		<Action name="ReceiveMessage3_3" type="ReceiveMessage" thread="3">
+			<ActionParameter name="consumer_id">consumer3_SNDS</ActionParameter>
+			<ActionParameter name="structure_id">consmsg3</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+	</Action>
+
+	<Action name="StopConnection" type="StopConnection">
+		<dependsOn name="CompositeRcv3_3"/> 
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CloseConnection" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+</Action>
+  
+<Action name="prod1" type="CompositeAction">
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102"/>
+		<include>../common/JMS_server.xml</include>
+	</Action>
+	<Action name="CreateConnection" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateSession" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	 	<ActionParameter name="structure_id">Ses1</ActionParameter>
+	</Action>
+
+	<!-- Create destination and producer #1 -->
+	<Action name="CreateDestination1" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">Shared_Mixed</ApiParameter>
+	 	<ActionParameter name="structure_id">dest1</ActionParameter>
+	</Action>
+	<Action name="CreateProducer1" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<Action name="StartConnection" type="StartConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+
+	<Action name="CreateMessage1" type="CreateMessage">
+		<ActionParameter name="structure_id">prodmsg1</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">BYTES</ApiParameter>
+	</Action>
+
+	<Action name="SetMessage1Text" type="SetMessageText">
+		<ActionParameter name="message_id">prodmsg1</ActionParameter>
+		<ApiParameter name="value">This is a test loop 1 from test jms_shared_scgMixed</ApiParameter>
+	</Action>
+	
+	<Action name="CreateMessage2" type="CreateMessage">
+		<ActionParameter name="structure_id">prodmsg2</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">BYTES</ApiParameter>
+	</Action>
+
+	<Action name="SetMessage2Text" type="SetMessageText">
+		<ActionParameter name="message_id">prodmsg2</ActionParameter>
+		<ApiParameter name="value">This is test loop 2 from test jms_shared_scgMixed</ApiParameter>
+	</Action>	
+	
+	<Action name="CreateMessage3" type="CreateMessage">
+		<ActionParameter name="structure_id">prodmsg3</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">BYTES</ApiParameter>
+	</Action>
+
+	<Action name="SetMessage3Text" type="SetMessageText">
+		<ActionParameter name="message_id">prodmsg3</ActionParameter>
+		<ApiParameter name="value">This is test loop 3 from test jms_shared_scgMixed</ApiParameter>
+	</Action>		
+
+	<Action name="sync_components" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">prod1</ActionParameter>
+		<ActionParameter name="component_list">prod1;cons1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<Action name="SendMessages1" type="SendMessage" repeat="1000" repeat_interval="0">    
+		<ActionParameter name="producer_id">producer1</ActionParameter>
+		<ActionParameter name="message_id">prodmsg1</ActionParameter>
+	</Action>
+	
+	<Action name="sync_components1b" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">prod1b</ActionParameter>
+		<ActionParameter name="component_list">prod1b;cons1b</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+	
+	<Action name="SendMessages2" type="SendMessage" repeat="1000" repeat_interval="0">    
+		<ActionParameter name="producer_id">producer1</ActionParameter>
+		<ActionParameter name="message_id">prodmsg2</ActionParameter>
+	</Action>	
+
+	<Action name="sync_components1c" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">prod1c</ActionParameter>
+		<ActionParameter name="component_list">prod1c;cons1b</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+	
+	<!-- Send another 500 messages. -->
+	<Action name="sync_components1d" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">prod1d</ActionParameter>
+		<ActionParameter name="component_list">prod1d;cons1d</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action> 	
+
+	<Action name="SendMessages3" type="SendMessage" repeat="500" repeat_interval="0">    
+		<ActionParameter name="producer_id">producer1</ActionParameter>
+		<ActionParameter name="message_id">prodmsg3</ActionParameter>
+	</Action>				
+	
+	<Action name="CloseSession" type="CloseSession">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="StopConnection" type="StopConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CloseConnection" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+  </Action>
+</ImaJmsTest>

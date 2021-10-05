@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+  -->
+
+<project name="testTools_JCAra" default="build_evilra">
+  <property file="build.properties"/>
+  <property environment="env"/>
+  <property name="evil.ra.dir"            location="." />
+  <property name="evil.ra.src.dir"        location="${evil.ra.dir}/src" />
+  <property name="evil.ra.bin.dir"        location="${evil.ra.dir}/bin" />
+  <property name="evil.ra.lib.dir"        location="${evil.ra.bin.dir}/lib" />
+  <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+
+  <!-- define evil_ra JAR file name -->
+  <property name="evilra.jar" location="${evil.ra.lib.dir}/evilra.jar"/>
+
+  <!-- define evil_ra RAR file name -->
+  <property name="ima.evilra.rar" location="${evil.ra.lib.dir}/ima.evilra.rar"/>
+
+  <!-- Required Classpaths -->
+  <path id="compile.classpath">
+    <pathelement location="${client.deps.dir}/j2ee.jar" />
+    <pathelement location="${testTools.ship.lib.dir}/JMSTestDriver.jar" />
+  </path>
+
+  <target name="clean">
+    <delete includeemptydirs="true" dir="${evil.ra.bin.dir}" />
+  </target>
+
+  <!-- Initialize the build environment -->
+  <target name="evil_ra_init">
+        <mkdir dir="${evil.ra.lib.dir}"/>
+  </target>
+
+  <!-- Hey you, FIX THIS -->
+  <target name="evilra_publish" depends="build_evilra_rar">
+        <echo> ==  Copy files to tree ================ </echo>
+  		<copy todir="${testTools.ship.lib.dir}" preservelastmodified="yes">
+  	        <fileset dir="${evil.ra.lib.dir}" />
+  	    </copy>
+  </target>
+
+  <!-- Build all normal targets  -->
+  <target name="build_evilra"  depends="clean, build_evilra_rar, evilra_publish">
+        <echo> ==  Invoking ant for evil_ra build ============= </echo>
+  </target>
+
+  <!-- Build output jar file -->
+  <target name="build_evilra_jar" depends="evilra_compile" >
+    <!-- copy MANIFEST.MF file -->
+    <delete file="${evil.ra.bin.dir}/META-INF/MANIFEST.MF" />
+    <copy file="${evil.ra.src.dir}/META-INF/MANIFEST.MF" todir="${evil.ra.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+    <!-- set version id in the MANIFEST.MF file -->
+    <replace file="${evil.ra.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+    <!-- set build id in the MANIFEST.MF file -->
+    <replace file="${evil.ra.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+    <jar destfile="${evilra.jar}">
+      <fileset dir="${evil.ra.bin.dir}" includes="**/*.class, **/*.properties, **/*.xsd" excludes="test/**, samples/**" />
+      <zipfileset includes="**/*.class" src="${testTools.ship.lib.dir}/JMSTestDriver.jar"/>
+    </jar>
+    <!-- keepcompression=true to keep the current jar compress,
+         but compress=false to add the manifest as uncompressed  -->
+    <jar update="true" keepcompression="true" compress="false" destfile="${evilra.jar}" manifest="${evil.ra.bin.dir}/META-INF/MANIFEST.MF" />
+  </target>
+
+  <!-- Build output rar file -->
+  <target name="build_evilra_rar" depends="build_evilra_jar" >
+        <!-- copy MANIFEST.MF file -->
+        <delete file="${evil.ra.bin.dir}/META-INF/MANIFEST.MF" />
+        <copy file="${evil.ra.src.dir}/META-INF/MANIFEST.MF" todir="${evil.ra.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+        <copy file="${evil.ra.src.dir}/META-INF/ra.xml" todir="${evil.ra.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+        <!-- set version id in the MANIFEST.MF file -->
+        <replace file="${evil.ra.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+        <!-- set build id in the MANIFEST.MF file -->
+        <replace file="${evil.ra.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+        <jar destfile="${ima.evilra.rar}">
+          <fileset dir="${evil.ra.lib.dir}" includes="evilra.jar" />
+          <fileset dir="${evil.ra.bin.dir}" includes="**/*.xml" />
+        </jar>
+        <!-- keepcompression=true to keep the current jar compress,
+         but compress=false to add the manifest as uncompressed  -->
+        <jar update="true" keepcompression="true" compress="false" destfile="${ima.evilra.rar}" manifest="${evil.ra.bin.dir}/META-INF/MANIFEST.MF" />
+  </target>
+
+
+  <!--Compile the project-->
+  <target name="evilra_compile" depends="evil_ra_init">
+    <echo> === Compile Evil RA === </echo>
+    <pathconvert property="expanded.compile.classpath" refid="compile.classpath" />
+    <echo message="${expanded.compile.classpath}" />
+        <javac source="1.6" target="1.6" srcdir="${evil.ra.src.dir}" destdir="${evil.ra.bin.dir}" deprecation="no"
+           includeAntRuntime="no"
+           debug="yes" debuglevel="lines,source,vars" optimize="yes">
+          <src path="${evil.ra.src.dir}" />
+          <classpath refid="compile.classpath" />
+        </javac>
+    <echo> === End Comile Evil RA === </echo>
+  </target>
+
+
+</project>

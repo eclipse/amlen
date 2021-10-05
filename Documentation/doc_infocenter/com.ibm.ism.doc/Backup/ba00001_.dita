@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN"
+ "task.dtd">
+<?Pub Sty _display FontColor="red"?>
+<task id="ba00001_" xml:lang="en-us">
+<title>Creating a backup of the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> messaging server</title>
+<!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+<!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+<!--Put your short description next; used for first paragraph and abstract.-->
+<shortdesc>System administrators can create a secure backup of the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> messaging server
+by using <ph conref="../TextEntities.dita#TextEntities/RESTAPIs"></ph> and
+standard system tools.</shortdesc>
+<!--To optimize PDF retrievability, add prolog and indexing tags that help crystalize why users should be looking up this topic (purpose, task, and what they will learn)-->
+<!--<prolog><metadata><keywords><indexterm></indexterm></keywords></metadata></prolog>-->
+<taskbody>
+<prereq> <ul>
+<li>To ensure consistency of the backup, perform the backup procedure
+while the <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> server
+is in maintenance mode.</li>
+<li>If your server is a member of a cluster:<ul>
+<li>Ensure that you back up the configuration data and store data.</li>
+<li>To avoid a conflict, do not start a server by using the backed-up
+data while the original server is still running.</li>
+<li>Do not disable cluster membership while you are backing up your
+server. Disabling cluster membership causes the store to be emptied.</li>
+</ul></li>
+</ul> </prereq>
+<context> <p>System administrators can create a secure backup that
+can be used to restore the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> configuration
+and store data. Both of these sets of data are in directories in your
+file system and can be backed up by using standard system tools. Configuration
+data and store data can be backed up together or separately.</p> </context>
+<steps>
+<step><cmd>Check that the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> server is running
+by using the <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> REST
+API GET method with the following URI:</cmd><info> <codeblock>http://&lt;admin-endpoint-IP:port>/ima/v1/service/status/</codeblock> </info>
+</step>
+<step><cmd>Set the <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> server
+to maintenance mode by using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> REST API POST
+method with the following URI:</cmd><info> <codeblock>http://&lt;admin-endpoint-IP:port>/ima/v1/service/restart</codeblock> <p>Provide
+configuration data in the payload of the POST method by using the
+following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>:</p> <codeblock>
+{    
+  "Service": "Server",
+  "Maintenance": "start"
+}</codeblock> </info></step>
+<step><cmd>When the server is in maintenance mode, use your standard
+system tools to back up the contents of the following directories:</cmd>
+<info> <ul>
+<li><filepath>var/messagesight/data</filepath></li>
+<li><filepath>var/messagesight/store</filepath></li>
+</ul> <note>If you are operating in a Docker environment, ensure that
+you mount these directories on the host volume or volumes and back
+up the corresponding host directory or directories.</note> </info>
+</step>
+<step><cmd>Restart the server in production mode by using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> REST API POST
+method with the following URI:</cmd><info> <codeblock>http://&lt;admin-endpoint-IP:port>/ima/v1/service/restart/</codeblock> <p>Provide
+configuration data in the payload of the POST method by using the
+following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>:</p> <codeblock>
+{    
+  "Service": "Server",
+  "Maintenance": "stop"
+}</codeblock> </info></step>
+</steps>
+<example>The following example shows creating a backup of the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> server:<p>Check
+that the server is running:<screen>[admin@localhost ~]$ curl -X GET http://127.0.0.1:9089/ima/v1/service/status
+{ 
+  "Version":"v1",
+  "Server": {
+    "Name": "TestSystem:9089",
+    "UID": "aFWxYf32",
+    "Status": "Running",
+    "State": 1,
+    "StateDescription": "Running (production)",
+    "ServerTime": "2016-03-04T14:46:53.081Z",
+    "UpTimeSeconds": 4134,
+    "UpTimeDescription": "0 days 1 hours 8 minutes 54 seconds",
+    "Version": "2.0 20160304-0400",
+    "ErrorCode": 0,
+    "ErrorMessage": ""
+  },
+  "Container": {
+    "UUID":"034c91ce828a4f5c2c21d7cd7f04628368b63bd308825ec2d9dab5096ff04ca0"
+  },
+  "HighAvailability": {
+    "Status": "Inactive",
+    "Enabled": false
+  },  
+  "Cluster": {
+    "Status": "Inactive",
+    "Enabled": false
+  },  
+  "Plugin": {
+    "Status": "Inactive",
+    "Enabled": false
+  },  
+  "MQConnectivity": {
+    "Status": "Active",
+    "Enabled": true
+  },  
+  "SNMP": {
+    "Status": "Inactive",
+    "Enabled": false
+  }
+}
+
+</screen></p><p>Set the server to maintenance mode:<screen>[admin@localhost ~]$ curl -X POST \
+>    -H  'Content-Type: application/json'  \
+>    -d  '{
+>          "Service": "Server",
+>            "Maintenance": "start",
+>           }
+>   '   \
+> http://127.0.0.1:9089/ima/v1/service/restart
+
+[admin@localhost ~]$ curl -k -H "Content-Type: application/json" -X GET  
+https://127.0.0.1:9089/ima/v1/service/status
+{
+  "Version":"v1",
+  "Server": {
+    "Name": "TestSysem:9089",
+    "UID": "aFWxYf32",
+    "Status": "Running",
+    "State": 9,
+    "StateDescription": "Running (maintenance)",
+    "ServerTime": "2016-03-04T14:46:53.081Z",
+    "UpTimeSeconds": 4140,
+    "UpTimeDescription": "0 days 1 hours 8 minutes 57 seconds",
+    "Version": "2.0 20160304-0400",
+    "ErrorCode": 0,
+    "ErrorMessage": ""
+  },
+  "Container": {
+    "UUID":"034c91ce828a4f5c2c21d7cd7f04628368b63bd308825ec2d9dab5096ff04ca0"
+  },
+  "HighAvailability": {
+    "Status": "Inactive",
+    "Enabled": false
+  },
+  "Cluster": {
+    "Status": "Inactive",
+    "Enabled": false
+  },
+  "Plugin": {
+    "Status": "Inactive",
+    "Enabled": false
+  },
+  "MQConnectivity": {
+    "Status": "Inactive",
+    "Enabled": false
+  },
+  "SNMP": {
+    "Status": "Inactive",
+    "Enabled": false
+  }
+}
+
+  
+</screen></p><p>Back up <filepath>var/messagesight/data</filepath> and <filepath>var/messagesight/store</filepath>:<screen>[admin@localhost ~]$ zip -r -P &lt;<varname>password</varname>> messagesight-11042015-0933.zip /var/messagesight/data 
+/var/messagesight/store 
+adding: mnt/messagesight/data/ (stored 0%)  
+adding: mnt/messagesight/data/config/ (stored 0%)  
+adding: mnt/messagesight/data/config/accepted.json (stored 0%)  
+adding: mnt/messagesight/data/config/server_docker.cfg (deflated 70%)  
+adding: mnt/messagesight/data/config/store.init (stored 0%)  
+adding: mnt/messagesight/data/config/testLicense.json (stored 0%)  
+adding: mnt/messagesight/data/config/ILMT_PROD.def (stored 0%)  
+adding: mnt/messagesight/data/config/ILMT_NONPROD.def (stored 0%)  
+adding: mnt/messagesight/data/config/mqclient.ini (deflated 70%)  
+adding: mnt/messagesight/data/config/server.cfg (deflated 70%)  
+adding: mnt/messagesight/data/config/IBMIoTMessageSight.service (deflated 52%)  
+adding: mnt/messagesight/data/config/vmprofile.cfg (deflated 53%)  
+adding: mnt/messagesight/data/config/MessageSightInstance.inited (stored 0%)  
+adding: mnt/messagesight/data/config/.serverCFGUpdated (stored 0%)  
+adding: mnt/messagesight/data/config/server_dynamic.json.org (deflated 73%)  
+adding: mnt/messagesight/data/config/server_dynamic.json.bak (deflated 73%)  
+adding: mnt/messagesight/data/config/server_dynamic.json (deflated 73%)  
+adding: mnt/messagesight/data/certificates/ (stored 0%)  
+adding: mnt/messagesight/data/certificates/keystore/ (stored 0%)  
+adding: mnt/messagesight/data/certificates/keystore/AdminDefaultKey.pem (deflated 21%)  
+adding: mnt/messagesight/data/certificates/keystore/AdminDefaultCert.pem (deflated 34%)  
+adding: mnt/messagesight/data/certificates/LDAP/ (stored 0%)  
+adding: mnt/messagesight/data/certificates/MQC/ (stored 0%)  
+adding: mnt/messagesight/data/certificates/truststore/ (stored 0%)  
+adding: mnt/messagesight/data/certificates/LTPAKeyStore/ (stored 0%)  
+adding: mnt/messagesight/data/certificates/OAuth/ (stored 0%)  
+adding: mnt/messagesight/data/certificates/PSK/ (stored 0%)  
+adding: mnt/messagesight/store/ (stored 0%)  
+adding: mnt/messagesight/store/com.ibm.ism/ (stored 0%)  
+adding: mnt/messagesight/store/com.ibm.ism/com.ibm.ism.0.store.lock (stored 0%)  
+adding: mnt/messagesight/store/persist/ (stored 0%)  
+adding: mnt/messagesight/store/persist/PState (deflated 32%)  
+adding: mnt/messagesight/store/persist/CPM_0_1 (deflated 97%)  
+adding: mnt/messagesight/store/persist/CPG_0_1 (deflated 98%)  
+adding: mnt/messagesight/store/persist/ST_0_0 (deflated 100%)  
+adding: mnt/messagesight/store/persist/ST_1_0 (deflated 100%)  
+adding: mnt/messagesight/store/persist/ST_0_1 (deflated 100%)  
+adding: mnt/messagesight/store/persist/ST_1_1 (deflated 100%)  
+adding: mnt/messagesight/store/persist/CPM_0_0 (deflated 95%)  
+adding: mnt/messagesight/store/persist/CPG_0_0 (deflated 98%)</screen></p><p>Restart
+the server in production mode:<screen>[admin@localhost ~]$ curl -X POST \
+>    -H  'Content-Type: application/json'  \
+>    -d  '{
+>          "Service": "Server",
+>            "Maintenance": "stop",
+>           }
+>   '   \
+> http://127.0.0.1:9089/ima/v1/service/restart
+</screen></p><p>Check that the server is running in production mode::<screen>[admin@localhost ~]$ curl -k -H "Content-Type: application/json" -X GET
+ https://127.0.0.1:9089/ima/v1/service/status 
+ "Version":"v1",
+  "Server": {
+    "Name": "TestSysem:9089",
+    "UID": "aFWxYf32",
+    "Status": "Running",
+    "State": 1,
+    "StateDescription": "Running (production)",
+    "ServerTime": "2016-03-04T14:46:53.081Z",
+    "UpTimeSeconds": 24,
+    "UpTimeDescription": "0 days 0 hours 0 minutes 24 seconds",
+    "Version": "2.0 20160304-0400",
+    "ErrorCode": 0,
+    "ErrorMessage": ""
+  },
+  "Container": {
+    "UUID":"034c91ce828a4f5c2c21d7cd7f04628368b63bd308825ec2d9dab5096ff04ca0"
+  },
+  "HighAvailability": {
+    "Status": "Inactive",
+    "Enabled": false
+  },
+  "Cluster": {
+    "Status": "Inactive",
+    "Enabled": false
+  },
+  "Plugin": {
+    "Status": "Inactive",
+    "Enabled": false
+  },
+  "MQConnectivity": {
+    "Status": "Inactive",
+    "Enabled": false
+  },
+  "SNMP": {
+    "Status": "Inactive",
+    "Enabled": false
+  }
+}
+
+</screen></p></example>
+</taskbody>
+<related-links>
+<link href="../Reference/BackupCmd/cmd_export_serverconfig.dita"></link>
+<link href="../Reference/BackupCmd/cmd_import_serverconfig.dita"></link><?Pub
+Caret -2?>
+</related-links>
+</task>
+<?Pub *0000011012?>

@@ -1,0 +1,832 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_MessageExpiry_01
+
+  Test Category: MessageExpiration
+  
+  Test Description:
+  
+  The MessageSight engine has three types of queues internally. This large, multi-part
+  test covers the various parts of message expiration in all three. The * items are in 
+  this xml. 
+  
+  *simpQ: is used for MQTT QoS=0 (except shared)
+  *intermediateQ: is used for MQTT QoS=1 and QoS=2 (except shared)
+  *multiuserQ: is used for JMS Subscribers, for all shared subscriptions, and for JMS Queues
+  
+  Note: the multiuserQ in this xml is set up as a shared subscription, but is only accessed
+  by a single consumer. It will still
+  
+  
+	This test is run in three sections: 
+	
+	1.  Durable Subscription setup. (ds_setup)
+	2.  Message Sending. (Pub)
+	3.  Message Receiving. 
+	
+	Between steps 2 and 3, other tests run in order to allow time for 
+	the messages to expire and be discarded. 
+	
+	This test also coordinates with MessageExpiry_01_mqtt.xml, which has the same three
+	sections (plus a collector used for verification.) 
+	
+	ds_setup: 
+	
+		Creates two durable subscriptions, one of which is shared.
+	
+	pub:
+	
+		Sends a variety of messages to various /Expiry/"topic" with different expirations: 
+		
+		a. JMS no expiration ** 
+		b. JMS TTL with a short time.
+		c. JMS TTL with a long time. ** 
+		d. JMS Admin set MaxMessageLife with a short time
+		e. JMS Admin set MaxMessageLife with a long time ** 
+		f. JMS TTL > Admin set MaxMessageLife
+		g. JMS TTL < Admin set MaxMessage life. 
+		
+	
+		Sent from mqtt: 
+		
+		h. MQTT no expiration ** 
+		i. MQTT Admin set MaxMessageLife with a short time
+		j. MQTT  Admin set MaxMessageLife with a long time **
+		
+		** These messages should not expire before the the subscribers get them.  
+				
+	subs: 
+	
+		Wildcard subsribers to /Expiry/* 
+		
+		Receive all the non-expired messages on both subscriptions. 
+		
+		For the SharedSubscriptions, forward the messages to the MQTT Collector to 
+		count that we got them all. 
+		
+-->
+		
+<IsmWSTest name="MessageExpiry_01_jms">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>MessageExpiry_01</solution>
+	</SyncClient>
+ 
+	<Action name="ds_setup" type="CompositeAction">
+	
+	     <!-- QoS=0 , which uses simpQ in the engine -->
+  		
+		<Action name="CreateSubConnection_QoS_0_Clear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_0</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_0</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_0_Clear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+	    </Action>	
+	    
+	    <!-- Create a QoS=0 durable subscriptions --> 
+		<Action name="CreateSubConnection_QoS_0" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_0</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_0</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+  		</Action>    
+  		
+		<Action name="Subscribe_QoS_0" type="Subscribe">
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<ApiParameter name="topic">/MessageExpiry_01/+</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_0" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+	    </Action>	
+	    
+	    
+	     <!-- QoS=1, which uses intermediateQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_1_Clear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_1</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_1</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_1_Clear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+	    </Action>	
+	    
+	    <!-- Create a QoS=1 durable subscriptions --> 
+		<Action name="CreateSubConnection_QoS_1" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_1</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_1</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+  		
+		<Action name="Subscribe_QoS_1" type="Subscribe">
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<ApiParameter name="topic">/MessageExpiry_01/+</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_1" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+	    </Action>	  		 
+
+	     <!-- QoS=2 , which uses intermediateQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_2_Clear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_2</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_2_Clear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>	
+	    
+	    <!-- Create a QoS=2 durable subscription --> 
+		<Action name="CreateSubConnection_QoS_2" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_2</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action>    
+  		
+		<Action name="Subscribe_QoS_2" type="Subscribe">
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<ApiParameter name="topic">/MessageExpiry_01/+</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_2" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>	 
+			
+	     <!-- QoS=1, SharedSubscriptions which uses multiuserQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_1Shared_Clear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_1S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_1S</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_1Shared_Clear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+	    </Action>	
+	    
+	     <!-- QoS=1, SharedSubscriptions which uses multiuserQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_1Shared_Clear2" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_2S</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_1Shared_Clear2" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+	    </Action>		    
+	    
+	    <!-- Create a QoS=1 shared durable subscription which uses multiQ --> 
+		<Action name="CreateSubConnection_QoS_1Shared" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_1S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_1S</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+  		
+		<Action name="Subscribe_QoS_1Shared" type="Subscribe">
+			<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/Message_Expiry_01_MQTT//MessageExpiry_01/+</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_1Shared" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+	    </Action>
+	    	        		    
+	    
+	    <!-- Create a QoS=1 shared durable subscription which uses multiQ --> 
+		<Action name="CreateSubConnection_QoS_2Shared" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_2S</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+  		
+		<Action name="Subscribe_QoS_2Shared" type="Subscribe">
+			<ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/Message_Expiry_01_MQTT//MessageExpiry_01/+</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>
+		
+	    <Action name="CloseConnection_QoS_2Shared" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2S</ActionParameter>
+	    </Action>	    	        
+	    	         
+		<!-- signal durable subscriptions are ready --> 
+    	<Action name="SyncMQTT_DS_Ready" type="SyncAction">
+            <ActionParameter name="request">set</ActionParameter>
+            <ActionParameter name="condition">MQTT_DS_Ready</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+        </Action>
+
+	     <!-- Collector. This subscription is used to receive from the JMS Shared
+	     Subscription and it 'counts' the messages to assure they are all received.  -->
+	      		 		
+	     <Action name="CreateSubConnection_Collector_Clear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_Coll</ActionParameter>
+			<ActionParameter name="connection_id">Con_Coll</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_Coll</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_Collector_Clear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_Coll</ActionParameter>
+	    </Action>	
+	    
+	    <!-- Create a QoS=1 shared durable subscription which uses multiQ --> 
+		<Action name="CreateSubConnection_Collector" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_Coll</ActionParameter>
+			<ActionParameter name="connection_id">Con_Coll</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_Coll</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+  		
+		<Action name="Subscribe_Collector" type="Subscribe">
+			<ActionParameter name="connection_id">Con_Coll</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/Message_Expiry_01_Collector//MessageExpiry/Collector/+</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>
+		
+	    <Action name="CloseConnection_Collector" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_Coll</ActionParameter>
+	    </Action>       
+		
+	 </Action>  
+	 
+	<Action name="QoS_0Sub" type="CompositeAction">
+  		
+    <!-- Reconnect to the QoS=0 durable subscriptions --> 
+		<Action name="CreateSubConnection_QoS_0" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_0</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_0</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+  		</Action>    
+  
+	 	<!-- Receive messages that have not expired, or had no expiration --> 
+		<Action name="CompositeReceive_N_16102" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessage_N_16102" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_16102</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_16102" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_16102" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_16102</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>
+		
+		<Action name="CompositeReceive_N_16102_Long" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessage_N_16102_Long" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_16102_Long</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_16102_Long" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_16102_Long" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_16102_Long</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: 999999999 </ActionParameter>				
+			</Action>			
+		</Action>		
+				
+				
+		<Action name="CompositeReceive_N_19501" type="CompositeAction" repeat="3"> 	 	
+			<Action name="ReceiveMessage_N_19501" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_19501</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_19501" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_19501" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_19501</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 19501 AdminTTL: Long MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>	
+		
+		<Action name="CompositeReceiveMore_N_16102" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessageMore_N_16102" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgMore_N_16102</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageTextMore_N_16102" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessageMore_N_16102" interval="0"/>
+				<ActionParameter name="structure_id">rxmsgMore_N_16102</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>
+		
+		<Action name="ReceiveNoMoreMessages" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<ActionParameter name="structure_id">nomore</ActionParameter>
+			<ActionParameter name="waitTime">1000</ActionParameter>
+		</Action>		
+	
+    	<Action name="Unsubscribe" type="Unsubscribe">
+	    	<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+	    	<ApiParameter name="topic">/MessageExpiry_01/+</ApiParameter>
+	    </Action>
+		
+	    <Action name="CloseConnection1" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+	    </Action>	
+	    
+		<Action name="CreateSubConnection_QoS_0_ReClear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_0</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_0</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_0_ReClear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_0</ActionParameter>
+	    </Action>		    
+
+	 </Action>
+	 
+	<Action name="QoS_1Sub" type="CompositeAction">
+  		
+    <!-- Reconnect to the QoS=1 durable subscriptions --> 
+		<Action name="CreateSubConnection_QoS_1" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_1</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_1</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+
+	 	<!-- Receive messages that have not expired, or had no expiration --> 
+		<Action name="CompositeReceive_N_16102" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessage_N_16102" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_16102</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_16102" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_16102" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_16102</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>
+		
+		<Action name="CompositeReceive_N_16102_Long" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessage_N_16102_Long" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_16102_Long</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_16102_Long" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_16102_Long" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_16102_Long</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: 999999999 </ActionParameter>				
+			</Action>			
+		</Action>		
+				
+				
+		<Action name="CompositeReceive_N_19501" type="CompositeAction" repeat="3"> 	 	
+			<Action name="ReceiveMessage_N_19501" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_19501</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_19501" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_19501" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_19501</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 19501 AdminTTL: Long MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>	
+		
+		<Action name="CompositeReceiveMore_N_16102" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessageMore_N_16102" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgMore_N_16102</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageTextMore_N_16102" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessageMore_N_16102" interval="0"/>
+				<ActionParameter name="structure_id">rxmsgMore_N_16102</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>
+		
+		<Action name="ReceiveNoMoreMessages" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<ActionParameter name="structure_id">nomore</ActionParameter>
+			<ActionParameter name="waitTime">1000</ActionParameter>
+		</Action>		
+	
+    	<Action name="Unsubscribe" type="Unsubscribe">
+	    	<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+	    	<ApiParameter name="topic">/MessageExpiry_01/+</ApiParameter>
+	    </Action>
+		
+	    <Action name="CloseConnection1" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+	    </Action>	
+	    
+	     <!-- QoS=1, which uses intermediateQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_1_ReClear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_1</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_1</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_1_ReClear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_1</ActionParameter>
+	    </Action>		    
+
+	 </Action> 	 
+	 
+	<Action name="QoS_2Sub" type="CompositeAction">
+  		
+    <!-- Reconnect to the QoS=2 durable subscriptions --> 
+		<Action name="CreateSubConnection_QoS_2" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_2</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action>    
+  
+	 	<!-- Receive messages that have not expired, or had no expiration --> 
+		<Action name="CompositeReceive_N_16102" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessage_N_16102" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_16102</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_16102" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_16102" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_16102</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>
+		
+		<Action name="CompositeReceive_N_16102_Long" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessage_N_16102_Long" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_16102_Long</ActionParameter>
+				<ActionParameter name="waitTime">5000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_16102_Long" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_16102_Long" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_16102_Long</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: 999999999 </ActionParameter>				
+			</Action>			
+		</Action>		
+				
+				
+		<Action name="CompositeReceive_N_19501" type="CompositeAction" repeat="3"> 	 	
+			<Action name="ReceiveMessage_N_19501" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg_N_19501</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageText_N_19501" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessage_N_19501" interval="0"/>
+				<ActionParameter name="structure_id">rxmsg_N_19501</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 19501 AdminTTL: Long MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>	
+		
+		<Action name="CompositeReceiveMore_N_16102" type="CompositeAction" repeat="3">
+			<Action name="ReceiveMessageMore_N_16102" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsgMore_N_16102</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			
+			<Action name="GetMessageTextMore_N_16102" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessageMore_N_16102" interval="0"/>
+				<ActionParameter name="structure_id">rxmsgMore_N_16102</ActionParameter>
+				<ActionParameter name="compareBody">TO_BE_RECEIVED:  Port: 16102 AdminTTL: Unset MsgTTL: Unset </ActionParameter>				
+			</Action>			
+		</Action>
+		
+		<Action name="ReceiveNoMoreMessages" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<ActionParameter name="structure_id">nomore</ActionParameter>
+			<ActionParameter name="waitTime">1000</ActionParameter>
+		</Action>
+	
+    	<Action name="Unsubscribe" type="Unsubscribe">
+	    	<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    	<ApiParameter name="topic">/MessageExpiry_01/+</ApiParameter>
+	    </Action>
+		
+	    <Action name="CloseConnection1" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>	
+	    
+	     <Action name="CreateSubConnection_QoS_2_ReClear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_2</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_2_ReClear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>		    
+
+	 </Action> 	  
+	 
+ 	<Action name="Collector" type="CompositeAction">
+  		
+	    <!-- Create a QoS=1 shared durable subscription which uses multiQ --> 
+		<Action name="CreateSubConnection_Collector" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_Coll</ActionParameter>
+			<ActionParameter name="connection_id">Con_Coll</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_Coll</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+  	
+		<!-- the collector receives from the JMS Shared Subscription, and 
+			just makes sure we have received the right number of messages.
+			-->   	
+
+		<!-- wait for the durable subscribers to come up. --> 
+    	<Action name="SyncJMS_SS_Ready" type="SyncAction">
+            <ActionParameter name="request">wait</ActionParameter>
+            <ActionParameter name="condition">JMS_SS_Ready</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+            <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+        
+		<!-- wait for the durable subscribers to come up. --> 
+    	<Action name="SyncMQTT_SS_Ready" type="SyncAction">
+            <ActionParameter name="request">wait</ActionParameter>
+            <ActionParameter name="condition">MQTT_SS_Ready</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+            <ActionParameter name="timeout">25000</ActionParameter>
+        </Action>
+		        
+		
+		<Action name="ReceiveMessages" type="CompositeAction" repeat="24">
+			<Action name="ReceiveMessages" type="ReceiveMessage" >
+				<ActionParameter name="connection_id">Con_Coll</ActionParameter>
+				<ActionParameter name="structure_id">RetMessage</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			
+			<Action name="CheckMessage" type="CompareMessageData">
+				<dependsOn action_id="ReceiveMessages" interval="0" />
+				<ActionParameter name="structure_id">RetMessage</ActionParameter>
+				<ActionParameter name="compareBodyStart">TO_BE_RECEIVED</ActionParameter>
+			</Action>
+		</Action>
+		
+		<Action name="ReceiveNoMoreMessages" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+			<ActionParameter name="connection_id">Con_Coll</ActionParameter>
+			<ActionParameter name="structure_id">NoMessage</ActionParameter>
+			<ActionParameter name="waitTime">1000</ActionParameter>
+		</Action>		
+
+	    <Action name="Unsubscribe" type="Unsubscribe">
+	    	<ActionParameter name="connection_id">Con_Coll</ActionParameter>
+	    	<ApiParameter name="topic">$SharedSubscription/Message_Expiry_01_Collector//MessageExpiry/Collector/+</ApiParameter>
+	    </Action>
+		
+	    <Action name="CloseConnection1" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_Coll</ActionParameter>
+	    </Action>	
+
+	 </Action>  
+	 
+ 	<Action name="SharedSub1" type="CompositeAction">
+  		
+	    <!-- Reconnect to the  QoS=1 shared durable subscription which uses multiQ --> 
+		<Action name="CreateSubConnection_QoS_1Shared" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_1S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_1S</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action>    
+  		
+	 	<!-- Receive messages that have not expired, or had no expiration --> 
+		<Action name="CompositeReceive_Messages_1S" type="CompositeAction" repeat="18" atleast="0">
+			<Action name="ReceiveMessages_1S" type="ReceiveMessage">
+				<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+				<ActionParameter name="structure_id">sharedMsg_1S</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			
+      		<!-- Send QoS 1 message to the collector to verify all messages are processed -->
+			<Action name="SendMessage_to_collector_1S" type="SendMessage">
+	 	  		<dependsOn action_id="ReceiveMessages_1S" interval="0" />
+				<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+				<ActionParameter name="message_id">sharedMsg_1S</ActionParameter>
+				<ActionParameter name="topic">/MessageExpiry/Collector/MQTTShared1</ActionParameter>
+				<ActionParameter name="QoS">1</ActionParameter>
+			</Action>
+	
+		</Action>
+		
+    	<Action name="Unsubscribe_1s" type="Unsubscribe">
+	    	<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+	    	<ApiParameter name="topic">$SharedSubscription/Message_Expiry_01_MQTT//MessageExpiry_01/+</ApiParameter>
+	    </Action>
+		
+	    <Action name="CloseConnection1" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+	    </Action>	
+	    
+	     <!-- QoS=1, SharedSubscriptions which uses multiuserQ in the engine -->
+	      		 		
+	     <Action name="CreateSubConnection_QoS_1Shared_ReClear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_1S</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">ME_01_Cons_QoS_1S</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_1Shared_ReClear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_1S</ActionParameter>
+	    </Action>
+
+		<!-- signal durable subscriptions are ready so Collector can start receiving--> 
+    	<Action name="SyncMQTT_SS_Ready" type="SyncAction" thread="111">
+    		<dependsOn action_id="CreateSubConnection_QoS_1Shared" interval="0" />
+            <ActionParameter name="request">set</ActionParameter>
+            <ActionParameter name="condition">MQTT_SS_Ready</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+        </Action>	    	    
+
+	 </Action> 	 
+	 
+	 
+</IsmWSTest>   
+

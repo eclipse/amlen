@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testproxy_v5connect_MPS" >
+<!--
+    This test will test a create connection with with a small MaxPacketSize.
+    It will verify we don't get messages above the packet size. 
+-->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testproxy_v5connect_MPS</solution>
+    </SyncClient>
+    
+<!--  ==========  Publish  ==========  -->
+    <Action name="publish" type="CompositeAction">
+        
+        <Action name="EstablishMonitorTopics" type="RestAPI">
+            <ActionParameter name="structureID">stat_output_1</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"TopicMonitor":["/bigmessages/#"]}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">connectMPS.tx</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        
+        <Action name="CreateMessage1a" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1a</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: A short Message that can be received.</ApiParameter>
+        </Action>
+        
+        <Action name="sync_components_tx1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rd1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+  
+        <Action name="SendMessage_1a" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1a</ActionParameter>
+            <ActionParameter name="topic">/bigmessages</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>
+        
+        <Action name="CreateRandomMessage" type="CreateRandomMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="length">800</ActionParameter>
+            <ApiParameter name="QoS">0</ApiParameter>
+        </Action>
+        
+        <!-- these are too big for the receiver's connection, as specified in MaxPacketSize -->
+        <Action name="CompositeSend" type="CompositeAction" repeat="5" >
+          <dependsOn action_id="CreateRandomMessage"/>
+            <Action name="SendMessage" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/bigmessages</ActionParameter>
+            </Action>
+        </Action>
+        
+        <Action name="CreateMessage1b" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1a</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: Another short Message that can be received.</ApiParameter>
+        </Action>
+  
+        <Action name="SendMessage_1b" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1a</ActionParameter>
+            <ActionParameter name="topic">/bigmessages</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>
+        
+        <Action name="ShowSub_WithConsumers" type="RestAPI">
+            <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+                
+        <Action name="CloseConnectionTx" type="CloseConnection">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+
+
+<!--  ==========  Receive-NDS  ==========  -->
+    <Action name="receive-NDS" type="CompositeAction">
+        <Action name="CreateNDSConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">connectMPS.rx_NDS</ApiParameter>
+            <ApiParameter name="maxPacketSize">500</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+               <ActionParameter name="connection_id">CF1</ActionParameter>
+               <ApiParameter name="topic">/bigmessages</ApiParameter>
+               <ApiParameter name="subscriptionID">1</ApiParameter>
+               <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        <Action name="sync_components_rx1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rd1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveMessageShort" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+         </Action>
+         
+         <Action name="CheckMessageShort" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="compareBody">TEXT: A short Message that can be received.</ActionParameter>
+         </Action>
+         
+         <Action name="ReceiveMessageAnotherShort" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+         </Action>
+         
+         <Action name="CheckMessageAnotherShort" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+                <ActionParameter name="compareBody">TEXT: Another short Message that can be received.</ActionParameter>
+         </Action>
+         
+         <!-- there should be no more, as the others were tooooo big for max packet size -->
+         <Action name="FinalRcv2" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        
+        <Action name="CloseConnectionRx" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+
+
+<!--  ==========  Receive-DS  ==========  -->
+    <Action name="receive-DS" type="CompositeAction">
+        <Action name="CreateDSConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">connectMPS.rx_DS</ApiParameter>
+            <ApiParameter name="maxPacketSize">500</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">30</ApiParameter>
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+               <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+               <ApiParameter name="topic">/bigmessages</ApiParameter>
+               <ApiParameter name="subscriptionID">10</ApiParameter>
+               <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+        
+        
+  <Action name="restSubExist" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+<!--        <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=connectMPS.receive_DS</ActionParameter> -->
+        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+        
+        
+        <Action name="Close_DSConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+        </Action>
+        
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rd1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rd1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+        
+        
+  <Action name="restSubMsgArrive" type="RestAPI">
+      <dependsOn  action_id="sync_components_1" interval="2000"/>
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+<!--        <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=connectMPS.receive_DS</ActionParameter> -->
+        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+<!-- there should be ONLY TWO, as the others were tooooo big for max packet size and were Dropped-->
+    <Action name="compareSubMsgArrive" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/bigmessages</ActionParameter>
+<!--  Temp- expect B=2, R=5 only  ?? -->
+        <ObjectProperty name="BufferedMsgs" value="7" />
+        <ObjectProperty name="PublishedMsgs" value="7" />
+        <ObjectProperty name="RejectedMsgs" value="0" />
+        <ObjectProperty name="DiscardedMsgs" value="0" />
+    </Action>
+        
+        
+    <Action name="restTopicMsgArrive" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Topic</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+<!--  ?? -->
+    <Action name="compareTopicMsgArrive" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Topic</ActionParameter>
+        <ActionParameter name="subObjectKey">TopicString</ActionParameter>
+        <ActionParameter name="subObjectName">/bigmessages/#</ActionParameter>
+<!--  Temp- expect B=2, R=5 only -->
+        <ObjectProperty name="PublishedMsgs" value="7" />
+        <ObjectProperty name="RejectedMsgs" value="0" />
+        <ObjectProperty name="FailedPublishes" value="0" />
+-->
+    </Action>
+
+
+
+        <Action name="ReConnect_DS" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">connectMPS.rx_DS</ApiParameter>
+            <ApiParameter name="maxPacketSize">500</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">30</ApiParameter>
+        </Action>
+        
+        
+        <Action name="ReceiveMessageShort" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+         </Action>
+         
+         <Action name="CheckMessageShort" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="compareBody">TEXT: A short Message that can be received.</ActionParameter>
+         </Action>
+         
+         <Action name="ReceiveMessageAnotherShort" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+         </Action>
+         
+         <Action name="CheckMessageAnotherShort" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+                <ActionParameter name="compareBody">TEXT: Another short Message that can be received.</ActionParameter>
+         </Action>
+         
+         <!-- there should be no more, as the others were tooooo big for max packet size and were DROPPED! -->
+         <Action name="FinalRcv_DS" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        
+        <Action name="CloseConnection_DS" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1-DS</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+        
+        <Action name="RemoveMonitorTopics" type="RestAPI">
+            <ActionParameter name="structureID">stat_output_1</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+<!--            <ActionParameter name="path">/ima/v1/configuration/TopicMonitor//bigmessages/%23</ActionParameter> -->
+            <ActionParameter name="path">/ima/v1/configuration/TopicMonitor//bigmessages/#</ActionParameter>
+            <ActionParameter name="action">DELETE</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+    </Action>
+    
+</IsmWSTest>
+                

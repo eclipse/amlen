@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  Test Case: simple_001
+  
+  Test Description:
+      Subscribe to /cluster/simple_001 on server A
+      Publish to X /cluster/simple_001 on server B
+      
+      Expectation: Subscriber receives X messages
+
+-->
+<IsmWSTest name="simple_001" >
+    <Action name="CreateConnection" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">client1</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    
+    <Action name="SubscribeToMany" type="SubscribeTopicTree">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="prefix">/simple_001/</ActionParameter>
+        <ActionParameter name="startIndex">0</ActionParameter>
+        <ActionParameter name="endIndex">10</ActionParameter>
+        <ActionParameter name="qos">2</ActionParameter>
+    </Action>
+    
+    <Action name="PublishToMany" type="PublishTopicTree">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="prefix">/simple_001/</ActionParameter>
+        <ActionParameter name="startIndex">0</ActionParameter>
+        <ActionParameter name="endIndex">10</ActionParameter>
+        <ActionParameter name="qos">2</ActionParameter>
+        <ActionParameter name="retained">true</ActionParameter>
+        <!-- 
+         clearRetained just says to use an empty payload. retained must still be set
+         to true.
+          -->
+        <ActionParameter name="clearRetained">true</ActionParameter>
+    </Action>
+    
+    <!-- Example rest action to get stats for a specific QoS 0 description using
+         SubName, ClientID and TopicString. -->
+    <Action name="restStatCall" type="RestAPI">
+        <!-- OPTIONAL. structureID is to store the response object for later verification -->
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <!-- REQUIRED. server should be IP:PORT of the server -->
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <!-- REQUIRED. path includes the URL path as well as any query parameters -->
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=&amp;ClientID=client1&amp;TopicString=/simple_001/0</ActionParameter>
+        <!-- REQUIRED. action is the REST action POST, GET, PUT, DELETE -->
+        <ActionParameter name="action">GET</ActionParameter>
+        <!-- OPTIONAL unless action is POST. payload contains the JSON to pass with POST requests -->
+        <ActionParameter name="payload"></ActionParameter>
+        <!-- OPTIONAL. print response results. default true -->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <!-- OPTIONAL. Verify the HTTP status code like 404 or 200. -1 means do not check -->
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <!-- OPTIONAL. Verify the messagesight message ID. Empty means do not check -->
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Example CompareREST action checking a couple values of the stat subscription
+         output. 
+         PublishedMsgs is compared against a regular expression.
+         If value begins with "REGEXP: " then it will parse the rest of the value as 
+         a regular expression. 
+    -->
+    <Action name="compareREST" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName"></ActionParameter>
+        <ObjectProperty name="IsShared" value="false"/>
+        <ObjectProperty name="PublishedMsgs" value="REGEXP: [0-9]"/>
+    </Action>
+    
+    <!-- Example rest call to get cluster messaging stats for a certain server uid -->
+    <Action name="getUID" type="GetServerUID">
+        <ActionParameter name="structureID">server2uid</ActionParameter>
+        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+    </Action>
+    <Action name="restStatCallCluster" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <Action name="compareRESTCluster" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <ActionParameter name="topLevelKey">Cluster</ActionParameter>
+        <ActionParameter name="subObjectKey">ServerUID</ActionParameter>
+        <ActionParameter name="subObjectName">OBJECT:server2uid</ActionParameter>
+    </Action>
+    <Action name="compareClusterServerUID" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <ActionParameter name="serverUID">server2uid</ActionParameter>
+        <ObjectProperty name="Status" value="Active"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+    </Action>
+    <Action name="compareClusterA1HOST" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <ActionParameter name="serverName">``A2_IPv4_HOSTNAME_1``</ActionParameter>
+        <ObjectProperty name="Status" value="Active"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+    </Action>
+    <Action name="compareClusterServerName" type="CompareClusterStats">
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <ActionParameter name="serverName">mar424.kvm.austin.ibm.com</ActionParameter>
+        <ObjectProperty name="Status" value="Active"/>
+        <ObjectProperty name="Reliable:BufferedMsgs" value="0"/>
+        <ObjectProperty name="Unreliable:BufferedMsgsHWM" value="0"/>
+    </Action>
+
+    <!-- Example rest call for a subscription that does not exist.
+         This will return an empty subscription array, and the rest call still
+         returns success.
+    -->
+    <Action name="restStatCallDNE" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_b</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/dne&amp;ClientID=client1</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- In order to verify the subscription actually does not exist, look for the
+         subscription in the array and verify it is not there. 
+         TODO: Identify subscription by more than just SubName.
+    -->
+    <Action name="compareRESTSubDNE" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_b</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/dne</ActionParameter>
+    </Action>
+
+	<!-- Example rest call and compare for imaserver stat Server -->
+	<Action name="restStatImaserver" type="RestAPI">
+        <ActionParameter name="structureID">stat_imaserver_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="compareRESTStatImaserver" type="CompareREST">
+        <ActionParameter name="structureID">stat_imaserver_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Server</ActionParameter>
+        <ActionParameter name="topLevelType">JSONObject</ActionParameter>
+        <ObjectProperty name="RetainedMessages" value="0"/>
+        <ObjectProperty name="ExpiredMessages" value="0"/>
+    </Action>
+    
+    <!-- Example rest call to get a configuration object. -->
+    <Action name="restConfigGetCall" type="RestAPI">
+        <ActionParameter name="structureID">endpoint_output_a</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/Endpoint</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Example comparing a value from a rest config get call. -->
+    <Action name="compareRESTConfigGet" type="CompareREST">
+        <ActionParameter name="structureID">endpoint_output_a</ActionParameter>
+        <ActionParameter name="topLevelKey">Endpoint</ActionParameter>
+        <ActionParameter name="subObjectName">DemoMqttEndpoint</ActionParameter>
+        <ObjectProperty name="Port" value="1883"/>
+    </Action>
+
+    <!-- Example rest call getting a config object that does not exist. -->
+    <Action name="restConfigGetCallDNE" type="RestAPI">
+        <ActionParameter name="structureID">queue_output_a</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/Queue</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareRESTConfigGetDNE" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">queue_output_a</ActionParameter>
+        <ActionParameter name="topLevelKey">Queue</ActionParameter>
+        <ActionParameter name="subObjectName">DemoMqttEndpoint</ActionParameter>
+    </Action>
+
+	<!-- Example rest call and compare for getting imaserver status -->
+	<Action name="restStatusImaserver" type="RestAPI">
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="compareRESTStatusImaserver" type="CompareREST">
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Server</ActionParameter>
+        <ActionParameter name="topLevelType">JSONObject</ActionParameter>
+        <ObjectProperty name="State" value="1"/>
+        <ObjectProperty name="StateDescription" value="Running (production)"/>
+    </Action>
+    
+    <Action name="UnsubscribeFromMany" type="UnsubscribeTopicTree">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="prefix">/simple_001/</ActionParameter>
+        <ActionParameter name="startIndex">0</ActionParameter>
+        <ActionParameter name="endIndex">10</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+</IsmWSTest>

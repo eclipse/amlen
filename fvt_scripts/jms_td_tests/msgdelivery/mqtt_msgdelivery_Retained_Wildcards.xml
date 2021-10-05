@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: mqtt_msgdelivery_Retained_Wildcards
+
+   Test Category: Expired Retained Messages. 
+
+   Test Description:
+    Verify that MQTT doesn't receive Retained Messages that have expired. 
+    
+    There are three kinds of expiring messages that are sent before this test is run:
+    
+    Retained Messages sent by JMS with a ttl on the message.
+    Retained Messages sent by JMS, from an endpoint that has set the MaxMessageExpiration
+    Retained Messages sent by MQTT, from an endpoint that has set the MaxMessageExpiration
+
+    This test is dependent on:
+		jms_msgDelivery_RetainedExp
+		jms_msgDelivery_RetainedExpAdmin
+		mqtt_msgDelivery_RetainedExpAdmin
+  -->
+<IsmWSTest name="mqtt_msgdelivery_Retained_Wildcards">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>ExpRetained</solution>
+	</SyncClient>
+ 
+	<Action name="MqttSub" type="CompositeAction">
+  		
+		<Action name="CreateSubConnection" type="CreateConnection" >
+			<ActionParameter name="structure_id">ConMP_03_Busy1</ActionParameter>
+			<ActionParameter name="connection_id">ExpRet_Wildcard</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MP_03_Busy1_CID</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action> 
+  		
+		<Action name="Subscribe" type="Subscribe">
+			<ActionParameter name="connection_id">ExpRet_Wildcard</ActionParameter>
+			<ApiParameter name="topic">/sports/+</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+		</Action>
+		
+		<!-- Signal to the Publisher the subscribers subscriptions are ready for messages to be sent. -->
+		<Action name="sync_components_1" type="SyncComponentAction">
+			<ActionParameter name="component_name">MQTTSub</ActionParameter>
+			<ActionParameter name="component_list">JMSPub;MQTTSub;JMSCon;JMSDSCon</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+		</Action>					
+		
+		<Action name="ReceiveMessage_Retained" type="CompositeAction" repeat="4">
+			<dependsOn action_id="sync_components_1" interval="0" />
+			<Action name="ReceiveRetainedMessage" type="ReceiveMessage" >
+				<ActionParameter name="connection_id">ExpRet_Wildcard</ActionParameter>
+				<ActionParameter name="structure_id">RetMessage</ActionParameter>
+				<ActionParameter name="waitTime">6000</ActionParameter>
+			</Action>
+			
+			<Action name="CheckRetainedMessage" type="CompareMessageData">
+				<dependsOn action_id="ReceiveRetainedMessage" interval="0" />
+				<ActionParameter name="structure_id">RetMessage</ActionParameter>
+				<ActionParameter name="compareBody">RetainedMessage for a subtopic</ActionParameter>
+			</Action>
+		</Action>
+
+		<!-- Signal to the Publisher the subscribers subscriptions are ready for messages to be sent. -->
+		<Action name="sync_components_2" type="SyncComponentAction">
+			<ActionParameter name="component_name">MQTTSub2</ActionParameter>
+			<ActionParameter name="component_list">JMSPub2;MQTTSub2;JMSSub2;JMSDSSub2</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>					
+
+		<Action name="ReceiveMessage_NonRetained" type="CompositeAction" repeat="8">
+			<dependsOn action_id="sync_components_2" interval="0" />
+			<Action name="ReceiveNonRetainedMessage" type="ReceiveMessage" >
+				<ActionParameter name="connection_id">ExpRet_Wildcard</ActionParameter>
+				<ActionParameter name="structure_id">NonRetMessage</ActionParameter>
+				<ActionParameter name="waitTime">6000</ActionParameter>
+			</Action>
+			
+			<Action name="CheckNonRetainedMessage" type="CompareMessageData">
+				<dependsOn action_id="ReceiveNonRetainedMessage" interval="0" />
+				<ActionParameter name="structure_id">NonRetMessage</ActionParameter>
+				<ActionParameter name="compareBody">Non-RetainedMessage for a subtopic</ActionParameter>
+			</Action>
+	
+		</Action>
+
+		<Action name="ReceiveMessage_RetainedButLive" type="CompositeAction" repeat="4">
+			<dependsOn action_id="sync_components_1" interval="0" />
+			<Action name="ReceiveRetainedLiveMessage" type="ReceiveMessage" >
+				<ActionParameter name="connection_id">ExpRet_Wildcard</ActionParameter>
+				<ActionParameter name="structure_id">RetLiveMessage</ActionParameter>
+				<ActionParameter name="waitTime">6000</ActionParameter>
+			</Action>
+			
+			<Action name="CheckRetainedLiveMessage" type="CompareMessageData">
+				<dependsOn action_id="ReceiveRetainedLiveMessage" interval="0" />
+				<ActionParameter name="structure_id">RetLiveMessage</ActionParameter>
+				<ActionParameter name="compareBody">RetainedMessage for a subtopic</ActionParameter>
+			</Action>
+		
+		</Action>
+		
+	    <Action name="CloseConnection1" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">ExpRet_Wildcard</ActionParameter>
+	    </Action>	
+
+	 </Action>  	 
+	 
+</IsmWSTest>   
+

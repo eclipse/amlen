@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_queues_005browser
+
+  Test Category:  JMS Queues
+  
+  Test Description:
+    Test queue browsers with message selectors.
+    Send messages 1 - 2000
+    Browser 1 sees all 2000 messages
+    Send messages 2001 - 4000
+    Browser 2 with selector, sees messages 1,3,5,...,3999
+    Consumer 1 with selector, gets messages 1,3,5,...,3999
+    Browser 3 sees all remaining messages 2,4,6,...,4000
+    Consumer 2 with selector, gets messages 2,4,6,...,2000
+
+-->
+<ImaJmsTest name="jms_queues_009browser">
+
+	<include>../common/jms_jndi_ldap.xml</include>
+
+	<Action name="Create_qcf1" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">qcf1</ActionParameter>
+		<ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+		<!--ActionParameter name="loglevel">9</ActionParameter>
+		<ActionParameter name="logfile">stdout</ActionParameter-->
+	</Action>
+	
+	<Action name="CreateConnection_cf1" type="CreateConnection">
+		<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="factory_id">qcf1</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession1_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession2_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session2_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession3_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session3_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="Create_queue1" type="CreateDestination">
+		<ActionParameter name="structure_id">queue1</ActionParameter>
+		<ActionParameter name="jndiName">jndi_queue13</ActionParameter>
+	</Action>
+
+	<!-- Create producer, consumer, and queue browsers -->
+	<Action name="CreateProducer1_queue1" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1_queue1</ActionParameter>
+		<ActionParameter name="dest_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session1_cf1</ActionParameter>
+	</Action>
+
+	<Action name="CreateConsumer1_queue1" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer1_queue1</ActionParameter>
+		<ActionParameter name="dest_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session2_cf1</ActionParameter>
+		<ApiParameter name="selector">TargetConsumer = 'cons1'</ApiParameter>
+	</Action>
+	
+	<Action name="CreateConsumer2_queue1" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer2_queue1</ActionParameter>
+		<ActionParameter name="dest_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session2_cf1</ActionParameter>
+		<ApiParameter name="selector">TargetConsumer = 'cons2'</ApiParameter>
+	</Action>
+	
+	<Action name="CreateBrowser_queue1" type="CreateQueueBrowser">
+		<ActionParameter name="structure_id">queue1_browser</ActionParameter>
+		<ActionParameter name="queue_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session2_cf1</ActionParameter>
+	</Action>
+
+	<Action name="CreateBrowser2_queue1" type="CreateQueueBrowser">
+		<ActionParameter name="structure_id">queue1_browser2</ActionParameter>
+		<ActionParameter name="queue_id">queue1</ActionParameter>
+		<ActionParameter name="session_id">session3_cf1</ActionParameter>
+		<ApiParameter name="selector">TargetConsumer = 'cons1'</ApiParameter>
+	</Action>
+
+	<!-- Create two enumerations using the queue browser -->
+	<Action name="GetBrowserEnum_queue1" type="GetBrowserEnumeration">
+		<ActionParameter name="structure_id">queue1_messages</ActionParameter>
+		<ActionParameter name="browser_id">queue1_browser</ActionParameter>
+	</Action>
+	
+	<Action name="GetBrowserEnum2_queue1" type="GetBrowserEnumeration">
+		<ActionParameter name="structure_id">queue1_messages2</ActionParameter>
+		<ActionParameter name="browser_id">queue1_browser2</ActionParameter>
+	</Action>
+	
+	<Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg1</ActionParameter>
+		<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>	
+	
+	<Action name="CreateTxtMessage2_prod_dest1" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg2</ActionParameter>
+		<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>	
+	
+	<!-- PRODUCER: Set message content -->				
+	<Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+		<ApiParameter name="value">TEXT: From my JNDI Factory objects</ApiParameter>
+	</Action>	
+	
+	<Action name="WriteBytesMessage2_prod_dest1" type="SetMessageText">
+		<ActionParameter name="message_id">txmsg2</ActionParameter>
+		<ApiParameter name="value">TEXT: This message has no TestProperty</ApiParameter>
+	</Action>	
+	
+	<Action name="SetMessage1Property" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+		<ApiParameter name="propertyName">ID</ApiParameter>
+		<ApiParameter name="propertyType">Common</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>
+		<ApiParameter name="value">1</ApiParameter>
+	</Action>
+
+	<!-- Consumer 1 will receive only messages containing this property -->	
+	<Action name="SetMessage1PropertySelector" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+		<ApiParameter name="propertyName">TargetConsumer</ApiParameter>
+		<ApiParameter name="propertyType">Common</ApiParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ApiParameter name="value">cons1</ApiParameter>
+	</Action>
+
+	<Action name="SetMessage2Property" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg2</ActionParameter>
+		<ApiParameter name="propertyName">ID</ApiParameter>
+		<ApiParameter name="propertyType">Common</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>
+		<ApiParameter name="value">2</ApiParameter>
+	</Action>
+	
+	<!-- Consumer 2 will receive only messages containing this property -->	
+	<Action name="SetMessage2PropertySelector" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg2</ActionParameter>
+		<ApiParameter name="propertyName">TargetConsumer</ApiParameter>
+		<ApiParameter name="propertyType">Common</ApiParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ApiParameter name="value">cons2</ApiParameter>
+	</Action>
+
+	<!-- Send 2000 messages, ID=1 through ID=2000 -->
+	<Action name="CompositeSnd" type="CompositeAction" repeat="1000" repeat_interval="0">
+		<Action name="SendMessage1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ActionParameter name="incrID">2</ActionParameter>
+		</Action>
+
+		<Action name="SendMessage2" type="SendMessage">
+			<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+			<ActionParameter name="incrID">2</ActionParameter>
+		</Action>
+	</Action>
+
+	<!-- Browse through messages ID=1 through ID=2000 on browser 1 -->	
+	<Action name="PollBrowser_queue1" type="PollBrowser">
+		<ActionParameter name="enum_id">queue1_messages</ActionParameter>
+		<ActionParameter name="maxID">2000</ActionParameter>
+		<ActionParameter name="checkIDS">true</ActionParameter>
+		<ActionParameter name="messageIDS">messagesA</ActionParameter>
+		<ActionParameter name="existing_msgIDS">false</ActionParameter>
+	</Action>
+	
+	<!-- Send 2000 messages, ID=2001 through ID=4000 -->
+	<Action name="CompositeSnd2" type="CompositeAction" repeat="1000" repeat_interval="0">
+		<Action name="SendMessage1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ActionParameter name="incrID">2</ActionParameter>
+		</Action>
+
+		<Action name="SendMessage2" type="SendMessage">
+			<ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+			<ActionParameter name="incrID">2</ActionParameter>
+		</Action>
+	</Action>
+
+	<!-- Browse through messages ID=1,3,5,...,3999 browser 2 -->
+	<Action name="PollBrowser2_queue1" type="PollBrowser">
+		<ActionParameter name="enum_id">queue1_messages2</ActionParameter>
+		<ActionParameter name="maxID">4000</ActionParameter>
+		<ActionParameter name="messageIDS">messagesB</ActionParameter>
+		<ActionParameter name="existing_msgIDS">false</ActionParameter>
+	</Action>
+	
+	<Action name="StartConnection_cf1" type="StartConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+
+	<!-- Receive 2000 messages, ID=1,3,5,...,3999 -->
+	<Action name="Receive" type="ReceiveMessage" repeat="2000" repeat_interval="0">
+		<ActionParameter name="consumer_id">consumer1_queue1</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+		<ApiParameter name="timeout">2000</ApiParameter>
+	</Action>
+
+	<Action name="StopConnection_cf1" type="StopConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+
+	<Action name="GetBrowserEnum3_queue1" type="GetBrowserEnumeration">
+		<ActionParameter name="structure_id">queue1_messages3</ActionParameter>
+		<ActionParameter name="browser_id">queue1_browser</ActionParameter>
+	</Action>
+	
+	<!-- Browse through messages ID=2,4,6,...,4000 on browser 3 -->
+	<Action name="PollBrowser3_queue1" type="PollBrowser">
+		<ActionParameter name="enum_id">queue1_messages3</ActionParameter>
+		<ActionParameter name="maxID">4000</ActionParameter>
+		<ActionParameter name="messageIDS">messagesB</ActionParameter>
+		<ActionParameter name="checkIDS">true</ActionParameter>
+		<ActionParameter name="existing_msgIDS">true</ActionParameter>
+	</Action>
+	
+	<Action name="StartConnection2_cf1" type="StartConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+
+	<!-- Receive the remaining 2000 messages on the queue -->
+	<Action name="Receive2" type="ReceiveMessage" repeat="2000" repeat_interval="0">
+		<ActionParameter name="consumer_id">consumer2_queue1</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+		<ApiParameter name="timeout">2000</ApiParameter>
+	</Action>
+
+	<Action name="StopConnection2_cf1" type="StopConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+
+	<Action name="CloseConnection_cf1" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+	
+</ImaJmsTest>

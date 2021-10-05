@@ -1,0 +1,174 @@
+Name: svt-MfgProcessReadinessChecklist.FirmwareUpgrade.Manual
+
+There are a series of tests that need to be run as part of the Manufacturing process to verify a machine is ready for customer usage.
+The file is one step of the check list: svt-MfgProcessReadinessChecklist.txt.
+
+Prerequisites:
+1. PXE Install the SHIP READY Driver has completed successfully.
+(PXE First because you will remove PXE as boot option in uEFI Verification)
+2. svt-MfgProcessReadiness.ConfigPopulate.Manual was run successfully to setup the environment with data
+
+InfoCenter:
+https://infocenters.hursley.ibm.com/ISM/help/topic/com.ibm.ism.doc/Reference/fun_fwpi.html
+
+
+
+Steps:
+---------------------------------------------------------------------------------------------------
+BE SURE TO RUN or Verify settings: 
+  -- svt-MfgProcessReadiness.ConfigPopulate.Manual to establish ISM configuration objects and logs.
+
+ 
+--------------------------------------------------------------------
+Execute at Bedrock Console prompt:
+
+ex
+file get scp://root@10.10.10.10:/mnt/mar145/release/current/production/YYYYMMDD-BBBB/appliance/rel_bedrock.scrypt2  firmware
+
+	file get scp://[user@ipaddr]:/[path_to]/rel_bedrock.scrypt2  myfirmware
+	firmware upgrade myfirmware
+-------------------------------------------------------------------------------
+
+
+**************************************************************************************************
+**************************************************************************************************
+* WARNING:  BETA ONLY - Firmware Upgrade will act like RESET and config will be blown away.!!!   *
+* (USE svt-MfgProcessReadiness.DeviceReset.Manual to verify the results for BETA ONLY)           *
+*                                                                                                *
+* EXCEPTIONS:                                                                                    *
+* 1. Userid: admin - password is not reset in OS, yet the password is reset in ISMWebUI          *
+* 2. Ethernet-Interfaces are not removed,                                                        *
+* 3. Other Networking parameters DNS, Search Domain, nodename are not removed                    * 
+* 4. (18940) Timezone and Locale are not set to default                                          * 
+**************************************************************************************************
+**************************************************************************************************
+
+
+1.  The command prompt is:  [nodename] login: 
+
+Verify NO Bedrock ethernet-interfaces changes are removed:
+-- All ethernet-interface configurations are retained
+	list ethernet-interface 
+and do a 
+	show ethernet-interface 
+on each item returned. 
+The same network configuration is retained prior to firmware upgrade. 
+
+-- WebUI System Admins UID in OS remain
+
+
+2. Verify the imaserver configuration files were NOT reset NOR logs cleared.
+Using the CLI,
+
+imaserver trace flush
+platform must-gather must-gather.tgz
+file put must-gather.tgz scp://root@[ipAddress]:/firmwareUpgrade/
+
+file put must-gather.tgz scp://root@10.10.10.10:/firmwareUpgrade/
+	   (later on we will verify this has minimal contents)
+
+3. In the ISMWebUI,
+Login with admin and MUST login with the reset password (verify LDAP was NOT reset).
+Using the ISMWebUI, you MUST have to accept the license agreement again. (verify accepted.json)
+Exit First Steps
+or
+Select the ethernet interface mgt0 and "Save and Exit" at the bottom to launch the Messaging Verification App.
+The connection to ISM Server should be successful, DO NOT attempt to run it just yet until logs are verified. 
+
+Verify config files were NOT reset:  server_dynamic.cfg was reset to server_default.cfg, mqconnect, ...
+ -- Select: Appliance >> User
+    -- Verify admin, super, user, msgAdmin and sysAdmin remain, 
+ -- Select: Appliance >> Network Settings
+    -- Verify ONLY the initial ethernet interface is configured (mgt0, from Step 1 above) and active (GREEN UP arrow) .
+    -- Verify DNS, Search Domains: No items to display
+ -- Select: Appliance >> Locale, Date Time
+    -- Verify the banner:   Server Locale, Date, and Time   is consistent with the entry fields.                       (Defect 18685)
+         ex. "The server locale is English (United States).   The server time is 9:03:15 AM Central Daylight Time." 
+    -- Verify Server Locale: English(United States)
+    -- Verify Server Locale: Server time zone: GMT(0)                                            (no errors?, defect 18658 deposition)
+    -- Verify NTP Servers:  No items to display
+    -- Verify Date, Time: is what current for CST? 
+ -- Select:  Appliance >> Security Settings
+    -- Verify System-wide Security Settings is unchecked
+    -- Verify SecurityProfiles: No items to display
+    -- Verify SecurityPolicies: No items to display
+ -- Select: Appliance >> System Control
+    -- Verify Node name:  (none)
+    -- Verify Log level: "Information"
+
+ -- Select: Monitoring >> Download Logs:
+    -- Really hope the list is empty or very sparse
+    -- imaserver-connection.log has minimal entries if not empty.
+    -- imaserver-default.log has minimal entries if not empty.
+    -- imaserver-security.log has minimal entries if not empty.  (expect to not be listed)
+    -- imaserver-admin.log has minimal entries if not empty.     (expect to not be listed)
+    
+ -- Select: Messaging >> User and Groups
+    -- Verify Messaging Users:  No items to display
+    -- Verify Messaging Groups:  No items to display
+ -- Select:  Messaging >> MessageHub
+    -- Verify the only Messaging MessageHub is DemoHub, it's Endpoints(2), ConnectionPolicies(2) and MessagingPolicy(1) exist
+ -- Select: Messaging >> MQ Connectivity
+    -- Verify Queue Manager Connection Properties: No items to display
+    -- Verify Destination Mapping: No items to display
+ 
+ 3b.
+ Verify the same config items using the CLI
+ by now the must gather should be complete, if you haven't already retrieved it 
+ 	file put  must-gather.tgz  scp://root@[ipAddress]:/path/
+
+ 
+ 
+ Verify the same using the CLI
+ by now the must gather should be complete, 
+ 	imaserver file put  must-gather.tgz
+ Verify Only the DemoHub, it's Endpoints and Policies exists in CLI
+ 	imaserver get MessageHub
+ 	imaserver get Endpoint
+ 	imaserver get ConnectionPolicy
+  	imaserver get MessagingPolicy
+Verify there are no CertificateProfile or Policies exists in CLI  	
+	imaserver get CertificateProfile
+	imaserver get SecurityProfile
+	imaserver get ConfigPolicy
+Verify the values are empty or only have minimal information
+	imaserver get ConnectionLog
+	imaserver get SecurityLog
+	imaserver get AdminLog
+	imaserver get AuditLogControl
+
+	  ConnectionLog = NORMAL
+	  SecurityLog = NORMAL
+	  AdminLog = NORMAL
+	  AuditLogControl = 1
+Verify the MQConnectivity configuration was removed
+	imaserver get QueueManagerConnection
+	imaserver get DestinationMappingRule
+Verify default for 
+	imaserver get LogLevel
+	imaserver get TraceLevel
+	imaserver get TraceFilter
+
+	  LogLevel = INFO
+	  TraceLevel = 5
+	  The requested item is not found
+
+
+3.Verify the message store is viable
+Verify the Message Store has data
+	imaserver get GranuleSizeBytes
+	imaserver get MgmtMemPercent
+using sample app, subscribe to a retained message sent before the "firmware upgrade".  
+It should receive the retained messages.
+
+   -- Run:  
+   java svt.mqtt.mq.MqttSample -a subscribe -q 2 -t /topic/A -s tcp://10.10.10.10:16102  -i subClient -c false -vv
+
+
+Start a publisher to same topic and verify the imaserver is operational with messages received at subscriber.
+(Does not matter if it is retained or not)
+
+   -- Run:
+   java svt.mqtt.mq.MqttSample -a publish   -q 2 -t /topic/A -s tcp://10.10.10.10:16102 -n 100 -m "100 storeMessages from java pubstore"  -i pubstore -c false -r store
+
+Subscriber receives all stored messages and new messages as well.

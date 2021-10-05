@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="pdf_sc00007_" xml:lang="en-us">
+<title>Scenario 1: Using smart phones to control air conditioning remotely</title>
+<!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+<!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+<!--Put your short description next; used for first paragraph and abstract.-->
+<shortdesc>Customers in Austin, Texas, have smart thermostats that enable them to use their phones
+        to set their air conditioning and receive notifications from their thermostats.</shortdesc>
+<conbody>
+<section>
+<title>Background to this scenario</title>
+<p>Austin Metro Power Company instituted a new program enabling them to send emergency requests to
+                their customers to avoid a brownout. The company has the ability to send messages
+                requesting power usage reductions. The customer's smart thermostats can then
+                automatically reduce power usage when the emergency requests are received.</p>
+</section>
+<section>
+<title>Planning and implementing the scenario</title>
+<p>Use the following information to help you plan and implement your <ph
+                conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"
+                /> cluster using REST APIs.</p>
+<dl>
+<dlentry>
+<dt>Understanding the clustering architecture</dt>
+<dd>
+<p>In this scenario, three servers are used to represent a thermostat, a phone, and the data center
+                            of the fictional Austin Metro Power Company. These three servers are
+                            configured as a cluster. This scenario tests that the cluster can
+                            deliver directives and responses and have them display correctly on
+                            other nodes of the cluster.</p>
+</dd>
+</dlentry>
+<dlentry>
+<dt>Setting up your cluster for this scenario</dt>
+<dd>
+<p>You can configure your <ph conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"
+                            /> cluster by using REST APIs. Substitute your IP addresses for the server IP address. The sample IP addresses are used as examples only. The DiscoveryServerList configuration parameter has the following format: <codeph>&lt;control address>:&lt;control port>[,&lt;control address>:&lt;control port>]+</codeph></p>
+<p>
+                            <codeblock>IBM IoT MessageSight SERVER1CONTROLADDRESS=10.10.33.10 
+IBM IoT MessageSight SERVER1CONTROLPORT=9104 
+IBM IoT MessageSight SERVER2CONTROLADDRESS=10.10.33.11 
+IBM IoT MessageSight SERVER2CONTROLPORT=9104 
+IBM IoT MessageSight SERVER3CONTROLADDRESS=10.10.33.12 
+IBM IoT MessageSight SERVER3CONTROLPORT=9104</codeblock>
+                        </p>
+<ol>
+                            <li>For Server 1 of your cluster, provide ClusterMembership object configuration data in the payload of the POST method by using the following command:<lines>
+curl -X POST \
+     -d  ' {
+              "ClusterMembership": {
+                  "EnableClusterMembership": true,
+                  "ControlAddress": "10.10.33.10",
+                  "DiscoveryServerList": "10.10.33.11:9104,10.10.33.12:9104",
+                  "ClusterName": "MyBetaCluster"
+                }
+            }
+         ' \
+      http://127.0.0.1:9089/ima/v1/configuration
+</lines></li>
+                            <li>For Server 2 of your cluster, provide ClusterMembership object configuration data in the payload of the POST method by using the following command:<lines>
+curl -X POST \
+     -d  ' {
+              "ClusterMembership": {
+                "EnableClusterMembership": true,
+                "ControlAddress": "10.10.33.11",
+                "DiscoveryServerList": "10.10.33.10:9104",
+                "ClusterName": "MyBetaCluster"
+                }
+            }
+         ' \
+      http://127.0.0.1:9089/ima/v1/configuration
+</lines></li>
+                            <li>For Server 3 of your cluster, provide ClusterMembership object configuration data in the payload of the POST method by using the following command:<lines>
+curl -X POST \
+     -d  ' {
+              "ClusterMembership": {
+                "EnableClusterMembership": true,
+                "ControlAddress": "10.10.33.12",
+                "DiscoveryServerList": "10.10.33.10:9104",
+                "ClusterName": "MyBetaCluster"
+                }
+             }
+           ' \
+      http://127.0.0.1:9089/ima/v1/configuration
+</lines></li>
+                            <li>Restart each server by using cURL: <lines>
+curl -X POST \
+     -d  ' {"Service": "Server"} ' \
+     http://127.0.0.1:9089/ima/v1/service/restart
+</lines></li>
+</ol></dd>
+</dlentry>
+</dl>
+</section>
+<section>
+<title>Testing the scenario</title>
+<p>This scenario tests that the cluster can deliver directives and responses and have them display
+correctly on other nodes of the cluster.</p>
+<p>This scenario requires a three-node cluster system:<sl>
+<sli><ph conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"
+                    /> Server 1, representing the customer's thermostat.</sli>
+<sli><ph conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"
+                    /> Server 2, representing the customer's phone.</sli>
+<sli><ph conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"
+                    /> Server 3, representing the power company.</sli>
+</sl></p>
+<p>A sample MQTT client can be found at MQTT Helper. To demonstrate the messaging capabilities of
+your solution, enter your server, port, client ID, and topic.</p>
+<p>
+<ol>
+<li>Enable the DemoMqttEndpoint which uses port 1883 on all three servers.</li>
+<li>Launch an instance of the MQTT Helper application in three separate browser instances. These instances will connect to <ph
+                        conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"
+                        /> Server's 1, 2, and 3. </li>
+<li>Follow these steps to set up the thermostat node:<ol>
+<li>In browser 1, enter the server IP and Port of server 1, then click
+                                    <uicontrol>Connect</uicontrol>.</li>
+<li>In the same browser instance, enter <codeph>/JimsThermo/Directives/#</codeph> as the topic, and
+click <uicontrol>Subscribe</uicontrol>.</li>
+<li>In the same browser instance, enter <codeph>/AustinMetroPowerCompany/Requests/#</codeph> as the
+topic, and click <uicontrol>Subscribe</uicontrol>.</li>
+</ol>The thermostat node will now listen for directives, send responses, and change its temperature
+setting. </li>
+<li>To set up the phone node, follow these steps:<ol>
+<li>In your second instance of MQTT Helper, enter the server IP and port of server 2 and click
+<uicontrol>Connect</uicontrol>.</li>
+<li>In the same browser instance, enter <codeph>/JimsThermo/Responses/#</codeph> for the topic and
+click <uicontrol>Subscribe</uicontrol>.</li>
+</ol>The phone node will now be able to send and receive directives and responses to and from the
+thermostat.</li>
+<li>To set up the Austin Metro Power Company data center, follow these steps:<ol>
+                            <li>In your third instance of MQTT Helper, enter the server IP and port
+                                of server 3 and click <uicontrol>Connect</uicontrol>.</li>
+                            <li>In the same browser instance, enter
+                                    <codeph>/AustinMetroPowerCompany/Responses/#</codeph> as the
+                                topic and click <uicontrol>Subscribe</uicontrol>.</li>
+                        </ol><p>The power company node will now be able to send emergency requests
+                            to the thermostat node, and receive responses.</p><p>Now that you have
+                            connected the phone, the thermostat and the data center to different
+                            servers in the cluster, you can publish directives, requests and
+                            responses, and watch them be received by subscribers who are connected
+                            to different servers in the cluster.</p><p>In this scenario, Jim left
+                            hurriedly for work on Monday morning, and forgot to adjust his
+                            air-conditioning temperature before leaving home. His parents are
+                            visiting, and he wants his home to be comfortable for them. From his
+                            remote work location, Jim sends a directive to his thermostat to set the
+                            air-conditioning temperature to 22°C (72°F). The thermostat receives the
+                            directive and responds accordingly to set the temperature to 22°C
+                            (72°F). The thermostat then publishes a response notifying Jim that the
+                            temperature has been set to 22°C (72°F). Jim's phone receives the
+                            response from Jim's thermostat.</p></li>
+<li>To see this process in action, follow these steps:<ol>
+                            <li>In browser 2, which simulates Jim's phone, enter
+                                    <codeph>/JimsThermo/Directives/AirConditioning</codeph> as the
+                                topic, <codeph>Set AC to 22°C (72°F)</codeph> as the payload, and
+                                click <uicontrol>Publish</uicontrol>.</li>
+                            <li>In browser 1, which simulates the thermostat, observe that the
+                                message arrives at the thermostat.</li>
+                            <li>In the same browser instance, enter
+                                    <codeph>/JimsThermo/Responses/JimsDirectives</codeph> as the
+                                topic, and <codeph>AC set at 22°C (72°F) per Jim's request</codeph>
+                                for the payload and click <uicontrol>Publish</uicontrol>.</li>
+                            <li>In browser 2, observe that the response arrives on Jim's phone.</li>
+                        </ol><p>This process demonstrates that devices connected to different
+                            servers can communicate messages across the cluster.</p><p>In the next
+                            portion of this scenario, it's the hottest day of the year, and by
+                            afternoon, power use is approaching critical levels. The Austin Metro
+                            Power Company begins sending requests to their customer's thermostats to
+                            reduce air conditioning usage in order to avoid a brownout.</p><p>Jim's
+                            thermostat receives the directive from the Austin Metro Power Company to
+                            increase the temperature. The thermostat then publishes a response,
+                            notifying Jim and the Austin Metro Power Company that the temperature
+                            has been set to 27°C (80°F) in response to a power reduction request
+                            from Austin Metro Power Company. Jim's phone and Austin Metro Power
+                            Company both receive the response from Jim's thermostat.</p></li>
+<li>To demonstrate how this process might work, follow these steps:<ol>
+<li>In browser 3, the Austin Metro Power Company data center, enter
+<codeph>/AustinMetroPowerCompany/Requests/</codeph> as the topic, and <codeph>Brownouts possible.
+Emergency request to reduce power usage now!! Please raise the temperature to 27°C (80°F).</codeph>
+as the payload, and click <uicontrol>Publish</uicontrol>.</li>
+<li>In browser 1, simulating the thermostat, observe the message from the Austin Metro Power Company
+arriving at the thermostat.</li>
+<li>In the same browser instance, enter
+<codeph>/AustinMetroPowerCompany/Responses/JimsThermo</codeph> as the topic, and <codeph>Thermostat
+set to 27°C (80°F) following Austin Metro Power Request</codeph> as the payload and click
+<uicontrol>Publish</uicontrol>.</li>
+<li>In the same browser instance, enter
+<codeph>/JimsThermo/Responses/AustinMetroPowerCompanyRequest</codeph> as the topic, and
+<codeph>Thermostat set to 27°C (80°F) following Austin Metro Power Request</codeph> as the payload,
+and click <uicontrol>Publish</uicontrol>.</li>
+<li>In browser 2, simulating the phone, observe that the phone receives the above message from the
+thermostat.</li>
+<li>In browser 3, observe that the Austin Metro Power Company receives the above message from the
+thermostat.</li>
+</ol></li>
+<li importance="optional">Now that you have seen the previous scenario work, you can continue to
+                        play around in this environment. Connect and subscribe any or all devices to
+                        different members of the cluster and repeat Step 6 or 7, verifying that you
+                        see the messages flow as you expect them to.</li>
+</ol>
+</p>
+</section>
+</conbody>
+</concept>

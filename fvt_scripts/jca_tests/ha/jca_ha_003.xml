@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_ha_003
+
+   Test Category:  JCA HA Tests
+   
+   Test Description:
+   A basic JCA HA test - XA without failover
+   
+  -->
+<ImaJcaTest name="jca_ha_003">
+
+  <include>../common/jms_jndi_ldap.xml</include>
+  
+  <!-- Retrieve the foreign connection factory from JNDI -->
+  <Action name="GetCF" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">cf</ActionParameter>
+    <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    <ActionParameter name="loglevel">9</ActionParameter>
+    <ActionParameter name="logfile">stdout</ActionParameter>
+  </Action>
+
+
+  <Action name="SetProps_JMS_BASE_CF" type="FillIsmProps">
+    <ActionParameter name="structure_id">cf</ActionParameter>
+    <ActionParameter name="validateAll">true</ActionParameter>
+    <ActionParameter name="validateNoWarn">false</ActionParameter>
+    <ImaProperty name="ClientID" value="jca_ha_003_cid" type="STRING"/>
+    <include>../common/JMS_serverHA.xml</include>
+    <ImaProperty name="Port" value="18490" type="INT"/>
+  </Action>
+
+  <Action name="CreateConnection" type="CreateConnection">
+    <ActionParameter name="structure_id">connection</ActionParameter>
+    <ActionParameter name="factory_id">cf</ActionParameter>
+  </Action>
+  
+  <Action name="CreateSession" type="CreateSession">
+    <ActionParameter name="conn_id">connection</ActionParameter>
+    <ActionParameter name="structure_id">session</ActionParameter>
+  </Action>
+  
+  <!-- log topic -->
+  <Action name="Create_log_dest" type="CreateDestination">
+    <ActionParameter name="structure_id">logDest</ActionParameter>
+    <ApiParameter name="name">/log/Topic/8100</ApiParameter>
+    <ActionParameter name="type">topic</ActionParameter>
+  </Action>
+
+  <!-- log consumer -->
+  <Action name="CreateConsumerLog" type="CreateDurableSubscriber">
+    <ActionParameter name="structure_id">logConsumer</ActionParameter>
+    <ActionParameter name="dest_id">logDest</ActionParameter>
+    <ActionParameter name="session_id">session</ActionParameter>
+    <ApiParameter name="durableName">jca_ha_003_log</ApiParameter>
+  </Action>
+  
+  <!--  Retrieve the replyTo topic from jndi.
+        Messages received by the MDB will be forwarded to this topic. -->
+  <Action name="Create_dest" type="CreateDestination">
+    <ActionParameter name="structure_id">dest</ActionParameter>
+    <ActionParameter name="jndiName">replyTopic_BMTUT</ActionParameter>
+  </Action>
+
+  <Action name="CreateConsumer1" type="CreateDurableSubscriber">
+    <ActionParameter name="structure_id">consumer</ActionParameter>
+    <ActionParameter name="dest_id">dest</ActionParameter>
+    <ActionParameter name="session_id">session</ActionParameter>
+    <ApiParameter name="durableName">jca_ha_003_durable</ApiParameter>
+  </Action>
+
+  <Action name="StartConnection" type="StartConnection">
+    <ActionParameter name="conn_id">connection</ActionParameter>
+  </Action>
+  
+
+  <Action name="HitServlet" type="HttpAction" thread="2">
+    <dependsOn name="StartConnection" interval="1000"/>
+    <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+    <ActionParameter name="parameter">8100</ActionParameter>
+    <ActionParameter name="output">JCAServlet.jca_ha_003.log</ActionParameter>
+  </Action>
+
+
+  <!-- server goes down, wait 20 seconds to reconnect -->
+
+
+  <Action name="WaitAndRestart" type="CompositeAction">
+    <dependsOn name="HitServlet" interval="20000"/>
+
+    <!-- <Action name="CreateConnection2" type="CreateConnection"> -->
+    <!--   <ActionParameter name="structure_id">connection2</ActionParameter> -->
+    <!--   <ActionParameter name="factory_id">cf</ActionParameter> -->
+    <!-- </Action> -->
+    
+    <!-- <Action name="CreateSession2" type="CreateSession"> -->
+    <!--   <ActionParameter name="conn_id">connection2</ActionParameter> -->
+    <!--   <ActionParameter name="structure_id">session2</ActionParameter> -->
+    <!-- </Action> -->
+
+    <!-- <Action name="CreateConsumer2" type="CreateDurableSubscriber"> -->
+    <!--   <ActionParameter name="structure_id">consumer2</ActionParameter> -->
+    <!--   <ActionParameter name="dest_id">dest</ActionParameter> -->
+    <!--   <ActionParameter name="session_id">session2</ActionParameter> -->
+    <!--   <ApiParameter name="durableName">jca_ha_003_durable</ApiParameter> -->
+    <!-- </Action> -->
+
+    <!-- <Action name="CreateConsumerLog2" type="CreateDurableSubscriber"> -->
+    <!--   <ActionParameter name="structure_id">logConsumer2</ActionParameter> -->
+    <!--   <ActionParameter name="dest_id">logDest</ActionParameter> -->
+    <!--   <ActionParameter name="session_id">session2</ActionParameter> -->
+    <!--   <ApiParameter name="durableName">jca_ha_003_log</ApiParameter> -->
+    <!-- </Action> -->
+
+
+    <!-- <Action name="StartConnection2" type="StartConnection"> -->
+    <!--   <ActionParameter name="conn_id">connection2</ActionParameter> -->
+    <!-- </Action> -->
+
+
+    <Action name="Recv" type="CompositeAction" repeat="1">
+  	  <Action name="RecvObjMsg" type="ReceiveMessage">
+  		<ActionParameter name="consumer_id">consumer</ActionParameter>
+  		<ActionParameter name="structure_id">rx_msg</ActionParameter>
+  		<ApiParameter name="timeout">25000</ApiParameter>
+  	  </Action>
+  	  
+  	  <Action name="GetTestProps8100" type="GetTestPropsMsg">
+  		<ActionParameter name="message_id">rx_msg</ActionParameter>
+  		<ActionParameter name="verifyValue">8100</ActionParameter>
+  	  </Action>
+    </Action>
+
+    <Action name="RX_and_Check_Log_Msgs" type="CompositeAction" repeat="1">
+      <Action name="RX_Log" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">logConsumer</ActionParameter>
+        <ActionParameter name="structure_id">log_msg</ActionParameter>
+        <ApiParameter name="timeout">25000</ApiParameter>
+      </Action>
+
+      <Action name="ShowLogs" type="GetMessageText">
+        <ActionParameter name="message_id">log_msg</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="CloseSession2" type="CloseSession">
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection2" type="StopConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection2" type="CloseConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+  </Action>
+
+</ImaJcaTest>

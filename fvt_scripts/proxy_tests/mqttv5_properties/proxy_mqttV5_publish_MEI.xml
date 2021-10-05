@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="proxy_mqttV5_publish_MEI" >
+<!--
+    Test MQTTv5 Spec 3.3.2.3 Publish Properties
+    0x02 - Message ExpiryInterval
+MEI =1, expect the message has a good chance of Expiring before it can be delivered to Subscriber
+MEI =0, interestingly is not an error expect the message WILL Expire before it can be delivered to Subscriber
+MEI MAX=4294967295 is largest value a 4 byte integer may contain. (0xffff ffff)
+
+MEI not provided, message never expires
+ -->    
+
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>proxy_mqttV5_publish_MEI</solution>
+    </SyncClient>
+    
+
+    
+<!--  ==========  Message Expiry Interval  0x02(+2 bytes)  ==========  -->
+<!-- 08 02 00000045  0x45=69
+MQTT receive 32 PUBLISH connect=8: len=158 
+
+00000: 0021696f 742d322f 6576742f 7075626c 69736850 726f7065 7274792f 666d742f  [.!iot-2/evt/publishProperty/fmt/]
+00032: 4d454900 01080200 00004523 00014d73 6720313a 7b20636c 69656e74 49643d64  [MEI.......E#..Msg 1:{ clientId=d]
+00064: 3a6f7267 34696f74 323a7075 6250726f 70733a4d 45492c20 72657461 696e3a66  [:org4iot2:pubProps:MEI, retain:f]
+00096: 616c7365 2c204d45 493a3639 2c20516f 533a312c 20746f70 69633a69 6f742d32  [alse, MEI:69, QoS:1, topic:iot-2]
+00128: 2f657674 2f707562 6c697368 50726f70 65727479 2f666d74 2f4d4549 207d      [/evt/publishProperty/fmt/MEI }]
+-->
+    <Action name="MessageExpiryInterval" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:pubProps:MEI</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:pubProps:MEI</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+        </Action>
+        <!-- TIMING RISK:  MEI is as low as it can be and still be delivered -->
+        <Action name="CreateMessageMEI1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg:{ clientId=d:org4iot2:pubProps:MEI, retain:false, MEI:1, QoS:1, topic:iot-2/evt/publishProperty/fmt/MEI }</ApiParameter>
+            <ApiParameter name="msgExpire">2</ApiParameter>
+        </Action>
+        <!-- MEI = 0 Immediately Expires or NEVER expires, action is undeclared, only if not present, then NEVER Expires ? -->
+        <Action name="CreateMessageMEIMIN" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg:{ clientId=d:org4iot2:pubProps:MEI, retain:false, MEI:0, QoS:1, topic:iot-2/evt/publishProperty/fmt/MEI }</ApiParameter>
+            <ApiParameter name="msgExpire">0</ApiParameter>
+        </Action>
+        
+        <Action name="CreateMessageMEIMAX" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg3</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg:{ clientId=d:org4iot2:pubProps:MEI, retain:false, MEI:4294967295, QoS:1, topic:iot-2/evt/publishProperty/fmt/MEI }</ApiParameter>
+            <ApiParameter name="msgExpire">4294967295</ApiParameter>
+        </Action>
+        
+        <Action name="sync_MEI1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">t-MEI1</ActionParameter>
+            <ActionParameter name="component_list">t-MEI1;r-MEI1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+  
+
+        <Action name="SendMessage1" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/publishProperty/fmt/MEI</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+            <ApiParameter name="expectedrc">0</ApiParameter>
+        </Action>
+        
+        <Action name="sync_MEI2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">t-MEI2</ActionParameter>
+            <ActionParameter name="component_list">t-MEI2;r-MEI2</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+  
+
+        <Action name="SendMessageMEIMIN" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg2</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/publishProperty/fmt/MEI</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+            <ApiParameter name="expectedrc">0</ApiParameter>
+        </Action>
+        
+        <Action name="sync_MEI3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">t-MEI3</ActionParameter>
+            <ActionParameter name="component_list">t-MEI3;r-MEI3</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+  
+
+        <Action name="SendMessageMEIMAX" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg3</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/publishProperty/fmt/MEI</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+            <ApiParameter name="expectedrc">0</ApiParameter>
+        </Action>
+        
+        <Action name="CheckConnectAfterPubs" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+
+<!--
+2018-05-10T20:41:47.440Z tcpiop.0 mqtt.c:915: MQTT receive 82 SUBSCRIBE connect=9: len=39 
+
+00000: 00010000 21696f74 2d322f65 76742f70 75626c69 73685072 6f706572 74792f66  [....!iot-2/evt/publishProperty/f]
+00032: 6d742f4d 454902                                                          [mt/MEI.]
+
+-->
+    <Action name="MEI_sub" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:sub:MEI</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">a:org4iot2:sub:MEI</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+        </Action>
+        
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/pubProps/id/MEI/evt/publishProperty/fmt/MEI</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ApiParameter name="expectedrc">2</ApiParameter>
+        </Action>
+        
+        
+        <Action name="sync_MEI1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r-MEI1</ActionParameter>
+            <ActionParameter name="component_list">t-MEI1;r-MEI1</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveMsg1" type="ReceiveMessage" >
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        <!-- MEI expect some time to elapse and be reflected in 'remaining time' value -->
+        <Action name="CompareMsg1" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+            <ActionParameter name="compareBody">Msg:{ clientId=d:org4iot2:pubProps:MEI, retain:false, MEI:1, QoS:1, topic:iot-2/evt/publishProperty/fmt/MEI }</ActionParameter>
+            <ApiParameter name="compareMsgExpire">1</ApiParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+        </Action>
+<!--  
+
+-->
+        
+        
+        <Action name="sync_MEI2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r-MEI2</ActionParameter>
+            <ActionParameter name="component_list">t-MEI2;r-MEI2</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveMsgMEIMIN" type="ReceiveMessage"> <!-- rc="1" reason="ISMTEST1143"> -->
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+<!--  THIS MESSAGE SHOULD NEVER ARRIVE, EVER, immediately expired   __ OR __   Does it never expire, the action of 0 is unclear -->
+        <Action name="CompareMsgMEIMIN" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+            <ActionParameter name="compareBody">Msg:{ clientId=d:org4iot2:pubProps:MEI, retain:false, MEI:0, QoS:1, topic:iot-2/evt/publishProperty/fmt/MEI }</ActionParameter>
+            <ApiParameter name="hasMsgExpire">false</ApiParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+        </Action>
+        
+        
+        <Action name="sync_MEI3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r-MEI3</ActionParameter>
+            <ActionParameter name="component_list">t-MEI3;r-MEI3</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveMsgMEIMAX" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        <Action name="CompareMsgMEIMAX" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+            <ActionParameter name="compareBody">Msg:{ clientId=d:org4iot2:pubProps:MEI, retain:false, MEI:4294967295, QoS:1, topic:iot-2/evt/publishProperty/fmt/MEI }</ActionParameter>
+            <ApiParameter name="compareMsgExpire">4294967295</ApiParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+        </Action>
+<!--  05 02 00000044  where,  0x44=68  one second elapse from Publish Time! 
+MQTT send 32 PUBLISH connect=9: len=155 
+
+-->
+
+        <Action name="CheckConnectAfterRecvs" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+
+    
+</IsmWSTest>
+                

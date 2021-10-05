@@ -1,0 +1,519 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_cluster_RM_008" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>testmqtt_cluster_RM_008</solution>
+	</SyncClient>
+	
+	<!-- publish retained messages to server 1 -->
+	<Action name="setupRetained" type="CompositeAction">	    
+	    <!-- Step 1: establish a connection to server 1 -->
+	    <Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_pub</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+	    <!-- Step 2: publish retained messages to server 1 -->
+	    <Action name="PublishToMany" type="PublishTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>			
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+			<ActionParameter name="qos">1</ActionParameter>
+			<ActionParameter name="retained">true</ActionParameter>			
+		</Action>	
+
+		<!-- Step 3: close the connection to server 1 -->
+	    <Action name="CloseConnection" type="CloseConnection">
+	    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action>
+	</Action>
+
+	<!-- verify receipt on server 1 -->
+	<Action name="verifyRetainedOn1" type="CompositeAction">
+
+		<!-- Step 1: Establish a connection to server 1 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_sub0</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>			
+		</Action>	  
+
+		<!-- Step 3: Receive the expected number of messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">30000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+		<!-- Step 4: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">5000</ActionParameter>
+		</Action>   
+
+		<!-- Step 5: close the connection to server 1 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">verify1</ActionParameter>
+			<ActionParameter name="component_list">verify1;verify2;verify3;verifyDone</ActionParameter>
+			<ActionParameter name="timeout">240000</ActionParameter>
+		</Action>
+	</Action>
+	
+	<!-- verify receipt on server 2 -->
+	<Action name="verifyRetainedOn2" type="CompositeAction">
+
+		<!-- Step 1: Establish a connection to server 2 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server2.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_sub1</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+		</Action>	  
+
+		<!-- Step 3: Receive the expected number of messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">30000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+		<!-- Step 4: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">5000</ActionParameter>
+		</Action>   
+
+		<!-- Step 5: close the connection to server 2 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">verify2</ActionParameter>
+			<ActionParameter name="component_list">verify1;verify2;verify3;verifyDone</ActionParameter>
+			<ActionParameter name="timeout">240000</ActionParameter>
+		</Action>
+	</Action>
+	
+	<!-- verify receipt on server 3 -->
+	<Action name="verifyRetainedOn3" type="CompositeAction">
+
+		<!-- Step 1: Establish a connection to server 3 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server3.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_sub2</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+		</Action>	  
+
+		<!-- Step 3: Receive the expected number of messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">30000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+		<!-- Step 4: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">5000</ActionParameter>
+		</Action>   
+
+		<!-- Step 5: close the connection to server 3 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">verify3</ActionParameter>
+			<ActionParameter name="component_list">verify1;verify2;verify3;verifyDone</ActionParameter>
+			<ActionParameter name="timeout">240000</ActionParameter>
+		</Action>
+	</Action>
+	
+	<Action name="waitForVerified" type="CompositeAction">
+		<Action name="sync_components_1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">verifyDone</ActionParameter>
+			<ActionParameter name="component_list">verify1;verify2;verify3;verifyDone</ActionParameter>
+			<ActionParameter name="timeout">240000</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="verifyNullRetainedOn1" type="CompositeAction">
+		<!-- Step 1: Establish a connection to server 1 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_sub3</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>			
+		</Action>	  
+
+		<!-- Step 3: Receive the expected number of messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">30000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+	    <!-- Step 4: sync with publish of null retained -->
+	    <Action name="sync_components_2" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">readyForNull1</ActionParameter>
+			<ActionParameter name="component_list">readyForNull1;readyForNull2;readyToPublishNull</ActionParameter>
+			<ActionParameter name="timeout">240000</ActionParameter>
+		</Action>
+
+		<!-- Step 5: receive null retained msgs -->
+		<Action name="ReceiveRemoteRetainedNull" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">30000</ActionParameter>
+	    	</Action>	    	
+	    </Action>
+
+	    <!-- Step 6: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">5000</ActionParameter>
+		</Action>  
+
+	    <!-- Step 5: close the connection to server 1 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+
+		<Action name="sync_components_3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">nullVerifiedOn1</ActionParameter>
+			<ActionParameter name="component_list">nullRetainedPublished;nullVerifiedOn1;nullVerifiedOn2;nullRetainedSetup</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="verifyNullRetainedOn2" type="CompositeAction">
+		<!-- Step 1: Establish a connection to server 1 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server2.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_sub4</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>			
+		</Action>	  
+
+		<!-- Step 3: Receive the expected number of messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">30000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+	    <!-- Step 4: sync with publish of null retained -->
+	    <Action name="sync_components_2" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">readyForNull2</ActionParameter>
+			<ActionParameter name="component_list">readyForNull1;readyForNull2;readyToPublishNull</ActionParameter>
+			<ActionParameter name="timeout">240000</ActionParameter>
+		</Action>
+
+		<!-- Step 5: receive null retained msgs -->
+		<Action name="ReceiveRemoteRetainedNull" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">30000</ActionParameter>
+	    	</Action>	    	
+	    </Action>
+
+	    <!-- Step 6: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">5000</ActionParameter>
+		</Action>  
+
+	    <!-- Step 5: close the connection to server 1 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action>
+
+		<Action name="sync_components_3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">nullVerifiedOn2</ActionParameter>
+			<ActionParameter name="component_list">nullRetainedPublished;nullVerifiedOn1;nullVerifiedOn2;nullRetainedSetup</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="publishNullRetained" type="CompositeAction">
+		<!-- Step 1: Establish a connection to server 1 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_pub2</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+	    <!-- Step 2: wait for subscribers to be ready -->	    
+	    <Action name="sync_components_2" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">readyToPublishNull</ActionParameter>
+			<ActionParameter name="component_list">readyForNull1;readyForNull2;readyToPublishNull</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+
+	    <!-- Step 3: publish retained messages to server 1 -->
+	    <Action name="PublishToMany" type="PublishTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+			<ActionParameter name="qos">1</ActionParameter>
+			<ActionParameter name="retained">true</ActionParameter>
+			<ActionParameter name="clearRetained">true</ActionParameter>
+		</Action>
+
+		<!-- Step 4: close connection -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action>
+
+		<Action name="sync_components_3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">nullRetainedPublished</ActionParameter>
+			<ActionParameter name="component_list">nullRetainedPublished;nullVerifiedOn1;nullVerifiedOn2;nullRetainedSetup</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="waitForNullRetained" type="CompositeAction">
+		<Action name="sync_components_3" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">nullRetainedSetup</ActionParameter>
+			<ActionParameter name="component_list">nullRetainedPublished;nullVerifiedOn1;nullVerifiedOn2;nullRetainedSetup</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="waitForSyncTo4" type="CompositeAction">
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server4.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_sub7</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+	    <Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>			
+		</Action>
+
+		<Action name="ReceiveFirstMessage" type="ReceiveMessage" >
+		    <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        <ActionParameter name="waitTime">90000</ActionParameter>
+	    </Action>
+
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="19" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">20000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+	    <Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">20000</ActionParameter>
+		</Action>  
+
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+	</Action>
+
+	<Action name="waitForSync" type="CompositeAction">
+		<!-- Step 1: create connection to server 3 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server3.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_sub5</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+	    <!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>			
+		</Action>
+
+		<!-- Step 3: receive original 20 retained messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">30000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+	    <!-- Step 4: wait for receipt of the null retained messages -->
+	    <Action name="ReceiveRemoteRetainedNull" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">240000</ActionParameter>
+	    	</Action>	    	
+	    </Action>
+
+	    <!-- Step 5: close connection -->
+	    <Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+	</Action>
+
+	<Action name="verifyNoRetainedForNewSub" type="CompositeAction">
+		<!-- Step 1: create connection to server 3 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server3.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_008_sub6</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+	    <!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/CTT/008RMT/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>			
+		</Action>
+
+		<!-- Step 3: Verify we don't receive any retained messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">20000</ActionParameter>
+		</Action>  
+
+	    <!-- Step 5: close connection -->
+	    <Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+	</Action>
+</IsmWSTest>             

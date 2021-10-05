@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<!--
+# Copyright (c) 2014-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+<html lang="en-US">
+<head>
+<title>IBM MessageSight JSON Message client</title>
+<link rel="stylesheet" href="css/messageSightSamples.css" />
+<link rel="stylesheet" href="css/messagingJSON.css" />
+
+<script type="text/javascript" src="js/jsonmsg.js"></script>
+<script type="text/javascript">
+
+/** The currently selected tab. */
+var currentTab;
+var client;
+/** The last message received. */
+var receivedMessage;
+
+
+function connect(form) {   
+    
+	try {
+		
+		client = new MessagingJSON.Client(form.host.value, Number(form.port.value), form.clientId.value);
+    
+        client.startTrace();
+        client.onMessageArrived = onMessageArrived;
+        client.onConnectionLost = onConnectionLost;
+    
+        // Set values from the connect form.
+        var sessionForm = document.getElementById('sessionForm');
+        var connectOptions = new Object();
+        connectOptions.timeout=10;
+        if (sessionForm.userName.value) 
+            connectOptions.userName = sessionForm.userName.value;
+        if (sessionForm.password.value) 
+            connectOptions.password = sessionForm.password.value;
+
+        if (sessionForm.keepAlive.value !== "60") 
+            connectOptions.keepAliveInterval = parseInt(sessionForm.keepAlive.value);
+        
+        if (sessionForm.connectionTimeout.value !== "10") 
+            connectOptions.timeout = parseInt(sessionForm.connectionTimeout.value);
+       
+        connectOptions.useSSL = sessionForm.ssl.checked;
+        connectOptions.onSuccess = function () {
+            connectForms();
+            logger();
+        };
+        connectOptions.onFailure = function (data) { alert(data.errorMessage);};
+      
+        client.connect(connectOptions);
+    
+    } catch (error) {
+        alert(error);
+    }
+} 
+
+function disconnect() {
+    client.disconnect();
+}
+
+function createTopicSubscription(form) {
+	
+	if (!form.subscribeTopic.value) {
+		alert("A subscription topic required!");
+		return;
+	}
+	
+	if (!form.subscribeName.value) {
+		alert("A subscription name is required!");
+		return;
+	}
+
+    var options = {QoS:Number(form.subscribeQoS.value),
+			       Name:form.subscribeName.value,
+                   onSuccess: function(subscriptionName, topicFilter) {
+           	   	   			alert("Subscription [" + subscriptionName + "] to Topic [" + topicFilter + "] completed successfully");},
+                   onFailure: function(subscriptionName, topicFilter, msgObj) {
+                	   		alert("Subscription [" + subscriptionName + "] to Topic [" + topicFilter + "] failed with code [" + msgObj.RC + "] and reason [" + msgObj.Reason + "]");}};
+	
+    client.createTopicSubscription(form.subscribeTopic.value, options);
+    logger();
+    
+}
+
+function closeTopicSubscription(form) {
+	
+	
+	if (!form.subscribeName.value) {
+		alert("A subscription name is required!");
+		return;
+	}
+	
+    var options = {onSuccess: function(subscriptionName) {
+       	   		   			alert("Closing of subscription [" + subscriptionName + "] completed successfully");},
+    		 	   onFailure: function(subscriptionName, msgObj) {
+     	   					alert("Closing the subscription [" + subscriptionName + "] failed with code [" + msgObj.RC + "] and reason [" + msgObj.Reason + "]");}};
+	
+    client.closeTopicSubscription(form.subscribeName.value, options);
+    logger();
+    
+}
+
+function doPublishTopic(form) {
+
+    var  message = new MessagingJSON.Message(form.textMessage.value);
+    
+    message.destinationName = form.topicName.value;
+    message.qos = parseInt(form.sendQos.value);
+    message.destinationType = message.TOPIC;
+    
+    var options = {onSuccess: function(topicFilter) {
+	   					alert("Sending messge to [" + topicFilter + "] completed successfully");},
+				   onFailure: function(topicFilter, msgObj) {
+						alert("Sending messge to [" + topicFilter + "] failed with code [" + msgObj.RC + "] and reason [" + msgObj.Reason + "]");}};
+    client.send(message, options);
+    logger();
+    
+}
+
+/**
+ * HTML Application logic.
+ */
+function onLoad() {
+	
+    disconnectForms();
+    logClose();
+    var form = document.getElementById("topicForm");    
+    form.clientId.value = form.clientId.value || "Client"+new Date().getSeconds()+new Date().getMilliseconds();
+    form.host.value = location.hostname || "127.0.0.1";
+    form.port.value = location.port || 16102;
+    if (location.protocol == "ws:")
+    	document.getElementById('connect').ssl.checked = true;
+    expose("topicForm");
+    
+    var publishFileInput = document.getElementById('publishPicker');
+    publishFileInput.addEventListener('change', this.filePickerListener);
+    
+}
+
+function filePickerListener(e) {
+    
+    var fileArray = e.target.files;
+    var file = fileArray[0];
+    var _this = this;
+
+    if (fileArray && file) {
+        
+        var dataReader = new FileReader();
+        dataReader.onload = function(readerEvt) {
+
+            var form = document.getElementById("topicForm");  
+        	form.textMessage.value = readerEvt.target.result;
+        	form.textMessage.fileValueLength = readerEvt.target.result.length;
+        	form.textMessage.fileInputSet = true;
+        	
+        };
+        
+        dataReader.readAsDataURL(file);
+    }
+ }
+
+function resetFileInput() {
+	
+  
+	// get the current file input element
+	var form = document.getElementById("topicForm");  
+	
+	if (!form.textMessage.fileInputSet) {
+		return;
+	}
+	
+	if (form.textMessage.fileValueLength === form.textMessage.value.length) {
+		return;
+	}
+	
+	form.textMessage.fileValueLength = 0;
+	form.textMessage.fileInputSet = false;
+	form.textMessage.value = "";
+    var currentFilePicker = document.getElementById("publishPicker"); 
+    var newFilePicker = document.createElement("input");
+    
+    newFilePicker.type = "file";
+    newFilePicker.id = "publishPicker";
+    newFilePicker.name = "publishPicker";
+    newFilePicker.setAttribute('style', "margin-top: 5px");
+    newFilePicker.addEventListener('change', this.filePickerListener);
+    
+    currentFilePicker.parentNode.replaceChild(newFilePicker, currentFilePicker);
+  
+}
+
+//On connection
+function connectForms() {  
+    
+	var form = document.getElementById('topicForm');
+    form.host.disabled = "true"; 
+    form.port.disabled = "true";  
+    form.clientId.disabled = "true";
+    form.conn.disabled = "true";
+    form.disc.disabled = "";
+    
+    form.subscribeTopic.disabled = "";
+    form.subscribeName.disabled = "";
+    form.subscribeQoS.disabled = "";
+    form.register.disabled = "";
+    form.unRegister.disabled = "";
+    
+    form.topicName.disabled = "";
+    form.textMessage.disabled = "";
+    form.publishTopicButton.disabled = "";
+    
+    form = document.getElementById('sessionForm');
+    form.host.disabled = "true";
+    form.port.disabled = "true"; 
+    form.clientId.disabled = "true";
+    form.userName.disabled = "true";
+    form.password.disabled = "true";
+    form.ssl.disabled = "true";
+    form.keepAlive.disabled = "true";
+    form.connectionTimeout.disabled = "true";
+
+    form.conn.disabled = "true";
+    form.disc.disabled = "";
+    
+
+}
+
+// On disconnection and on page load
+function disconnectForms(histclose) {  
+
+	var form = document.getElementById("topicForm"); 
+    form.host.disabled = ""; 
+    form.port.disabled = "";  
+    form.clientId.disabled = "";
+    form.conn.disabled = "";
+    form.disc.disabled = "true";
+
+    form.subscribeTopic.disabled = "true";
+    form.subscribeName.disabled = "true";
+    form.subscribeQoS.disabled = "true";
+    form.register.disabled = "true";
+    form.unRegister.disabled = "true";
+    
+    form.topicName.disabled = "true";
+    form.textMessage.disabled = "true";
+    form.publishTopicButton.disabled = "true";
+   
+    form = document.getElementById("sessionForm");    
+    form.host.disabled = ""; 
+    form.port.disabled = "";  
+    form.clientId.disabled = "";
+    form.userName.disabled = "";
+    form.password.disabled = "";
+    form.ssl.disabled = "";
+    form.keepAlive.disabled = "";
+    form.connectionTimeout.disabled = "";
+
+    form.conn.disabled = "";
+    form.disc.disabled = "true";
+
+}
+
+
+/**
+ * Websockets API callbacks.
+ */
+
+function onConnectionLost(code,reason) {
+    var form = document.getElementById('sessionForm');
+    disconnectForms();
+    logger();
+    if (reason !== undefined)
+      alert(client.clientId+" disconnected code="+code+" reason="+reason);
+}
+
+function onMessageArrived(message) {
+    logger();
+    this.receivedMessage = message;
+    displayMessage(message);
+}
+
+function displayMessage(message) {
+    logger();
+    this.receivedMessage = message;
+    var msgBody = message.Body;
+    var form = document.getElementById("topicForm");
+    form.receivedTopicName.value = message.Topic;
+    form.receivedQos.value = message.QoS;
+    form.receivedMessage.value = msgBody;
+    
+}
+
+function logger() {   
+    var form = document.getElementById('sessionForm')    
+    if (form.hist.style.display != "none") {  
+        var log = client.getTraceLog();
+        form.hist.value = log.join("\n");
+        form.hist.scrollTop = form.hist.scrollHeight;
+    }
+}
+
+function logDump(form) {            
+    var log;
+    if (client == null) 
+        log = "";
+    else 
+        log = client.getTraceLog().join("\n");
+    form.hist.value = log;
+    form.histclear.style.display = ""
+    form.hist.scrollTop = form.hist.scrollHeight;
+}
+
+function logClear(form) {
+    if (client !== undefined) {
+        client.stopTrace();
+        client.startTrace();
+        form.hist.value = client.getTraceLog().join("\n");
+    }
+}
+
+function logClose() {
+    var form = document.getElementById("sessionForm");     
+  
+    form.histclear.style.display = "none"
+
+}
+
+function expose(tabName) {
+    if (currentTab === "topicForm") {
+       var topicForm = document.getElementById('topicForm');
+       var sessionForm = document.getElementById('sessionForm');
+       sessionForm.host.value = topicForm.host.value;
+       sessionForm.port.value = topicForm.port.value;
+       sessionForm.clientId.value = topicForm.clientId.value;       
+    } else if (currentTab === "sessionForm") {
+       var topicForm = document.getElementById('topicForm');
+       var sessionForm = document.getElementById('sessionForm');
+       topicForm.host.value = sessionForm.host.value;
+       topicForm.port.value = sessionForm.port.value;
+       topicForm.clientId.value = sessionForm.clientId.value;
+    }
+
+    var tabs = document.getElementById('tabs').childNodes;
+    for ( var i = 0; i < tabs.length; i++ ) {
+        if ( tabs[i].nodeName == "LI" ) {
+            for ( var ii = 0; ii < tabs[i].childNodes.length; ii++ ) {
+                if ( tabs[i].childNodes[ii].nodeName == "A" ) {
+                    href = tabs[i].childNodes[ii].href;
+                    hrefName = href.substring(href.lastIndexOf ( '#' )+1);
+                    if (tabName === hrefName) {
+                        tabs[i].childNodes[ii].className = "choice";
+                    } else if (tabs[i].childNodes[ii].className !== "alert") {
+                        tabs[i].childNodes[ii].className = "";
+                    }
+                }
+             } // for...
+         }
+    }
+    
+    for (var i = 0; i<document.forms.length; i++) {
+        //alert (document.forms[i]);
+        var form = document.forms[i];
+        if (form.id === tabName) {
+            form.className = "tabContent";
+        } else {
+            form.className = "tabContent hide";
+        }
+    } 
+    currentTab = tabName;  
+}
+
+function onUnload() {
+	   // Do not do a normal disconnection of the client if the browser window is closed, 
+	   // just let the connection fail, abnormally, any LastWill and Testament processing 
+	   // will then take place. 
+	    if (client && client.isConnected)
+	      client.disconnect();
+	   logClose();
+	}
+
+</script>
+</head>
+
+<body onload="onLoad()" onunload="onUnload()">
+	<div class="demoHeader">
+		<div class="demoHeaderPrimary">
+			<div class="demoHeaderPrimaryInner">
+				<span>
+					<div class="demoHeaderPrimaryTitle">IBM MessageSight</div>
+				</span>
+			</div>
+			<span>
+				<div class="demoHeaderLogoBox">
+					<div class="demoHeaderIBMLogo" alt="IBM�"></div>
+				</div>
+				<div class="demoHeaderHelpLogo" id="help" alt="Help" onclick="help()"></div>
+			</span>
+		</div>
+		<div class="demoBlueLip"></div>
+	</div>
+	<div class="demoTitleContainer">
+		<span class="demoTitle">IBM MessageSight JSON Message client - v1.0</span>
+	</div>
+	<div class="demoGrayLip"></div>
+	<div class="demoContentContainer">
+	
+		<ul id="tabs">
+			<li><a href="#topicForm" onclick="expose('topicForm')">Topic</a></li>
+			<li><a href="#sessionForm" onclick="expose('sessionForm')">Session</a></li>
+		</ul>
+
+		<form id="topicForm" class="tabContent">
+			<fieldset>
+				<legend>Session</legend>
+				
+				<label for="topicServer">Server</label>
+				<input id="topicServer" type="text" name="host" size="30" /> 
+				
+				<label for="topicPort">Port</label>
+				<input id="topicport" type="text" name="port" size="5" maxlength="5" /> 
+				
+				<label for="topicClientId">Client Identifier</label>
+				<input id="topicClientId" type="text" name="clientId" size="23" maxlength="23" /> 
+		 
+				<input id="topicConnect" type="button" style="clear: left; margin:5px 5px 0px 0px" value="Connect" onclick="connect(this.form)" name="conn" /> 
+				<input id="topicDisconnect" type="button" style="margin-top: 5px" value="Disconnect" onclick="disconnect()" name="disc" />	
+			</fieldset>
+
+			<fieldset>
+				<legend>Subscribe</legend>
+				
+				<label for="subscribeTopic">Topic</label> 
+				<input id="subscribeTopic" type="text" name="subscribeTopic" size="40" />
+				
+				<label for="subscribeName">Name</label>
+				<input id="subscribeName" type="text" name="subscribeName" size="40" />
+					
+				<label for="subscribeQoS">QoS</label>
+				<select id="subscribeQoS" name="subscribeQoS">
+					<option>0</option>
+				</select> 
+
+				<input type="button" style="clear: left; margin:5px 5px 10px 0px" value="Subscribe" onclick="createTopicSubscription(this.form)" name="register" /> 
+				<input type="button" style="margin: 5px 0px 10px 0px" value="Unsubscribe" onclick="closeTopicSubscription(this.form)" name="unRegister" /> 
+	
+				<label for="subscribeReceived">From Topic</label>
+				<input id="subscribeReceived" type="text" name="receivedTopicName" size="40" disabled="disabled" />
+				
+				<label for="receivedQoSValue">QoS</label> 
+				<input id="receivedQoSValue" type="text" name="receivedQos" size="1" disabled="disabled" /> 
+				
+				<label for="receivedMessage" style="margin-top: 5px">Message</label> 
+				<textarea id="receivedMessage" name="receivedMessage" rows="3" cols="50" disabled="disabled"></textarea>
+			</fieldset>
+
+			<fieldset>
+				<legend>Publish</legend>
+				
+				<label for="publishTopic">Topic</label>
+				<input id="publishTopic" type="text" name="topicName" size="40" /> 
+				
+				<label for="publishQoS">QoS</label>
+				<select id="publishQoS" name="sendQos">
+					<option>0</option>
+				</select>
+				
+        		<label for="publishPicker" style="margin-top: 5px">Choose a file</label>
+        		<input type="file" id="publishPicker" name="publishPicker" style="margin-top: 5px"/>
+			 	
+				<label for="publishMessage">Message</label>				
+				<textarea id="publishMessage" name="textMessage" onKeyUp="resetFileInput()" rows="3" cols="50"></textarea>
+				
+				<input type="button" style="clear: left; margin-top: 5px"  value="Publish" onClick="doPublishTopic(this.form)"  name="publishTopicButton" />
+			</fieldset>
+		</form>
+
+		<form id="sessionForm" class="tabContent hide">
+			<fieldset>
+				<label for="sessionServer">Server</label>
+				<input id="sessionServer" type="text" name="host" size="30" /> 
+			
+				<label for="sessionPort">Port</label>
+				<input id="sessionPort" type="text" name="port" size="5" maxlength="5" /> 
+			
+				<label for="sessionClientId">Client Identifier</label>
+				<input id="sessionClientId" type="text" name="clientId" size="23" maxlength="23" />
+				 
+				<label for="sessionUser">User name</label> 
+				<input id="sessionUser" type="text" name="userName" size="23" /> 
+				
+				<label for="sessionPassword">Password</label> 
+				<input id="sessionPassword" type="password" name="password" size="23" /> 
+				
+				<label for="sessionSSL">SSL</label> 
+				<input id="sessionSSL" type="checkbox" name="ssl" />
+				
+				<label for="connectionTimeout">Connection timeout</label> 
+				<input id="connectionTimeout" type="number" name="connectionTimeout" value=10 size="4" accept="" /> 
+				 
+				<label for="sessionKeepAlive">KeepAlive seconds</label> 
+				<input id="sessionKeepAlive" type="number" name="keepAlive" value=60 size="4" accept="" /> 
+			
+				<div id="connectLWTSendTopic" style="display: none">
+					Topic Name <input type="text" name="connectLWTTopicName" size="40" />
+					QoS <select name="connectLWTQos">
+							<option>0</option>
+							<option>1</option>
+							<option>2</option>
+						</select>
+				</div>
+				<br />
+				
+				<div id="connectLWTSendMessage" style="display: none">
+					Message 
+					<br />
+					<textarea name="connectLWTMessage" rows="3" cols="80"></textarea>
+				</div>
+				<br /> 
+				
+				<input type="button" style="clear: left; margin:5px 5px 0px 0px" name="conn" value="Connect" onclick="connect(this.form)" /> 
+				<input type="button" style="margin: 5px 0px 10px 0px" name="disc" value="Disconnect" onclick="disconnect()" /> 
+
+				<label for="sessionTrace">Trace Log</label> 			
+				<textarea id="sessionTrace" name="hist" rows="20" cols="100" readonly="readonly"></textarea>
+				<input type="button" style="clear: left; margin: 5px 0px 0px 0px" name="histclear" value="Clear Trace" onclick="logClear(this.form)" /> <br />
+				
+			</fieldset>
+		</form>
+
+	</div>
+	
+	<div class="demoFooter">
+		<div class="demoBlueLip"></div>
+		<div class="demoFooterContent">&copy; Copyright Contributors to the Eclipse Foundation 2014-2021</div>
+	</div>
+	
+</body>
+</html>

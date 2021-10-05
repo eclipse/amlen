@@ -1,0 +1,312 @@
+#!/bin/bash
+
+set -euo pipefail
+
+#Set Script Name variable
+SCRIPT=$(basename "${BASH_SOURCE[0]}")
+
+#Initialize variables to default values.
+build=""
+stream=""
+basedir="/gsacache/release"
+streamdir=""
+#development=0
+#production=0
+dryrun=0
+declare -a buildarray
+#ifix_re="IMA\w+-IFIX"
+
+product_dir=""
+product_dir_symb=""
+test_dir=""
+test_dir_symb=""
+
+
+
+#Help function
+function HELP {
+  echo -e \\n"Help documentation for ${SCRIPT}."\\n
+  echo -e "Basic usage:"\\n
+  echo "-b  --Set the build number to remove."
+  echo "-s  --Set the stream to remove this build from."
+  echo "-x  --Do a dry run without deleting anything."
+  echo -e "-h  --Displays this help message. No further functions are performed."\\n
+  echo -e "Example: $SCRIPT -b 20170310-2000 -s IMADev"\\n
+  exit 1
+}
+
+while getopts :b:s:xh FLAG; do
+  case $FLAG in
+    b)  #set option "b"
+        buildarray+=("$OPTARG")
+      ;;
+    s)  #set option "s"
+      stream=$OPTARG
+      ;;
+    x)  #set option ""
+      dryrun=1
+      ;;
+    h)  #show help
+      HELP
+      ;;
+    \?) #unrecognized option - show help
+      echo -e \\n"Option -$OPTARG not allowed."
+      HELP
+      ;;
+  esac
+done
+
+shift $((OPTIND-1))  #This tells getopts to move on to the next argument.
+
+echo "*****************************************************************"
+echo "slpublish-remove-build: run on $(date)."
+echo "*****************************************************************"
+
+if [ -z "$stream" ]; then
+    echo "You must provide a stream that you wish to remove eg: IMADev."
+    exit 2
+fi
+
+# will determine type from stream name from now on
+#if (( development == 0 )) && (( production == 0 )); then
+#    echo "You must pick whether to remove a production or a development build."
+#    exit 2
+#fi
+#
+#if (( development == 1 )) && (( production == 1 )); then
+#    echo "You must pick whether to remove either a production or a development build."
+#    exit 2
+#fi
+
+if [ "$stream" = "IMA15a" ]; then
+    echo "The IMA15a streams have been renamed to IMADev and IMAProd, respectively."
+    echo "Please specify one of these two streams instead of IMA15a."
+    exit 2
+fi
+
+# IMADev is the only development build we need to monitor for now
+if [ "$stream" = "IMADev" ]; then
+
+    streamdir="${basedir}/${stream}"
+
+    for build in "${buildarray[@]}"; do
+
+        product_dir="${streamdir}/centos_development/${build}"
+        product_dir_symb="${streamdir}/development/${build}"
+        test_dir="${streamdir}/centos_test/${build}"
+        test_dir_symb="${streamdir}/test/${build}"
+
+        echo "**********************************************************************************"
+        echo "product_dir: $product_dir"
+        echo "product_dir_symb: $product_dir_symb"
+        echo "test_dir: $test_dir"
+        echo "test_dir_symb: $test_dir_symb"
+        echo "**********************************************************************************"
+
+        echo "Checking to see if $product_dir exists."
+        if [ -d "$product_dir" ]; then
+            echo "Product directory for build $build exists."
+            if [ -L "$product_dir" ]; then
+                echo "Directory is a soft link. Not removing a soft link."
+                echo "Since main product dir is a soft link, we skip removing this build"
+                echo "   to make sure we don't remove test dirs for valid builds."
+                continue
+            fi
+
+            echo "Checking to see if $product_dir_symb exists."
+            if [ -d "$product_dir_symb" ]; then
+                echo "Product symbolic directory for build $build exists."
+                if [ -L "$product_dir_symb" ]; then
+                    if (( dryrun == 1 )); then
+                        echo "Dry run - would have done: rm -f $product_dir_symb."
+                    else
+                        echo "Removing symbolic link: $product_dir_symb."
+                        rm -f "$product_dir_symb"
+                    fi
+                fi
+            else
+                echo "Product directory $product_dir_symb was not found."
+            fi
+
+            if [ -d "$product_dir" ]; then
+                if (( dryrun == 1 )); then
+                    echo "Dry run - would have done: rm -rf $product_dir."
+                else
+                    echo "Removing: $product_dir ..."
+                    rm -rf "$product_dir"
+                fi
+            else
+                echo "Product directory $product_dir was not found."
+            fi
+
+            echo "Checking to see if $test_dir_symb exists."
+            if [ -d "$test_dir_symb" ]; then
+                echo "Product symbolic test directory for build $build exists."
+                if [ -L "$test_dir_symb" ]; then
+                    if (( dryrun == 1 )); then
+                        echo "Dry run - would have done: rm -f $test_dir_symb."
+                    else
+                        echo "Removing directory $test_dir_symb."
+                        rm -f "$test_dir_symb"
+                    fi
+                fi
+            else
+                echo "Product directory $test_dir_symb was not found."
+            fi
+
+            echo "Checking to see if $test_dir exists."
+            if [ -d "$test_dir" ]; then
+                echo "Product test directory for build $build exists."
+                if (( dryrun == 1 )); then
+                    echo "Dry run - would have done: rm -rf $test_dir."
+                else
+                    echo "Removing: $test_dir ..."
+                    rm -rf "$test_dir"
+                fi
+            else
+                echo "Product directory $test_dir was not found."
+            fi
+        else
+            echo "Product directory $product_dir was not found.  Skipping this build ...."
+        fi
+    done
+else
+    # all other builds we need to monitor are production builds
+    streamdir="${basedir}/${stream}"
+
+    for build in "${buildarray[@]}"; do
+        if [[ $build =~ 'IBM' ]]; then
+            echo "This looks like an officially release build. We cannot remove this."
+            continue
+        fi
+
+        if [[ $build =~ 'GM' ]]; then
+            echo "This looks like an officially release build. We cannot remove this."
+            continue
+        fi
+
+        if [[ $build =~ 'FP' ]]; then
+            echo "This looks like an officially release build. We cannot remove this."
+            continue
+        fi
+
+        if [[ $build =~ 'testfix' ]]; then
+            echo "This looks like a test build released to a customer. We cannot remove this."
+            continue
+        fi
+
+        if [[ $build =~ 'latest' ]]; then
+            echo "This is the soft-link to the latest build. We cannot remove this."
+            continue
+        fi
+
+        if [ "${stream}" = "IMA120-IFIX" ]; then
+            product_dir="${streamdir}/production/${build}"
+            test_dir="${streamdir}/prod_test/${build}"
+            product_dir_symb=""
+            test_dir_symb=""
+        else
+            product_dir="${streamdir}/centos_production/${build}"
+            product_dir_symb="${streamdir}/production/${build}"
+            test_dir="${streamdir}/centos_prod_test/${build}"
+            test_dir_symb="${streamdir}/prod_test/${build}"
+        fi
+
+        echo "Fixes file should be: ${product_dir}/../${stream}-fixes.txt"
+        if [ -f "${product_dir}/../${stream}-fixes.txt" ]; then
+            echo "We found an official fix list for $stream."
+            if grep -q "$build" "${product_dir}/../${stream}-fixes.txt"; then
+                echo "This build was included as part of the official fix list. Skip removing this."
+                continue
+            else
+                echo "Did not find this build in the official fix list. Proceeding with attempt to remove."
+            fi
+        fi
+        #echo "**********************************************************************************"
+        #echo "product_dir: $product_dir"
+        #echo "product_dir_symb: $product_dir_symb"
+        #echo "test_dir: $test_dir"
+        #echo "test_dir_symb: $test_dir_symb"
+        #echo "**********************************************************************************"
+
+
+        echo "Checking to see if we can delete build: $build."
+
+        if [ -d "/gsacache/release/iotf/production/${build}" ]; then
+            echo "Build $build existed in the iotf directory.  Cannot remove this build:"
+            continue
+        else
+            echo "Build $build did not exist in the iotf directory, so will attempt to remove it."
+        fi
+
+        echo "Checking to see if $product_dir exists."
+        if [ -d "$product_dir" ]; then
+            echo "Product directory for build $build exists."
+            if [ -L "$product_dir" ]; then
+                echo "Directory is a soft link. Not removing a soft link."
+                echo "Since main product dir is a soft link, we skip removing this build"
+                echo "   to make sure we don't remove test dirs for valid builds."
+                continue
+            fi
+
+            if [ -n "${product_dir_symb}" ]; then
+                echo "Checking to see if $product_dir_symb exists."
+                if [ -d "$product_dir_symb" ]; then
+                    echo "Product symbolic directory for build $build exists."
+                    if [ -L "$product_dir_symb" ]; then
+                        if (( dryrun == 1 )); then
+                            echo "Dry run - would have done: rm -f $product_dir_symb."
+                        else
+                            echo "Removing symbolic link: $product_dir_symb."
+                            rm -f "$product_dir_symb"
+                        fi
+                    fi
+                else
+                    echo "Product directory $product_dir_symb was not found."
+                fi
+            fi
+
+            if [ -d "$product_dir" ]; then
+                if (( dryrun == 1 )); then
+                    echo "Dry run - would have done: rm -rf $product_dir."
+                else
+                    echo "Removing: $product_dir ..."
+                    rm -rf "$product_dir"
+                fi
+            else
+                echo "Product directory $product_dir was not found."
+            fi
+
+            if [ -n "${test_dir_symb}" ]; then
+                echo "Checking to see if $test_dir_symb exists."
+                if [ -d "$test_dir_symb" ]; then
+                    echo "Product symbolic test directory for build $build exists."
+                    if (( dryrun == 1 )); then
+                        echo "Dry run - would have done: rm -rf $test_dir_symb."
+                    else
+                        echo "Removing directory $test_dir_symb."
+                        rm -f "$test_dir_symb"
+                    fi
+                else
+                    echo "Product directory $test_dir_symb was not found."
+                fi
+            fi
+
+            echo "Checking to see if $test_dir exists."
+            if [ -d "$test_dir" ]; then
+                echo "Product test directory for build $build exists."
+                if (( dryrun == 1 )); then
+                    echo "Dry run - would have done: rm -rf $test_dir."
+                else
+                    echo "Removing: $test_dir ..."
+                    rm -rf "$test_dir"
+                fi
+            else
+                echo "Product directory $test_dir was not found."
+            fi
+        else
+            echo "Product directory $product_dir was not found.  Skipping this build ...."
+        fi
+    done
+fi
+echo "*****************************************************************"

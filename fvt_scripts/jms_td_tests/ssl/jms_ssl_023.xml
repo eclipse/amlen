@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_ssl_023
+
+   Test Category:  JMS SSL
+   
+   Test Description:
+   Create an endpoint on port 18500 using SSL with server certificates.
+   Connect successfully
+   Apply new certs with same name
+   Fail to connect
+   Apply new certs with new name
+   Update certificate profile to new name certs
+   Fail to connect
+   Disable/Enable Endpoint
+   Fail to connect
+   Apply same name but wrong certs again
+   Disable/Enable Endpoint
+   Fail to connect
+   Delete certificate profile
+   Apply original certificates
+   Recreate certificate profile
+   Connect successfully
+   Delete certificate profile
+   Disable/Enable endpoint
+   Fail to connect
+   
+   *****************************************************************************/
+  -->
+
+<ImaJmsTest name="jms_ssl_023" >
+  <SyncClient>
+	<server>
+	  <include>../common/JMS_syncip.xml</include>
+      <include>../common/JMS_syncport.xml</include>
+	</server>
+	<solution>jms_ssl_023</solution>
+  </SyncClient>
+
+  <Action name="setup" type="CompositeAction">
+
+    <Action name="syncReset" type="SyncAction">
+      <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+
+    <!-- Upload imaserver-crt and imaserver-key which match our jks -->
+    <Action name="upload_cert" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/common/imaserver-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/CertTestimaserver-crt.pem</ActionParameter>
+    </Action>
+
+	<Action name="upload_key" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/common/imaserver-key.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/CertTestimaserver-key.pem</ActionParameter>
+    </Action>
+
+	<Action name="create_certprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"CertificateProfile":{"TestCertProf":{"Certificate":"CertTestimaserver-crt.pem","Key":"CertTestimaserver-key.pem","Overwrite":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"CertificateProfile":[{"Name":"TestCertProf","Certificate":"CertTestimaserver-crt.pem","Key":"CertTestimaserver-key.pem","Overwrite":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="create_secprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"TestSecProf":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":false,"UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"TestCertProf"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"TestSecProf","MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":false,"UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"TestCertProf"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="create_hub" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"MessageHub":{"TestHub":{}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"MessageHub":[{"Name":"TestHub"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Allow everything through on JMS -->
+    <Action name="create_conpol" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"TestCP":{"ClientID":"Test","Protocol":"JMS"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"{"ConnectionPolicy":[{"Name":"TestCP","ClientID":"Test","Protocol":"JMS"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="create_msgpol" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"TestMP":{"ClientID":"*","Protocol":"JMS","ActionList":"Publish,Subscribe","Topic":"*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="create_ep" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"TestEP":{"Port":18500,"SecurityProfile":"TestSecProf","Enabled":true,"ConnectionPolicies":"TestCP","TopicPolicies":"TestMP","MessageHub":"TestHub"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- ready for use -->
+    <Action name="SyncForUse" type="SyncComponentAction">
+      <ActionParameter name="component_name">su</ActionParameter>
+      <ActionParameter name="component_list">x;su;td</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+
+    <!-- ready for teardown -->
+    <!--Action name="SyncForTearDown" type="SyncComponentAction">
+      <ActionParameter name="component_name">su2</ActionParameter>
+      <ActionParameter name="component_list">su2;td2;x2</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action-->
+
+  </Action>
+
+  <Action name="prodcons" type="CompositeAction">
+
+    <!-- Wait for setup to complete -->
+    <Action name="SyncForUse" type="SyncComponentAction">
+      <ActionParameter name="component_name">x</ActionParameter>
+      <ActionParameter name="component_list">x;su;td</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+
+    <Action name="CreateFactory_x" type="CreateConnectionFactory">
+      <dependsOn name="SyncForUse" interval="3000"/>
+      <ActionParameter name="structure_id">CF_x</ActionParameter>
+      <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+      <ActionParameter name="keyStorePassword">password</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+      <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="CreateExcListener_x" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exc_x</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps_x" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF_x</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="Protocol" value="tcps"/>
+      <ImaProperty name="ClientID" value="Test" type="STRING"/>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18500" type="STRING"/>
+    </Action>
+
+    <!-- Successfully connect while server is using matching certs -->
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x" type="CreateSession">
+      <ActionParameter name="conn_id">conn_x</ActionParameter>
+      <ActionParameter name="structure_id">sess_x</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_x" type="StartConnection">
+      <ActionParameter name="conn_id">conn_x</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_x" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_x</ActionParameter>
+    </Action>
+
+    <!-- Apply new certs with same name -->
+    <Action name="upload_NewCertSameName" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/imaserver-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/CertTestimaserver-crt.pem</ActionParameter>
+    </Action>
+
+	<Action name="upload_NewKeySameName" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/imaserver-key.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/CertTestimaserver-key.pem</ActionParameter>
+    </Action>
+
+	<Action name="create_certProfSameNames" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"CertificateProfile":{"TestCertProf":{"Certificate":"CertTestimaserver-crt.pem","Key":"CertTestimaserver-key.pem","Overwrite":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"CertificateProfile":[{"Name":"TestCertProf","Certificate":"CertTestimaserver-crt.pem","Key":"CertTestimaserver-key.pem","Overwrite":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <!-- Connect successfully since endpoint still uses old SSL Ctx -->
+    <Action name="CreateConnection2" type="CreateConnection" rc="1" reason="CWLNC0022">
+      <ActionParameter name="structure_id">conn_x2</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <!-- Apply new certs with new name -->
+    <Action name="upload_NewCertNewName" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/newserver-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/newserver-crt.pem</ActionParameter>
+    </Action>
+
+	<Action name="upload_NewKeyNewName" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/newserver-key.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/newserver-key.pem</ActionParameter>
+    </Action>
+
+	<Action name="update_certProfNewNames" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"CertificateProfile":{"TestCertProf":{"Certificate":"newserver-crt.pem","Key":"newserver-key.pem","Overwrite":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"CertificateProfile":[{"Name":"TestCertProf","Certificate":"newserver-crt.pem","Key":"newserver-key.pem","Overwrite":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Connect successfully since endpoint still uses old SSL Ctx -->
+    <Action name="CreateConnection3" type="CreateConnection" rc="1" reason="CWLNC0022">
+      <ActionParameter name="structure_id">conn_x3</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <!-- Disable and enable the endpoint for new SSL Ctx -->
+    <Action name="DisableEndpoint" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"TestEP":{"Enabled":false}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"Endpoint":[{"Name":"TestEP","Enabled":false}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="EnableEndpoint" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"TestEP":{"Enabled":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"Endpoint":[{"Name":"TestEP","Enabled":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Fail to connect now that endpoint has new SSL Ctx -->
+    <Action name="CreateConnection4" type="CreateConnection" rc="1" reason="CWLNC0022">
+      <ActionParameter name="structure_id">conn_x4</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <!-- Apply the imaserver-crt and imaserver-pem that do not match jks again -->
+
+    <Action name="upload_BadCertOldName" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/imaserver-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/CertTestimaserver-crt.pem</ActionParameter>
+    </Action>
+
+	<Action name="upload_BadKeyOldName" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/imaserver-key.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/CertTestimaserver-key.pem</ActionParameter>
+    </Action>
+
+	<Action name="update_certProfOldNames" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"CertificateProfile":{"TestCertProf":{"Certificate":"CertTestimaserver-crt.pem","Key":"CertTestimaserver-key.pem","Overwrite":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"CertificateProfile":[{"Name":"TestCertProf","Certificate":"CertTestimaserver-crt.pem","Key":"CertTestimaserver-key.pem","Overwrite":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Disable and Enable the Endpoint again for new SSL Ctx-->
+    <Action name="DisableEndpoint2" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"TestEP":{"Enabled":false}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"Endpoint":[{"Name":"TestEP","Enabled":false}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="EnableEndpoint2" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"TestEP":{"Enabled":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"Endpoint":[{"Name":"TestEP","Enabled":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Fail to connect again with wrong certs and updated SSL Ctx -->
+    <Action name="CreateConnection5" type="CreateConnection" rc="1" reason="CWLNC0022">
+      <ActionParameter name="structure_id">conn_x5</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <!-- Update endpoint so we can delete certificate profile -->
+    <Action name="disable_endpoint_security" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"TestEP":{"SecurityProfile":""}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"Endpoint":[{"Name":"TestEP","SecurityProfile":""}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Delete SecurityProfile so we can delete certificate profile -->
+    <Action name="delete_secprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/SecurityProfile/TestSecProf</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Delete Certificate Profile -->
+    <Action name="delete_certprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/CertificateProfile/TestCertProf</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Apply original certificates again -->
+    <Action name="upload_OriginalCert" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/common/imaserver-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/CertTestimaserver-crt.pem</ActionParameter>
+    </Action>
+
+	<Action name="upload_OriginalKey" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/common/imaserver-key.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/CertTestimaserver-key.pem</ActionParameter>
+    </Action>
+
+	<!-- Recreate certificate profile with original certificates -->
+	<Action name="recreate_certproforiginal" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"CertificateProfile":{"TestCertProf":{"Certificate":"CertTestimaserver-crt.pem","Key":"CertTestimaserver-key.pem","Overwrite":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"CertificateProfile":[{"Name":"TestCertProf","Certificate":"CertTestimaserver-crt.pem","Key":"CertTestimaserver-key.pem","Overwrite":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Recreate security profile -->
+    <Action name="recreate_secprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"TestSecProf":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":false,"UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"TestCertProf"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"TestSecProf","MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":false,"UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"TestCertProf"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Reenable security on endpoint -->
+    <Action name="enable_endpoint_security" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"TestEP":{"SecurityProfile":"TestSecProf"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"Endpoint":[{"Name":"TestEP","SecurityProfile":"TestSecProf"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Connect successfully. Hopefully updating security reset SSL Ctx... -->
+    <Action name="CreateConnection6" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x6</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x6" type="CreateSession">
+      <ActionParameter name="conn_id">conn_x6</ActionParameter>
+      <ActionParameter name="structure_id">sess_x</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_x6" type="StartConnection">
+      <ActionParameter name="conn_id">conn_x6</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_x6" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_x6</ActionParameter>
+    </Action>
+
+    <!-- Disable security on endpoint again -->
+    <Action name="disable_endpoint_security2" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"TestEP":{"SecurityProfile":""}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"Endpoint":[{"Name":"TestEP","SecurityProfile":""}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <!-- Fail to connect with no SSL Ctx on endpoint -->
+    <Action name="CreateConnection7" type="CreateConnection" rc="1" reason="CWLNC0022">
+      <ActionParameter name="structure_id">conn_x7</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <!-- We are ready to clean up now -->
+    <Action name="SyncForTearDown" type="SyncComponentAction">
+      <ActionParameter name="component_name">x2</ActionParameter>
+      <ActionParameter name="component_list">td2;x2</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+  </Action>
+
+  <Action name="teardown" type="CompositeAction">
+    <Action name="SyncForUse" type="SyncComponentAction">
+      <ActionParameter name="component_name">td</ActionParameter>
+      <ActionParameter name="component_list">x;su;td</ActionParameter>
+      <ActionParameter name="timeout">180000</ActionParameter>
+    </Action>
+
+    <!-- all other top level CompositeActions ready for teardown -->
+    <Action name="SyncForTearDown" type="SyncComponentAction">
+      <ActionParameter name="component_name">td2</ActionParameter>
+      <ActionParameter name="component_list">td2;x2</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+
+	<Action name="delete_ep" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/Endpoint/TestEP</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <Action name="delete_msgpol" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/TestMP</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <Action name="delete_conpol" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/TestCP</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <Action name="delete_secprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/SecurityProfile/TestSecProf</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <Action name="delete_certprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/CertificateProfile/TestCertProf</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <Action name="delete_hub" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/MessageHub/TestHub</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+  </Action>
+
+
+</ImaJmsTest>

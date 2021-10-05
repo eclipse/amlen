@@ -1,0 +1,267 @@
+# Security profiles with just root CA's for truststore
+# Security profiles with just intermediate CA's for truststore
+# Certificate profiles for certs at various levels of chain
+#
+# rootCA A - self signed root certificate
+#   imaservera - server certificate signed by rootCA A - serial 1
+#   imaclienta - client certificate signed by rootCA A - serial 2
+#
+#   imaCA A - intermediate CA signed by rootCA A - serial 3
+#     imaserverb - server certificate signed by imaCA A - serial 1
+#     imaclientb - client certificate signed by imaCA A - serial 2
+#
+#     imaCA B - intermediate CA signed by imaCA A - serial 3
+#       imaserverc - server certificate signed by imaCA B - serial 1
+#       imaclientc - client certificate signed by imaCA B - serial 2
+#
+# rootCA B - self signed root certificate
+#   imaCA C - intermediate CA signed by rootCA B - serial 1
+#     imaserverd - server certificate signed by imaCA C - serial 1
+#     imaclientd - client certificate signed by imaCA C - serial 2
+#
+#------------------------------------------------------------------------------
+# Also, 2 test cases that match the original defect leading to these changes.
+# (defect 42943)
+#
+# Use common_src/imaserver-crt.pem and common_src/imaserver-key.pem,
+#   common_src/imaclient-crt.pem and common_src/imaclient-key.pem,
+#   common_src/rootCA-crt.pem in client truststore 
+#     -(chainedcerts/certs/ibm.jks)
+#   common_src/rootCA-crt.pem and common_src/imaCA-crt.pem in server truststore
+#
+# 1. Run with UseClientCertificates=True
+# 2. Run with UseClientCertificates=False
+#------------------------------------------------------------------------------
+#
+# EP1 - truststore: rootCA A and rootCA B
+#       keystore:   imaservera
+#
+# EP2 - truststore: rootCA A and rootCA B
+#       keystore:   imaserverb
+#
+# EP3 - truststore: rootCA A and rootCA B
+#       keystore:   imaserverc
+#
+# EP4 - truststore: rootCA A and rootCA B
+#       keystore:   imaserverd
+#
+# EP5 - truststore: imaCA A
+#       keystore:   imaserverb
+#
+# EP6 - truststore: rootCA A and rootCA B (in 1 file)
+#       keystore:   imaserverd
+#------------------------------------------------------------------------------
+
+######setup 0 set TraceLevel=8
+setup 0 POST configuration {"TraceLevel":"8"}
+
+#######################
+# SSL Certificate Setup
+# (the old apply command 
+# is not in restapi 
+# except for TrustedCerts)
+#######################
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaservera-crt.pem jmsimaservera-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaservera-crt.pem jmsimaservera-crt.pem
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaservera-key.pem jmsimaservera-key.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaservera-key.pem jmsimaservera-key.pem
+######setup 0 apply Certificate CertFileName=jmsimaservera-crt.pem "CertFilePassword=" KeyFileName=jmsimaservera-key.pem "KeyFilePassword=" Overwrite=True
+
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverb-crt.pem jmsimaserverb-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverb-crt.pem jmsimaserverb-crt.pem
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverb-key.pem jmsimaserverb-key.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverb-key.pem jmsimaserverb-key.pem
+######setup 0 apply Certificate CertFileName=jmsimaserverb-crt.pem "CertFilePassword=" KeyFileName=jmsimaserverb-key.pem "KeyFilePassword=" Overwrite=True
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverc-crt.pem jmsimaserverc-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverc-crt.pem jmsimaserverc-crt.pem
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverc-key.pem jmsimaserverc-key.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverc-key.pem jmsimaserverc-key.pem
+######setup 0 apply Certificate CertFileName=jmsimaserverc-crt.pem "CertFilePassword=" KeyFileName=jmsimaserverc-key.pem "KeyFilePassword=" Overwrite=True
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverd-crt.pem jmsimaserverd-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverd-crt.pem jmsimaserverd-crt.pem
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverd-key.pem jmsimaserverd-key.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaserverd-key.pem jmsimaserverd-key.pem
+######setup 0 apply Certificate CertFileName=jmsimaserverd-crt.pem "CertFilePassword=" KeyFileName=jmsimaserverd-key.pem "KeyFilePassword=" Overwrite=True
+
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem jmsimaservere-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-crt.pem jmsimaservere-crt.pem
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem jmsimaservere-key.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-key.pem jmsimaservere-key.pem
+######setup 0 apply Certificate CertFileName=jmsimaservere-crt.pem "CertFilePassword=" KeyFileName=jmsimaservere-key.pem "KeyFilePassword=" Overwrite=True
+
+############################################
+# SSL Certificate and Security Profile Setup
+############################################
+######setup 0 create CertificateProfile Name=JMSChainCerts1 Certificate=jmsimaservera-crt.pem Key=jmsimaservera-key.pem
+setup 0 POST configuration {"CertificateProfile":{"JMSChainCerts1":{"Certificate":"jmsimaservera-crt.pem","Key":"jmsimaservera-key.pem"}}}
+######setup 0 create CertificateProfile Name=JMSChainCerts2 Certificate=jmsimaserverb-crt.pem Key=jmsimaserverb-key.pem
+setup 0 POST configuration {"CertificateProfile":{"JMSChainCerts2":{"Certificate":"jmsimaserverb-crt.pem","Key":"jmsimaserverb-key.pem"}}}
+######setup 0 create CertificateProfile Name=JMSChainCerts3 Certificate=jmsimaserverc-crt.pem Key=jmsimaserverc-key.pem
+setup 0 POST configuration {"CertificateProfile":{"JMSChainCerts3":{"Certificate":"jmsimaserverc-crt.pem","Key":"jmsimaserverc-key.pem"}}}
+######setup 0 create CertificateProfile Name=JMSChainCerts4 Certificate=jmsimaserverd-crt.pem Key=jmsimaserverd-key.pem
+setup 0 POST configuration {"CertificateProfile":{"JMSChainCerts4":{"Certificate":"jmsimaserverd-crt.pem","Key":"jmsimaserverd-key.pem"}}}
+######setup 0 create CertificateProfile Name=JMSChainCerts5 Certificate=jmsimaservere-crt.pem Key=jmsimaservere-key.pem
+setup 0 POST configuration {"CertificateProfile":{"JMSChainCerts5":{"Certificate":"jmsimaservere-crt.pem","Key":"jmsimaservere-key.pem"}}}
+
+######setup 0 create SecurityProfile Name=JMSChainSec1 MinimumProtocolMethod=TLSv1 UseClientCertificate=True Ciphers=Fast CertificateProfile=JMSChainCerts1 UsePasswordAuthentication=False
+setup 0 POST configuration {"SecurityProfile":{"JMSChainSec1":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"Ciphers":"Fast","CertificateProfile":"JMSChainCerts1","UsePasswordAuthentication":false}}}
+######setup 0 create SecurityProfile Name=JMSChainSec2 MinimumProtocolMethod=TLSv1 UseClientCertificate=True Ciphers=Fast CertificateProfile=JMSChainCerts2 UsePasswordAuthentication=False
+setup 0 POST configuration {"SecurityProfile":{"JMSChainSec2":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"Ciphers":"Fast","CertificateProfile":"JMSChainCerts2","UsePasswordAuthentication":false}}}
+######setup 0 create SecurityProfile Name=JMSChainSec3 MinimumProtocolMethod=TLSv1 UseClientCertificate=True Ciphers=Fast CertificateProfile=JMSChainCerts3 UsePasswordAuthentication=False
+setup 0 POST configuration {"SecurityProfile":{"JMSChainSec3":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"Ciphers":"Fast","CertificateProfile":"JMSChainCerts3","UsePasswordAuthentication":false}}}
+######setup 0 create SecurityProfile Name=JMSChainSec4 MinimumProtocolMethod=TLSv1 UseClientCertificate=True Ciphers=Fast CertificateProfile=JMSChainCerts4 UsePasswordAuthentication=False
+setup 0 POST configuration {"SecurityProfile":{"JMSChainSec4":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"Ciphers":"Fast","CertificateProfile":"JMSChainCerts4","UsePasswordAuthentication":false}}}
+######setup 0 create SecurityProfile Name=JMSChainSec5 MinimumProtocolMethod=TLSv1 UseClientCertificate=True Ciphers=Fast CertificateProfile=JMSChainCerts2 UsePasswordAuthentication=False
+setup 0 POST configuration {"SecurityProfile":{"JMSChainSec5":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"Ciphers":"Fast","CertificateProfile":"JMSChainCerts2","UsePasswordAuthentication":false}}}
+######setup 0 create SecurityProfile Name=JMSChainSec6 MinimumProtocolMethod=TLSv1 UseClientCertificate=True Ciphers=Fast CertificateProfile=JMSChainCerts4 UsePasswordAuthentication=False
+setup 0 POST configuration {"SecurityProfile":{"JMSChainSec6":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"Ciphers":"Fast","CertificateProfile":"JMSChainCerts4","UsePasswordAuthentication":false}}}
+######setup 0 create SecurityProfile Name=JMSChainSec7 MinimumProtocolMethod=TLSv1 UseClientCertificate=True Ciphers=Fast CertificateProfile=JMSChainCerts5 UsePasswordAuthentication=False
+setup 0 POST configuration {"SecurityProfile":{"JMSChainSec7":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"Ciphers":"Fast","CertificateProfile":"JMSChainCerts5","UsePasswordAuthentication":false}}}
+
+####################################################
+# Commands for client certificates
+# Server code not currently using the correct CAPath
+####################################################
+# Both root CA's added individually
+######setup 0 bedrock/rootCAa-crt.pem JMSrootCAa-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/rootCAa-crt.pem JMSrootCAa-crt.pem
+######setup 0 bedrock/rootCAb-crt.pem JMSrootCAb-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/rootCAb-crt.pem JMSrootCAb-crt.pem
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAa-crt.pem SecurityProfileName=JMSChainSec1 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAa-crt.pem","SecurityProfileName":"JMSChainSec1","Overwrite":true}]}
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAb-crt.pem SecurityProfileName=JMSChainSec1 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAb-crt.pem","SecurityProfileName":"JMSChainSec1","Overwrite":true}]}
+
+# Both root CA's added individually
+######setup 0 bedrock/rootCAa-crt.pem JMSrootCAa-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/rootCAa-crt.pem JMSrootCAa-crt.pem
+######setup 0 bedrock/rootCAb-crt.pem JMSrootCAb-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/rootCAb-crt.pem JMSrootCAb-crt.pem
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAa-crt.pem SecurityProfileName=JMSChainSec2 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAa-crt.pem","SecurityProfileName":"JMSChainSec2","Overwrite":true}]}
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAb-crt.pem SecurityProfileName=JMSChainSec2 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAb-crt.pem","SecurityProfileName":"JMSChainSec2","Overwrite":true}]}
+
+# Both root CA's added individually
+######setup 0 bedrock/rootCAa-crt.pem JMSrootCAa-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/rootCAa-crt.pem JMSrootCAa-crt.pem
+######setup 0 bedrock/rootCAb-crt.pem JMSrootCAb-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/rootCAb-crt.pem JMSrootCAb-crt.pem
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAa-crt.pem SecurityProfileName=JMSChainSec3 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAa-crt.pem","SecurityProfileName":"JMSChainSec3","Overwrite":true}]}
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAb-crt.pem SecurityProfileName=JMSChainSec3 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAb-crt.pem","SecurityProfileName":"JMSChainSec3","Overwrite":true}]}
+
+# Both root CA's added individually
+######setup 0 bedrock/rootCAa-crt.pem JMSrootCAa-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/rootCAa-crt.pem JMSrootCAa-crt.pem
+######setup 0 bedrock/rootCAb-crt.pem JMSrootCAb-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/rootCAb-crt.pem JMSrootCAb-crt.pem
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAa-crt.pem SecurityProfileName=JMSChainSec4 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAa-crt.pem","SecurityProfileName":"JMSChainSec4","Overwrite":true}]}
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAb-crt.pem SecurityProfileName=JMSChainSec4 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAb-crt.pem","SecurityProfileName":"JMSChainSec4","Overwrite":true}]}
+
+# Just intermediate CA for trusted cert
+######setup 0 bedrock/imaCAa-crt.pem JMSimaCAa-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/imaCAa-crt.pem JMSimaCAa-crt.pem
+######setup 0 apply Certificate TrustedCertificate=JMSimaCAa-crt.pem SecurityProfileName=JMSChainSec5 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSimaCAa-crt.pem","SecurityProfileName":"JMSChainSec5","Overwrite":true}]}
+
+# CA file of both root CA's for trusted cert
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/CAfile.pem JMSCAfile.pem
+setup 0 PUT file ${M1_TESTROOT}/jms_td_tests/chainedcerts/certs/CAfile.pem JMSCAfile.pem
+######setup 0 apply Certificate TrustedCertificate=JMSCAfile.pem SecurityProfileName=JMSChainSec6 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSCAfile.pem","SecurityProfileName":"JMSChainSec6","Overwrite":true}]}
+
+# Original rootCA and imaCA from common_src added individually
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem JMSrootCAc-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/rootCA-crt.pem JMSrootCAc-crt.pem
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem JMSimaCAd-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/rootCA-crt.pem JMSimaCAd-crt.pem
+######setup 0 apply Certificate TrustedCertificate=JMSrootCAc-crt.pem SecurityProfileName=JMSChainSec7 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCAc-crt.pem","SecurityProfileName":"JMSChainSec7","Overwrite":true}]}
+######setup 0 apply Certificate TrustedCertificate=JMSimaCAd-crt.pem SecurityProfileName=JMSChainSec7 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSimaCAd-crt.pem","SecurityProfileName":"JMSChainSec7","Overwrite":true}]}
+
+###############################
+# Message Hub for SSL Endpoints
+###############################
+######setup 0 create MessageHub Name=JMSChainedCert Description=JMSChainedCert
+setup 0 POST configuration {"MessageHub":{"JMSChainedCert":{"Description":"JMSChainedCert"}}}
+
+########################################
+# Connection and Messaging Policy
+########################################
+######setup 0 create ConnectionPolicy Name=JMSChainedCertCP Protocol=JMS
+setup 0 POST configuration {"ConnectionPolicy":{"JMSChainedCertCP":{"Protocol":"JMS"}}}
+######setup 0 create MessagingPolicy Name=JMSChainedCertMP Destination=* DestinationType=Topic Protocol=JMS "ActionList=Publish,Subscribe"
+setup 0 POST configuration {"TopicPolicy":{"JMSChainedCertMP":{"Topic":"*","Protocol":"JMS","ActionList":"Publish,Subscribe"}}}
+
+###############
+# SSL Endpoints
+###############
+######setup 0 create Endpoint Name=JMSChainCertEP1 Enabled=True SecurityProfile=JMSChainSec1 Port=18430 ConnectionPolicies=JMSChainedCertCP MessagingPolicies=JMSChainedCertMP MaxMessageSize=4MB MessageHub=JMSChainedCert
+setup 0 POST configuration {"Endpoint":{"JMSChainCertEP1":{"Enabled":true,"SecurityProfile":"JMSChainSec1","Port":18430,"ConnectionPolicies":"JMSChainedCertCP","TopicPolicies":"JMSChainedCertMP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSChainedCert"}}}
+######setup 0 create Endpoint Name=JMSChainCertEP2 Enabled=True SecurityProfile=JMSChainSec2 Port=18431 ConnectionPolicies=JMSChainedCertCP MessagingPolicies=JMSChainedCertMP MaxMessageSize=4MB MessageHub=JMSChainedCert
+setup 0 POST configuration {"Endpoint":{"JMSChainCertEP2":{"Enabled":true,"SecurityProfile":"JMSChainSec2","Port":18431,"ConnectionPolicies":"JMSChainedCertCP","TopicPolicies":"JMSChainedCertMP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSChainedCert"}}}
+######setup 0 create Endpoint Name=JMSChainCertEP3 Enabled=True SecurityProfile=JMSChainSec3 Port=18432 ConnectionPolicies=JMSChainedCertCP MessagingPolicies=JMSChainedCertMP MaxMessageSize=4MB MessageHub=JMSChainedCert
+setup 0 POST configuration {"Endpoint":{"JMSChainCertEP3":{"Enabled":true,"SecurityProfile":"JMSChainSec3","Port":18432,"ConnectionPolicies":"JMSChainedCertCP","TopicPolicies":"JMSChainedCertMP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSChainedCert"}}}
+######setup 0 create Endpoint Name=JMSChainCertEP4 Enabled=True SecurityProfile=JMSChainSec4 Port=18433 ConnectionPolicies=JMSChainedCertCP MessagingPolicies=JMSChainedCertMP MaxMessageSize=4MB MessageHub=JMSChainedCert
+setup 0 POST configuration {"Endpoint":{"JMSChainCertEP4":{"Enabled":true,"SecurityProfile":"JMSChainSec4","Port":18433,"ConnectionPolicies":"JMSChainedCertCP","TopicPolicies":"JMSChainedCertMP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSChainedCert"}}}
+######setup 0 create Endpoint Name=JMSChainCertEP5 Enabled=True SecurityProfile=JMSChainSec5 Port=18434 ConnectionPolicies=JMSChainedCertCP MessagingPolicies=JMSChainedCertMP MaxMessageSize=4MB MessageHub=JMSChainedCert
+setup 0 POST configuration {"Endpoint":{"JMSChainCertEP5":{"Enabled":true,"SecurityProfile":"JMSChainSec5","Port":18434,"ConnectionPolicies":"JMSChainedCertCP","TopicPolicies":"JMSChainedCertMP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSChainedCert"}}}
+######setup 0 create Endpoint Name=JMSChainCertEP6 Enabled=True SecurityProfile=JMSChainSec6 Port=18435 ConnectionPolicies=JMSChainedCertCP MessagingPolicies=JMSChainedCertMP MaxMessageSize=4MB MessageHub=JMSChainedCert
+setup 0 POST configuration {"Endpoint":{"JMSChainCertEP6":{"Enabled":true,"SecurityProfile":"JMSChainSec6","Port":18435,"ConnectionPolicies":"JMSChainedCertCP","TopicPolicies":"JMSChainedCertMP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSChainedCert"}}}
+######setup 0 create Endpoint Name=JMSChainCertEP7 Enabled=True SecurityProfile=JMSChainSec7 Port=18436 ConnectionPolicies=JMSChainedCertCP MessagingPolicies=JMSChainedCertMP MaxMessageSize=4MB MessageHub=JMSChainedCert
+setup 0 POST configuration {"Endpoint":{"JMSChainCertEP7":{"Enabled":true,"SecurityProfile":"JMSChainSec7","Port":18436,"ConnectionPolicies":"JMSChainedCertCP","TopicPolicies":"JMSChainedCertMP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSChainedCert"}}}
+#######################################
+# Security Policy Cleanup Configuration
+#######################################
+######cleanup 0 delete Endpoint Name=JMSChainCertEP1
+cleanup 0 DELETE configuration/Endpoint/JMSChainCertEP1
+######cleanup 0 delete Endpoint Name=JMSChainCertEP2
+cleanup 0 DELETE configuration/Endpoint/JMSChainCertEP2
+######cleanup 0 delete Endpoint Name=JMSChainCertEP3
+cleanup 0 DELETE configuration/Endpoint/JMSChainCertEP3
+######cleanup 0 delete Endpoint Name=JMSChainCertEP4
+cleanup 0 DELETE configuration/Endpoint/JMSChainCertEP4
+######cleanup 0 delete Endpoint Name=JMSChainCertEP5
+cleanup 0 DELETE configuration/Endpoint/JMSChainCertEP5
+######cleanup 0 delete Endpoint Name=JMSChainCertEP6
+cleanup 0 DELETE configuration/Endpoint/JMSChainCertEP6
+######cleanup 0 delete Endpoint Name=JMSChainCertEP7
+cleanup 0 DELETE configuration/Endpoint/JMSChainCertEP7
+######cleanup 0 delete SecurityProfile Name=JMSChainSec1
+cleanup 0 DELETE configuration/SecurityProfile/JMSChainSec1
+######cleanup 0 delete SecurityProfile Name=JMSChainSec2
+cleanup 0 DELETE configuration/SecurityProfile/JMSChainSec2
+######cleanup 0 delete SecurityProfile Name=JMSChainSec3
+cleanup 0 DELETE configuration/SecurityProfile/JMSChainSec3
+######cleanup 0 delete SecurityProfile Name=JMSChainSec4
+cleanup 0 DELETE configuration/SecurityProfile/JMSChainSec4
+######cleanup 0 delete SecurityProfile Name=JMSChainSec5
+cleanup 0 DELETE configuration/SecurityProfile/JMSChainSec5
+######cleanup 0 delete SecurityProfile Name=JMSChainSec6
+cleanup 0 DELETE configuration/SecurityProfile/JMSChainSec6
+######cleanup 0 delete SecurityProfile Name=JMSChainSec7
+cleanup 0 DELETE configuration/SecurityProfile/JMSChainSec7
+######cleanup 0 delete CertificateProfile Name=JMSChainCerts1
+cleanup 0 DELETE configuration/CertificateProfile/JMSChainCerts1
+######cleanup 0 delete CertificateProfile Name=JMSChainCerts2
+cleanup 0 DELETE configuration/CertificateProfile/JMSChainCerts2
+######cleanup 0 delete CertificateProfile Name=JMSChainCerts3
+cleanup 0 DELETE configuration/CertificateProfile/JMSChainCerts3
+######cleanup 0 delete CertificateProfile Name=JMSChainCerts4
+cleanup 0 DELETE configuration/CertificateProfile/JMSChainCerts4
+######cleanup 0 delete CertificateProfile Name=JMSChainCerts5
+cleanup 0 DELETE configuration/CertificateProfile/JMSChainCerts5
+######cleanup 0 delete ConnectionPolicy Name=JMSChainedCertCP
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSChainedCertCP
+######cleanup 0 delete MessagingPolicy Name=JMSChainedCertMP
+cleanup 0 DELETE configuration/TopicPolicy/JMSChainedCertMP
+######cleanup 0 delete MessageHub Name=JMSChainedCert
+cleanup 0 DELETE configuration/MessageHub/JMSChainedCert
+
+######cleanup 0 set TraceLevel=7
+cleanup 0 POST configuration {"TraceLevel":"7"}

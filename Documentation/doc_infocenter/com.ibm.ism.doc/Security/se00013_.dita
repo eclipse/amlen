@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002--><!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<?Pub Sty _display FontColor="red"?><?Pub Inc?><concept id="se00013_" xml:lang="en-us">
+<title>Lightweight Third Party Authentication (LTPA)</title>
+<shortdesc>Lightweight Third Party Authentication (LTPA) is a single
+sign-on credential format.</shortdesc>
+<conbody>
+<p>With LTPA, the user authenticates with the first server that is
+accessed, by using a user name and password. After authenticating,
+the user receives an LTPA token, which is only valid for one session.
+The token is used to identify the user on other servers within the
+same domain name system, where the servers are configured to use LTPA.
+Therefore, the user enters a user name and password only once, and
+the user directory is accessed only once to verify the identity of
+that user.</p>
+<p>LTPA can be used with <ph conref="../TextEntities.dita#TextEntities/was" /> and <ph conref="../TextEntities.dita#TextEntities/wl" />. The servers must
+all use the same LDAP server for user authentication.</p>
+<p>The following diagram shows the flow of the LTPA token in a single sign-on environment:<fig>
+				<title>LTPA token flow in a single sign-on environment</title>
+				<p><image href="se00013a_v2.gif" placement="inline">
+						<alt>A flow showing the use of an LTPA token</alt>
+					</image></p>
+			</fig><ol>
+				<li>The <ph conref="../TextEntities.dita#TextEntities/ISM" /> client application is
+					hosted on <ph conref="../TextEntities.dita#TextEntities/was" /> or <ph conref="../TextEntities.dita#TextEntities/wl" />. The MQTT application uses a
+					user name and password to authenticate with <ph conref="../TextEntities.dita#TextEntities/was" /> or <ph conref="../TextEntities.dita#TextEntities/wl" />.</li>
+				<li><ph conref="../TextEntities.dita#TextEntities/was" /> or <ph conref="../TextEntities.dita#TextEntities/wl" /> validates the user name and
+					password against the LDAP server and authenticates the user.</li>
+				<li>The <ph conref="../TextEntities.dita#TextEntities/was" /> or <ph conref="../TextEntities.dita#TextEntities/wl" /> returns an LTPA token to the
+					client application as a cookie.</li>
+				<li>The client application retrieves the LTPA token from the cookie and uses the
+					token value as a password in the connection object of the MQTT client
+					configuration. The client application can forward the LTPA token to <ph conref="../TextEntities.dita#TextEntities/ISM" /> server by using one of the
+					following options:<ul>
+						<li>Setting the user name in the connection object to
+								<codeph>IMA_LTPA_TOKEN</codeph> and the password to the LTPA Token
+							value that is returned by the <ph conref="../TextEntities.dita#TextEntities/was" /> or <ph conref="../TextEntities.dita#TextEntities/wl" /> server.</li>
+						<li>Sending the LTPA token cookie.</li>
+					</ul></li>
+				<li><ph conref="../TextEntities.dita#TextEntities/ISM" /> decrypts the LTPA token and
+					retrieves the user ID and token expiration time. <ph conref="../TextEntities.dita#TextEntities/ISM" /> validates the user and
+					retrieves required information, such as group information, to check which
+					actions the user is authorized to perform.</li>
+				<li><ph conref="../TextEntities.dita#TextEntities/ISM" /> authenticates and
+					authorizes the user.</li>
+			</ol><?Pub Caret 190?></p>
+<p>To configure <ph conref="../TextEntities.dita#TextEntities/ISM" /> to
+use LTPA, you must complete the following steps:<ol>
+<li>Configure LTPA on a supported server and export the LTPA key.<p>For
+more information about configuring LTPA in <ph conref="../TextEntities.dita#TextEntities/wl" />, see <xref href="http://www-01.ibm.com/support/knowledgecenter/SSZH4A_5.0.5/com.ibm.worklight.help.doc/devref/r_ltpa_authenticator.html" scope="external">LTPA authenticator</xref> in the <ph conref="../TextEntities.dita#TextEntities/wl" /> documentation.</p><p>For
+more information about configuring LTPA in <ph conref="../TextEntities.dita#TextEntities/was" />, see <xref href="http://www-01.ibm.com/support/knowledgecenter/SSEQTP_8.5.5/com.ibm.websphere.base.iseries.doc/ae/tsec_ltpa_and_keys.html" scope="external">Configuring LTPA and working with keys</xref> in
+the <ph conref="../TextEntities.dita#TextEntities/was" /> documentation.</p></li>
+<li>Configure <ph conref="../TextEntities.dita#TextEntities/ISM" /> for
+LTPA:<ol>
+<li>Upload the LTPA key to <ph conref="../TextEntities.dita#TextEntities/ISM" />.</li>
+<li>Create an LTPA profile that specifies the LTPA key and password.</li>
+<li>Associate the LTPA profile with a security profile.</li>
+</ol><p>For more information about how to configure <ph conref="../TextEntities.dita#TextEntities/ISM" /> for LTPA, see <xref href="../Administering/ad00730_.dita" />.</p></li>
+<li> Configure client applications by using one of the following two
+options:<ul>
+<li>Create client applications that use user name and password authentication
+where the user name is <codeph>IMA_LTPA_TOKEN</codeph>, and the password
+is the LTPA token.</li>
+<li>Configure your client application to use the LTPA token cookie.
+For more information, see <xref format="dita" href="se00013_.dita#se00013_/ConfiguringYourClientApplicationToU" scope="local" type="section">Configuring your client application to
+use the LTPA token cookie</xref>.</li>
+</ul></li>
+</ol></p>
+<section><title>Creating <ph conref="../TextEntities.dita#TextEntities/wl" /> custom login modules
+for user authentication</title>You can use the following <tm tmtype="tm" trademark="JavaScript" tmclass="IGNORE">JavaScript</tm> code sample in a <ph conref="../TextEntities.dita#TextEntities/wl" /> login module to
+retrieve the LTPA token:<codeblock>function wlCommonInit() {
+	// Common initialization code goes here
+}
+// Function to retrieve secret key
+function getSecretData(){
+	var invocationData = {
+			adapter: "DummyAdapter",
+			procedure: "getSecretData",
+			parameters: []
+	};	
+	WL.Client.invokeProcedure(invocationData, {
+		onSuccess: getSecretData_Callback,
+	});
+}
+// Callback to get LTPA token and userid from response
+function getSecretData_Callback(response){
+	console.log("ltpaToken: " + response.invocationResult.LtpaToken );
+	ltpaToken = response.invocationResult.LtpaToken;
+}</codeblock></section>
+<section><title>Creating <ph conref="../TextEntities.dita#TextEntities/was" /> servlets for
+user authentication</title>You can use the following <tm tmtype="tm" trademark="Java">Java</tm> code sample in a <ph conref="../TextEntities.dita#TextEntities/was" /> liberty profile
+servlet to retrieve the LTPA token:<codeblock>/* Required IBM WebSphere imports */
+import com.ibm.websphere.security.auth.WSSubject;
+import com.ibm.websphere.security.cred.WSCredential;
+import com.ibm.websphere.security.web.WebSecurityHelper;
+import com.ibm.ws.webservices.engine.encoding.Base64;
+	
+/*  Sample code to retrieve LTPA token on the IBM WebSphere Liberty Profile */
+/* @return an LTPA token */
+public  String getSecurityTokenLiberty() {
+	Cookie cookie = null;
+	String token = null;
+	try {
+		cookie = WebSecurityHelper.getSSOCookieFromSSOToken();
+		if (cookie != null) {
+			token = cookie.getValue();
+		}
+	} catch (Exception e) {
+		token = "no token found";
+		e.printStackTrace();
+	}
+	return token;
+}</codeblock>You can use the following <tm tmtype="tm" trademark="Java">Java</tm> code
+sample in a <ph conref="../TextEntities.dita#TextEntities/was" /> servlet
+to retrieve the LTPA token:<codeblock>/* Required IBM WebSphere imports */
+import com.ibm.websphere.security.auth.WSSubject;
+import com.ibm.websphere.security.cred.WSCredential;
+import com.ibm.websphere.security.web.WebSecurityHelper;
+import com.ibm.ws.webservices.engine.encoding.Base64;
+	
+/* Sample code to retrieve LTPA token on the IBM WebSphere Application Server */
+/* @return an LTPA token */
+public String getSecurityTokenWAS() {
+    byte[] token = null;
+    try {
+	// Get current security subject
+	Subject security_subject = WSSubject.getRunAsSubject();
+	if  (security_subject != null) {
+	    // Get all security credentials from the security subject
+	    Set security_credentials = security_subject.getPublicCredentials(WSCredential.class);
+	    // Get the first credential
+	    WSCredential security_credential = (WSCredential)security_credentials.iterator().next();
+	    String user = (String) security_credential.getSecurityName();
+	    if (user.equalsIgnoreCase("UNAUTHENTICATED")) {
+		return "UNAUTHENTICATED";
+	    }
+	    token = security_credential.getCredentialToken();
+		if (token == null) {
+			return "token is null";
+		}
+	               String ltpaToken = Base64.encode(token);
+	               return ltpaToken;
+	}
+    }
+    catch (Exception e){
+	e.printStackTrace();
+    }
+    return "token not found";
+}</codeblock></section>
+<section id="ConfiguringYourClientApplicationToU"><title>Configuring
+your client application to use the LTPA token cookie</title><p>The
+LTPA token cookie domain must be in the same domain as the <ph conref="../TextEntities.dita#TextEntities/ISM" /> server. When
+you use <ph conref="../TextEntities.dita#TextEntities/was" /> or <ph conref="../TextEntities.dita#TextEntities/wl" /> to generate the
+LTPA token cookie, the domain of the cookie is the same as the domain
+of the application server. If the domain of the application server
+is different to the domain of the <ph conref="../TextEntities.dita#TextEntities/ISM" /> server, the LTPA
+token cookie cannot be sent to the <ph conref="../TextEntities.dita#TextEntities/ISM" /> server. In this
+case, you must configure <ph conref="../TextEntities.dita#TextEntities/was" /> or <ph conref="../TextEntities.dita#TextEntities/wl" /> to generate the
+cookie with the same domain as the <ph conref="../TextEntities.dita#TextEntities/ISM" /> server. </p><p>You
+can set the LTPA Token cookie domain programmatically from the  <tm tmtype="tm" trademark="JavaScript" tmclass="IGNORE">JavaScript</tm> client application
+by using the following code sample:</p><codeblock>function getCookie(c_name)
+{
+  var c_value = document.cookie;
+  var c_start = c_value.indexOf(" " + c_name + "=");
+  if (c_start == -1)
+  {
+     c_start = c_value.indexOf(c_name + "=");
+  }
+  if (c_start == -1)
+  {
+     c_value = null;
+  }
+  else
+  {
+     c_start = c_value.indexOf("=", c_start) + 1;
+     var c_end = c_value.indexOf(";", c_start);
+     if (c_end == -1)
+     {
+        c_end = c_value.length;
+     }
+     c_value = unescape(c_value.substring(c_start,c_end));
+  }
+  return c_value;
+}
+ 
+function onLoad() 
+{ 
+  /*Obtain the LTPA Token cookie which generated from middleware server. */ 
+  var ltpaToken=getCookie("LtpaToken2");
+
+  /*Set the LTPA token with different domain*/ 
+  document.cookie = "LtpaToken2=" + escape(ltpaToken) +'; domain=austin.ibm.com; path=/';
+}</codeblock></section>
+</conbody>
+<?tm 1413224010 4?>
+</concept><?Pub *0000011323?>

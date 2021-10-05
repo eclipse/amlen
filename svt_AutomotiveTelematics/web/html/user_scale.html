@@ -1,0 +1,276 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;" />
+    <title>MQTT Test</title>
+    <script src="../../../common/svt_ismserver.js"></script>
+    <style>
+        p { 
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        h3 {
+            margin-top: 0px;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        div.clear {
+            clear: both;
+        }
+        span.recv {
+            color: green;
+        }
+        span.send {
+            color: red;
+        }
+    </style>
+</head>
+
+<body onload="addJavascript('../js/user_scale.js', 'head');" >
+<p>
+    <div id="serverData">
+        <table>
+            <tr>
+                <td>Manual Start:</td>
+                <td>
+                    <input type="button" id="create_clients" value="Create" />
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div id="clients" />
+<p>
+
+<div id="serverDataTxt">
+    <hr>
+    <h2>SVT Automotive User Scale Test</h2>
+    <p>
+    <b>Note 1:</b> It is critical to pass in parameters for this script in the URL. See below for example.
+    <p>
+    <b>Note 2:</b> ../../../common/ismserver.js is used to specify the target ISM server and port. Those can be overriden with URL parameters host and port if necessary
+    <p><b>Variables that can be set in the URL (note: will override defaults) </b>
+    <ul>
+    <li> action= (possible values: automotive, automotive-unlock)
+    <li> client_count=  (possible values: 1-200 max recommended)
+    <li> logfile=         (possible values: any, default is user_scale )
+    <li> host=   (possible values: x.x.x.x:XXXX)
+    <li> port=   (possible values: x.x.x.x:XXXX)
+    <li> start=   (setting this parameter will make the test start automatically
+    <li> verbosity=   (setting this parameter will make the log less verbose 0 to 9 more verbose )
+    <li> test_minutes=   (set this parameter to specify the number of minutes to run the test)
+    </ul>
+    Example usage for Debug: (Manual start) <br>
+    <pre>
+    http://10.10.1.22/niagara/test/svt_AutomotiveTelematics/web/html/user_scale.html?&client_count=3&action=automotive
+    </pre>
+    <p>
+    Example usage for Automation: (Automated start) <br>
+    <pre>
+    http://10.10.1.22/niagara/test/svt_AutomotiveTelematics/web/html/user_scale.html?&client_count=3&action=automotive&start=true
+    </pre>
+
+    <hr>
+  <h2>MQ Connectivity </h2>
+For this end to end scenario to work, it is expected that MQconnectivity is configured on the ISM. Connect to the ISM Web UI, go to Messaging/MQConnectivity and then add a Queue Manager and destination mappings as shown below.
+<p>
+<p>
+This ISM WebUI that you need to use should be located here: <script type="text/javascript">document.write('<a href=http://'+ismserveraddr+':9080/ISMWebUI>http://'+ismserveraddr+':9080/ISMWebUI</a>');</script>
+<p>
+<b></b>
+<pre>
+Queue Manager Connection Properties
+QM1 SVTBRIDGE.QUEUE.MANAGER 10.10.2.100(1414)   SVTBRIDGE.CHANNEL   SVT MQ Bridge
+
+Destination Mapping
+rule0   ISM topic subtree to MQ topic subtree   /APP    /APP    Enabled
+rule1   MQ topic subtree to ISM topic subtree   /CAR    /CAR    Enabled
+rule2   MQ topic subtree to ISM topic subtree   /USER   /USER   Enabled
+</pre>
+
+    <hr>
+    <h2>Websphere MQ </h2>
+For this end to end scenario to work, it is expected that Websphere MQ is running on mar400.test.example.com.
+<p>
+<i><b>Note:</b> Users (for example WAS) should connect to the Websphere MQ with mquser/mquser (login/password).</i>
+<p>
+<b>Stop, reconfigure, and restart MQ </b>
+<pre>
+root@mar400 ~> pwd
+/root
+
+root@mar400 ~> <b>su - mquser</b>
+mquser@mar400:~><b>/var/mqm/configureMQ.sh </b>
+command is endmqm -i SVTBRIDGE.QUEUE.MANAGER : WebSphere MQ queue manager 'SVTBRIDGE.QUEUE.MANAGER' ending.
+WebSphere MQ queue manager 'SVTBRIDGE.QUEUE.MANAGER' ended.
+SUCCESS: exit code 0
+command is dltmqm  SVTBRIDGE.QUEUE.MANAGER : WebSphere MQ queue manager 'SVTBRIDGE.QUEUE.MANAGER' deleted.
+SUCCESS: exit code 0
+command is crtmqm -q SVTBRIDGE.QUEUE.MANAGER : WebSphere MQ queue manager created.
+Directory '/var/mqm/qmgrs/SVTBRIDGE!QUEUE!MANAGER' created.
+The queue manager is associated with installation 'Installation2'.
+Creating or replacing default objects for queue manager 'SVTBRIDGE.QUEUE.MANAGER'.
+Default objects statistics : 74 created. 0 replaced. 0 failed.
+Completing setup.
+Setup completed.
+SUCCESS: exit code 0
+command is strmqm : WebSphere MQ queue manager 'SVTBRIDGE.QUEUE.MANAGER' starting.
+The queue manager is associated with installation 'Installation2'.
+5 log records accessed on queue manager 'SVTBRIDGE.QUEUE.MANAGER' during the log replay phase.
+Log replay for queue manager 'SVTBRIDGE.QUEUE.MANAGER' complete.
+Transaction manager state recovered for queue manager 'SVTBRIDGE.QUEUE.MANAGER'.
+WebSphere MQ queue manager 'SVTBRIDGE.QUEUE.MANAGER' started using V7.5.0.0.
+SUCCESS: exit code 0
+command is echo "* define queues
+* define listener
+define listener (listener1) trptype (tcp) control (qmgr) port (1414)
+* start listener
+start listener (listener1)
+* define channels
+define channel (SVTBRIDGE.CHANNEL) chltype (SVRCONN) trptype (tcp) mcauser('mqm')
+* disable channel authentication
+ALTER QMGR CHLAUTH (DISABLED) 
+DEFINE QL(SYSTEM.ISM.SYNCQ)
+" | runmqsc : 5724-H72 (C) Copyright IBM Corp. 1994, 2011.  ALL RIGHTS RESERVED.
+Starting MQSC for queue manager SVTBRIDGE.QUEUE.MANAGER.
+
+
+       : * define queues
+       : * define listener
+     1 : define listener (listener1) trptype (tcp) control (qmgr) port (1414)
+AMQ8626: WebSphere MQ listener created.
+       : * start listener
+     2 : start listener (listener1)
+AMQ8021: Request to start WebSphere MQ listener accepted.
+       : * define channels
+     3 : define channel (SVTBRIDGE.CHANNEL) chltype (SVRCONN) trptype (tcp) mcauser('mqm')
+AMQ8014: WebSphere MQ channel created.
+       : * disable channel authentication
+     4 : ALTER QMGR CHLAUTH (DISABLED) 
+AMQ8005: WebSphere MQ queue manager changed.
+     5 : DEFINE QL(SYSTEM.ISM.SYNCQ)
+AMQ8006: WebSphere MQ queue created.
+       : 
+5 MQSC commands read.
+No commands have a syntax error.
+All valid MQSC commands were processed.
+SUCCESS: exit code 0
+---------------------------------------------------------
+Successfully configured MQ for SVT Automotive Scenario v1
+---------------------------------------------------------
+mquser@mar400:/var/mqm> 
+</pre>
+
+<b>Howto: Verify Messages are flowing through MQ </b>
+<pre>
+mquser@mar400:/var/mqm> /opt/mqm_v7.5/samp/bin/amqssub "/CAR/#" 
+mquser@mar400:/var/mqm> /opt/mqm_v7.5/samp/bin/amqssub "/USER/#" 
+mquser@mar400:/var/mqm> /opt/mqm_v7.5/samp/bin/amqssub "/APP/#" 
+</pre>
+
+<p>
+<b> Alternatively, Use our subscriber to subscribe to the topic directly on MQ using mqxr and mar400 and port 1883  </b>
+<p>
+<pre>
+/niagara/test/xlinux/bin64/mqttsample_svt -s 10.10.2.100:1883 -t "/#" -v -n 100000 -a subscribe
+</pre>
+
+<b>Howto: Check who is connected to Websphere MQ (RTC defect 18023) </b>
+<p>
+On runmqsc execute this command: <b>DIS CHS(*) WHERE (RPRODUCT EQ IXMC) ALL</b>
+<pre>
+
+echo DIS CHS(*) WHERE(RPRODUCT EQ IXMC) ALL | "C:\Program Files (x86)\IBM\WebSphere MQ\bin\runmqsc.exe" SVTBRIDGE.QUEUE.MANAGER
+DIS CHS(*) WHERE (RPRODUCT EQ IXMC) ALL
+     1 : DIS CHS(*) WHERE (RPRODUCT EQ IXMC) ALL
+AMQ8417: Display Channel Status details.
+   CHANNEL(SVTBRIDGE.CHANNEL)              CHLTYPE(SVRCONN)
+   BUFSRCVD(18362)                         BUFSSENT(5198)
+   BYTSRCVD(13118816)                      BYTSSENT(652232)
+   CHSTADA(2012-10-25)                     CHSTATI(03.05.34)
+   COMPHDR(NONE,NONE)                      COMPMSG(NONE,NONE)
+   COMPRATE(0,0)                           COMPTIME(0,0)
+   CONNAME(10.10.2.15)                     CURRENT
+   EXITTIME(0,0)                           HBINT(300)
+   JOBNAME(00006C8E000000AF)               LOCLADDR(::ffff:10.10.2.100(1414))
+   LSTMSGDA(2012-10-25)                    LSTMSGTI(04.08.44)
+   MCASTAT(RUNNING)                        MCAUSER(mqm)
+   MONCHL(OFF)                             MSGS(16839)
+   RAPPLTAG(mqcbridge)                     SSLCERTI( )
+   SSLKEYDA( )                             SSLKEYTI( )
+   SSLPEER( )                              SSLRKEYS(0)
+   STATUS(RUNNING)                         STOPREQ(NO)
+   SUBSTATE(RECEIVE)                       CURSHCNV(3)
+   MAXSHCNV(10)                            RVERSION(07050000)
+   RPRODUCT(IXMC)                       
+AMQ8417: Display Channel Status details.
+   CHANNEL(SVTBRIDGE.CHANNEL)              CHLTYPE(SVRCONN)
+   BUFSRCVD(6413)                          BUFSSENT(5770)
+   BYTSRCVD(1092588)                       BYTSSENT(772376)
+   CHSTADA(2012-10-25)                     CHSTATI(03.15.18)
+   COMPHDR(NONE,NONE)                      COMPMSG(NONE,NONE)
+   COMPRATE(0,0)                           COMPTIME(0,0)
+   CONNAME(10.10.3.22)                     CURRENT
+   EXITTIME(0,0)                           HBINT(300)
+   JOBNAME(00006C8E000000B1)               LOCLADDR(::ffff:10.10.2.100(1414))
+   LSTMSGDA(2012-10-25)                    LSTMSGTI(04.08.38)
+   MCASTAT(RUNNING)                        MCAUSER(mqm)
+   MONCHL(OFF)                             MSGS(5132)
+   RAPPLTAG(mqcbridge)                     SSLCERTI( )
+   SSLKEYDA( )                             SSLKEYTI( )
+   SSLPEER( )                              SSLRKEYS(0)
+   STATUS(RUNNING)                         STOPREQ(NO)
+   SUBSTATE(RECEIVE)                       CURSHCNV(1)
+   MAXSHCNV(10)                            RVERSION(07050000)
+   RPRODUCT(IXMC)                       
+
+... so this is telling us we have 2 instances of the bridge attached, one from ip address 10.10.2.15 and one from ip address 10.10.3.22
+k the 15 and 22 are my ISM test machines
+</pre>
+<p>
+
+
+    </h2>
+    <hr>
+    <h2>Websphere Application Server (WAS)</h2>
+For this end to end scenario to work, it is expected that WAS is running on mar400.test.example.com.
+<p>
+<b> Stop and Start WAS </b>
+<pre>
+        root@mar400 /opt/IBM/WebSphere/AppServer/bin><b> /opt/IBM/WebSphere/AppServer/bin/stopServer.sh server1 </b>
+ADMU0116I: Tool information is being logged in file
+           /opt/IBM/WebSphere/AppServer/profiles/AppSrv01/logs/server1/stopServer.log
+ADMU0128I: Starting tool with the AppSrv01 profile
+ADMU3100I: Reading configuration for server: server1
+ADMU3201I: Server stop request issued. Waiting for stop status.
+ADMU4000I: Server server1 stop completed.
+
+root@mar400 /opt/IBM/WebSphere/AppServer/bin> <b>/opt/IBM/WebSphere/AppServer/bin/startServer.sh server1</b>
+ADMU0116I: Tool information is being logged in file
+           /opt/IBM/WebSphere/AppServer/profiles/AppSrv01/logs/server1/startServer.log
+ADMU0128I: Starting tool with the AppSrv01 profile
+ADMU3100I: Reading configuration for server: server1
+ADMU3200I: Server launched. Waiting for initialization status.
+ADMU3000I: Server server1 open for e-business; process id is 14749
+</pre>
+
+<b>Howto: Verify Messages are flowing through WAS </b>
+<pre>
+cat /opt/IBM/WebSphere/AppServer/profiles/AppSrv01/logs/server1/SystemOut.log
+
+</pre>
+
+
+<b> Alternatively, Use the Gui to manage WAS  </b>
+<pre>
+<a href=http://9.3.177.100:9060/ibm/console/login.do>http://9.3.177.100:9060/ibm/console/login.do</a>
+</pre>
+
+
+
+
+
+</div>
+
+</body>
+</html>

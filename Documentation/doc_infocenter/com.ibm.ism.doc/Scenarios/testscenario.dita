@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE dita PUBLIC "-//OASIS//DTD DITA Composite//EN"
+ "ditabase.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<dita xml:lang="en-us">
+<concept id="testscenario" xml:lang="en-us">
+<title>Fan-out broadcast</title>
+<shortdesc>In this scenario, one publisher device broadcasts messages
+to a number of subscribers.</shortdesc>
+</concept>
+<concept id="concept-12">
+<title>Background to this scenario</title>
+<conbody>
+<p>A retailer wants to send out stock updates to their sales personnel
+from one central location. These updates are sent at regular intervals
+and change frequently. The sales personnel each have a mobile device
+with a subscriber application installed. This subscriber application
+connects to <ph conref="../TextEntities.dita#TextEntities/ISMappliance"></ph>,
+and can receive messages that are published by the central publishing
+device. The publishing device sits within the company intranet. An
+application on the publishing device connects to <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph>, and
+sends messages to the subscriber devices. <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> sits
+within the DMZ, a firewall configuration for securing local area networks.
+Complete the steps in the following section to understand how to set
+up this scenario. </p>
+</conbody>
+</concept>
+<concept id="concept-13">
+<title>Planning and implementing the solution</title>
+<conbody>
+<p>Use the following information to help you to plan, and implement
+your fan-out broadcast.</p>
+</conbody>
+</concept>
+<concept id="UnderstandingYourPublishsubscribeAr">
+<title>Understanding your publish/subscribe architecture</title>
+<conbody>
+<p>In this scenario, there is one publishing device. This publishing
+device is a back-end publishing stock update application. This application
+publishes a message to a topic string. The messages have many subscriber
+devices. These subscriber devices are tablets with the receiving stock
+update application. This scenario is a fan-out broadcast scenario
+because one publishing device broadcasts messages to a number of subscribers.
+The following diagram shows the architecture of this fan-out broadcast
+scenario.</p>
+<image href="../Planning/ov00101a.gif"><alt>fan-out broadcast diagram,
+showing one publisher and many subscribers.</alt></image></conbody><?Pub
+Caret -1?>
+</concept>
+<concept id="msg" xml:lang="en-us">
+<title>Understanding the required messaging behavior for your solution</title>
+<conbody>
+<p>For example, do you want durable or non-durable subscriptions?
+What quality of service do you need?</p>
+<p>In this scenario, the stock updates are sent at regular intervals
+and change frequently. It is not essential that each salesperson receives
+each update because further updates are sent throughout the day. Therefore,
+the subscriptions can be non-durable as the messages are not critical.
+In this scenario, QoS=0 is appropriate because the message delivery
+across the network does not require acknowledgement. When QoS=0, the
+message is delivered at most once, or it is not delivered at all.
+Therefore, if one subscriber device is not available, the publishing
+device can continue to publish to the topic string. </p>
+</conbody>
+</concept>
+<concept id="concept-14">
+<title>Planning your solution</title>
+<conbody>
+<p>In this scenario, consider the following key points: <ul>
+<li>Which protocol is appropriate?<p><ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> supports MQTT
+and JMS. Consider which protocol is appropriate for your business
+needs. In this scenario, MQTT protocol is appropriate because this
+protocol is designed for exchanging messages between small devices
+on low bandwidth. Additionally, MQTT skills exist within this retail
+company.</p></li>
+<li>What message size is appropriate?<p>In this scenario, the company
+wants to send large numbers of small, non-persistent messages. The
+information that is contained within the message is about stock prices.
+Therefore, the message size can be relatively small. You can limit
+the message size that is allowed to be sent through <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> by using the
+maximum message size attribute of an endpoint. For more information
+about endpoints, see <xref format="dita" href="../Overview/ov00060.dita"
+scope="local" type="concept">Message hub, endpoints, and policies</xref>.</p></li>
+<li>What message count is appropriate?<p>Consider what maximum message
+count is appropriate for your messaging needs. In this scenario, we
+are using QoS=0 which is the lowest quality of service. As messages
+are not persistent it might be appropriate to have a lower maximum
+message count than when QoS is set to 1 or 2. A QoS of 1 or 2 means
+that if a subscriber device is unavailable a backlog of messages is
+created. This backlog is created because QoS 1 and 2 messages are
+persistent. The message is stored on <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> until
+the message is sent to all the subscribers of the message. Therefore,
+a higher maximum message count might be appropriate. </p></li>
+<li>What is the maximum number of topic levels that you need?<p>You
+can have up to 32 levels in a topic string. Fewer levels are easier
+to manage, but many levels might be required to set up specific solutions.
+In this scenario, the topic string length can be relatively short.
+For example, <userinput>Retailer/Update</userinput>. </p> </li>
+<li>How do you ensure that all of your client IDs are unique?<p>If
+two MQTT clients have the same ID, the second client that connects
+to <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> disconnects
+the first client. If the first client attempts to reconnect, the second
+client is disconnected. Therefore, each MQTT client must have a unique
+ID. In this scenario, you might decide to generate unique client IDs
+automatically when you write your application. Or you might use the
+unique personnel number of each member of the sales team. </p></li>
+<li>What message depth is appropriate?<p>When the maximum message
+depth is reached, you cannot publish any more updates to that topic
+string until the number of messages is reduced. </p></li>
+</ul></p>
+</conbody>
+</concept>
+<concept id="concept-15">
+<title>Writing your applications</title>
+<conbody>
+<p>In this scenario, you must decide the name of the topic string
+that you are publishing and subscribing to. The retailer needs only
+one topic string because they are sending out information about one
+topic "(stock updates)", and their sales force is subscribing to this
+one topic string. If information is sent out about more than one topic,
+for example stock updates and sales figures, then more than one topic
+string can be used. In this scenario, the name of the topic string
+is <userinput>Retailer/Update</userinput>.</p>
+</conbody>
+</concept>
+<task id="task-13">
+<title>Setting up your IMS infrastructure, and security</title>
+<taskbody>
+<steps>
+<step><cmd>Create your message hub. A message hub is an organizational
+configuration object to collect the endpoints, connection policies,
+and messaging policies that are associated with a specific goal in
+a single place. In this scenario, the message hub is called <userinput>Stock
+Update Hub</userinput>.</cmd></step>
+<step><cmd>Create your connection policies. A connection policy is
+used to authorize a client to connect to an endpoint. </cmd>
+<substeps>
+<substep><cmd>Create a connection policy for the subscriber. In this
+scenario, the connection policy is called <userinput>Stock Update
+External ConPol</userinput>.</cmd><tutorialinfo>In this scenario,
+the retailer restricts subscriber access so that the subscriber devices
+must use MQTT protocol.</tutorialinfo></substep>
+<substep><cmd>Create a connection policy for the publisher. In this
+scenario, the connection policy is called <userinput>Stock Update
+Internal ConPol</userinput></cmd><tutorialinfo>In this scenario, the
+retailer restricts publisher access so that the publisher device must
+use MQTT protocol, and use the IP address <userinput>192.0.2.100</userinput>.
+Only one IP address is required because only one device is authorized
+to publish. </tutorialinfo></substep>
+</substeps>
+</step>
+<step><cmd>Create your messaging policies. A messaging policy is used
+to authorize a client to publish or subscribe to a topic.</cmd>
+<substeps>
+<substep><cmd>Create a messaging policy for the subscriber. In this
+scenario, the messaging policy is called <userinput>Stock Update External
+MsgPol</userinput>.</cmd><tutorialinfo>In this scenario, the retailer
+restricts subscriber access so that the subscriber devices can subscribe
+only to the topic string <userinput>Retailer/Update</userinput>.</tutorialinfo>
+</substep>
+<substep><cmd>Create a messaging policy for the publisher.  In this
+scenario, the messaging policy is called <userinput>Stock Update Internal
+MsgPol</userinput>.</cmd><tutorialinfo>In this scenario, the retailer
+restricts publisher access so that the publisher device can publish
+only to the topic string <userinput>Retailer/Update</userinput>.</tutorialinfo>
+</substep>
+</substeps>
+</step>
+<step><cmd>Create your endpoints. An endpoint authorizes a client
+to connect to <ph conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> on
+one or all configured ethernet interfaces, and a specific port.  You
+create endpoints on a message hub.</cmd>
+<substeps>
+<substep><cmd>Create an endpoint for external internet network requests.
+In this scenario, the endpoint is called <userinput>Stock Update External
+Endpoint</userinput>. Apply the <userinput>Stock Update External ConPol</userinput>,
+and the <userinput>Stock Update External MsgPol</userinput> to the
+endpoint.</cmd></substep>
+<substep><cmd>Create an endpoint for internal intranet network requests.
+In this scenario, the endpoint is called <userinput>Stock Update Internal
+Endpoint</userinput>. Apply the <userinput>Stock Update Internal ConPol</userinput>,
+and the <userinput>Stock Update Internal MsgPol</userinput> to the
+endpoint.</cmd></substep>
+</substeps>
+</step>
+</steps>
+</taskbody>
+</task>
+<concept id="testingyoursolution" xml:lang="en-us">
+<title>Testing your solution</title>
+<conbody>
+<p>For information about troubleshooting any problems that arise during
+testing, see <xref format="dita" href="../Troubleshooting/tr10000_.dita"
+scope="local" type="concept">Troubleshooting</xref>.</p>
+</conbody>
+</concept>
+<concept id="concept-18">
+<title>Monitoring your solution</title>
+<conbody>
+<p>There are various statistics that you can <xref format="dita"
+href="../Monitoring/admin00008_.dita" scope="local" type="concept">monitor</xref>.
+In this scenario, use <xref format="dita"
+href="../Monitoring/admin00016.dita" scope="local" type="concept">topic
+monitor</xref>, <xref format="dita" href="../Monitoring/admin00009.dita"
+scope="local" type="concept">connection monitor</xref>, and <xref
+format="dita" href="../Monitoring/admin00022.dita" scope="local"
+type="concept">subscription monitor</xref> to understand the health
+of the solution. </p>
+</conbody>
+</concept>
+<task id="strengtheningyoursecurity" xml:lang="en-us">
+<title>Strengthening your security</title>
+<taskbody>
+<context>You can increase the level of security of a solution in a
+number of ways:</context>
+<steps-unordered>
+<step><cmd>Using a server certificate.</cmd>
+<substeps>
+<substep><cmd>Create a <xref format="dita"
+href="../Administering/ad00333_.dita" scope="local" type="task">certificate
+profile</xref>.</cmd></substep>
+<substep><cmd>Create a <xref format="dita"
+href="../Administering/ad00337_.dita" scope="local" type="task">security
+profile</xref> to encrypt wire traffic. </cmd><tutorialinfo>Set <parmname>UsePasswordAuthentication</parmname> to <userinput>True</userinput> on
+your security profile in order to force authentication on user ID
+and password.</tutorialinfo></substep>
+<substep><cmd>Apply the security profile to your endpoints.</cmd>
+</substep>
+<substep><cmd>Add the server certificate that you are using to the
+clients so that the clients can authenticate the server.</cmd></substep>
+</substeps>
+</step>
+<stepsection><p>For more information about certificates, see <xref
+format="dita" href="../Security/se00005_.dita" scope="local"
+type="concept">Transport level security</xref>.</p></stepsection>
+<step><cmd>Using a client certificate. You must have a sever certificate
+installed before you use a client certificate.</cmd>
+<substeps>
+<substep><cmd>Upload a client certificate, or CA certificate and key
+on each client.</cmd></substep>
+<substep><cmd>Add the specific client certificate, or the CA certificate
+to the <uicontrol>trustStore</uicontrol> on <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph>. The <uicontrol>trustStore</uicontrol> points
+to a file containing trusted certificates, so that the server can
+authenticate the client. </cmd></substep>
+</substeps>
+</step>
+<step><cmd>Using FIPS.</cmd><tutorialinfo><p>FIPS increases message
+security by using cryptography that complies with the Federal Information
+Processing Standards (FIPS). Enable FIPS mode by setting the <parmname>FIPS</parmname> parameter
+to <userinput>True</userinput>. You can set <parmname>FIPS</parmname> to <userinput>True</userinput> either
+by using the command line, or by using the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph>. For more
+information about enabling FIPS mode, see <xref format="dita"
+href="../Administering/ad00330_.dita" scope="local" type="concept">Configuring
+security</xref>.</p></tutorialinfo></step>
+</steps-unordered>
+</taskbody>
+</task>
+</dita>
+<?Pub *0000013688?>

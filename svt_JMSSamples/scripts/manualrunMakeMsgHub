@@ -1,0 +1,36 @@
+#! /bin/bash
+
+source manualrun_HA_JMS
+
+# PRIMARY - IMA Server variable is sourced above
+if [ $# -eq 0 ]; then
+  echo 'you goofed system, what is the IMA Server?'
+  read PRIMARY
+else
+  PRIMARY=$1
+fi
+set -x
+ssh admin@${PRIMARY} 'imaserver update MessagingPolicy Name=DemoMPForSharedSub  MaxMessages=20000000 '
+ssh admin@${PRIMARY} 'imaserver update MessagingPolicy Name=DemoMessagingPolicy MaxMessages=20000000 '
+ssh admin@${PRIMARY} 'imaserver create MessagingPolicy Name=DemoQueuePolicy     DestinationType=Queue  Destination=*  "ActionList=Send,Browse,Receive" Protocol=JMS "Description=Like DemoMessagingPolicy, but destinationType is a QUEUE" '
+if [ $? -ne 0 ]; then
+   ssh admin@${PRIMARY} 'imaserver update MessagingPolicy Name=DemoQueuePolicy  DestinationType=Queue  Destination=*  "ActionList=Send,Browse,Receive" Protocol=JMS "Description=Like DemoMessagingPolicy, but destinationType is a QUEUE" '
+fi
+
+ssh admin@${PRIMARY} 'imaserver update Endpoint Name=DemoEndpoint Enabled=True "MessagingPolicies=DemoMPForSharedSub,DemoMessagingPolicy,DemoQueuePolicy" '
+ssh admin@${PRIMARY} 'imaserver create Endpoint Name=DemoEP_Reply Enabled=True Port=16103 "Protocol=MQTT,JMS" MaxMessageSize=262144K ConnectionPolicies=DemoConnectionPolicy "MessagingPolicies=DemoMPForSharedSub,DemoMessagingPolicy,DemoQueuePolicy"  MessageHub=DemoHub "Description=ConnectionFactory Reply from WAS" '
+if [ $? -ne 0 ]; then
+   ssh admin@${PRIMARY} 'imaserver update Endpoint Name=DemoEP_Reply Enabled=True Port=16103 "Protocol=MQTT,JMS" MaxMessageSize=262144K ConnectionPolicies=DemoConnectionPolicy "MessagingPolicies=DemoMPForSharedSub,DemoMessagingPolicy,DemoQueuePolicy"    "Description=ConnectionFactory Reply from WAS" '
+fi
+
+ssh admin@${PRIMARY} 'imaserver create Endpoint Name=IMA-to-WAS   Enabled=True Port=16997 "Protocol=MQTT,JMS" MaxMessageSize=262144K ConnectionPolicies=DemoConnectionPolicy "MessagingPolicies=DemoMPForSharedSub,DemoMessagingPolicy,DemoQueuePolicy"  MessageHub=DemoHub "Description=RA - Activation Spec into WAS" '
+if [ $? -ne 0 ]; then
+   ssh admin@${PRIMARY} 'imaserver update Endpoint Name=IMA-to-WAS   Enabled=True Port=16997 "Protocol=MQTT,JMS" MaxMessageSize=262144K ConnectionPolicies=DemoConnectionPolicy "MessagingPolicies=DemoMPForSharedSub,DemoMessagingPolicy,DemoQueuePolicy"    "Description=RA - Activation Spec into WAS" '
+fi
+
+ssh admin@${PRIMARY} 'imaserver create Endpoint Name=WAS-to-IMA   Enabled=True Port=16998 "Protocol=MQTT,JMS" MaxMessageSize=262144K ConnectionPolicies=DemoConnectionPolicy "MessagingPolicies=DemoMPForSharedSub,DemoMessagingPolicy,DemoQueuePolicy"  MessageHub=DemoHub "Description=MDB Reply back to IMA" '
+if [ $? -ne 0 ]; then
+   ssh admin@${PRIMARY} 'imaserver update Endpoint Name=WAS-to-IMA   Enabled=True Port=16998 "Protocol=MQTT,JMS" MaxMessageSize=262144K ConnectionPolicies=DemoConnectionPolicy "MessagingPolicies=DemoMPForSharedSub,DemoMessagingPolicy,DemoQueuePolicy"    "Description=MDB Reply back to IMA" '
+fi
+
+set +x

@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="PubUserPropsGVT" >
+<!--
+	Publish messages with user properties and verify the properties on the received messages
+-->
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>mqttv5_14_GVT</solution>
+	</SyncClient>
+	<Action name="publish" type="CompositeAction">
+
+        <Action name="CreateConnectionPub1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttv5-14-gvt-publisher1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <!-- In MQTTv5 cleanSession means cleanStart -->
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+
+        
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1a</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Message GVT Publisher 1 Message number: </ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+            <ApiParameter name="userprop.0">&#x2A190;&#x00E0;&#xFF72;&#xFF73;&#x0444;&#x0909;&#x0043;&#x0300;&#x0302;&#x200D;&#x212B;&#x30CF;&#x004D;&#xFFE6;&#x9DD7;&#xFA46;&#xFB56;&#xA000;&#x0F00;&#x90C2;key1=&#x2A190;&#x00E0;&#xFF72;&#xFF73;&#x0444;&#x0909;&#x0043;&#x0300;&#x0302;&#x200D;&#x212B;&#x30CF;&#x004D;&#xFFE6;&#x9DD7;&#xFA46;&#xFB56;&#xA000;&#x0F00;&#x90C2;value</ApiParameter>
+            <ApiParameter name="userprop.1">&#x2A190;&#x00E0;&#xFF72;&#xFF73;&#x0444;&#x0909;&#x0043;&#x0300;&#x0302;&#x200D;&#x212B;&#x30CF;&#x004D;&#xFFE6;&#x9DD7;&#xFA46;&#xFB56;&#xA000;&#x0F00;&#x90C2;key2=&#x2A190;&#x00E0;&#xFF72;&#xFF73;&#x0444;&#x0909;&#x0043;&#x0300;&#x0302;&#x200D;&#x212B;&#x30CF;&#x004D;&#xFFE6;&#x9DD7;&#xFA46;&#xFB56;&#xA000;&#x0F00;&#x90C2;value2</ApiParameter>
+        </Action>
+
+
+		<Action name="sync_components_tx1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+		</Action>
+
+        <Action name="ShowSub_1" type="RestAPI">
+            <ActionParameter name="structureID">stat_output_1</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+
+
+        <Action name="SendMessage_1" type="SendMessage" interval="0" repeat="10">
+            <dependsOn action_id="sync_components_tx1" interval="1000" />
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1a</ActionParameter>
+            <ActionParameter name="topic">/mqttv5-14-gvt/topic1</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>
+
+
+        <Action name="ShowSub_BeforeClose" type="RestAPI">
+            <dependsOn action_id="SendMessage_1" interval="5000" />
+            <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=mqttv5-14-gvt-receiver</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+
+        <Action name="CloseConnectionTx1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+
+	</Action>
+
+	<Action name="receive" type="CompositeAction">
+		<Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttv5-14-gvt-receiver</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+		</Action>
+		<Action name="Subscribe" type="Subscribe">
+	   		<ActionParameter name="connection_id">CF1</ActionParameter>
+       		<ApiParameter name="topic">/mqttv5-14-gvt/topic1</ApiParameter>
+       		<ApiParameter name="QoS">0</ApiParameter>
+		</Action>
+
+
+		<Action name="sync_components_rx1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+		</Action>
+
+        <Action name="CompositeReceive" type="CompositeAction" repeat="10">
+            <dependsOn action_id="sync_components_rx1" interval="1000" />
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+
+            <Action name="CheckMessageData" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <!-- <ApiParameter name="hasTopicAlias">true</ApiParameter> -->
+                <!-- <ApiParameter name="hasSubscriptionIdentifier">false</ApiParameter> -->
+                <ApiParameter name="hasUserProperties">true</ApiParameter>
+                <!-- <ApiParameter name="hasCorrelationData">true</ApiParameter> -->
+                <!-- <ApiParameter name="hasResponseTopic">true</ApiParameter> -->
+                <!-- <ApiParameter name="hasContentType">true</ApiParameter> -->
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <!-- <ApiParameter name="compareTopicAlias">1</ApiParameter> -->
+                <ApiParameter name="compareUserprop.0">&#x2A190;&#x00E0;&#xFF72;&#xFF73;&#x0444;&#x0909;&#x0043;&#x0300;&#x0302;&#x200D;&#x212B;&#x30CF;&#x004D;&#xFFE6;&#x9DD7;&#xFA46;&#xFB56;&#xA000;&#x0F00;&#x90C2;key1=&#x2A190;&#x00E0;&#xFF72;&#xFF73;&#x0444;&#x0909;&#x0043;&#x0300;&#x0302;&#x200D;&#x212B;&#x30CF;&#x004D;&#xFFE6;&#x9DD7;&#xFA46;&#xFB56;&#xA000;&#x0F00;&#x90C2;value</ApiParameter>
+                <ApiParameter name="compareUserprop.1">&#x2A190;&#x00E0;&#xFF72;&#xFF73;&#x0444;&#x0909;&#x0043;&#x0300;&#x0302;&#x200D;&#x212B;&#x30CF;&#x004D;&#xFFE6;&#x9DD7;&#xFA46;&#xFB56;&#xA000;&#x0F00;&#x90C2;key2=&#x2A190;&#x00E0;&#xFF72;&#xFF73;&#x0444;&#x0909;&#x0043;&#x0300;&#x0302;&#x200D;&#x212B;&#x30CF;&#x004D;&#xFFE6;&#x9DD7;&#xFA46;&#xFB56;&#xA000;&#x0F00;&#x90C2;value2</ApiParameter>
+                <!-- <ApiParameter name="compareContentType">testContentType</ApiParameter> -->
+                <!-- <ApiParameter name="compareCorrelationData">testCorrelationData</ApiParameter> -->
+                <!-- <ApiParameter name="compareResponseTopic">testResponseTopic</ApiParameter> -->
+            </Action>
+
+        </Action>
+
+        <Action name="ShowSub_BeforeClose" type="RestAPI">
+            <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=mqttv5-14-gvt-receiver</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+        <Action name="CloseConnectionRx" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+	</Action>
+</IsmWSTest>
+                

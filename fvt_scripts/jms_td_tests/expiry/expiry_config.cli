@@ -1,0 +1,257 @@
+####################################################
+#
+# Converted to use all restapis January 2019
+#
+# (Completed, all items migrated)
+#
+#
+####################################################
+######setup 0 create MessageHub Name=ExpirationHub
+setup 0 POST configuration {"MessageHub":{"ExpirationHub":{}}}
+
+######setup 0 create Queue Name=expiryqueue AllowSend=True ConcurrentConsumers=True MaxMessages=2000
+setup 0 POST configuration {"Queue":{"expiryqueue":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":2000}}}
+
+######setup 0 create Queue Name=expiryqueueMixed AllowSend=True ConcurrentConsumers=True MaxMessages=2000
+setup 0 POST configuration {"Queue":{"expiryqueueMixed":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":2000}}}
+
+######setup 0 create Queue Name=expiryqueue2 AllowSend=True ConcurrentConsumers=True MaxMessages=2000
+setup 0 POST configuration {"Queue":{"expiryqueue2":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":2000}}}
+
+######setup 0 create ConnectionPolicy Name=ExpirationOpenCP Protocol=JMS 
+setup 0 POST configuration {"ConnectionPolicy":{"ExpirationOpenCP":{"Protocol":"JMS"}}}
+
+######setup 0 create MessagingPolicy Name=ExpirationOpenMP DestinationType=Queue Destination=* Protocol=JMS ActionList=Send,Receive
+setup 0 POST configuration {"QueuePolicy":{"ExpirationOpenMP":{"Queue":"*","Protocol":"JMS","ActionList":"Send,Receive"}}}
+
+######setup 0 create Endpoint Name=ExpirationOpenEP Port=20020 ConnectionPolicies=ExpirationOpenCP MessagingPolicies=ExpirationOpenMP MessageHub=ExpirationHub Enabled=True
+setup 0 POST configuration {"Endpoint":{"ExpirationOpenEP":{"Port":20020,"ConnectionPolicies":"ExpirationOpenCP","TopicPolicies":"","QueuePolicies":"ExpirationOpenMP","SubscriptionPolicies":"","MessageHub":"ExpirationHub","Enabled":true}}}
+
+######setup 0 set TraceLevel=7
+setup 0 POST configuration {"TraceLevel":"7"}
+
+######cleanup 0 delete Endpoint Name=ExpirationOpenEP
+cleanup 0 DELETE configuration/Endpoint/ExpirationOpenEP
+
+######cleanup 0 delete Endpoint Name=ExpirationOpenDyn
+cleanup 0 DELETE configuration/Endpoint/ExpirationOpenDyn
+
+######cleanup 0 delete MessagingPolicy Name=ExpirationOpenMP
+cleanup 0 DELETE configuration/QueuePolicy/ExpirationOpenMP
+
+######cleanup 0 delete MessagingPolicy Name=ExpirationOpenDyn
+cleanup 0 DELETE configuration/QueuePolicy/ExpirationOpenDyn
+
+######cleanup 0 delete ConnectionPolicy Name=ExpirationOpenCP
+cleanup 0 DELETE configuration/ConnectionPolicy/ExpirationOpenCP
+
+######cleanup 0 delete MessageHub Name=ExpirationHub
+cleanup 0 DELETE configuration/MessageHub/ExpirationHub
+
+######cleanup 0 delete Queue Name=expiryqueue DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/expiryqueue?DiscardMessages=true
+
+######cleanup 0 delete Queue Name=expiryqueueDyn DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/expiryqueueDyn?DiscardMessages=true
+
+######cleanup 0 delete Queue Name=expiryqueueMixed DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/expiryqueueMixed?DiscardMessages=true
+
+######cleanup 0 delete Queue Name=expiryqueue2 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/expiryqueue2?DiscardMessages=true
+
+######cleanup 0 delete Queue Name=expiryqueueDyn2 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/expiryqueueDyn2?DiscardMessages=true
+
+######cleanup 0 set TraceLevel=7
+cleanup 0 POST configuration {"TraceLevel":"7"}
+
+# Setup for dynamic Queue Expiry test, which also includes doing some static changes to to config objects 
+# (delete/updates) looking for problems similiar to those found in defect 64687 where 
+# UID where we seemed to have multiple versions/UID's for a single object after deletes and/or updates.  
+######setup 0 create Queue Name=expiryqueueDyn AllowSend=False ConcurrentConsumers=False MaxMessages=2227
+setup 0 POST configuration {"Queue":{"expiryqueueDyn":{"AllowSend":false,"ConcurrentConsumers":false,"MaxMessages":2227}}}
+######setup 0 create Queue Name=expiryqueueDyn2 AllowSend=False ConcurrentConsumers=False MaxMessages=2227
+setup 0 POST configuration {"Queue":{"expiryqueueDyn2":{"AllowSend":false,"ConcurrentConsumers":false,"MaxMessages":2227}}}
+######setup 0 create MessagingPolicy Name=ExpirationOpenDyn DestinationType=Queue Destination=AQueue Protocol=JMS ActionList=Receive MaxMessageTimeToLive=600000
+setup 0 POST configuration {"QueuePolicy":{"ExpirationOpenDyn":{"Queue":"AQueue","Protocol":"JMS","ActionList":"Receive","MaxMessageTimeToLive":"600000"}}}
+######setup 0 create Endpoint Name=ExpirationOpenDyn Port=20024 ConnectionPolicies=ExpirationOpenCP MessagingPolicies=ExpirationOpenDyn MessageHub=ExpirationHub Enabled=False
+setup 0 POST configuration {"Endpoint":{"ExpirationOpenDyn":{"Port":20024,"ConnectionPolicies":"ExpirationOpenCP","TopicPolicies":"","QueuePolicies":"ExpirationOpenDyn","SubscriptionPolicies":"","MessageHub":"ExpirationHub","Enabled":false}}}
+
+# Intentionally delete the items just created. 
+######setup 0 delete Queue Name=expiryqueueDyn DiscardMessages=False
+setup 0 DELETE configuration/Queue/expiryqueueDyn?DiscardMessages=false
+######setup 0 delete Queue Name=expiryqueueDyn2 DiscardMessages=False
+setup 0 DELETE configuration/Queue/expiryqueueDyn2?DiscardMessages=false
+######setup 0 delete Endpoint Name=ExpirationOpenDyn
+setup 0 DELETE configuration/Endpoint/ExpirationOpenDyn
+######setup 0 delete MessagingPolicy Name=ExpirationOpenDyn
+setup 0 DELETE configuration/QueuePolicy/ExpirationOpenDyn
+
+# Recreate them with different values we will be using in the test.  
+######setup 0 create Queue Name=expiryqueueDyn AllowSend=True ConcurrentConsumers=False MaxMessages=227
+setup 0 POST configuration {"Queue":{"expiryqueueDyn":{"AllowSend":true,"ConcurrentConsumers":false,"MaxMessages":227}}}
+######setup 0 create Queue Name=expiryqueueDyn2 AllowSend=True ConcurrentConsumers=False MaxMessages=227
+setup 0 POST configuration {"Queue":{"expiryqueueDyn2":{"AllowSend":true,"ConcurrentConsumers":false,"MaxMessages":227}}}
+######setup 0 create MessagingPolicy Name=ExpirationOpenDyn DestinationType=Queue Destination=SomeQueue Protocol=JMS ActionList=Send MaxMessageTimeToLive=1
+setup 0 POST configuration {"QueuePolicy":{"ExpirationOpenDyn":{"Queue":"SomeQueue","Protocol":"JMS","ActionList":"Send","MaxMessageTimeToLive":"1"}}}
+######setup 0 create Endpoint Name=ExpirationOpenDyn Port=20025 ConnectionPolicies=ExpirationOpenCP MessagingPolicies=ExpirationOpenDyn MessageHub=ExpirationHub Enabled=False
+setup 0 POST configuration {"Endpoint":{"ExpirationOpenDyn":{"Port":20025,"ConnectionPolicies":"ExpirationOpenCP","TopicPolicies":"","QueuePolicies":"ExpirationOpenDyn","SubscriptionPolicies":"","MessageHub":"ExpirationHub","Enabled":false}}}
+
+# And Finally, update them to the values we really want
+
+######setup 0 update Queue Name=expiryqueueDyn ConcurrentConsumers=True MaxMessages=4000
+setup 0 POST configuration {"Queue":{"expiryqueueDyn":{"ConcurrentConsumers":true,"MaxMessages":4000}}}
+######setup 0 update Queue Name=expiryqueueDyn2 ConcurrentConsumers=True MaxMessages=4000
+setup 0 POST configuration {"Queue":{"expiryqueueDyn2":{"ConcurrentConsumers":true,"MaxMessages":4000}}}
+######setup 0 update MessagingPolicy Name=ExpirationOpenDyn DestinationType=Queue Destination=expiryqueueD*  ActionList=Send,Receive MaxMessageTimeToLive=10
+setup 0 POST configuration {"QueuePolicy":{"ExpirationOpenDyn":{"Queue":"expiryqueueD*","ActionList":"Send,Receive","MaxMessageTimeToLive":"10"}}}
+######setup 0 update Endpoint Name=ExpirationOpenDyn Port=20022  Enabled=True
+setup 0 POST configuration {"Endpoint":{"ExpirationOpenDyn":{"Port":20022,"Enabled":true}}}
+
+######setupHA 0 create MessageHub Name=ExpirationHub
+setupHA 0 POST configuration {"MessageHub":{"ExpirationHub":{}}}
+######setupHA 0 create ConnectionPolicy Name=ExpirationCP Protocol=JMS,MQTT
+setupHA 0 POST configuration {"ConnectionPolicy":{"ExpirationCP":{"Protocol":"JMS,MQTT"}}}
+
+# Messaging policies for publishing to topics with expirations
+######setupHA 0 create MessagingPolicy Name=ExpirationMP DestinationType=Topic ActionList=Publish Protocol=JMS,MQTT Destination=/HAEXP/* MaxMessageTimeToLive=30
+setupHA 0 POST configuration {"TopicPolicy":{"ExpirationMP":{"ActionList":"Publish","Protocol":"JMS,MQTT","Topic":"/HAEXP/*","MaxMessageTimeToLive":"30"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationMPLong DestinationType=Topic ActionList=Publish Protocol=JMS,MQTT Destination=/HAEXP/Expiry/PolicySetLong MaxMessageTimeToLive=240
+setupHA 0 POST configuration {"TopicPolicy":{"ExpirationMPLong":{"ActionList":"Publish","Protocol":"JMS,MQTT","Topic":"/HAEXP/Expiry/PolicySetLong","MaxMessageTimeToLive":"240"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationMPNotSet DestinationType=Topic ActionList=Publish Protocol=JMS,MQTT Destination=/HAEXP/Expiry/PolicyNotSet
+setupHA 0 POST configuration {"TopicPolicy":{"ExpirationMPNotSet":{"ActionList":"Publish","Protocol":"JMS,MQTT","Topic":"/HAEXP/Expiry/PolicyNotSet"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationMPSet DestinationType=Topic ActionList=Publish Protocol=JMS,MQTT Destination=/HAEXP/Expiry/PolicySet MaxMessageTimeToLive=30
+setupHA 0 POST configuration {"TopicPolicy":{"ExpirationMPSet":{"ActionList":"Publish","Protocol":"JMS,MQTT","Topic":"/HAEXP/Expiry/PolicySet","MaxMessageTimeToLive":"30"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationMPSetHigher DestinationType=Topic ActionList=Publish Protocol=JMS,MQTT Destination=/HAEXP/Expiry/PolicySetHigher MaxMessageTimeToLive=60
+setupHA 0 POST configuration {"TopicPolicy":{"ExpirationMPSetHigher":{"ActionList":"Publish","Protocol":"JMS,MQTT","Topic":"/HAEXP/Expiry/PolicySetHigher","MaxMessageTimeToLive":"60"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationMPSetLower DestinationType=Topic ActionList=Publish Protocol=JMS,MQTT Destination=/HAEXP/Expiry/PolicySetLower MaxMessageTimeToLive=10
+setupHA 0 POST configuration {"TopicPolicy":{"ExpirationMPSetLower":{"ActionList":"Publish","Protocol":"JMS,MQTT","Topic":"/HAEXP/Expiry/PolicySetLower","MaxMessageTimeToLive":"10"}}}
+######setupHA 0 create MessagingPolicy Name=JMSDynamicallySetTTL DestinationType=Topic ActionList=Subscribe Protocol=JMS Destination=/HAEXP/Expiry/JMSDynamicTTLNeverUsed MaxMessageTimeToLive=40
+setupHA 0 POST configuration {"TopicPolicy":{"JMSDynamicallySetTTL":{"ActionList":"Subscribe","Protocol":"JMS","Topic":"/HAEXP/Expiry/JMSDynamicTTLNeverUsed","MaxMessageTimeToLive":"40"}}}
+######setupHA 0 create MessagingPolicy Name=MQTTDynamicallySetTTL DestinationType=Topic ActionList=Subscribe Protocol=JMS Destination=/HAEXP/Expiry/MQTTDynamicTTLNeverUsed MaxMessageTimeToLive=400000
+setupHA 0 POST configuration {"TopicPolicy":{"MQTTDynamicallySetTTL":{"ActionList":"Subscribe","Protocol":"JMS","Topic":"/HAEXP/Expiry/MQTTDynamicTTLNeverUsed","MaxMessageTimeToLive":"400000"}}}
+
+# Topic policy allowing subscribes
+######setupHA 0 create MessagingPolicy Name=ExpirationMPSubscribe DestinationType=Topic ActionList=Subscribe Protocol=JMS,MQTT Destination=*
+setupHA 0 POST configuration {"TopicPolicy":{"ExpirationMPSubscribe":{"ActionList":"Subscribe","Protocol":"JMS,MQTT","Topic":"*"}}}
+
+# Subscription policy allowing shared subscriptions
+######setupHA 0 create MessagingPolicy Name=ExpirationMPSubscription Destination=* DestinationType=Subscription "ActionList=Control,Receive" Protocol=JMS,MQTT
+setupHA 0 POST configuration {"SubscriptionPolicy":{"ExpirationMPSubscription":{"Subscription":"*","ActionList":"Control,Receive","Protocol":"JMS,MQTT"}}}
+
+
+# Messaging policies for sending to queues with expirations
+######setupHA 0 create MessagingPolicy Name=ExpirationQMPSet DestinationType=Queue ActionList=Send Protocol=JMS Destination=HAEXP.Expiry.PolicySet MaxMessageTimeToLive=30
+setupHA 0 POST configuration {"QueuePolicy":{"ExpirationQMPSet":{"ActionList":"Send","Protocol":"JMS","Queue":"HAEXP.Expiry.PolicySet","MaxMessageTimeToLive":"30"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationQMPHigher DestinationType=Queue ActionList=Send Protocol=JMS Destination=HAEXP.Expiry.PolicySetHigher MaxMessageTimeToLive=60
+setupHA 0 POST configuration {"QueuePolicy":{"ExpirationQMPHigher":{"ActionList":"Send","Protocol":"JMS","Queue":"HAEXP.Expiry.PolicySetHigher","MaxMessageTimeToLive":"60"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationQMPLower DestinationType=Queue ActionList=Send Protocol=JMS Destination=HAEXP.Expiry.PolicySetLower MaxMessageTimeToLive=10
+setupHA 0 POST configuration {"QueuePolicy":{"ExpirationQMPLower":{"ActionList":"Send","Protocol":"JMS","Queue":"HAEXP.Expiry.PolicySetLower","MaxMessageTimeToLive":"10"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationQMPNotSet DestinationType=Queue ActionList=Send Protocol=JMS Destination=HAEXP.Expiry.PolicyNotSet
+setupHA 0 POST configuration {"QueuePolicy":{"ExpirationQMPNotSet":{"ActionList":"Send","Protocol":"JMS","Queue":"HAEXP.Expiry.PolicyNotSet"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationQMPLong DestinationType=Queue ActionList=Send Protocol=JMS Destination=HAEXP.Expiry.PolicySetLong MaxMessageTimeToLive=240
+setupHA 0 POST configuration {"QueuePolicy":{"ExpirationQMPLong":{"ActionList":"Send","Protocol":"JMS","Queue":"HAEXP.Expiry.PolicySetLong","MaxMessageTimeToLive":"240"}}}
+######setupHA 0 create MessagingPolicy Name=ExpirationDiscardMP DestinationType=Topic ActionList=Publish,Subscribe Protocol=JMS Destination=/HAEXP/Discard MaxMessageTimeToLive=4 MaxMessages=5000 MaxMessagesBehavior=DiscardOldMessages
+setupHA 0 POST configuration {"TopicPolicy":{"ExpirationDiscardMP":{"ActionList":"Publish,Subscribe","Protocol":"JMS","Topic":"/HAEXP/Discard","MaxMessageTimeToLive":"4","MaxMessages":5000,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+
+
+# Queue policy allowing receiving
+######setupHA 0 create MessagingPolicy Name=ExpirationQMPReceive DestinationType=Queue ActionList=Receive Destination=* Protocol=JMS
+setupHA 0 POST configuration {"QueuePolicy":{"ExpirationQMPReceive":{"ActionList":"Receive","Queue":"*","Protocol":"JMS"}}}
+
+# Queues for queue send expiration policies
+######setupHA 0 create Queue Name=HAEXP.Expiry.PolicySet AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setupHA 0 POST configuration {"Queue":{"HAEXP.Expiry.PolicySet":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":5000}}}
+######setupHA 0 create Queue Name=HAEXP.Expiry.PolicySetHigher AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setupHA 0 POST configuration {"Queue":{"HAEXP.Expiry.PolicySetHigher":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":5000}}}
+######setupHA 0 create Queue Name=HAEXP.Expiry.PolicySetLower AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setupHA 0 POST configuration {"Queue":{"HAEXP.Expiry.PolicySetLower":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":5000}}}
+######setupHA 0 create Queue Name=HAEXP.Expiry.PolicyNotSet AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setupHA 0 POST configuration {"Queue":{"HAEXP.Expiry.PolicyNotSet":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":5000}}}
+######setupHA 0 create Queue Name=HAEXP.Expiry.PolicySetLong AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setupHA 0 POST configuration {"Queue":{"HAEXP.Expiry.PolicySetLong":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":5000}}}
+
+# Topic expiration endpoint
+######setupHA 0 create Endpoint Name=ExpirationEP Port=20021 ConnectionPolicies=ExpirationCP MessagingPolicies=ExpirationMPLong,ExpirationMPNotSet,ExpirationMPSet,ExpirationMPSetHigher,ExpirationMPSetLower,JMSDynamicallySetTTL,MQTTDynamicallySetTTL,ExpirationMP,ExpirationMPSubscribe,ExpirationMPSubscription MessageHub=ExpirationHub Enabled=True
+setupHA 0 POST configuration {"Endpoint":{"ExpirationEP":{"Port":20021,"ConnectionPolicies":"ExpirationCP","TopicPolicies":"ExpirationMPLong,ExpirationMPNotSet,ExpirationMPSet,ExpirationMPSetHigher,ExpirationMPSetLower,JMSDynamicallySetTTL,MQTTDynamicallySetTTL,ExpirationMP,ExpirationMPSubscribe","QueuePolicies":"","SubscriptionPolicies":"ExpirationMPSubscription","MessageHub":"ExpirationHub","Enabled":true}}}
+
+# Queue expiration endpoint
+######setupHA 0 create Endpoint Name=ExpirationQEP Port=20022 ConnectionPolicies=ExpirationCP MessagingPolicies=ExpirationQMPSet,ExpirationQMPHigher,ExpirationQMPLower,ExpirationQMPNotSet,ExpirationQMPLong,ExpirationQMPReceive MessageHub=ExpirationHub Enabled=True
+setupHA 0 POST configuration {"Endpoint":{"ExpirationQEP":{"Port":20022,"ConnectionPolicies":"ExpirationCP","TopicPolicies":"","QueuePolicies":"ExpirationQMPSet,ExpirationQMPHigher,ExpirationQMPLower,ExpirationQMPNotSet,ExpirationQMPLong,ExpirationQMPReceive","SubscriptionPolicies":"","MessageHub":"ExpirationHub","Enabled":true}}}
+
+######setupHA 0 create Endpoint Name=ExpirationDiscardEP Port=20023 ConnectionPolicies=ExpirationCP MessagingPolicies=ExpirationDiscardMP MessageHub=ExpirationHub Enabled=True
+setupHA 0 POST configuration {"Endpoint":{"ExpirationDiscardEP":{"Port":20023,"ConnectionPolicies":"ExpirationCP","TopicPolicies":"ExpirationDiscardMP","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"ExpirationHub","Enabled":true}}}
+
+# A static update to make sure things are working ok. 
+######setupHA 0 update MessagingPolicy Name=JMSDynamicallySetTTL ActionList=Publish Destination=/HAEXP/Expiry/JMSDynamicTTL MaxMessageTimeToLive=4000000
+setupHA 0 POST configuration {"TopicPolicy":{"JMSDynamicallySetTTL":{"ActionList":"Publish","Topic":"/HAEXP/Expiry/JMSDynamicTTL","MaxMessageTimeToLive":"4000000"}}}
+######setupHA 0 update MessagingPolicy Name=MQTTDynamicallySetTTL ActionList=Publish Protocol=MQTT Destination=/HAEXP/Expiry/MQTTDynamicTTL MaxMessageTimeToLive=10
+setupHA 0 POST configuration {"TopicPolicy":{"MQTTDynamicallySetTTL":{"ActionList":"Publish","Protocol":"MQTT","Topic":"/HAEXP/Expiry/MQTTDynamicTTL","MaxMessageTimeToLive":"10"}}}
+
+######cleanupHA x delete Subscription "SubName=/HAEXP/#" ClientID=expiry_sub0
+cleanupHA x DELETE service/Subscription/expiry_sub0//HAEXP/%23
+######cleanupHA x delete Subscription "SubName=/HAEXP/#" ClientID=expiry_sub1
+cleanupHA x DELETE service/Subscription/expiry_sub1//HAEXP/%23
+######cleanupHA x delete Subscription "SubName=/HAEXP/#" ClientID=expiry_sub2
+cleanupHA x DELETE service/Subscription/expiry_sub2//HAEXP/%23
+######cleanupHA x delete Subscription SubName=ExpiryDynJMSWildcard ClientID=HA_ExpiryDyn_JMS
+cleanupHA x DELETE service/Subscription/HA_ExpiryDyn_JMS/ExpiryDynJMSWildcard
+######cleanupHA x delete Subscription SubName=ExpiryDynJMSWildcard ClientID=__Shared
+cleanupHA x DELETE service/Subscription/__Shared/ExpiryDynJMSWildcard
+######cleanupHA x delete Subscription SubName=ExpiryDynMqttSharedWildcard ClientID=__Shared
+cleanupHA x DELETE service/Subscription/__Shared/ExpiryDynMqttSharedWildcard
+######cleanupHA 0 delete Endpoint Name=ExpirationEP
+cleanupHA 0 DELETE configuration/Endpoint/ExpirationEP
+######cleanupHA 0 delete Endpoint Name=ExpirationQEP
+cleanupHA 0 DELETE configuration/Endpoint/ExpirationQEP
+######cleanupHA 0 delete Endpoint Name=ExpirationDiscardEP
+cleanupHA 0 DELETE configuration/Endpoint/ExpirationDiscardEP
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationMP
+cleanupHA 0 DELETE configuration/TopicPolicy/ExpirationMP
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationMPLong
+cleanupHA 0 DELETE configuration/TopicPolicy/ExpirationMPLong
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationMPNotSet
+cleanupHA 0 DELETE configuration/TopicPolicy/ExpirationMPNotSet
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationMPSet
+cleanupHA 0 DELETE configuration/TopicPolicy/ExpirationMPSet
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationMPSetHigher
+cleanupHA 0 DELETE configuration/TopicPolicy/ExpirationMPSetHigher
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationMPSetLower
+cleanupHA 0 DELETE configuration/TopicPolicy/ExpirationMPSetLower
+######cleanupHA 0 delete MessagingPolicy Name=JMSDynamicallySetTTL
+cleanupHA 0 DELETE configuration/TopicPolicy/JMSDynamicallySetTTL
+######cleanupHA 0 delete MessagingPolicy Name=MQTTDynamicallySetTTL
+cleanupHA 0 DELETE configuration/TopicPolicy/MQTTDynamicallySetTTL
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationMPSubscribe
+cleanupHA 0 DELETE configuration/TopicPolicy/ExpirationMPSubscribe
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationMPSubscription
+cleanupHA 0 DELETE configuration/SubscriptionPolicy/ExpirationMPSubscription
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationQMPLong
+cleanupHA 0 DELETE configuration/QueuePolicy/ExpirationQMPLong
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationQMPNotSet
+cleanupHA 0 DELETE configuration/QueuePolicy/ExpirationQMPNotSet
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationQMPSet
+cleanupHA 0 DELETE configuration/QueuePolicy/ExpirationQMPSet
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationQMPHigher
+cleanupHA 0 DELETE configuration/QueuePolicy/ExpirationQMPHigher
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationQMPLower
+cleanupHA 0 DELETE configuration/QueuePolicy/ExpirationQMPLower
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationQMPReceive
+cleanupHA 0 DELETE configuration/QueuePolicy/ExpirationQMPReceive
+######cleanupHA 0 delete MessagingPolicy Name=ExpirationDiscardMP
+cleanupHA 0 DELETE configuration/TopicPolicy/ExpirationDiscardMP
+######cleanupHA 0 delete Queue Name=HAEXP.Expiry.PolicySet DiscardMessages=True
+cleanupHA 0 DELETE configuration/Queue/HAEXP.Expiry.PolicySet?DiscardMessages=true
+######cleanupHA 0 delete Queue Name=HAEXP.Expiry.PolicySetHigher DiscardMessages=True
+cleanupHA 0 DELETE configuration/Queue/HAEXP.Expiry.PolicySetHigher?DiscardMessages=true
+######cleanupHA 0 delete Queue Name=HAEXP.Expiry.PolicySetLower DiscardMessages=True
+cleanupHA 0 DELETE configuration/Queue/HAEXP.Expiry.PolicySetLower?DiscardMessages=true
+######cleanupHA 0 delete Queue Name=HAEXP.Expiry.PolicyNotSet DiscardMessages=True
+cleanupHA 0 DELETE configuration/Queue/HAEXP.Expiry.PolicyNotSet?DiscardMessages=true
+######cleanupHA 0 delete Queue Name=HAEXP.Expiry.PolicySetLong DiscardMessages=True
+cleanupHA 0 DELETE configuration/Queue/HAEXP.Expiry.PolicySetLong?DiscardMessages=true
+######cleanupHA 0 delete ConnectionPolicy Name=ExpirationCP
+cleanupHA 0 DELETE configuration/ConnectionPolicy/ExpirationCP
+######cleanupHA 0 delete MessageHub Name=ExpirationHub
+cleanupHA 0 DELETE configuration/MessageHub/ExpirationHub

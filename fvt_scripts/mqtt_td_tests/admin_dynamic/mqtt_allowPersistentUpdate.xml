@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2007-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+TestCase Name:  MQTT Allow Persistent Messages
+
+Test Category:  MQTT AllowPersistentUpdate
+
+Test Description:
+  Connect to the server with a durable subscription on a connection
+  policy that allows persistent messages. Create a QoS 2 subscription
+  and publish 3 messages (QoS 0,1,2).
+  Disconnect
+  Update connection policy to AllowPersistentMessages=False
+  Reconnect
+  Attempt to publish a persistent message and fail.
+
+-->
+<IsmWSTest name="CreateConnection" >
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">allowpersistent</ApiParameter>
+            <ApiParameter name="port">20041</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="user">allowpersistent</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/persistent/allowed</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        <Action name="CompositeRcv" type="CompositeAction" repeat="3" thread="2">
+            <dependsOn action_id="Subscribe"/>
+            <Action name="ReceiveMessage" type="ReceiveMessage" thread="3">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="CreateMessage0" type="CreateMessage">
+            <dependsOn action_id="Subscribe" />
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Let's try and make a very long message to see if we can get to a multi-byte length and see if everything works correctly when we do this, so how long is this message now?
+            </ApiParameter>
+        </Action>
+        <Action name="SendMessage0" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">/persistent/allowed</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Let's try and make a very long message to see if we can get to a multi-byte length and see if everything works correctly when we do this, so how long is this message now?
+            </ApiParameter>
+        </Action>
+        <Action name="SendMessage1" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">/persistent/allowed</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Let's try and make a very long message to see if we can get to a multi-byte length and see if everything works correctly when we do this, so how long is this message now?
+            </ApiParameter>
+        </Action>
+        <Action name="SendMessage2" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">/persistent/allowed</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <dependsOn action_id="SendMessage2"/>
+            <dependsOn action_id="CompositeRcv"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		<Action name="UpdatePolicy" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"ConnectionPolicy":{"UpdateAllowPersistentCP":{"AllowPersistentMessages":false}}}</ActionParameter>
+	        <!--ActionParameter name="payload">{"ConnectionPolicy":[{"Name":"UpdateAllowPersistentCP","AllowPersistentMessages":false}]}</ActionParameter-->
+    	    <ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="CreateConnectionForFailSend" type="CreateConnection">
+            <dependsOn action_id="UpdatePolicy" interval="2000"/>
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">allowpersistent</ApiParameter>
+            <ApiParameter name="port">20041</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="user">allowpersistent</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="CreateMessageForFailSend" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Let's try and make a very long message to see if we can get to a multi-byte length and see if everything works correctly when we do this, so how long is this message now?
+            </ApiParameter>
+        </Action>
+        <Action name="SendMessage2CauseDisconnect" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">/persistent/allowed</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage2Fail" type="SendMessage" rc="1" reason="ISMTEST2508">
+        	<dependsOn action_id="SendMessage2CauseDisconnect" interval="2000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">/persistent/allowed</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnectionCleanup" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">allowpersistent</ApiParameter>
+            <ApiParameter name="port">20041</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="user">allowpersistent</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnectionEnd" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="UpdatePolicyEnd" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"ConnectionPolicy":{"UpdateAllowPersistentCP":{"AllowPersistentMessages":true}}}</ActionParameter>
+	        <!--ActionParameter name="payload">{"ConnectionPolicy":[{"Name":"UpdateAllowPersistentCP","AllowPersistentMessages":true}]}</ActionParameter-->
+    	    <ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+</IsmWSTest>
+

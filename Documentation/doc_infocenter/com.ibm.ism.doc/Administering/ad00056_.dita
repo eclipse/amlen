@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN"
+ "task.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<task id="ad00056_" xml:lang="en-us">
+<title>Configuring the administration endpoint to accept connections over TLS</title>
+<shortdesc>Secure the administration (admin) endpoint on <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> V2.0 so that only connections over TLS are
+accepted. </shortdesc>
+<taskbody>
+<prereq>
+<p>The admin endpoint is a special endpoint that listens on the server that handles incoming
+connections from administrative REST API clients. By default, the admin endpoint is not secured.
+Complete the following steps to secure the admin endpoint so that only connections from clients that
+pass in the correct server certificate and key are accepted.<note>If a problem occurs during the
+following process, the admin endpoint might get corrupted and no longer work. Messaging clients
+would still work, but you would not be able to administer your <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> server - either by using the REST API or by using
+the Web UI. Therefore, you might want to back up your server before securing the admin endpoint. The
+only way to recover the admin endpoint is to stop the server, delete all configuration information,
+and restart. Resetting the server to the default configuration results in the loss of all custom
+data. </note></p>
+</prereq>
+<context>
+<p>The following table shows the files that are required to secure the admin endpoint, and provides
+names for the files that are used in our example:</p>
+<p>
+<table id="datasimpletable_d5h_dph_qfb">
+<title>Files required to secure an admin endpoint.</title>
+<tgroup cols="2">
+<thead>
+<row>
+<entry>File</entry>
+<entry>Example name</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>CA certificate file</entry>
+<entry>rootCA-crt.pem</entry>
+</row>
+<row>
+<entry><ph conref="../TextEntities.dita#TextEntities/MessageSight"></ph> server certificate file</entry>
+<entry>msserver-crt.pem</entry>
+</row>
+<row>
+<entry><ph conref="../TextEntities.dita#TextEntities/MessageSight"></ph> server key file</entry>
+<entry>msserver-key.pem</entry>
+</row>
+<row>
+<entry><ph conref="../TextEntities.dita#TextEntities/MessageSight"></ph> server certificate file (msserver-cert.pem) combined with the CA certificate
+file (rootCA-crt.pem) into a single certificate file</entry>
+<entry>server-trust-chain.pem</entry>
+</row>
+<row>
+<entry>Client certificate file</entry>
+<entry>msclient-crt.pem</entry>
+</row>
+<row>
+<entry>Client key file </entry>
+<entry>msclient-key.pem</entry>
+</row>
+<row>
+<entry>Client certificate and key file combined into a pkcs12 file</entry>
+<entry>*.p12</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+</p>
+</context>
+<steps>
+<step>
+<cmd>Upload the <ph conref="../TextEntities.dita#TextEntities/ISM"/> server certificate file. The
+following example shows a PUT method to upload the certificate file by using cURL: </cmd>
+<info>
+<p><codeph>curl -X PUT -T msserver-crt.pem <xref
+href="http://localhost:9089/ima/v1/file/msserver-crt-admin.pem" format="html" scope="external"
+>http://localhost:9089/ima/v1/file/msserver-crt-admin.pem</xref></codeph></p>
+</info>
+</step>
+<step>
+<cmd>Upload the <ph conref="../TextEntities.dita#TextEntities/ISM"/> server key file. The following
+example shows a PUT method to upload the server key file by using cURL: </cmd>
+<info>
+<p><codeph>curl -X PUT -T msserver-key.pem <xref
+href="http://localhost:9089/ima/v1/file/msserver-key-admin.pem" format="html" scope="external"
+>http://localhost:9089/ima/v1/file/msserver-key-admin.pem</xref></codeph></p>
+</info>
+</step>
+<step>
+<cmd>Upload the CA certificate file. The following example shows a PUT method to upload the CA
+certificate file by using cURL: </cmd>
+<info>
+<p><codeph>curl -X PUT -T rootCA-crt.pem <xref
+href="http://localhost:9089/ima/v1/file/rootCA-crt-admin.pem" format="html" scope="external"
+>http://localhost:9089/ima/v1/file/rootCA-crt-admin.pem</xref></codeph></p>
+</info>
+</step>
+<step>
+<cmd>Create the "SecureAdmin" certificate profile called for the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> server. The following example shows a POST method
+to create the certificate profile by using cURL: </cmd>
+<info>
+<p><codeph>curl -X POST <xref href="http://localhost:9089/ima/v1/configuration" format="html"
+scope="external">http://localhost:9089/ima/v1/configuration</xref> -d
+'{"CertificateProfile":{"SecureAdmin":{"Certificate":"msserver-crt-admin.pem","Key":"msserver-key-admin.pem"}}}'</codeph></p>
+</info>
+</step>
+<step>
+<cmd>Create the "SecureAdminSecProfile" SecurityProfile. The following example shows a POST method
+to create the security profile by using cURL: </cmd>
+<info>
+<p><codeph>curl -X POST <xref href="http://localhost:9089/ima/v1/configuration" format="html"
+scope="external">http://localhost:9089/ima/v1/configuration</xref> -d
+'{"SecurityProfile":{"SecureAdminSecProf":{"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":true,"Ciphers":"Fast","UsePasswordAuthentication":false,"CertificateProfile":"SecureAdmin"}}}'</codeph></p>
+</info>
+</step>
+<step>
+<cmd>Add the CA certificate as a TrustedCertificate for the SecureAdminSecProf security profile. The
+following example shows a POST method to add the CA certificate as a TrustedCertificate by using
+cURL: </cmd>
+<info>
+<p><codeph>curl -X POST <xref href="http://localhost:9089/ima/v1/configuration" format="html"
+scope="external">http://localhost:9089/ima/v1/configuration</xref> -d
+'{"TrustedCertificate":[{"TrustedCertificate":"rootCA-crt-admin.pem","SecurityProfileName":"SecureAdminSecProf","Overwrite":true}]}'</codeph></p>
+</info>
+</step>
+<step>
+<cmd>Set the "SecureAdminSecProfile" as the SecurityProfile for the admin endpoint. The following
+example shows a POST method to set the security profile for the admin endpoint by using cURL: </cmd>
+<info>
+<p><codeph>curl -X POST <xref href="http://localhost:9089/ima/v1/configuration" format="html"
+scope="external">http://localhost:9089/ima/v1/configuration</xref> -d '{ "AdminEndpoint": {
+"SecurityProfile": "SecureAdminSecProf" }}'</codeph></p>
+<p>After the command completes, the admin endpoint accepts only TLS connections. If  the TLS is not
+correctly configured, you cannot connect to the admin endpoint.</p>
+</info>
+</step>
+<step>
+<cmd>Test that you can connect to the secure admin endpoint. The following example shows a GET
+method to test the connection by using cURL: </cmd>
+<info>
+<p><codeph>curl -k --cacert /path/to/server-trust-chain.pem --cert /path/to/msclient-crt.pem --key
+/path/to/msclient-key.pem -X GET <xref href="https://localhost:9089/ima/v1/service/status"
+format="html" scope="external">https://localhost:9089/ima/v1/service/status</xref></codeph></p>
+<p>Once the admin endpoint is secured to listen only for TLS connections, the URL for all REST calls
+must start with <codeph>https</codeph>, as shown in the previous example.</p>
+<p>If you are using valid CA signed certificates, your browser can connect to the new TLS-only admin
+endpoint. If you are not using CA signed certifcates, you must import the
+<filepath>msclient.p12</filepath> file into your browser as a trusted certificate. For example, if
+you are using Firefox, select <menucascade>
+<uicontrol>Edit</uicontrol>
+<uicontrol>Preferences</uicontrol>
+<uicontrol>Advanced</uicontrol>
+<uicontrol>Certificates</uicontrol>
+<uicontrol>View Certificates</uicontrol>
+<uicontrol>Your Certificates</uicontrol>
+<uicontrol>Import</uicontrol>
+</menucascade>.</p>
+</info>
+</step>
+</steps>
+<example>
+<p>Use following commands to create the files that are used in this example. Replace variable names
+with the appropriate value for your configuration. </p>
+<note>Do not use the following commands to create certificates for  production environments.</note>
+<p>
+<codeblock>cat > ext.cfg &lt;&lt;EOF
+[ req ]
+attributes              = req_attributes
+distinguished_name      = req_distinguished_name
+req_extensions          = v3_ca
+prompt                  = no
+[ req_attributes ]
+[ v3_ca ]
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid:always,issuer
+basicConstraints        = CA:true
+[ req_distinguished_name ]
+countryName                 = US
+stateOrProvinceName                 = <varname>state_code</varname>
+localityName                        = <varname>city_name</varname>
+organizationalUnitName              = <varname>organization</varname>
+commonName                          = <varname>descriptive_name</varname>
+emailAddress                        = <varname>email</varname>
+EOF
+
+cat > srvext.cfg &lt;&lt;EOF
+[ req ]
+req_extensions          = v3_req
+[ v3_req ]
+subjectAltName          = DNS:<varname>server_hostname</varname>
+EOF
+
+openssl genrsa -out rootCA-key.pem 2048
+openssl genrsa -out msCA-key.pem 2048
+openssl genrsa -out msserver-key.pem 2048
+openssl genrsa -out msclient-key.pem 2048
+openssl req -new -x509 -days 3650 -subj <varname>subject_CA_dn</varname> -extensions v3_ca -set_serial 1 -key rootCA-key.pem -out rootCA-crt.pem
+openssl req -new -days 3650 -subj <varname>subject_messagegateway_team_dn</varname> -key msCA-key.pem -out msCA-crt.csr
+openssl x509 -days 3650 -in msCA-crt.csr -out msCA-crt.pem -req -CA rootCA-crt.pem -CAkey rootCA-key.pem -set_serial 3 -extensions v3_ca -extfile ext.cfg
+openssl req -new -days 3650 -subj <varname>messagegateway_server_subject_dn</varname> -key msserver-key.pem -out msserver-crt.csr
+openssl x509 -days 3650 -in msserver-crt.csr -out msserver-crt.pem -req -CA rootCA-crt.pem -CAkey rootCA-key.pem -extensions v3_req -extfile srvext.cfg -set_serial 2
+openssl req -new -days 3650 -subj <varname>messagegateway_client_subject_dn</varname> -key msclient-key.pem -out msclient-crt.csr
+openssl x509 -days 3650 -in msclient-crt.csr -out msclient-crt.pem -req -CA rootCA-crt.pem -CAkey rootCA-key.pem -extensions v3_req -set_serial 4
+openssl pkcs12 -export -inkey msclient-key.pem -in msclient-crt.pem -out msclient.p12 -passout pass:
+
+cat msserver-crt.pem > server-trust-chain.pem
+cat rootCA-crt.pem >> server-trust-chain.pem
+</codeblock>
+</p>
+<p>The following table provides example values for the file names that are required to secure an
+admin endpoint:</p>
+<p>
+<table id="datasimpletable_vzh_vph_qfb">
+<title>Files required to secure an admin endpoint.</title>
+<tgroup cols="2">
+<thead>
+<row>
+<entry>File</entry>
+<entry>Example value</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>subject_CA_dn</entry>
+<entry>/<codeph>C=US/ST=TX/L=City/O=Company/OU=Corporate/CN=Company Corporate </codeph></entry>
+</row>
+<row>
+<entry>subject_messagegateway_team_dn</entry>
+<entry><codeph>/C=US/ST=TX/L=City/O=Company/OU=MessageGateway/CN=MessageGateway
+Team</codeph></entry>
+</row>
+<row>
+<entry>messagegateway_server_subject_dn</entry>
+<entry><codeph>/C=US/ST=TX/L=City/O=Company/OU=MessageGateway/CN=MessageGateway Team
+(server)</codeph></entry>
+</row>
+<row>
+<entry>messagegateway_client_subject_dn</entry>
+<entry><codeph>/C=US/ST=TX/L=City/O=Company/OU=MessageGateway/CN=MessageGateway Team (msclient)
+</codeph></entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+</p>
+<p>where:<dl>
+<dlentry>
+<dt>subject_CA_dn</dt>
+<dd>might be set to the following values:
+<codeph>/C=US/ST=TX/L=City/O=Company/OU=Corporate/CN=Company Corporate </codeph></dd>
+</dlentry>
+<dlentry>
+<dt>subject_messagegateway_team_dn</dt>
+<dd>might be set to the following values:
+<codeph>/C=US/ST=TX/L=City/O=Company/OU=MessageGateway/CN=MessageGateway Team</codeph></dd>
+</dlentry>
+<dlentry>
+<dt>messagegateway_server_subject_dn</dt>
+<dd>might be set to the following values:
+<codeph>/C=US/ST=TX/L=City/O=Company/OU=MessageGateway/CN=MessageGateway Team (server)</codeph></dd>
+</dlentry>
+<dlentry>
+<dt>messagegateway_client_subject_dn</dt>
+<dd>might be set to the following values:
+<codeph>/C=US/ST=TX/L=City/O=Company/OU=MessageGateway/CN=MessageGateway Team (msclient)
+</codeph></dd>
+</dlentry>
+</dl></p>
+</example>
+</taskbody>
+</task>
+<?Pub *0000002762?>

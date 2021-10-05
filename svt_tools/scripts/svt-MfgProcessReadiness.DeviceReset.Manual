@@ -1,0 +1,330 @@
+Name: svt-MfgProcessReadiness.DeviceRESET.Manual
+
+There are a series of tests that need to be run as part of the Manufacturing process to verify a machine is ready for customer usage.
+The file is one step of the check list: svt-MfgProcessReadinessChecklist.txt.
+
+Prerequisites:
+1. PXE Install the SHIP READY Driver has completed successfully.
+(PXE First because you will remove PXE as boot option in uEFI Verification)
+2. svt-MfgProcessReadiness.ConfigPopulate.Manual was run successfully to setup the environment with data
+
+InfoCenter:
+https://infocenters.hursley.ibm.com/ISM/help/topic/com.ibm.ism.doc/Reference/fun_dereset.html
+
+Purpose:
+Erase all data on the appliance and put it back to a factory-new state. 
+All configuration is deleted, including the ssh server keys, license acceptance, and logs. 
+All user IDs and passwords are also deleted and replaced with the default user ID and password that were set at the factory. 
+The appliance will automatically reboot after you run this command.
+
+The "RESET" part of the command is required to be all uppercase to lower the probability of it being typed accidentally. 
+This command differs from firmware pristine-install because this command does not change the firmware that is running on this device. 
+Therefore, you do not need a firmware image when you run this command. This command changes only the configuration.
+
+Syntax:
+	device RESET [ noprompt ]
+Options:
+	noprompt
+		Do not prompt for confirmation. The command is started immediately. If this option is not present, the command is not started unless the user answers affirmatively to a confirmation prompt that follows.
+
+
+
+Steps:
+---------------------------------------------------------------------------------------------------
+BE SURE TO RUN or Verify settings: 
+  -- svt-MfgProcessReadiness.ConfigPopulate.Manual to establish ISM configuration objects and logs.
+
+ 
+--------------------------------------------------------------------
+Execute at Bedrock Console prompt:
+	device RESET
+	
+The system will restart and you will have to login again.
+--------------------------------------------------------------------
+
+
+1.   The Command prompt is:  (none) login:
+  -- login as admin/admin  (not the changed password)
+
+You must configure the first ethernet interface (default is 'mgt0').
+You should see a message that you must accept ISM License before ISM will be fully functional.  
+It should give you the HTTP URL address, not HTTPS because, it does not work for Msg Verifcation App in BETA 
+
+
+2. Verify Bedrock changes are removed:
+-- All other ethernet-interface configurations are removed
+	list ethernet-interface 
+and do a 
+	show ethernet-interface 
+on each item returned. 
+There should be no network configuration except for mgt0.  
+The other ethernet interfaces should have Admin State "Disabled" and Status is [Down]
+ex.
+   Console> show ethernet-interface eth0
+   ethernet-interface eth0: [Down]
+
+   name "eth0"
+   AdminState "Disabled"
+   use-arp "true"
+   aggregate-candidate "false"
+   mtu "1500"
+   ip
+     use-dhcp "false"
+     use-slaac "false"
+     dad-transmits "1"
+     dad-retransmit-timer "1000"
+   end ip
+   mode "Auto"
+   
+and something similar to this for the first interface configured (assuming: mgt0)
+   Console> show ethernet-interface mgt0
+   ethernet-interface mgt0: [Up]
+
+   name "mgt0"
+   AdminState "Enabled"
+   use-arp "true"
+   aggregate-candidate "false"
+   mtu "1500"
+   ip
+     use-dhcp "false"
+     address "10.10.10.10/24"
+     ipv4-default-gateway
+       gateway "10.10.10.10"
+     end ipv4-default-gateway
+     use-slaac "false"
+     dad-transmits "1"
+     dad-retransmit-timer "1000"
+   end ip
+   mode "Auto"
+
+-- other Bedrock items... ?
+
+
+FYI:  These are files/paths I need to verify were removed/cleaned ('x'):  this is here for me right now
+		/bin/devicereset  is the list of things removed
+x  /ism/cores/*  
+x  /ism/logs/*
+x  /tmp/userfiles/*                     (LN /ism/tmp/userfiles) (certs, firmware, must-gather -- things get/put)
+   /opt/ibm/ismserver/config.default    (never be deleted, copy config, )
+x  /opt/ibm/ismserver/config            (accepted.json, *_dynamic.cfg)
+x  /opt/ibm/ismserver/keystore
+   /opt/ibm/ismserver/logs               (LN to /ism/logs/)
+x  /opt/ibm/ismserver/policies
+   /opt/ibm/ismserver/resource            (msg catalog)
+   /opt/ibm/ismtuning/
+Probably the only directory to keep
+   /opt/ibm/ismserver/bin
+
+
+3. Verify the imaserver configuration files were reset and logs cleared.
+Using the CLI,
+
+imaserver trace flush
+	The license must be accepted from the Internet Scale Messaging Web UI.
+platform must-gather must-gather.tgz
+file put must-gather.tgz scp://root@[ipAddress]:/devicereset/
+or
+file put must-gather.tgz scp://root@10.10.10.10:/pristineinstall/
+	   (later on we will verify this has minimal contents)
+
+3a.	   
+In the ISMWebUI,
+-- Login with admin and MUST login with the original password (admin) not what you reset it to (verify LDAP was reset).
+-- Using the ISMWebUI, you MUST have to accept the license agreement again. (verify accepted.json)
+-- Change the Password and then Save and Exit First Steps
+or
+Select the ethernet interface mgt0 and "Save and Exit" at the bottom to launch the Messaging Verification App.
+The connection to ISM Server should be successful, DO NOT attempt to run it just yet until logs are verified. 
+
+Verify config files were reset:  server_dynamic.cfg was reset to server_default.cfg, mqconnect, ...
+ -- Select: Appliance >> User
+    -- Verify super, user, msgAdmin and sysAdmin were removed, 
+       admin remains as the only user defined.
+ -- Select: Appliance >> Network Settings
+    -- Verify ONLY the initial ethernet interface is configured (mgt0, from Step 1 above) and active (GREEN UP arrow) .
+    -- Verify DNS, Search Domains: No items to display  (Preserved on firmware upgrade)
+ -- Select: Appliance >> Locale, Date Time    (Preserved on firmware upgrade)
+    -- Verify the banner:   Server Locale, Date, and Time   is consistent with the entry fields.   
+         ex. "The server locale is English (United States).   The server time is 7:30:26 PM UTC. " 
+    -- Verify Server Locale: English(United States)
+    -- Verify Server Locale: Server time zone: GMT(UTC)  
+    -- Verify NTP Servers:  No items to display
+    -- Verify Date, Time: is what current for CST? 
+ -- Select:  Appliance >> Security Settings
+    -- Verify System-wide Security Settings is unchecked
+    -- Verify SecurityProfiles: No items to display
+    -- Verify SecurityPolicies: No items to display
+ -- Select: Appliance >> System Control
+    -- Verify Node name:  (none)
+    -- Verify Log level: "Information"
+
+ -- Select: Monitoring >> Download Logs:
+    -- Really hope the list is empty or very sparse
+    -- imaserver-connection.log has minimal entries if not empty.
+    -- imaserver-default.log has minimal entries if not empty.
+    -- imaserver-security.log has minimal entries if not empty.  (expect to not be listed)
+    -- imaserver-admin.log has minimal entries if not empty.     (expect to not be listed)
+    
+ -- Select: Messaging >> User and Groups
+    -- Verify Messaging Users:  No items to display
+    -- Verify Messaging Groups:  No items to display
+ -- Select:  Messaging >> MessageHub
+    -- Verify the only Messaging MessageHub is DemoHub, it's Endpoints(2), ConnectionPolicies(2) and MessagingPolicy(1) exist
+ -- Select: Messaging >> MQ Connectivity
+    -- Verify Queue Manager Connection Properties: No items to display
+    -- Verify Destination Mapping: No items to display
+ 
+ 3b.
+ Verify the same config items using the CLI
+ by now the must gather should be complete, if you haven't already retrieved it 
+ 	file put  must-gather.tgz  scp://root@[ipAddress]:/path/
+
+ 
+ 3c.
+ Using the CLI	
+-- Verify Only the DemoHub, it's Endpoints and Policies exists in CLI
+
+imaserver get MessageHub
+imaserver get Endpoint
+imaserver get ConnectionPolicy
+imaserver get MessagingPolicy
+
+ 		Console> imaserver get MessageHub
+		Name = DemoHub
+		Description = Demo Message Hub.
+
+		Console> imaserver get Endpoint
+		Name = DemoEndpoint
+		Port = 16102
+		Enabled = True
+		Security = False
+		SecurityPolicies = DemoConnectionPolicy,DemoMessagingPolicy
+		MaxMessageSize = 1024
+		MessageHub = DemoHub
+
+		Console> imaserver get ConnectionPolicy
+		Name = DemoConnectionPolicy
+		Description = Demo connection policy
+		PolicyType = Connection
+		Protocol = JMS,MQTT
+
+		Console> imaserver get MessagingPolicy
+		Name = DemoMessagingPolicy
+		Description = Demo messaging policy
+		PolicyType = Messaging
+		Topic = *
+		ActionList = Publish,Subscribe
+
+-- Verify there are no CertificateProfile or Policies exists in CLI  	
+imaserver get CertificateProfile
+imaserver get SecurityProfile
+imaserver get ConfigPolicy
+
+		Console> imaserver get CertificateProfile
+		The requested item is not found
+
+		Console> imaserver get SecurityProfile
+		The requested item is not found
+
+		Console> imaserver get ConfigPolicy
+		The requested item is not found
+		
+-- Verify the logs are empty or only have minimal information
+
+	
+show log list
+show log imaserver-default.log
+show log imaserver-connection.log
+show log imaserver-security.log
+show log imaserver-admin.log
+
+		Console> show log list
+		default-log
+		default-trace
+		shutdown-log
+		imaserver-default.log
+		imaserver-connection.log
+		imaserver-security.log
+		imaserver-admin.log
+		
+		Console> show log imaserver-XXXXX.log  for each log...
+
+-- Verify the MQConnectivity configuration was removed
+
+imaserver get QueueManagerConnection
+imaserver get DestinationMappingRule
+
+		Console> imaserver get QueueManagerConnection
+		The requested item is not found
+		
+		Console> imaserver get DestinationMappingRule
+		The requested item is not found
+
+-- Verify default for items from /opt/ibm/ismserver/server_dynamic.cfg 
+
+imaserver get LogLevel
+imaserver get TraceLevel
+imaserver get TraceFilter
+
+	Console> imaserver get LogLevel
+	LogLevel = INFO
+	Console> imaserver get TraceLevel
+	TraceLevel = 5
+	Console> imaserver get TraceFilter
+	The requested item is not found
+
+imaserver get ConnectionLog
+imaserver get SecurityLog 
+imaserver get AdminLog
+imaserver get AuditLogControl
+imaserver get ConfigPolicy
+
+		Console> imaserver get ConnectionLog
+		ConnectionLog = NORMAL
+		
+		Console> imaserver get SecurityLog
+		SecurityLog = NORMAL
+		
+		Console> imaserver get AdminLog
+		AdminLog = NORMAL
+		
+		Console> imaserver get AuditLogControl
+		AuditLogControl = 1
+
+		Console> imaserver get ConfigPolicy
+		The requested item is not found
+
+4. Verify the message store was removed
+Verify the Message Store is Clean	
+
+imaserver get GranuleSizeBytes  (NO, must be set first...may not be available for Beta, not sure if used by store  yet - Ranjan)
+imaserver get MgmtMemPercent    (NO, must be set first...may not be available for Beta, not sure if used by store  yet - Ranjan)
+	
+imaserver stat engine   and look at Topic Tree?
+
+
+	using sample app from ConfigPopulate, subscribe to a retained message sent before the "device reset".  
+	Start Sub with 'clientID' and 'dirty session', subscribe /topic, disconnect (but not userid since the config is gone)
+
+java svt.mqtt.mq.MqttSample -a subscribe -q 2 -t /topic/A -s tcp://10.10.10.10:16102  -i subClient -c false -vv
+
+	If the store was cleared, the subscriber should not receive any messages.
+		No messages should be received, close this client.
+
+-- Verify the store does work, by these sequence of steps:
+		Start Pub with 'retain', publish /topic/A, disconnect
+java svt.mqtt.mq.MqttSample -a publish   -q 2 -t /topic/A -s tcp://10.10.10.10:16102 -n 100 -m "100 storeMessages from java pubstore" -i pubstore -c false -r store
+
+		Restart Sub with 'clientID' and 'dirty session', subscribe /topic/A, receive 100 published messages, Ctrl+C to disconnect
+java svt.mqtt.mq.MqttSample -a subscribe -q 2 -t /topic/A -s tcp://10.10.10.10:16102  -i subClient -c false -vv
+
+		Start Sub with 'newClientID' and 'dirty session', subscribe /topic/A, receive ONLY the LAST retained message, Ctrl+C to disconnect	
+java svt.mqtt.mq.MqttSample -a subscribe -q 2 -t /topic/A -s tcp://10.10.10.10:16102  -i newClientID -c false -vv
+
+
+
+5. Finally, do one last 
+
+	device RESET 
+
+to clear any residual information your checking did.

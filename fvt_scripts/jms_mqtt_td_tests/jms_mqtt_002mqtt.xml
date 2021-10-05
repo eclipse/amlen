@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_mqtt_002
+
+  Test Category: JMS to MQTT
+
+  Test Description:
+    Test the ability to send/receive between two protocols, and that 
+    ConvertMessageType of Automatic (the default) correctly sets the 
+    message type for JMS. 
+    
+    This test also sends RETAINED messages from MQTT to JMS.
+
+-->
+<IsmWSTest name="jms_mqtt_002mqtt" >
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_mqtt_002</solution>
+    </SyncClient>
+    
+    <Action name="publish" type="CompositeAction">
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqtt_002_clientid</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: test content 1</ApiParameter>
+        </Action>
+        
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">bytesmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgtype">BINARY</ApiParameter>
+            <ApiParameter name="payload">ffffffff0102030405060708090a0b0c0d0e0f00101112131415161718191a1b1c1d1e1f20</ApiParameter>
+        </Action>                    
+
+        <!-- This retained message will be receive upon subscribing my consumer 1
+        and consumer 2 in the JMS part of this test -->
+        <Action name="CreateMessageRetained" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg_retained1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: Retained Message1</ApiParameter>
+        </Action>
+        
+        <!-- This retained message will be used to clear the retained message
+        from the topic at the end, before JMS consumer 3 subscribes -->
+        <Action name="CreateMessageNullRetained" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg_retained2</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload"></ApiParameter>
+        </Action>
+
+        <!-- This retained message will be sent live, and so it will have
+        the retained flag set to false when JMS consumers receive it -->
+        <Action name="CreateMessageLiveRetained" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg_retained3</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: Live Retained Message</ApiParameter>
+        </Action>
+        
+        <Action name="SendMessage_retained" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg_retained1</ActionParameter>
+            <ActionParameter name="topic">/&#xE002;&#xE757;&#xF000;&#xF0FF;&#xF77F;&#xF8FE;&#xF8FF;MqttToJms</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <!-- Retained message is sent, JMS consumers can now be created -->
+        <Action name="Sync_retained" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_retain</ActionParameter>
+            <ActionParameter name="component_list">mqtt_retain;jms_retain</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+
+        <!-- JMS consumers created and retained messages received
+        start sending live messages -->
+        <Action name="Sync_subscribed" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_subscribed</ActionParameter>
+            <ActionParameter name="component_list">mqtt_subscribed;jms_subscribed</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_a" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">/&#xE002;&#xE757;&#xF000;&#xF0FF;&#xF77F;&#xF8FE;&#xF8FF;MqttToJms</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>
+        
+        <Action name="SendMessage_b" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">bytesmsg1</ActionParameter>
+            <ActionParameter name="topic">/&#xE002;&#xE757;&#xF000;&#xF0FF;&#xF77F;&#xF8FE;&#xF8FF;MqttToJms</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>
+
+        <!-- live retained message -->
+        <Action name="SendMessage_liveRetained" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg_retained3</ActionParameter>
+            <ActionParameter name="topic">/&#xE002;&#xE757;&#xF000;&#xF0FF;&#xF77F;&#xF8FE;&#xF8FF;MqttToJms</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+        
+        <!-- Send null retained message to clear retained -->
+        <Action name="Sync_retain_clear" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_clear</ActionParameter>
+            <ActionParameter name="component_list">mqtt_clear;jms_clear</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+
+        <!-- Clear retained message before consumer 3 is created -->
+        <Action name="SendMessage_clearRetained" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg_retained2</ActionParameter>
+            <ActionParameter name="topic">/&#xE002;&#xE757;&#xF000;&#xF0FF;&#xF77F;&#xF8FE;&#xF8FF;MqttToJms</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <!-- Consumer 3 is ready to be created -->
+        <Action name="Sync_retain_cleared" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_cleared</ActionParameter>
+            <ActionParameter name="component_list">mqtt_cleared;jms_cleared</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+</IsmWSTest>
+ 

@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2016-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<!--
+This test forces multiple steals of client IDs by using the same Client ID to connect to two
+different proxy servers.  It tests that MqttProxyProtol set to 3 in the proxy configurations
+prevents the Connect/Disconnect monitor messages from getting out of sequence.
+
+NOTE: During development, I alterered this test to use MqttProxyProtol 1 to get the "old" behavior.
+In these cases, the "compare message" actions always failed at an early stage in the test.
+-->
+<IsmWSTest name="testproxy_monitor03_MultiProxyStealCID" >
+	<!-- Start the monitoring connection first -->
+    <Action name="CreateConnection2" type="CreateConnection">
+        <ActionParameter name="structure_id">Con2</ActionParameter>
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">subscribe16monitor</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="Subscribe2" type="Subscribe">
+  		<ActionParameter name="connection_id">CF2</ActionParameter>
+   		<ApiParameter name="topic">iot/Monitor/#</ApiParameter>
+   		<ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+
+    <!-- Check for Connect/Disconnect messages -->
+    <Action name="ReceiveMessage2" type="ReceiveMessage" thread="6">
+        <dependsOn action_id="Subscribe2"/>
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+	<ActionParameter name="waitTime">30000</ActionParameter>
+    </Action>
+    <Action name="CompareMessage2" type="CompareMessage" thread="6">
+        <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+        <ActionParameter name="compareTo">rxmsg2</ActionParameter>
+        <ActionParameter name="compareBody">false</ActionParameter>
+        <ActionParameter name="compareBodyContains">"Action":"Connect"</ActionParameter>
+        <ActionParameter name="compareQoS">false</ActionParameter>
+        <ActionParameter name="compareType">false</ActionParameter>
+    </Action>
+
+    <Action name="CompositeRcv2" type="CompositeAction" repeat="49" thread="6">
+    	<dependsOn action_id="ReceiveMessage2"/>
+        <Action name="ReceiveMessage2_2" type="ReceiveMessage" thread="6">
+             <ActionParameter name="connection_id">CF2</ActionParameter>
+             <ActionParameter name="structure_id">rxmsg2_2</ActionParameter>
+	        <ActionParameter name="waitTime">30000</ActionParameter>
+        </Action>
+        <Action name="CompareMessage2_2" type="CompareMessage" thread="6">
+            <ActionParameter name="structure_id">rxmsg2_2</ActionParameter>
+            <ActionParameter name="compareTo">rxmsg2_2</ActionParameter>
+            <ActionParameter name="compareBody">false</ActionParameter>
+            <ActionParameter name="compareBodyContains">"Action":"Disconnect"</ActionParameter>
+            <ActionParameter name="compareQoS">false</ActionParameter>
+            <ActionParameter name="compareType">false</ActionParameter>
+        </Action>
+        <Action name="ReceiveMessage2_3" type="ReceiveMessage" thread="6">
+             <ActionParameter name="connection_id">CF2</ActionParameter>
+             <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+	     <ActionParameter name="waitTime">30000</ActionParameter>
+        </Action>
+        <Action name="CompareMessage2_3" type="CompareMessage" thread="6">
+            <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+            <ActionParameter name="compareTo">rxmsg2</ActionParameter>
+            <ActionParameter name="compareBody">false</ActionParameter>
+            <ActionParameter name="compareBodyContains">"Action":"Connect"</ActionParameter>
+            <ActionParameter name="compareQoS">false</ActionParameter>
+            <ActionParameter name="compareType">false</ActionParameter>
+        </Action>
+    </Action>
+    <Action name="FinalRcv2" type="ReceiveMessage" thread="6">
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ActionParameter name="structure_id">rxmsg2_final</ActionParameter>
+        <ActionParameter name="waitTime">30000</ActionParameter>
+    </Action>
+    <Action name="CompareMessageFinal2" type="CompareMessage" thread="6">
+        <ActionParameter name="structure_id">rxmsg2_final</ActionParameter>
+        <ActionParameter name="compareTo">rxmsg2_final</ActionParameter>
+        <ActionParameter name="compareBody">false</ActionParameter>
+        <ActionParameter name="compareBodyContains">"Action":"Disconnect"</ActionParameter>
+        <ActionParameter name="compareQoS">false</ActionParameter>
+        <ActionParameter name="compareType">false</ActionParameter>
+    </Action>
+
+    <Action name="CreatePreConnection1" type="CreateConnection">
+        <dependsOn action_id="Subscribe2"/>
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/PROXY_server.xml</include>
+        <ApiParameter name="clientId">sam:tenant01</ApiParameter>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">test01</ApiParameter>
+        <ApiParameter name="password">password</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+    <Action name="CreatePreConnection1Steal" type="CreateConnection">
+        <ActionParameter name="structure_id">StealCon1</ActionParameter>
+        <ActionParameter name="connection_id">StealCF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/PROXY_server.xml</include>
+        <ApiParameter name="clientId">sam:tenant01</ApiParameter>
+        <include>../common/PROXY2_port.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">test02</ApiParameter>
+        <ApiParameter name="password">password</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ActionParameter name="persistenceDirectory">tmp1</ActionParameter>
+    </Action>
+    <Action name="PreCloseConnection1" type="CloseConnection" rc="1" reason="ISMTEST2507">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    <Action name="CompositeConn" type="CompositeAction" repeat="24" thread="3">
+	    <dependsOn action_id="PreCloseConnection1"/>
+	    <Action name="CreateConnection1" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/PROXY_server.xml</include>
+	        <ApiParameter name="clientId">sam:tenant01</ApiParameter>
+	        <include>../common/PROXY_port.xml</include>
+	        <ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+	        <ApiParameter name="user">test01</ApiParameter>
+	        <ApiParameter name="password">password</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CreateConnection1Steal" type="CreateConnection">
+	        <ActionParameter name="structure_id">StealCon1</ActionParameter>
+	        <ActionParameter name="connection_id">StealCF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/PROXY_server.xml</include>
+	        <ApiParameter name="clientId">sam:tenant01</ApiParameter>
+	        <include>../common/PROXY2_port.xml</include>
+	        <ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+	        <ApiParameter name="user">test02</ApiParameter>
+	        <ApiParameter name="password">password</ApiParameter>
+	        <ApiParameter name="cleanSession">false</ApiParameter>
+	        <ActionParameter name="persistenceDirectory">tmp1</ActionParameter>
+	    </Action>
+	    <Action name="CloseConnection1" type="CloseConnection" rc="1" reason="ISMTEST2507">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>  
+    <Action name="ClosePostConnection1Steal" type="CloseConnection"  thread="3" rc="1" reason="ISMTEST2507">
+        <ActionParameter name="connection_id">StealCF1</ActionParameter>
+    </Action>
+    <Action name="ClosePostConnection1" type="CloseConnection" thread="3" rc="1" reason="ISMTEST2507">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    <Action name="ClearConnection1Steal" type="CreateConnection" thread="3">
+        <ActionParameter name="structure_id">ClearStealCon1</ActionParameter>
+        <ActionParameter name="connection_id">ClearStealCF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/PROXY_server.xml</include>
+        <ApiParameter name="clientId">sam:tenant01</ApiParameter>
+        <include>../common/PROXY2_port.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">test02</ApiParameter>
+        <ApiParameter name="password">password</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+    <Action name="ClearCloseConnection1Steal" type="CloseConnection"  thread="3">
+        <ActionParameter name="connection_id">ClearStealCF1</ActionParameter>
+    </Action>
+    <Action name="CompositeClearConn1" type="CompositeAction" thread="3" repeat="1" atleast="0">
+    <Action name="ClearConnection1" type="CreateConnection">
+        <ActionParameter name="structure_id">ClearCon1</ActionParameter>
+        <ActionParameter name="connection_id">ClearCF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/PROXY_server.xml</include>
+        <ApiParameter name="clientId">sam:tenant01</ApiParameter>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">test01</ApiParameter>
+        <ApiParameter name="password">password</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+    </Action>
+    <Action name="CompositeClearCloseConn1" type="CompositeAction" thread="3" repeat="1" atleast="0">
+    <Action name="ClearCloseConnection1" type="CloseConnection">
+        <ActionParameter name="connection_id">ClearCF1</ActionParameter>
+    </Action>
+    </Action>
+</IsmWSTest>
+                

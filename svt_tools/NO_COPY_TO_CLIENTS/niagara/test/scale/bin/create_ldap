@@ -1,0 +1,35 @@
+#!/bin/bash
+current=`/niagara/test/scale/bin/console imaserver show LDAP | wc -l`
+server=`/niagara/test/scale/bin/getserver`
+status=`/niagara/test/scale/bin/getserver`
+
+if [ "${status}" != "Status = Running" ]; then
+  /niagara/test/scale/bin/console imaserver start
+  sleep 3s
+  /niagara/test/scale/bin/getserverstatus
+fi
+
+if [ $1 = mar080 ]; then
+  if [ ${current} -gt 10 ]; then
+    read -e -p "Enter [y] to delete existing LDAP configuration: " cont
+    if [[ ${cont} =~ [Yy] ]]; then
+      set -x
+      ssh admin@${server} imaserver delete LDAP
+      set +x
+    fi
+  fi
+  
+  set -x
+  ssh admin@${server} imaserver create LDAP Enabled=True "URL=ldap://10.10.10.10:5389"  "BaseDN=ou=SVT,O=IBM,C=US" "BindDN=cn=root" "BindPassword=ima4test" "UserSuffix=ou=users,ou=SVT,O=IBM,C=US"  "GroupSuffix=ou=groups,ou=SVT,O=IBM,C=US"  "UserIdMap=uid" "GroupIdMap=cn" "GroupMemberIdMap=member" "EnableCache=True" "CacheTimeout=10" "GroupCacheTimeout=300" "Timeout=30" "MaxConnections=100" "IgnoreCase=False" "NestedGroupSearch=false"
+  set +x
+
+  read -e -p "Enter [y] to restart imaserver: " cont
+  if [[ ${cont} =~ [Yy] ]]; then
+    /niagara/test/scale/bin/macro restart
+  fi
+
+  echo ssh admin@${server} imaserver show LDAP
+  ssh admin@${server} imaserver show LDAP
+elif [ $1 = mar032]; then
+elif [ $1 = mar099]; then
+fi

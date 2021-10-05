@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_maxmsgs_trans1
+
+   Test Category:  JMS MaxMessageBehavior DiscardOldest Transacted
+
+   Test Description:
+   
+   For the purpose of this test, I have set the cientmessagecache=0, as it 
+   limits the number of 'inflight' messages and makes it easier to determine if the
+   engine is doing what it is supposed to.  
+   
+
+   *****************************************************************************/
+  -->
+<ImaJmsTest name="jms_maxmsgs_trans1" >
+  <SyncClient>
+    <server>
+      <include>../common/JMS_syncip.xml</include>
+	  <include>../common/JMS_syncport.xml</include>
+    </server>
+    <solution>maxmsg_trans1</solution>
+  </SyncClient>
+
+  <Action name="TX" type="CompositeAction">
+    <Action name="syncReset" type="SyncAction">
+      <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+
+    <Action name="CreateFactory" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF1</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+      <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="CreateListener" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">listener1</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF1</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="Port" value="29307"/>
+      <include>../common/JMS_server.xml</include>
+    </Action>
+
+    <Action name="CreateDestination" type="CreateDestination">
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/MM/Transacted</ApiParameter>
+      <ActionParameter name="structure_id">dest</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">con1</ActionParameter>
+      <ActionParameter name="factory_id">CF1</ActionParameter>
+      <ApiParameter name="exceptionListener">listener1</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession1" type="CreateSession">
+      <ActionParameter name="conn_id">con1</ActionParameter>
+      <ActionParameter name="structure_id">ses1</ActionParameter>
+      <ApiParameter name="transacted">1</ApiParameter>
+    </Action>
+
+    <Action name="CreateProducer" type="CreateProducer">
+      <ActionParameter name="structure_id">prod</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">ses1</ActionParameter>
+    </Action>
+
+    <Action name="CreateMsg" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg</ActionParameter>
+      <ActionParameter name="session_id">ses1</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetMsgText" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg</ActionParameter>
+      <ApiParameter name="value">This is the message text</ApiParameter>
+    </Action>
+
+    <Action name="CreateMsg_norec" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_norec</ActionParameter>
+      <ActionParameter name="session_id">ses1</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetMsgText_norec" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_norec</ActionParameter>
+      <ApiParameter name="value">Should not be received</ApiParameter>
+    </Action>
+
+	<Action name="sync_components" type="SyncComponentAction"> 
+	  <ActionParameter name="component_name">tx</ActionParameter>
+	  <ActionParameter name="component_list">tx;rx;mqtt0;mqtt1;mqtt2</ActionParameter>
+	  <ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+    <Action name="StartConnection" type="StartConnection">
+      <ActionParameter name="conn_id">con1</ActionParameter>
+    </Action>
+
+    <Action name="SendMessages_10" type="SendMessage" repeat="10" repeat_interval="0">
+      <ActionParameter name="producer_id">prod</ActionParameter>
+      <ActionParameter name="message_id">txtmsg</ActionParameter>
+      <ActionParameter name="serialNumberInPayload">true</ActionParameter>
+    </Action>
+
+    <Action name="Commit_10" type="SessionCommit">
+      <ActionParameter name="session_id">ses1</ActionParameter>
+    </Action>
+
+    <Action name="SendMessages_11" type="SendMessage" repeat="11" repeat_interval="0">
+      <dependsOn name="Commit_10" interval="1000"/>
+      <ActionParameter name="producer_id">prod</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_norec</ActionParameter>
+      <ActionParameter name="serialNumberInPayload">true</ActionParameter>
+    </Action>
+
+    <Action name="Commit_11" type="SessionCommit">
+      <ActionParameter name="session_id">ses1</ActionParameter>
+    </Action>
+
+    <Action name="CloseSession" type="CloseSession">
+      <ActionParameter name="session_id">ses1</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+      <ActionParameter name="conn_id">con1</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+      <ActionParameter name="conn_id">con1</ActionParameter>
+    </Action>
+  </Action>
+
+  
+
+  <Action name="RX" type="CompositeAction">
+    <Action name="CreateFactory" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF1</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+      <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="CreateListener" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">listener1</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF1</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="Port" value="29307"/>
+      <include>../common/JMS_server.xml</include>
+    </Action>
+
+    <Action name="CreateDestination" type="CreateDestination">
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/MM/Transacted</ApiParameter>
+      <ActionParameter name="structure_id">dest</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">conrx</ActionParameter>
+      <ActionParameter name="factory_id">CF1</ActionParameter>
+      <ApiParameter name="exceptionListener">listener1</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession1" type="CreateSession">
+      <ActionParameter name="conn_id">conrx</ActionParameter>
+      <ActionParameter name="structure_id">sesrx</ActionParameter>
+      <!-- <ApiParameter name="transacted">1</ApiParameter> -->
+    </Action>
+
+    <Action name="CreateConsumer" type="CreateConsumer">
+      <ActionParameter name="structure_id">consumer</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">sesrx</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+      <ActionParameter name="conn_id">conrx</ActionParameter>
+    </Action>
+
+
+	<Action name="sync_components" type="SyncComponentAction"> 
+	  <ActionParameter name="component_name">rx</ActionParameter>
+	  <ActionParameter name="component_list">tx;rx;mqtt0;mqtt1;mqtt2</ActionParameter>
+	  <ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+    <Action name="RXmsg10" type="ReceiveMessage" repeat="10" repeat_interval="0">
+      <ActionParameter name="consumer_id">consumer</ActionParameter>
+      <ActionParameter name="structure_id">rxmsg</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+
+    <!-- receive 5/11 and consider that good enough -->
+    <Action name="RXmsg11" type="ReceiveMessage" repeat="5" repeat_interval="0">
+      <ActionParameter name="consumer_id">consumer</ActionParameter>
+      <ActionParameter name="structure_id">rxmsg</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+    <!-- there could still be more available but who knows how many -->
+    <!-- <Action name="RXnothing" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg"> -->
+    <!--   <ActionParameter name="consumer_id">consumer</ActionParameter> -->
+    <!--   <ActionParameter name="structure_id">rxmsgnot</ActionParameter> -->
+    <!--   <ApiParameter name="timeout">2000</ApiParameter> -->
+    <!-- </Action> -->
+    
+    <Action name="CloseSession" type="CloseSession">
+      <ActionParameter name="session_id">sesrx</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+      <ActionParameter name="conn_id">conrx</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+      <ActionParameter name="conn_id">conrx</ActionParameter>
+    </Action>
+
+  </Action>
+
+</ImaJmsTest>

@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="mqttV5_publish_CD" >
+<!--
+    Test MQTTv5 Spec 3.3.2.3 Publish Properties
+    0x09 - Correlation Data
+    
+ -->    
+
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>mqttV5_publish_CD</solution>
+    </SyncClient>
+    
+
+    
+
+<!--  ==========  CorrelationData 0x09(+binary data) ==========  -->
+<!--  
+     09 0002 3639
+MQTT send 90 SUBACK connect=15: len=4 00010001  [....]
+
+2018-05-10T20:42:07.848Z tcpiop.0 mqtt.c:915: MQTT receive 32 PUBLISH connect=14: len=167 
+00000: 0020696f 742d322f 6576742f 7075626c 69736850 726f7065 7274792f 666d742f  [. iot-2/evt/publishProperty/fmt/]
+00032: 43440001 08090002 36392300 014d7367 20313a7b 20636c69 656e7449 643d643a  [CD......69#..Msg 1:{ clientId=d:]
+00064: 6f726734 696f7432 3a707562 50726f70 733a4344 2c207265 7461696e 3a66616c  [org4iot2:pubProps:CD, retain:fal]
+00096: 73652c20 636f7272 656c6174 696f6e44 6174613a 36392c20 516f533a 312c2074  [se, correlationData:69, QoS:1, t]
+00128: 6f706963 3a696f74 2d322f65 76742f70 75626c69 73685072 6f706572 74792f66  [opic:iot-2/evt/publishProperty/f]
+00160: 6d742f43 44207d                                                          [mt/CD }]
+-->
+    <Action name="CorrelationData" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:pubProps:CD</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 1:{ clientId=d:org4iot2:pubProps:CD, retain:false, correlationData:69, QoS:1, topic:iot-2/evt/publishProperty/fmt/CD }</ApiParameter>
+            <ApiParameter name="correlationData">69</ApiParameter>
+        </Action>
+        
+        <Action name="sync_CD_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tCD1</ActionParameter>
+            <ActionParameter name="component_list">tCD1;rCD1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+  
+        
+        <Action name="SendMessage1" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/publishProperty/fmt/CD</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+        
+        <Action name="CheckConnectAfterPub1" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+<!--
+MQTT receive 82 SUBSCRIBE connect=15: len=38 
+
+00000: 00010000 20696f74 2d322f65 76742f70 75626c69 73685072 6f706572 74792f66  [.... iot-2/evt/publishProperty/f]
+00032: 6d742f43 4401                                                            [mt/CD.]
+
+-->
+    <Action name="CD_sub" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:sub:CD</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/evt/publishProperty/fmt/CD</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+        
+        <Action name="sync_CD_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rCD1</ActionParameter>
+            <ActionParameter name="component_list">tCD1;rCD1</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+  
+
+        <Action name="ReceiveMsg" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        <Action name="CompareMsg" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+            <ActionParameter name="compareBody">Msg 1:{ clientId=d:org4iot2:pubProps:CD, retain:false, correlationData:69, QoS:1, topic:iot-2/evt/publishProperty/fmt/CD }</ActionParameter>
+            <ApiParameter name="compareCorrelationData">69</ApiParameter>  
+            <ActionParameter name="compareQoS">1</ActionParameter>
+        </Action>
+<!-- 
+     09 0002 3639
+MQTT send 32 PUBLISH connect=15: len=164 
+
+00000: 0020696f 742d322f 6576742f 7075626c 69736850 726f7065 7274792f 666d742f  [. iot-2/evt/publishProperty/fmt/]
+00032: 4344 0001 05 09 0002 3639 4d73 6720313a 7b20636c 69656e74 49643d64 3a6f7267  [CD......69Msg 1:{ clientId=d:org]
+00064: 34696f74 323a7075 6250726f 70733a43 442c2072 65746169 6e3a6661 6c73652c  [4iot2:pubProps:CD, retain:false,]
+00096: 20636f72 72656c61 74696f6e 44617461 3a36392c 20516f53 3a312c20 746f7069  [ correlationData:69, QoS:1, topi]
+00128: 633a696f 742d322f 6576742f 7075626c 69736850 726f7065 7274792f 666d742f  [c:iot-2/evt/publishProperty/fmt/]
+00160: 4344207d                                                                 [CD }]
+
+
+-->
+
+        <Action name="CheckConnectAfterPub1" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+    
+    
+</IsmWSTest>
+                

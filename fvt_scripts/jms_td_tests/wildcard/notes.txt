@@ -1,0 +1,155 @@
+Stuff that is allowed in the Destination field of Messaging Policies:
+*             - This is a generic character that matches any number of characters.
+${*}          - This is a literal *, allowing to match only '*' and nothing else.
+${$}          - This is a literal $, allowing to match only '$' and nothing else.
+${ClientID}   - Replacement variable that will be replaced with the ClientID of the connection being authorized. 
+${CommonName} - Replacement variable that will be replaced with the client certificate CommonName of the connection being authorized.
+${UserID}     - Replacement variable that will be replaced with the UserID of the connection being authorized.
+
+To create a policy to match literal string ${ClientID}, Destination would need to be set to: ${$}{ClientID}
+To create a policy to match literal string ${*}, Destination would need to be set to:        ${$}{${*}}
+*'s and replacement variables can be placed anywhere within the Destination string.
+Any number of *'s and replacement variables can be used within the Destination string.
+Unknown and malformed variables are now allowed in the Destination string - e.g. ${ or ${junk}
+
+TEST 1 - 1 * in Topic MessagingPolicy
+
+dest1 = /topic/a
+dest2 = a/topic/b
+dest3 = a/topic
+dest4 = /topic/atestb/test
+
+start = *
+update1 = a*
+update2 = *a
+update3 = a*b
+
+TEST 2 - 2 *'s in Topic MessagingPolicy
+
+dest1 = /topic/startend/topic
+dest2 = /topic/start/a/b/mid
+dest3 = mid/a/b/end/a/b
+dest4 = /topic/startdouble
+dest5 = /mid/a/b/c/d/mid
+dest6 = end/a/b
+
+start = *startend*
+update 2 = *start*mid
+update 3 = mid*end*
+update 4 = **startdouble
+update 5 = mid**mid
+update 6 = end**
+update 7 = **
+
+TEST 3 - 3 *'s in Topic MessagingPolicy
+
+dest1 = /a/start/b/end/c
+dest2 = start/a/mid/b/end/c
+dest3 = /a/start/b/mid/c/end
+dest4 = /a/starttriple
+dest5 = mid/a/b/c/d/triple
+dest6 = endtriple/a/b
+
+start = *start*end*
+update 2 = start*mid*end*
+update 3 = *start*mid*end
+update 4 = ***starttriple
+update 5 = mid***triple
+update 6 = endtriple***
+update 7 = ***
+
+TEST 4 - 1 * in Subscription MessagingPolicy
+
+subscription1 = a_subscription
+subscription2 = a_subscription_b
+subscription3 = subscription_a
+subscription4 = 
+
+start = *
+update1 = a*
+update2 = *a
+update3 = a*b
+
+TEST 5 - 2 *'s in Subscription MessagingPolicy
+
+subscription1 = a_subscription
+subscription2 = a_sub_which_is_durable
+subscription3 = sub_which_is_durable_again
+subscription4 = a_substartdouble
+subscription5 = submid_mid_double
+subscription6 = subenddouble_end 
+
+start = *sub*
+update 2 = *sub*durable
+update 3 = sub*durable*
+update 4 = **substartdouble
+update 5 = submid**double
+update 6 = subenddouble**
+update 7 = ** 
+
+TEST 6 - 3 *'s in Subscription MessagingPolicy
+
+subscription1 = a_sub_to_durable_topic
+subscription2 = sub_to_mid_is_durable_end
+subscription3 = a_sub_to_mid_is_durable
+subscription4 = sub_substarttriple
+subscription5 = submid_mid_triple
+subscription6 = subendtriple_sub
+
+start = *sub*durable*
+update 2 = sub*mid*durable*
+update 3 = *sub*mid*durable
+update 4 = ***substarttriple
+update 5 = submid***triple
+update 6 = subendtriple***
+update 7 = ***
+
+TEST 7 - ${*} and ${$} in Topic Messaging Policy
+
+dest1 = *
+dest2 = /some/other/topic
+dest3 = *moretext
+dest4 = moretext*
+dest5 = $*
+dest6 = $text
+dest7 = $
+dest8 = ${*}
+dest9 = ${$}
+
+start = Allow ${*}
+update 1 = Allow ${*}*
+update 2 = Allow ${$}
+update 3 = Allow *${*}
+update 4 = Allow ${$}${*}
+update 5 = Allow ${$}{${*}}
+
+TEST 8 - Malformed variables in Topic Messaging Policy
+
+dest1 = malformed${
+dest2 = unknown${junk}
+dest3 = malformed
+dest4 = unknown
+dest5 = /some/other/topic
+dest6 = ${malformed
+dest7 = ${junk}unknown
+dest8 = ${${unknown}
+dest9 = ${}
+
+start = Allow malformed${
+update 1 = Allow unknown${junk}
+update 2 = Allow ${${
+update 3 = Allow ${}
+update 4 = Allow ${junk}unknown
+update 5 = Allow ${malformed
+
+TEST x - Replacement variables in ClientID
+
+connection 1 - ClientID = "${ClientID}"
+connection 2 - ClientID = "${CommonName}"
+connection 3 - ClientID = "${UserID}"
+connection 4 - ClientID = "junk${ClientID}"
+connection 5 - ClientID = "${ClientID}junk"
+connection 6 - ClientID = "junk${ClientID}junk"
+connection 7 - ClientID = "${x}"
+
+is it ok if ClientID has just ${ .. or just } .. or {} .. or $ ???  <--- TEST 8

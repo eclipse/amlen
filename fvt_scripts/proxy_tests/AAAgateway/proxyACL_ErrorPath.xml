@@ -1,0 +1,1378 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2016-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="proxyACL_OutOfGroup" >
+<!--  ====  Prologue  ========================================  
+
+Section 1:  Valid Client ID and CleanUP  
+1.1 Make sure no RETAINed messages in MS that would unexpectedly be received 
+
+Section 2:  Actual Error Test Paths for Devices 
+2.1 Device: Organization not a Tenant in proxy.ACLfile.cfg   
+2.2 Device: DeviceType not in WIoTP_ACLfile.cfg     
+2.3 Device: DeviceID not in WIoTP_ACLfile.cfg     
+2.4 Device: DeviceID was removed from  WIoTP_ACLfile.cfg     
+2.5 Device: Device Type and ID in WIoTP_ACLfile.cfg, Publish Topic Errors     
+2.6 Device: Device Type and ID in WIoTP_ACLfile.cfg, Subscribe Topic Errors     
+2.x Device: DeviceID not in WIoTP_ACLfile.cfg     
+2.x Device: DeviceID not in WIoTP_ACLfile.cfg     
+2.x Device: DeviceID not in WIoTP_ACLfile.cfg     
+
+Section 3: Application Error Paths 
+3.1 App: Subscribe Error Paths    
+3.2 App: Publish Error Paths    
+
+
+
+
+ASSUMES IoT2 Rules:  where ~ is anything but a + wildcard
+
+DEVICE : d:<ORGNAME>:<DeviceTYPE>:<DeviceID>
+Pub:  iot-2/evt/~/fmt/~
+Sub:  iot-2/cmd/+/fmt/+ , iot-2/mon , iot-2/notify
+
+APPLICATION : a:<ORGNAME>:<APPID>
+Pub: iot-2/type/~/id/~/[evt|cmd]/~/fmt/~
+Sub: iot-2/type/+/id/+/[evt|cmd]/+/fmt/+ , iot-2/type/+/id/+/mon , iot-2/app/+/mon
+
+
+==== End of Prologue  ========================================  -->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>proxyACL_OutOfGroup</solution>
+    </SyncClient>
+
+<!-- Section 1:  Valid Client ID and CleanUP  -->
+
+    <!--  Tx: d:Org1:deviceType1:00123    -->
+
+    <Action name="1.0-d:Org1:deviceType1:00123" type="CompositeAction">
+        <Action name="syncReset" type="SyncAction">
+            <ActionParameter name="request">reset</ActionParameter>
+        </Action>
+
+
+        <!-- Make sure no RETAINed messages in MS that would unexpectedly be received -->
+
+        <Action name="CreateConnectionMS" type="CreateConnection">
+            <ActionParameter name="structure_id">Con0</ActionParameter>
+            <ActionParameter name="connection_id">CF0</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType1:00123</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="DeleteAllRetained" type="DeleteAllRetainedMessages">
+            <ActionParameter name="connection_id">CF0</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnectionMS" type="CloseConnection">
+            <ActionParameter name="connection_id">CF0</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection0" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType1:00123</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType1:00123</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Just some random text in here</ApiParameter>
+        </Action>
+        <Action name="SendMessage1" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/ops/fmt/txt</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx0</ActionParameter>
+            <ActionParameter name="component_list">tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+<!-- not needed
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="sync_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx2</ActionParameter>
+            <ActionParameter name="component_list">rx2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+  -->
+<!--  Sometimes the CLOSE was getting an error about Pending Msg Ack?
+        <Action name="WaitForPubAcks" type="CheckPendingDeliveryTokens">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType1:00123</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+  -->
+        <Action name="CreateMessage2-1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"Text":"Just some random JSON here for Message 1"}</ApiParameter>
+        </Action>
+        <Action name="CreateMessage2-2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"Text":"Just some random JSON here for Message 2"}</ApiParameter>
+        </Action>
+        <Action name="CreateMessage2-3" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg3</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"Text":"Just some random JSON here for Message 3"}</ApiParameter>
+        </Action>
+
+<!-- not needed
+        <Action name="sync_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx3</ActionParameter>
+            <ActionParameter name="component_list">rx3;tx3</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+  -->
+        <Action name="SendMessage2-1" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/one/fmt/json</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+        <Action name="SendMessage2-2" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg2</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/two/fmt/json</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+<!-- not needed
+        <Action name="sync_4" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx4</ActionParameter>
+            <ActionParameter name="component_list">rx4;tx4</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="sync_5" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx5</ActionParameter>
+            <ActionParameter name="component_list">rx5;tx5</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+  -->        
+        
+        <Action name="SendBatchMessages2" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="SendMessage2-B1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg3</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/ops/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+        </Action>
+
+        
+        <Action name="CloseConnection2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+
+        <Action name="CreateConnectionCleanUp" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType1:00123</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionCleanUp" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+    </Action>
+
+
+
+<!-- Section 2:  Actual Error Test Paths for Devices -->
+
+    
+<!-- 2.1 Device: Organization not a Tenant in proxy.ACLfile.cfg   -->
+
+    <Action name="2.1-d:OrgNotHere:deviceType1:00123" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.1</ActionParameter>
+            <ActionParameter name="component_list">Dev2.1;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="CreateConnection0" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:OrgNotHere:deviceType1:00123</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CreateConnection1" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:OrgNotHere:deviceType1:00123</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+    </Action>
+
+     
+<!-- 2.2 Device: DeviceType not in WIoTP_ACLfile.cfg     -->
+
+    <Action name="2.2-d:Org1:BadType:00123" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.2</ActionParameter>
+            <ActionParameter name="component_list">Dev2.2;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection0" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:BadType:00123</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:BadType:00123</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+<!-- ???        <Action name="Sub_BadDeviceTypeWildcard" type="Subscribe" rc="1" reason="ISMTEST2503">    -->
+        <Action name="Sub_BadDeviceTypeWildcard" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+<!-- ???        <Action name="Sub_BadDeviceType" type="Subscribe" rc="1" reason="ISMTEST2503">    -->
+        <Action name="Sub_BadDeviceType" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/BadType/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+<!-- ???        <Action name="Sub_BadDeviceID" type="Subscribe" rc="1" reason="ISMTEST2503">    -->
+        <Action name="Sub_BadDeviceID" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/+/fmt/BadID</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+
+<!-- ???        <Action name="Sub_BadDeviceTypeID" type="Subscribe" rc="1" reason="ISMTEST2503">    -->
+        <Action name="Sub_BadDeviceTypeID" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/BadType/fmt/BadID</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		
+    </Action>
+
+     
+<!-- 2.3 Device: DeviceID not in WIoTP_ACLfile.cfg     -->
+
+    <Action name="2.3-d:Org1:deviceType2:NoInACL" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.3</ActionParameter>
+            <ActionParameter name="component_list">Dev2.3;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection0" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType2:NoInACL</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType2:NoInACL</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+<!-- ???        <Action name="Sub_BadDeviceID" type="Subscribe" rc="1" reason="ISMTEST2503">    -->
+        <Action name="Sub_BadDeviceID" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		
+    </Action>
+
+
+
+     
+<!-- 2.4 Device: DeviceID was removed from  WIoTP_ACLfile.cfg     -->
+
+    <Action name="2.4-d:Org2:deviceType4:deviceT4-1" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.4</ActionParameter>
+            <ActionParameter name="component_list">Dev2.4;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="CreateConnection0" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceType4:deviceT4-1</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test04</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceType4:deviceT4-1</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test04</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+<!-- ???        <Action name="Sub_RemovedDevice" type="Subscribe" rc="1" reason="ISMTEST2503">    -->
+        <Action name="Sub_RemovedDevice" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/cmd/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		
+    </Action>
+
+     
+<!-- 2.5 Device: Device Type and ID in WIoTP_ACLfile.cfg, Publish Topic Errors     -->
+
+    <Action name="2.5-d:Org1:deviceType4:40100" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.5</ActionParameter>
+            <ActionParameter name="component_list">Dev2.5;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="CreateConnection0" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Just some random text in here</ApiParameter>
+        </Action>
+<!-- ???        <Action name="SendMsg_NotEVTPlus1" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="SendMsg_NotEVTPlus1" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/evtPlus1/fmt/txt/extraTopicLevel</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="SendMsg_NotEVTPlus2" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="SendMsg_NotEVTPlus2" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/evtPlus2/fmt/txt/extratopic/level</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection3" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!--  ???        <Action name="SendMsg_NotCMD" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="SendMsg_NotCMD" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/cmd/DevNoPubOnCmd/fmt/txt</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection4" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="SendMsg_NotMon" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="SendMsg_NotMon" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/mon</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection5" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="SendMsg_NotNotify" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="SendMsg_NotNotify" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/notify</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection6" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="SendMsg_NotTypeID" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="SendMsg_NotTypeID" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType1/id/00123/evt/DevNoPubTYPE_ID/fmt/txt</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection7" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="SendMsg_NotAppMon" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="SendMsg_NotAppMon" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/app/01/mon</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection8" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType4:40100</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test03</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="SendMsg_NotRandom" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="SendMsg_NotRandom" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/random</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+<!-- Close is not necessary since the Connection was Dropped on the Publish -->
+
+		
+    </Action>
+
+
+     
+<!-- 2.6 Device: Device Type and ID in WIoTP_ACLfile.cfg, Subscribe Topic Errors     -->
+
+    <Action name="2.6-d:Org2:deviceTypeY:deviceTY-69" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.6</ActionParameter>
+            <ActionParameter name="component_list">Dev2.6;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="CreateConnection0" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceTypeY:deviceTY-69</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceTypeY:deviceTY-69</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Sub_NotEvt" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/evt/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceTypeY:deviceTY-69</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Sub_NotOrg" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org3/device/deviceType1/id/deviceT1-1/evt/ops/fmt/txt</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="CreateConnection3" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceTypeY:deviceTY-69</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Sub_NotApp" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/app/+/mon</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+        
+        <Action name="CreateConnection4" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceTypeY:deviceTY-69</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Sub_NotTHISdevice" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org2/device/deviceType3/id/deviceT3-1/cmd/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="CreateConnection5" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceTypeY:deviceTY-69</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Sub_NotTHISid" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org2/device/+/id/deviceTX-66/cmd/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+        
+        <Action name="CreateConnection6" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceTypeY:deviceTY-69</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Sub_CMDPlus1" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org2/device/deviceType1/id/deviceT1-1/cmd/ops/fmt/txt/</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="CreateConnection7" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org2:deviceTypeY:deviceTY-69</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Sub_CMDPlus2" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org2/device/deviceType1/id/deviceT1-1/cmd/ops/fmt/txt/extraTopic/levels</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+        
+        
+<!-- ?? Not needed, errors cause the Disconnect.   This will fail
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+-->
+		
+    </Action>
+
+
+     
+<!-- 2.x Device: DeviceID not in WIoTP_ACLfile.cfg     -->
+
+    <Action name="2.x-d:Org1:deviceType2:NoTCodedYet" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.x</ActionParameter>
+            <ActionParameter name="component_list">Dev2.x;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="CreateConnection0" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType2:NoTCodedYet</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="CreateConnection1" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType2:NoTCodedYet</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test05</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Just some random text in here</ApiParameter>
+        </Action>
+        <Action name="SendMsgOrg1_NotTYPE" type="SendMessage" rc="1" reason="ISMTEST2508">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceTypeX/id/deviceT1-1/cmd/NoPubOnCmd/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+
+<!--  Connection dropped after SendMessage using invalid TOPIC STRING (Comment Out Close)  -->
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		
+    </Action>
+
+
+     
+<!-- 2.x Device: DeviceID not in WIoTP_ACLfile.cfg     -->
+
+    <Action name="2.x-d:Org1:deviceType2:NoTCodedYet" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.x</ActionParameter>
+            <ActionParameter name="component_list">Dev2.x;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="CreateConnection0" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType2:NoTCodedYet</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="CreateConnection1" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType2:NoTCodedYet</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Just some random text in here</ApiParameter>
+        </Action>
+        <Action name="SendMsgOrg1_NotTYPE" type="SendMessage" rc="1" reason="ISMTEST2508">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceTypeX/id/deviceT1-1/cmd/NoPubOnCmd/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+        <Action name="SendMsgOrg_NotID" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType1/id/deviceTX-66/evt/ops/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+        <Action name="SendMsg_NotIncludeOrg" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/Org2/type/deviceTypeX/id/deviceTX-66/evt/ops/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+		<!--  Connection dropped after SendMessage using invalid TOPIC STRING (acutally show on next cmd)  -->
+        <Action name="SendMsg_NotDoEVT" type="SendMessage" rc="1" reason="ISMTEST2508">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType1/id/00123/cmd/ops/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		
+    </Action>
+
+
+     
+<!-- 2.x Device: DeviceID not in WIoTP_ACLfile.cfg     -->
+
+    <Action name="2.x-d:Org1:deviceType2:NoTCodedYet" type="CompositeAction">
+
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">Dev2.x</ActionParameter>
+            <ActionParameter name="component_list">Dev2.x;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        <Action name="CreateConnection0" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType2:NoTCodedYet</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="CreateConnection1" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">d:Org1:deviceType2:NoTCodedYet</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Just some random text in here</ApiParameter>
+        </Action>
+        <Action name="SendMsgOrg1_NotTYPE" type="SendMessage" rc="1" reason="ISMTEST2508">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceTypeX/id/deviceT1-1/cmd/NoPubOnCmd/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+        <Action name="SendMsgOrg_NotID" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType1/id/deviceTX-66/evt/ops/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+        <Action name="SendMsg_NotIncludeOrg" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/Org2/type/deviceTypeX/id/deviceTX-66/evt/ops/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+		<!--  Connection dropped after SendMessage using invalid TOPIC STRING (acutally show on next cmd)  -->
+        <Action name="SendMsg_NotDoEVT" type="SendMessage" rc="1" reason="ISMTEST2508">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType1/id/00123/cmd/ops/fmt/txt/</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		
+    </Action>
+
+
+<!-- Section 3: Application Error Paths -->
+
+<!--  3.1 App: Subscribe Error Paths    -->
+
+    <Action name="3.1-a:Org1:App01" type="CompositeAction">
+        <Action name="CreateConnection0" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App01</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">App3.1</ActionParameter>
+            <ActionParameter name="component_list">App3.1;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App01</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <!-- ORG: Only Orgr1 and Org2 are in ACLfile -->
+        <Action name="Sub_NotOrg" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org3/device/deviceType1/id/deviceT1-1/evt/ops/fmt/txt</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+        
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App01</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>        <!-- type: deviceTypeY is in ORG2 ACLfile -->
+        <Action name="Sub_NotType" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org1/device/deviceTypeX/id/deviceT1-1/evt/ops/fmt/txt</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+        
+        <Action name="CreateConnection3" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App01</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>        <!-- id: deviceTY-69 is in ORG2 ACLfile -->
+        <Action name="Sub_NotID" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org1/device/deviceType1/id/deviceTY-69/evt/ops/fmt/txt</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+        
+        <Action name="CreateConnection4" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App01</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test01</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+    <!-- ACL: deviceType4 deviceT4-1 is REMOVED from ORG2 ACLfile -->
+        <Action name="Sub_RemovedTypeID" type="Subscribe" rc="1" reason="ISMTEST2503">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/Org2/device/deviceType4/id/deviceT4-1/evt/ops/fmt/txt</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+<!-- Close is not necessary since the Connection was Dropped on the Publish -->
+
+        <!-- Clear out any durable subscription -->
+        <Action name="CreateConnectionCleanup" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App01</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <!-- And clear out remaining retained messages -->
+        <Action name="DeleteAllRetainedCleanup" type="DeleteAllRetainedMessages">
+            <!-- Make sure there are no RETAINed messages left that
+                 I would receive -->
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnectionCleanup" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+
+
+<!--  3.2 App: Publish Error Paths    -->
+
+    <Action name="3.2-a:Org1:App02" type="CompositeAction">
+        <Action name="CreateConnection0" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App02</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseConnection0" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        
+        <Action name="sync_0" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">App3.2</ActionParameter>
+            <ActionParameter name="component_list">App3.2;tx0</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Just some random text in here</ApiParameter>
+        </Action>
+
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App02</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???       <Action name="Pub_DevicePubTopic" type="SendMessage" rc="1" reason="ISMTEST2508">  -->
+        <Action name="Pub_DevicePubTopic" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/ops/fmt/txt</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App02</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???       <Action name="Pub_OtherOrg" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="Pub_OtherOrg" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType3/id/deviceT3-1/evt/ops/fmt/txt</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+
+        <Action name="CreateConnection3" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App02</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="Pub_NoACLDeviceType" type="SendMessage" rc="1" reason="ISMTEST2508">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType5/id/00123/cmd/ops/fmt/txt</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+
+        <Action name="CreateConnection4" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App02</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="Pub_NoACLDeviceID" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="Pub_NoACLDeviceID" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType4/id/deviceT4-1/cmd/ops/fmt/txt</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+
+        <Action name="CreateConnection5" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App02</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="Pub_NotMon" type="SendMessage" rc="1" reason="ISMTEST2508">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/deviceType4/id/40100/mon</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+
+        <Action name="CreateConnection6" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App02</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="Pub_NotAppMon" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="Pub_NotAppMon" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/app/app01/mon</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection7" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">a:Org1:App02</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="user">test02</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+<!-- ???        <Action name="Pub_BadTopicNoOrg" type="SendMessage" rc="1" reason="ISMTEST2508">    -->
+        <Action name="Pub_BadTopicNoOrg" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/Org2/type/deviceType3/id/deviceT3-1/evt/ops/fmt/txt</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+
+<!-- Close is not necessary since the Connection was Dropped on the Publish -->
+
+    </Action>
+
+
+</IsmWSTest>
+                

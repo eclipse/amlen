@@ -1,0 +1,670 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_wildcard_006
+
+  Test Category:  JMS Wildcards
+  
+  Test Description:
+    Test SubscriptionPolicies with three *'s in the Subsciption string. 
+    
+    Connection Policies:
+    DemoConnectionPolicy - Allow all connections
+    
+    Messaging Policies:
+      JMSWildcardTopicMP1 - Allows all topic strings
+      JMSWildcardSubMP1 - Starts out by allowing '*sub*durable*' and gets updated throughout
+                          the test.
+
+    Endpoints:
+    JMSWildcardEP1 - Port 18400
+
+    Some variations to test include:
+      ***
+      *a*b*
+      *a*b*c
+      a*b*c*
+      ***a
+      a***b
+      a***
+      
+-->
+<ImaJmsTest name="jms_wildcard_006">
+	<Action name="UpdateTopicMP1" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"JMSWildcardTopicMP1":{"Topic":"*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="Create_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+    </Action>
+    
+    <Action name="SetProps_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Protocol" value="tcp"/>
+        <ImaProperty name="Port" value="18400"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+    
+    <Action name="CreateConnection_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+        <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateSession1_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session1_cf1</ActionParameter>
+    </Action>
+    
+    <Action name="CreateSession2_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session2_cf1</ActionParameter>
+    </Action>
+
+    <Action name="Create_dest1" type="CreateDestination">
+        <ActionParameter name="structure_id">dest1</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/durableSub/topic</ApiParameter>
+    </Action>
+    
+    <!-- Update the SubscriptionPolicy to have 3 *'s, 1 at the beginning,
+    1 in the middle and 1 at the end of the string. -->
+    <Action name="UpdateSubscriptionMP1" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SubscriptionPolicy":{"JMSWildcardSubMP1":{"Subscription":"*sub*durable*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any subscriptions containing '*sub*durable*' should succeed. -->
+
+    <!-- Subscription a_sub_to_durable_topic matches *sub* -->
+    <Action name="CreateConsumer1_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+    
+    <!-- Producer allowed by the open messaging policy -->
+    <Action name="CreateProducer1_dest1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session2_cf1</ActionParameter>
+    </Action>
+    
+    <!-- Subscription sub_to_mid_is_durable matches *sub* -->
+    <Action name="CreateConsumer2_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer2_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+    
+    <!-- Subscription a_sub_to_mid_is_durable matches *sub* -->
+    <Action name="CreateConsumer3_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer3_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_substarttriple does not match *sub*durable* -->
+    <Action name="CreateConsumer4_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer4_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <!-- Subscription submid_mid_triple does not match *sub*durable* -->
+    <Action name="CreateConsumer5_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer5_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <!-- Subscription subendtriple_end does not match *sub*durable* -->
+    <Action name="CreateConsumer6_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer6_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <!-- Close durable consumers and unsubscribe so we can reuse the names -->
+    <Action name="CloseConsumer1" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe1" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+
+    <Action name="CloseConsumer2" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer2_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe2" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+
+    <Action name="CloseConsumer3" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer3_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe3" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Update the SubscriptionPolicy to have 3 *'s, 2 in the middle
+    and 1 at the end of the string. -->
+    <Action name="UpdateSubscriptionMP2" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SubscriptionPolicy":{"JMSWildcardSubMP1":{"Subscription":"sub*mid*durable*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now only subscriptions containing 'sub*mid*durable*' should succeed. -->
+    
+    <!-- Subscription a_sub_to_durable_topic does not match *sub*durable -->
+    <Action name="CreateConsumer7_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer7_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_to_mid_is_durable matches *sub*durable -->
+    <Action name="CreateConsumer8_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer8_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+    
+    <!-- Subscription a_sub_to_mid_is_durable does not match *sub*durable -->
+    <Action name="CreateConsumer9_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer9_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Subscription subscription_a does not match *sub*durable -->
+    <Action name="CreateConsumer10_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer10_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <!-- Subscription subscription_a does not match a* -->
+    <Action name="CreateConsumer11_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer11_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <!-- Subscription subscription_a does not match a* -->
+    <Action name="CreateConsumer12_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer12_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <!-- Close durable consumers and unsubscribe so we can reuse the names -->
+    <Action name="CloseConsumer8" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer8_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe8" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+
+    <!-- Update the SubscriptionPolicy to have 3 *'s,
+    1 at the beginning and 2 in the middle of the stirng. -->
+    <Action name="UpdateSubscriptionMP3" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SubscriptionPolicy":{"JMSWildcardSubMP1":{"Subscription":"*sub*mid*durable"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any subscription containing '*sub*mid*durable' should succeed. -->
+
+    <!-- Subscription a_sub_to_durable_topic does not match *sub*mid*durable -->
+    <Action name="CreateConsumer13_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer13_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_to_mid_is_durable does not match *sub*mid*durable -->
+    <Action name="CreateConsumer14_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer14_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+
+    <!-- Subscription a_sub_to_mid_is_durable matches *sub*mid*durable -->
+    <Action name="CreateConsumer15_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer15_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_substarttriple does not match *sub*mid*durable -->
+    <Action name="CreateConsumer16_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer16_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <!-- Subscription submid_mid_triple does not match *sub*mid*durable -->
+    <Action name="CreateConsumer17_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer17_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <!-- Subscription subendtriple_end does not match *sub*mid*durable -->
+    <Action name="CreateConsumer18_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer18_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <!-- Close durable consumers and unsubscribe so we can reuse the names -->
+    <Action name="CloseConsumer15" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer15_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe15" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Update the SubscriptionPolicy to have 3 *'s,
+    next to each other at the beginning of the string. -->
+	<Action name="UpdateSubscriptionMP4" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SubscriptionPolicy":{"JMSWildcardSubMP1":{"Subscription":"***substarttriple"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any subscription ending with 'substarttriple' should succeed. -->
+
+    <!-- Subscription a_sub_to_durable_topic does not match ***substarttriple -->
+    <Action name="CreateConsumer19_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer19_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_to_mid_is_durable does not match ***substarttriple -->
+    <Action name="CreateConsumer20_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer20_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+
+    <!-- Subscription a_sub_to_mid_is_durable does not match ***substarttriple -->
+    <Action name="CreateConsumer21_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer21_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_substarttriple matches ***substarttriple -->
+    <Action name="CreateConsumer22_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer22_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <!-- Subscription submid_mid_triple does not match ***substarttriple -->
+    <Action name="CreateConsumer23_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer23_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <!-- Subscription subendtriple_end does not match ***substarttriple -->
+    <Action name="CreateConsumer24_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer24_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <!-- Close durable consumers and unsubscribe so we can reuse the names -->
+    <Action name="CloseConsumer22" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer22_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe22" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <!-- Update the SubscriptionPolicy to have 3 *'s, next to each other 
+    in the middle of the string. -->
+	<Action name="UpdateSubscriptionMP5" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SubscriptionPolicy":{"JMSWildcardSubMP1":{"Subscription":"submid***triple"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any subscription that starts with 'submid' and 
+    ends with 'triple' should succeed. -->
+
+    <!-- Subscription a_sub_to_durable_topic does not match submid***triple -->
+    <Action name="CreateConsumer25_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer25_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_to_mid_is_durable does not match submid***triple -->
+    <Action name="CreateConsumer26_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer26_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+
+    <!-- Subscription a_sub_to_mid_is_durable does not match submid***triple -->
+    <Action name="CreateConsumer27_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer27_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_substarttriple does not match submid***triple -->
+    <Action name="CreateConsumer28_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer28_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <!-- Subscription submid_mid_triple matches submid***triple -->
+    <Action name="CreateConsumer29_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer29_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <!-- Subscription subendtriple_end does not match submid***triple -->
+    <Action name="CreateConsumer30_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer30_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <!-- Close durable consumers and unsubscribe so we can reuse the names -->
+    <Action name="CloseConsumer29" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer29_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe29" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <!-- Update the SubscriptionPolicy to have 3 *'s, next to each other 
+    at the end of the string. -->
+	<Action name="UpdateSubscriptionMP6" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SubscriptionPolicy":{"JMSWildcardSubMP1":{"Subscription":"subendtriple***"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any subscription that starts with 'subendtriple' should succeed. -->
+
+    <!-- Subscription a_sub_to_durable_topic does not match subendtriple*** -->
+    <Action name="CreateConsumer31_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer31_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_to_mid_is_durable does not match subendtriple*** -->
+    <Action name="CreateConsumer32_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer32_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+
+    <!-- Subscription a_sub_to_mid_is_durable does not match subendtriple*** -->
+    <Action name="CreateConsumer33_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer33_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_substarttriple does not match subendtriple*** -->
+    <Action name="CreateConsumer34_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer34_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <!-- Subscription submid_mid_triple does not match subendtriple*** -->
+    <Action name="CreateConsumer35_dest1" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">consumer35_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <!-- Subscription subendtriple_end matches subendtriple*** -->
+    <Action name="CreateConsumer36_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer36_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <!-- Close durable consumers and unsubscribe so we can reuse the names -->
+    <Action name="CloseConsumer36" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer36_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe30" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <!-- Update the SubscriptionPolicy to have only 3 *'s. -->
+	<Action name="UpdateSubscriptionMP7" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SubscriptionPolicy":{"JMSWildcardSubMP1":{"Subscription":"***"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Now any subscription should succeed. -->
+
+    <!-- Subscription a_sub_to_durable_topic matches *** -->
+    <Action name="CreateConsumer37_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer37_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_to_mid_is_durable matches *** -->
+    <Action name="CreateConsumer38_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer38_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+
+    <!-- Subscription a_sub_to_mid_is_durable matches *** -->
+    <Action name="CreateConsumer39_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer39_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <!-- Subscription sub_substarttriple matches *** -->
+    <Action name="CreateConsumer40_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer40_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <!-- Subscription submid_mid_triple matches *** -->
+    <Action name="CreateConsumer41_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer41_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <!-- Subscription subendtriple_end matches *** -->
+    <Action name="CreateConsumer42_dest1" type="CreateSharedDurableConsumer">
+        <ActionParameter name="structure_id">consumer42_dest1</ActionParameter>
+        <ActionParameter name="dest_id">dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <!-- Close durable consumers and unsubscribe so we can reuse the names -->
+    <Action name="CloseConsumer37" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer37_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe37" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_durable_topic</ApiParameter>
+    </Action>
+
+    <Action name="CloseConsumer38" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer38_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe38" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_to_mid_is_durable_end</ApiParameter>
+    </Action>
+
+    <Action name="CloseConsumer39" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer39_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe39" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">a_sub_to_mid_is_durable</ApiParameter>
+    </Action>
+
+    <Action name="CloseConsumer40" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer40_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe40" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">sub_substarttriple</ApiParameter>
+    </Action>
+
+    <Action name="CloseConsumer41" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer41_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe41" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">submid_mid_triple</ApiParameter>
+    </Action>
+
+    <Action name="CloseConsumer42" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer42_dest1</ActionParameter>
+    </Action>
+
+    <Action name="Unsubscribe42" type="Unsubscribe">
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="durableName">subendtriple_end</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_cf1" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_cf1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+</ImaJmsTest>

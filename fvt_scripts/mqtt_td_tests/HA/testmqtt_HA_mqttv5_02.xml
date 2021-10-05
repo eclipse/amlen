@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<!-- Tests reconnect to standby server with paho-mqttv5
+  -->
+<IsmWSTest name="testmqtt_HA_MQTTv5_02" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>testmqtt_HA_MQTTv5_02</solution>
+	</SyncClient>
+
+    <Action name="receive" type="CompositeAction">
+        <Action name="CreateConnection-1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="clientId">v5clienttest</ApiParameter>
+            <ApiParameter name="port">33000</ApiParameter>
+            <!-- In MQTTv5 cleanSession means cleanStart -->
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">60</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        </Action>
+
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/HAv5test</ApiParameter>
+   		    <ApiParameter name="QoS">2</ApiParameter>
+           <ApiParameter name="expectedrc">2</ApiParameter>
+        </Action>
+
+		<Action name="sync_components1" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+    <Action name="CompositeRcv1" type="CompositeAction" repeat="5">
+        <Action name="ReceiveMessage1" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+          <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+    </Action>
+    <Action name="FinalRcv1" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+        <ActionParameter name="waitTime">2000</ActionParameter>
+    </Action>
+        
+    <Action name="sync_components2" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx2</ActionParameter>
+			<ActionParameter name="component_list">tx2;rx2</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+        <Action name="RestartServer" type="ShellAction" thread="2">
+            <dependsOn action_id="sync_components2" interval="1000" />
+            <ActionParameter name="command">../scripts/serverControl.sh -a restartServer -i 1</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+        <Action name="WaitForReconnect" type="WaitForReconnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="waitTime">120</ActionParameter>
+        </Action>
+
+      <Action name="sync_components3" type="SyncComponentAction">
+        <ActionParameter name="component_name">rx3</ActionParameter>
+        <ActionParameter name="component_list">tx3;rx3</ActionParameter>
+        <ActionParameter name="timeout">60000</ActionParameter>
+      </Action>
+
+      <Action name="sync_components4" type="SyncComponentAction">
+        <ActionParameter name="component_name">rx4</ActionParameter>
+        <ActionParameter name="component_list">tx4;rx4</ActionParameter>
+        <ActionParameter name="timeout">60000</ActionParameter>
+      </Action>
+
+      <Action name="CompositeRcv" type="CompositeAction" repeat="5">
+          <Action name="ReceiveMessage" type="ReceiveMessage">
+              <ActionParameter name="connection_id">CF1</ActionParameter>
+              <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+          </Action>
+      </Action>
+      <Action name="FinalRcv" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+          <ActionParameter name="connection_id">CF1</ActionParameter>
+          <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+          <ActionParameter name="waitTime">2000</ActionParameter>
+      </Action>
+
+      <Action name="CloseConnectionSub" type="CloseConnection">
+          <ActionParameter name="connection_id">CF1</ActionParameter>
+      </Action>
+
+        
+    </Action>
+
+
+    <Action name="publish" type="CompositeAction">
+        <Action name="CreateConnection-1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">v5clienttestpub</ApiParameter>
+            <ApiParameter name="port">33000</ApiParameter>
+            <!-- In MQTTv5 cleanSession means cleanStart -->
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">This is message </ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+		
+		<Action name="sync_components1" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+        <Action name="CompositeSend1" type="CompositeAction" repeat="5">
+            <Action name="SendMessage_0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/HAv5test</ActionParameter>
+            </Action>
+        </Action>
+
+		<Action name="SyncComponents2" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx2</ActionParameter>
+			<ActionParameter name="component_list">tx2;rx2</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+        <!-- failover here -->
+      <Action name="SyncComponents3" type="SyncComponentAction">
+        <ActionParameter name="component_name">tx3</ActionParameter>
+        <ActionParameter name="component_list">tx3;rx3</ActionParameter>
+        <ActionParameter name="timeout">60000</ActionParameter>
+      </Action>
+
+    <Action name="CreateConnection-afterfailover" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server2.xml</include>
+        <ApiParameter name="clientId">v5clienttestpub</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <!-- In MQTTv5 cleanSession means cleanStart -->
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+
+
+
+      <Action name="sync_components4" type="SyncComponentAction">
+        <ActionParameter name="component_name">tx4</ActionParameter>
+        <ActionParameter name="component_list">tx4;rx4</ActionParameter>
+        <ActionParameter name="timeout">60000</ActionParameter>
+      </Action>
+
+        <Action name="CompositeSend2" type="CompositeAction" repeat="5">
+            <Action name="SendMessage_0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/HAv5test</ActionParameter>
+            </Action>
+        </Action>
+
+
+        <Action name="CloseConnectionPub" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+    </Action>
+</IsmWSTest>
+                

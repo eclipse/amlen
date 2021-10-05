@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<!--
+	Verify that Unsubscribe works correctly on Mixed Protocol Shared Subscriptions
+	
+-->
+<IsmWSTest name="testmqtt_dursharedsub_error04" >
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>mqttSharedSubserror04</solution>
+	</SyncClient>
+	
+   	<Action name="syncReset" type="SyncAction">
+		<ActionParameter name="request">reset</ActionParameter>
+	</Action>	
+
+	<Action name="CreateConnectionA_clear" type="CreateConnection">
+		<ActionParameter name="structure_id">ConA</ActionParameter>
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">dursharedsub_error04A</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+   <Action name="CloseConnectionA_clear" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>	
+	
+	<Action name="CreateConnectionB_clear" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">dursharedsub_error04B</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+  	<Action name="CloseConnectionB_clear" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>	
+
+	<Action name="CreateConnectionA" type="CreateConnection">
+		<ActionParameter name="structure_id">ConA</ActionParameter>
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">dursharedsub_error04A</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<Action name="CreateConnectionB" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">dursharedsub_error04B</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+	<!-- Create a valid subscription --> 
+	<Action name="Subscribe_ConsumerA" type="Subscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/DurSubErrorTests04/ErrorTopic/+</ApiParameter>
+		<ApiParameter name="QoS">2</ApiParameter>
+	</Action>
+	
+	<!-- consumers should be 1, topic should be ErrorTopic --> 
+	<!-- Action name="ShowSubWith_consumerA" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests04 ClientID=__Shared  TopicString=ErrorTopic/+</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->	
+	
+ <Action name="restShowSubWith_consumerA" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests04&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubWith_consumerA" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests04</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="ErrorTopic/+"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	
+	
+	<!-- Now  that we have an active subscriber, try adding another subscriber with a different QoS. -->
+	<Action name="Subscribe_ConsumerB" type="Subscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/DurSubErrorTests04/ErrorTopic/+</ApiParameter>
+		<ApiParameter name="QoS">1</ApiParameter>
+	</Action>	
+	
+	<!-- consumers should be 2 --> 
+	<!-- Action name="ShowSubWith_2_consumers" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests04 ClientID=__Shared TopicString=ErrorTopic/+</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+ <Action name="restShowSubWith_2_consumers" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests04&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubWith_2_consumers" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests04</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="ErrorTopic/+"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+	<!-- Now.. we cue the other process to add JMS Consumer on the shared subscription
+		 and then remove it. -->
+	<Action name="sync_ReadyForJMS" type="SyncAction"> 
+		<ActionParameter name="request">set</ActionParameter>
+		<ActionParameter name="condition">ReadyForJMS</ActionParameter>
+		<ActionParameter name="value">1</ActionParameter>
+	</Action>
+
+	<!-- Wait for JMS to join-->
+	<Action name="sync_wait_JMSJoined" type="SyncAction"> 
+		<ActionParameter name="request">wait</ActionParameter>
+		<ActionParameter name="condition">JMSJoin</ActionParameter>
+		<ActionParameter name="value">1</ActionParameter>
+		<ActionParameter name="timeout">20000</ActionParameter>
+	</Action>		 
+	
+    <Action name="CloseConnectionA" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnectionB" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>
+
+	<!-- consumers should be 0 --> 
+	<!-- Action name="ShowSubWith_Debug_consumers" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests04 ClientID=__Shared TopicString=ErrorTopic/+</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+ <Action name="ShowSubWith_Debug_consumers" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests04&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubWith_Debug_consumers" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests04</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="ErrorTopic/+"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>					
+	
+
+	<!-- Now.. we cue the JMS  process to unsubscribe --> 
+	<Action name="sync_ReadyForJMSUnsub" type="SyncAction"> 
+		<ActionParameter name="request">set</ActionParameter>
+		<ActionParameter name="condition">ReadyForJMSUnsubscribe</ActionParameter>
+		<ActionParameter name="value">1</ActionParameter>
+	</Action> 
+	
+	<!-- Now.. we wait for JMS to unsubscribe --> 
+	<Action name="JMSUnsubscribed" type="SyncAction"> 
+		<ActionParameter name="request">wait</ActionParameter>
+		<ActionParameter name="condition">JMSUnsubscribed</ActionParameter>
+		<ActionParameter name="value">1</ActionParameter>
+	</Action>	
+	
+	<!-- consumers should be 0, topic should be ErrorTopic/+ --> 
+	<!-- Action name="ShowSubA" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests04 ClientID=__Shared TopicString=ErrorTopic/+</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->	
+	
+ <Action name="restShowSubA" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests04&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubA" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests04</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="ErrorTopic/+"/>
+        <ObjectProperty name="Consumers" value="0"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>				
+
+	<Action name="ReCreateConnectionA" type="CreateConnection">
+		<ActionParameter name="structure_id">ConA</ActionParameter>
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">dursharedsub_error04A</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<Action name="ReCreateConnectionB" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">dursharedsub_error04B</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>		
+
+	<!-- consumers should be 2, topic should be ErrorTopic/+ --> 
+	<!-- Action name="ShowSubWith2" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests04 ClientID=__Shared TopicString=ErrorTopic/+</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+ <Action name="restShowSubWith2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests04&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="comparShowSubWith2" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests04</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="ErrorTopic/+"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	
+
+	<Action name="UnSubscribe_ConsumerB" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/DurSubErrorTests04/ErrorTopic/+</ApiParameter>	
+	</Action>		
+
+	<Action name="UnSubscribe_ConsumerA" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/DurSubErrorTests04/ErrorTopic/+</ApiParameter>	
+	</Action>		
+
+	<!-- Sub should be gone, JMS had unsbuscribed. --> 
+	<!-- Action name="ShowSubFinallyGone" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests04 ClientID=__Shared TopicString=ErrorTopic/+</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+		<ActionParameter name="expected_rc">1</ActionParameter>
+	</Action -->	
+	
+ <Action name="restShowFinallyGone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests04&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareFinallyGone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests04</ActionParameter>
+    </Action>	
+    
+    <Action name="ReCloseConnectionA" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>
+    
+    <Action name="ReCloseConnectionB" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>
+    
+	<Action name="CreateConnectionA_reclear" type="CreateConnection">
+		<ActionParameter name="structure_id">ConA</ActionParameter>
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">dursharedsub_error04A</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+   <Action name="CloseConnectionA_reclear" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>	
+	
+	<Action name="CreateConnectionB_reclear" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">dursharedsub_error04B</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+  	<Action name="CloseConnectionB_reclear" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>	    
+    
+    
+</IsmWSTest>
+                

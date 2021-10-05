@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_connectAD03" >
+<!--
+    This test will attempt to verify CreateConnection fails or works correctly a user
+    that has a previously existing session loses the Authorization for CleanSession=False. 
+            
+    ************************************************************************************ -->        
+   <!-- Connect with a userid that will be allowed to create a durable session. This userid will 
+    use ConnectionPolicy MQTTADChangesCP1 -->
+
+    <Action name="ShowCPNo1Changes_AD_Initial" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/MQTTADChangesCP1</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection1" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">connectAD_03</ApiParameter>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser2</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">4294967295</ApiParameter>
+    </Action>
+    
+    <!-- Connection should be alive and well. -->
+    <Action name="CheckConnection1Good" type="CheckConnection" >
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="isConnected">true</ActionParameter>
+    </Action>    
+    
+    <Action name="CreateMessage" type="CreateMessage">
+        <ActionParameter name="structure_id">msg1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">This is a message sent by testmqtt_connectAD03. </ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+    
+    <!-- Create a durable subscription. --> 
+    <Action name="SubscribeDurable" type="Subscribe">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="topic">/connect/AD03</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+    
+    <!-- send some messages. don't receive though -->
+    <Action name="SendMessage_msg1" type="SendMessage"  repeat="5">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="message_id">msg1</ActionParameter>
+        <ActionParameter name="topic">/connect/AD03</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnection1" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    
+    <Action name="RESTShowSubExists" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/connect/AD03</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="RESTCompareShowSubExists" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_a</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/connect/AD03</ActionParameter>
+    </Action>
+
+    <Action name="RESTShowEndpoint" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/Endpoint/MQTTADEndpoint</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="RESTUpdateCPChanges1_AD_NO" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"MQTTADChangesCP1":{"AllowDurable":false}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="RESTShowCPNo1Changes_AD_NO" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/MQTTADChangesCP1</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="ShowUser" type="ShellAction">
+        <ActionParameter name="command">bash ../scripts/config_wrapper.sh 1 user list UserID=ADChangesUser2 Type=Messaging </ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>     
+    
+    <!-- Attempt to reconnect with a now that this user is not allowed to use CleanSession=False. ConnectionPolicy MQTTADNoCP1.  -->
+    <Action name="CreateConnection2" type="CreateConnection"  rc="1" reason="ISMTEST2525">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">connectAD_03</ApiParameter>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser2</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">4294967295</ApiParameter>
+    </Action>
+    
+    <!-- Try the same thing twice in a row. Hopefully getting the same result. -->
+    <Action name="CreateConnection3" type="CreateConnection"  rc="1" reason="ISMTEST2525">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">connectAD_03</ApiParameter>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser2</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">4294967295</ApiParameter>
+    </Action>
+    
+    <!-- Attempt to reconnect with CleanSession is true, so this should succeed, 
+    but it'll delete the subscription.   -->
+    <Action name="CreateConnection4" type="CreateConnection" >
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">connectAD_03</ApiParameter>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser2</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+    
+    <Action name="CheckConnection4Good" type="CheckConnection" >
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="isConnected">true</ActionParameter>
+    </Action> 
+    
+    <!-- TODO: When stats is updated to return empty array when nothing found
+                uncomment structureID and remove rc=1 and reason
+      -->
+    <Action name="RESTShowSubIsGone" type="RestAPI">
+        <ActionParameter name="structureID">stat_sub_gone</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/connect/AD03</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="RESTCompareShowSubIsGone" type="CompareREST" rc="1" reason="ISMTEST3416">-->
+        <ActionParameter name="structureID">stat_sub_gone</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/connect/AD03</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection4" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+
+    <Action name="RESTUpdateCPChanges_AD_Yes" type="RestAPI">
+        <ActionParameter name="structureID">stat_sub_gone</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"MQTTADChangesCP1":{"AllowDurable":true}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="RESTShowCPChangesAD_Yes" type="RestAPI">
+        <ActionParameter name="structureID">stat_sub_gone</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/MQTTADChangesCP1</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection5" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <ApiParameter name="clientId">connectAD_03</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser2</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">4294967295</ApiParameter>
+    </Action>
+    
+    <!-- Connection should be alive and well. -->
+    <Action name="CheckConnection5" type="CheckConnection" >
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="isConnected">true</ActionParameter>
+    </Action>    
+    
+    <Action name="CreateMessage_AD_yes_again" type="CreateMessage">
+        <ActionParameter name="structure_id">msg1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">This is a message sent by testmqtt_connectAD03. </ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+    
+    <!-- Create a durable subscription. --> 
+    <Action name="SubscribeDurable_AD_yes_again" type="Subscribe">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="topic">/connect/AD03</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+    
+    <!-- send some messages. don't receive though -->
+    <Action name="SendMessage_msg1_AD_yes_again" type="SendMessage"  repeat="5">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="message_id">msg1</ActionParameter>
+        <ActionParameter name="topic">/connect/AD03</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnection5" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    
+    <Action name="RESTShowSubExists_AD_yes_again" type="RestAPI">
+        <ActionParameter name="structureID">AD_yes_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/connect/AD03</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="RESTCompareShowSubExists_AD_yes_again" type="CompareREST">
+        <ActionParameter name="structureID">AD_yes_again</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/connect/AD03</ActionParameter>
+    </Action>
+
+    <!-- Clean up durable subscription at end of test.  -->
+    <Action name="CreateConnection6" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">connectAD_03</ApiParameter>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser2</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>    
+    <Action name="CloseConnection6" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    
+
+</IsmWSTest>
+                

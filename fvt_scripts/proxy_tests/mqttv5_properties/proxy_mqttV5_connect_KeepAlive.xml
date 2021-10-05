@@ -1,0 +1,572 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="proxy_mqttV5_connect_KeepAlive" >
+<!--
+    Test MQTTv5 Spec 
+	3.1.2.10 CONNECT Properties - Keep Alive
+	3.2.2.3.14  CONNACK Properties - Server Keep Alive
+    0x19 - Server Keep Alive  -  Default Server Keep Alive is 0x0023 = 35 sec.
+	
+KA:Lesser will have CONNECT Keep Alive less than Server's Default
+KA:Greater will have CONNECT Keep Alive greater than Server's Default
+KA:ZERO will have CONNECT Keep Alive=0, which means never disconnect
+KA:MAX will have CONNECT Keep Alive=0xffff (65535 secs aka 18.204167 hours) - just test the CONNACK here.
+
+This only tests the CONNACK response, not testing if the KeepAlive heartbeat expiring would cause a DISCONNECT
+ -->    
+<!--  ==========  Server Keep Alive  0x19(+2 bytes)  ==========  -->
+<!-- 
+-->
+    <Action name="KA_lessThanServerKeepAlive" type="CompositeAction">
+<!--  device -->
+        <Action name="device-Connect_KALess" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:dKA_less</ApiParameter>  
+            <ApiParameter name="user">d:org4iot2:connProps:dKA_less</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+            <ApiParameter name="keepAlive">6</ApiParameter>    
+        </Action>
+        
+<!--
+MQTT receive 10 CONNECT: connect=17: len=91 
+00044d515454 05c2 0006 08 11 00000006 22000000 1d643a6f 72673469 6f74323a 636f6e6e 50726f70 733a644b 415f6c65 7373001d 643a6f72 6734696f 74323a63 6f6e6e50 726f7073 3a644b41 5f6c6573 730008 
+[..MQTT.........."....d:org4iot2:connProps:dKA_less..d:org4iot2:connProps:dKA_less..]
+0x0006 sec KeepAlive
+
+MQTT send 20 CONNACK connect=17: len=9 
+0000 06 22 0000 21 000a 
+[..."..!..]
+(Server accepts 6 sec Keep Alive, no 0x13 Property)
+-->
+        <Action name="device-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">6</ApiParameter>  
+        </Action>    
+        
+        <Action name="device-Disconnect" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+<!-- application -->
+        <Action name="app-Connect_KALess" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:connProps:aKA_less</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:connProps:aKA_less</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+            <ApiParameter name="keepAlive">6</ApiParameter>    
+        </Action>
+        
+<!--
+MQTT receive 10 CONNECT: connect=19: len=91 
+00044d51 545405c2 0006 08 11 00000006 22 0000  001d 613a6f 72673469 6f74323a 636f6e6e 50726f70 733a614b 415f6c65 7373001d 613a6f72 6734696f 74323a63 6f6e6e50 726f7073 3a614b41 5f6c6573 730008 
+[..MQTT.........."....a:org4iot2:connProps:aKA_less..a:org4iot2:connProps:aKA_less..]
+0x0006 sec KeepAlive
+
+MQTT send 20 CONNACK connect=19: len=9 
+0000 06 22 0000 21 0100 
+[..."..!..]
+(Server accepts 6 sec Keep Alive, no 0x13 Property)
+-->
+        <Action name="app-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">6</ApiParameter>  
+        </Action>    
+        
+        <Action name="app-Disconnect" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+<!-- Shared APP -->
+        <Action name="APP-Connect_KALess" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:connProps:AKA_less</ApiParameter>  
+            <ApiParameter name="user">A:org4iot2:connProps:AKA_less</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+            <ApiParameter name="keepAlive">6</ApiParameter>    
+        </Action>
+        
+<!--
+MQTT receive 10 CONNECT: connect=21: len=91 
+00044d515454 05c2 0006 08 11 00000006 22 0000  001d 413a6f 72673469 6f74323a 636f6e6e 50726f70 733a414b 415f6c65 7373001d 413a6f72 6734696f 74323a63 6f6e6e50 726f7073 3a414b41 5f6c6573 730008 
+[..MQTT.........."....A:org4iot2:connProps:AKA_less..A:org4iot2:connProps:AKA_less..]
+0x0006 sec KeepAlive
+
+MQTT send 20 CONNACK connect=21: len=9 
+00000622 00002108 00 
+[..."..!..]
+(Server accepts 6 sec Keep Alive, no 0x13 Property)
+-->
+        <Action name="APP-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">6</ApiParameter>  
+        </Action>    
+        
+        <Action name="APP-Disconnect" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+<!--  gateway  -->
+        <Action name="gtwy-Connect_KALess" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">g:org4iot2:connProps:gKA_less</ApiParameter>  
+            <ApiParameter name="user">g:org4iot2:connProps:gKA_less</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+            <ApiParameter name="keepAlive">6</ApiParameter>    
+        </Action>
+        
+<!--
+MQTT receive 10 CONNECT: connect=23: len=91 
+00044d515454 05c2 0006 08 11 00000006 22 0000  001d 673a6f 72673469 6f74323a 636f6e6e 50726f70 733a674b 415f6c65 7373001d 673a6f72 6734696f 74323a63 6f6e6e50 726f7073 3a674b41 5f6c6573 730008 
+[..MQTT.........."....g:org4iot2:connProps:gKA_less..g:org4iot2:connProps:gKA_less..]
+0x0006 sec KeepAlive
+
+MQTT send 20 CONNACK connect=40: len=14 
+0000 0b 21 0100 22 0008 27 00400000 
+[...!.."..'.@..]
+(Server accepts 6 sec Keep Alive, no 0x13 Property)
+-->
+        <Action name="gtwy-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">6</ApiParameter>  
+        </Action>    
+        
+        <Action name="gtwy-Disconnect" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+		
+    </Action>
+
+	
+<!--  KA_Greater  -->
+    <Action name="KA_greaterThanServerKeepAlive" type="CompositeAction">
+<!--  device  -->
+        <Action name="device-Connect_KAGreater" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:dKA_greater</ApiParameter>  
+            <ApiParameter name="user">d:org4iot2:connProps:dKA_greater</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">64</ApiParameter>  
+            <ApiParameter name="keepAlive">64</ApiParameter>  
+        </Action>
+<!--
+
+(Server accepts 64 sec Keep Alive, no 0x13 Property)
+-->        
+        <Action name="device-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">64</ApiParameter>  
+        </Action>    
+
+        <Action name="device-Disconnect_KAGreater" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+<!--  application  -->
+        <Action name="app-Connect_KAGreater" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:connProps:aKA_greater</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:connProps:aKA_greater</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">64</ApiParameter>  
+            <ApiParameter name="keepAlive">64</ApiParameter>  
+        </Action>
+<!--
+(Server accepts 64 sec Keep Alive, no 0x13 Property)
+-->        
+        <Action name="app-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">64</ApiParameter>  
+        </Action>    
+
+        <Action name="app-Disconnect_KAGreater" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+<!--  Shared Application  -->
+        <Action name="APP-Connect_KAGreater" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:connProps:AKA_greater</ApiParameter>  
+            <ApiParameter name="user">A:org4iot2:connProps:AKA_greater</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">64</ApiParameter>  
+            <ApiParameter name="keepAlive">64</ApiParameter>  
+        </Action>
+<!--
+
+(Server accepts 64 sec Keep Alive, no 0x13 Property)
+-->        
+        <Action name="APP-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">64</ApiParameter>  
+        </Action>    
+
+        <Action name="APP-Disconnect_KAGreater" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+<!--  gateway  -->
+        <Action name="gtwy-Connect_KAGreater" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">g:org4iot2:connProps:gKA_greater</ApiParameter>  
+            <ApiParameter name="user">g:org4iot2:connProps:gKA_greater</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">64</ApiParameter>  
+            <ApiParameter name="keepAlive">64</ApiParameter>  
+        </Action>
+<!--
+
+(Server accepts 64 sec Keep Alive, no 0x13 Property)
+-->        
+        <Action name="gtwy-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">64</ApiParameter>  
+        </Action>    
+
+        <Action name="gtwy-Disconnect_KAGreater" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>    
+	
+	
+<!--  KA_ZERO  -->
+    <Action name="KA_ZERO" type="CompositeAction">
+<!-- device -->
+        <Action name="device-CONNECT_KAZero" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:dKA_ZERO</ApiParameter>  
+            <ApiParameter name="user">d:org4iot2:connProps:dKA_ZERO</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">0</ApiParameter>  
+        </Action>
+<!-- 
+ServerKeepAlive 0x000
+
+No 0x013, Server Keep Alive ZERO was accepted
+-->
+        
+        <Action name="device-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">0</ApiParameter>  
+        </Action>    
+
+        <Action name="device-DISCONNECT_KAZero" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+<!-- application  -->
+        <Action name="app-CONNECT_KAZero" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:connProps:aKA_ZERO</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:connProps:aKA_ZERO</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">0</ApiParameter>  
+        </Action>
+<!-- 
+ServerKeepAlive 0x000
+
+No 0x013, Server Keep Alive ZERO was accepted
+-->
+        
+        <Action name="app-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">0</ApiParameter>  
+        </Action>    
+
+        <Action name="app-DISCONNECT_KAZero" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+<!-- Shared Application -->
+        <Action name="APP-CONNECT_KAZero" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:connProps:AKA_ZERO</ApiParameter>  
+            <ApiParameter name="user">A:org4iot2:connProps:AKA_ZERO</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">0</ApiParameter>  
+        </Action>
+<!-- 
+ServerKeepAlive 0x000
+
+No 0x013, Server Keep Alive ZERO was accepted
+-->
+        
+        <Action name="APP-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">0</ApiParameter>  
+        </Action>    
+
+        <Action name="APP-DISCONNECT_KAZero" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+<!-- gateway -->
+        <Action name="gtwy-CONNECT_KAZero" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">g:org4iot2:connProps:gKA_ZERO</ApiParameter>  
+            <ApiParameter name="user">g:org4iot2:connProps:gKA_ZERO</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">0</ApiParameter>  
+        </Action>
+<!-- 
+ServerKeepAlive 0x000
+
+No 0x013, Server Keep Alive ZERO was accepted
+-->
+        
+        <Action name="gtwy-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">0</ApiParameter>  
+        </Action>    
+
+        <Action name="gtwy-DISCONNECT_KAZero" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+	</Action>
+
+<!--  KA_MAX  -->
+    <Action name="KA_MAX" type="CompositeAction">
+<!-- device  -->
+        <Action name="device-CONNECT_KAMAX" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:dKA_MAX</ApiParameter>  
+            <ApiParameter name="user">d:org4iot2:connProps:dKA_MAX</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">65535</ApiParameter>  
+        </Action>
+<!-- 
+0xffff MAX value for KeepAlive 65535
+
+(no 0x13 Server KeepAlive, so MAX was accepted)
+-->
+        
+        <Action name="device-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">65535</ApiParameter>  
+        </Action>    
+
+        <Action name="device-DISCONNECT_KAMAX" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+<!-- application  -->
+        <Action name="app-CONNECT_KAMAX" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:connProps:aKA_MAX</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:connProps:aKA_MAX</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">65535</ApiParameter>  
+        </Action>
+<!-- 
+0xffff MAX value for KeepAlive 65535
+
+(no 0x13 Server KeepAlive, so MAX was accepted)
+-->
+        
+        <Action name="app-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">65535</ApiParameter>  
+        </Action>    
+
+        <Action name="app-DISCONNECT_KAMAX" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+<!-- Shared Application  -->
+        <Action name="APP-CONNECT_KAMAX" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:connProps:AKA_MAX</ApiParameter>  
+            <ApiParameter name="user">A:org4iot2:connProps:AKA_MAX</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">65535</ApiParameter>  
+        </Action>
+<!-- 
+0xffff MAX value for KeepAlive 65535
+
+(no 0x13 Server KeepAlive, so MAX was accepted)
+-->
+        
+        <Action name="APP-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">65535</ApiParameter>  
+        </Action>    
+
+        <Action name="APP-DISCONNECT_KAMAX" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+<!-- gateway  -->
+        <Action name="gwty-CONNECT_KAMAX" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">g:org4iot2:connProps:gKA_MAX</ApiParameter>  
+            <ApiParameter name="user">g:org4iot2:connProps:gKA_MAX</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">65535</ApiParameter>  
+        </Action>
+<!-- 
+0xffff MAX value for KeepAlive 65535
+
+(no 0x13 Server KeepAlive, so MAX was accepted)
+-->
+        
+        <Action name="gtwy-CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">65535</ApiParameter>  
+        </Action>    
+
+        <Action name="gtwy-DISCONNECT_KAMAX" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+	</Action>
+    
+</IsmWSTest>
+                

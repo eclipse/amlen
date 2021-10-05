@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN"
+ "concept.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<concept id="sc00005" xml:lang="en-us">
+<title>Scenario: Fan-in per device request-reply</title>
+<shortdesc>In this scenario, many internet devices publish messages
+to unique topic strings, and subscribe to a unique topic string to
+receive a response. There is one intranet device that subscribes to
+the unique topic strings to receive the requests, and then publishes
+to unique topic strings to send a reply.</shortdesc>
+<conbody>
+<section><title>Background to this scenario</title><p>An online customer
+wants to be able to reserve an item from a particular store. The request
+is published from the customer device, and a response is required
+from the store to confirm reservation of that item. The response must
+be sent only to that requesting device. The customer device is a publisher
+and subscriber device on the internet. </p><p>At the store, <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> sits
+within the DMZ. An application that runs on a device within the store
+intranet subscribes to customer request topic strings and publishes
+a reservation response to the unique customer response topic string.
+Complete the steps in the following section to understand how to set
+up this scenario.</p></section>
+<section><title>Planning and implementing the solution</title><p>Use
+the following information to help you to plan and implement a fan-in
+per device request-reply scenario.</p><dl><dlentry>
+<dt>Understanding your publish/subscribe architecture</dt>
+<dd><p>In this scenario, there are many internet devices that publish
+and subscribe to unique topic strings. There is one intranet device
+that publishes and subscribes to each unique topic string. This scenario
+is a fan-in per device request-reply. The following diagram shows
+the architecture of a fan-in per device request-reply scenario.</p> <p><image
+href="../Planning/ov00101e_v2.gif"><alt>Fan-in per device request-reply
+diagram. Many internet devices publish and subscribe to unique topic
+strings. There is one intranet device that publishes and subscribes
+each unique topic string.</alt></image></p></dd>
+</dlentry><dlentry>
+<dt>Understanding the required messaging behavior for your solution</dt>
+<dd><p>Do you want durable or non-durable subscriptions? What quality
+of service do you need?</p><p>If a subscription is durable, when the
+subscribing application disconnects, the subscription remains in place
+and can be used by the subscribing application when it reconnects.
+In this scenario, the subscriptions are durable because it is important
+that the customer device receives the reservation message even if
+the connection is lost. </p><p>A quality of service of 2 is appropriate
+because the message delivery across the network must be guaranteed
+at most once. It is not acceptable to have duplicates because customers
+want to reserve once and multiple messages could result in a poor
+customer experience. QoS 2 messages are persistent. The message is
+stored on <ph conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> until
+the message is received by the subscriber of the message. </p></dd>
+</dlentry><dlentry>
+<dt>Planning your solution</dt>
+<dd><p>In this scenario, consider the following key points: <ul>
+<li>Which protocol is appropriate?<p><ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> natively
+supports MQTT and JMS. <!--You can also install your own protocol by using the protocol plug-in.-->You
+must consider which protocol is appropriate for your business needs.
+The amount of data that is sent between the devices is small. The
+messages between the devices must be sent reliably. The customer device
+is using a web application that runs in a web browser. MQTT over WebSockets
+is designed for exchanging messages between web applications that
+run in a web browser, and to send messages reliably. Therefore, MQTT
+over WebSockets is appropriate in this scenario. </p></li><?Pub Caret 210?>
+<li>What message size is appropriate?<p>In this scenario, the customer
+devices send small, persistent messages. The information that is contained
+within the message is about reserving an item. Therefore, the message
+can be relatively small. You can limit the message size that is allowed
+to be sent through <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> by using
+the maximum message size attribute of an endpoint. For more information
+about endpoints, see <xref format="dita" href="../Overview/ov00060.dita"
+scope="local" type="concept">Message hub, endpoints, and policies</xref>.</p></li>
+<li>What message count is appropriate?<p>Consider what maximum message
+count is sensible for your messaging needs. In this scenario, the
+quality of service is 2, so messages are stored until a subscriber
+receives the message. Therefore, a higher message count might typically
+be considered. However, as each customer device publishes and subscribes
+to unique topic strings, a lower maximum message count is sufficient.</p></li>
+<li>What is the maximum number of topic levels that you need?<p>You
+can have up to 32 levels in a topic string. Fewer levels are easier
+to manage, but many levels might be required to set up specific solutions.
+In this scenario, the topic string length can be relatively short.
+For example, <codeph>Reserve/Request/OrderNumber</codeph> or <codeph>Reserve/Response/OrderNumber</codeph>.
+By including the level of <codeph>/Reserve</codeph>, the store can
+include other customer requests, such as home delivery, in the future.
+For example, the topic string <codeph>Delivery/Request/OrderNumber</codeph> or <codeph>Delivery/Response/OrderNumber</codeph> might
+be added.</p> </li>
+<li>How are you going to ensure that all of your customer IDs are
+unique?<p>In this scenario, it is crucial that all customer IDs are
+unique so that the reservation request for each customer is recorded
+against the correct person. In this scenario, you might decide to
+use the order number as that number is unique to each customer. The
+client ID of the device is set to be the order number for each order
+that is placed. </p></li>
+<li>What message depth is appropriate?<p>When the maximum message
+depth is reached, you cannot publish any more updates to that topic
+string until the number of messages is reduced. However, as each customer
+device publishes and subscribes to unique topic strings, the maximum
+message depth does not need to be as large as it would be if all devices
+published and subscribed to the same topic strings. </p></li>
+</ul></p><p>For more information about planning your solution, see <xref
+format="dita" href="../Planning/pl00001_.dita" scope="local"
+type="concept">Planning</xref>.</p></dd>
+</dlentry><dlentry>
+<dt>Writing your applications</dt>
+<dd><p>In this scenario, you must decide the name of the topic strings
+that you are publishing and subscribing to. The store needs many topic
+strings because they are receiving requests from many customers. For
+this messaging pattern, each internet device must publish to a unique
+request topic string so that the intranet device knows which topic
+string to publish the response to. The request topic string must be
+subscribed to by the intranet device. The intranet device must publish
+to a unique response topic string. The internet device must subscribe
+to the relevant response topic string. By using the unique customer
+ID in the topic string, you can ensure that each topic is unique. </p><p>To ensure that customer devices do not publish to an incorrect topic string, you can use the
+       topic string variable substitution available in the <ph
+        conref="../TextEntities.dita#TextEntities/ISMappliance"/> topic policies. By using topic
+       string variable substitution you can create a topic  policy with single topic string that
+       includes an order number variable. This substitution ensures that applications can publish
+       and subscribe only to the topic string that matches their order number. For example, a topic
+       string of <codeph>Reserve/Request/${ClientID}</codeph> is specified in the topic  policy. The
+       customer with a client ID of 123 is allowed to publish to
+        <codeph>Reserve/Request/123</codeph>, but is not allowed to publish to
+        <codeph>Reserve/Request/456</codeph>, or <codeph>Reserve/Request/789</codeph> because the
+       client ID does not match. For more information about topic policies and variable
+       substitution, see <xref format="dita" href="../Security/se00004_.dita" scope="local"
+        type="concept">Messaging policies</xref>.</p><p>You can also use the topic string variable substitution to ensure that customer devices do not
+       subscribe to an incorrect topic string. For example, specify a topic string of
+        <codeph>Reserve/Response/${ClientID}</codeph> in the topic  policy. Only the customer with a
+       client ID of 123 is allowed to subscribe to <codeph>Reserve/Response/123</codeph>.</p><p>In
+this scenario, the name of the request topic string is <codeph>Reserve/Request/${ClientID}</codeph>.
+The name of the response topic string is <codeph>Reserve/Response/${ClientID}</codeph>.</p><p>The
+order in which your applications perform publish and subscribe actions
+is important. Both the client and the back-end application must subscribe
+to the relevant topic string before any messages are published. Otherwise,
+messages might be published but not received as no subscription was
+set up at the time that the message was published. </p><p>The following
+diagram shows this message flow between client and back-end devices
+through <ph conref="../TextEntities.dita#TextEntities/ISMappliance"></ph>.</p> <p> <image
+href="sc00005b_v2.gif" scope="local"><alt>Message flow between client
+and back-end devices.</alt></image></p><p><ol>
+<li>The client publishes a message to the topic string <codeph>Reserve/Request/${Client
+ID}</codeph>.</li>
+<li>The message is sent to the back-end appliance, which is authorized
+to subscribe to topic string <codeph>Reserve/Request/${Client ID}</codeph>.</li>
+<li>The back-end appliance publishes a response to <codeph>Reserve/Response/${Client
+ID}</codeph>.</li>
+<li>The message is sent to the client that is authorized to subscribe
+to topic string <codeph>Reserve/Response/#</codeph>.</li>
+</ol></p><p></p></dd>
+</dlentry><dlentry>
+<dt>Setting up your <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> infrastructure,
+and security</dt>
+<dd><p>Create the infrastructure by configuring message hubs and endpoints. Set up your security by
+       creating connection and topic policies. </p><p>In
+this scenario, the store requires one message hub because there is
+one goal - reserving stock. The store requires two endpoints to ensure
+that internal and external network traffic is kept separate.</p><p>Complete
+the following steps to <xref format="dita"
+href="../Administering/ad00360_.dita" scope="local" type="concept">set
+up a message hub and endpoints</xref> for this scenario: </p><p><ol>
+<li>Create your message hub. A message hub is an organizational configuration object to collect the
+         endpoints, connection policies, and topic policies that are associated with a specific goal
+         in a single place. In this scenario, the message hub is called <codeph>Stock Reservation
+          Hub</codeph>.</li>
+<li>Create your connection policies. A connection policy is used to
+authorize a client to connect to an endpoint.<ul>
+<li>Create a connection policy for the customer devices. In this scenario,
+the connection policy is called  <codeph>Stock Reservation External
+ConPol</codeph>.<p>In this scenario, the store restricts customer
+device access so that the device must use the MQTT protocol. </p></li>
+<li>Create a connection policy for the back-end. In this scenario,
+the connection policy is called  <codeph>Stock Reservation Internal
+ConPol</codeph>.<p>In this scenario, the store restricts back-end
+access so that the back-end device must use the MQTT protocol, and
+use the IP address  <codeph>192.0.2.020</codeph>. Only one IP address
+is required because only one back-end system is publishing and subscribing.</p></li>
+</ul></li>
+<li>Create your topic policies. A topic policy is a type of messaging policy is used to authorize a
+         client to publish or subscribe to a topic.<ul>
+          <li>Create two topic policies for the customer devices. In this scenario, the request
+           topic  policy is called <codeph>Stock Reservation Request External TopicPol</codeph> and
+           the response topic  policy is called <codeph>Stock Reservation Response External
+            TopicPol</codeph>.<p>The store restricts access so that the devices can publish to the
+            topic string <codeph>Reserve/Request/${ClientID}</codeph> and subscribe to
+             <codeph>Reserve/Response/${ClientID}</codeph>. </p></li>
+          <li>Create two topic  policies for the back-end. In this scenario, the request topic
+           policy is called <codeph>Stock Reservation Request Internal TopicPol</codeph> and the
+           response topic  policy is called <codeph>Stock Reservation Response Internal
+            TopicPol</codeph>.<p>The store restricts back-end access so that the device can
+            subscribe to the topic string <codeph>Reserve/Request/#</codeph> and publish to
+             <codeph>Reserve/Response/#</codeph>.</p></li>
+         </ul></li>
+<li>Create your endpoints. An endpoint authorizes a client to connect
+to <ph conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> on
+one, or all configured ethernet interfaces, and a specific port. 
+You create endpoints on a message hub.<ul>
+<li>Create an endpoint for internet network requests. In this scenario, the endpoint is called
+            <codeph>Stock Reservation External Endpoint</codeph>. Apply the <codeph>Stock
+            Reservation External ConPol</codeph>, the <codeph>Stock Reservation Request External
+            TopicPol</codeph>, and the <codeph>Stock Reservation Response External TopicPol</codeph>
+           to the endpoint.</li>
+<li>Create an endpoint for intranet network requests. In this scenario, the endpoint is called
+            <codeph>Stock Reservation Internal Endpoint</codeph>. Apply the <codeph>Stock
+            Reservation Internal ConPol</codeph>, the <codeph>Stock Reservation Request Internal
+            TopicPol</codeph>, and the <codeph>Stock Reservation Response Internal TopicPol</codeph>
+           to the endpoint.</li>
+</ul></li>
+</ol></p></dd>
+</dlentry><dlentry
+conref="sc00001_.dita#sc_00001/TestYourSolutionForInformationAbout">
+<dt>Testing your solution</dt>
+<dd><p>For information about troubleshooting any problems that arise
+during testing, see <xref format="dita"
+href="../Troubleshooting/tr10000_.dita" scope="local" type="concept">Troubleshooting</xref>.</p></dd>
+</dlentry><dlentry
+conref="sc00001_.dita#sc_00001/MonitoringYourSolutionThereAreVario">
+<dt>Monitoring your solution</dt>
+<dd><p>There are various statistics that you can <xref format="dita"
+href="../Monitoring/admin00008_.dita" scope="local" type="concept">monitor</xref>.
+In this scenario, use <xref format="dita"
+href="../Monitoring/admin00016.dita" scope="local" type="concept">topic
+monitor</xref>, <xref format="dita" href="../Monitoring/admin00009.dita"
+scope="local" type="concept">connection monitor</xref>, and <xref
+format="dita" href="../Monitoring/admin00022.dita" scope="local"
+type="concept">subscription monitor</xref> to understand the health
+of the solution. </p></dd>
+</dlentry><dlentry
+conref="sc00001_.dita#sc_00001/StrengtheningYourSecurityYouCanIncr">
+<dt importance="optional">Strengthening your security</dt>
+<dd><p>You can increase the level of security of a solution in a number
+of ways:</p><ul>
+<li>Using a server certificate.<ol>
+<li>Create a <xref format="dita" href="../Administering/ad00710_.dita"
+scope="local" type="task">certificate profile</xref>.</li>
+<li>Create a <xref format="dita" href="../Administering/ad00740_.dita"
+scope="local" type="task">security profile</xref> to encrypt wire
+traffic. <ul>
+<li>Set <parmname>UsePasswordAuthentication</parmname> to <userinput>True</userinput> on
+your security profile to force authentication on user ID and password.</li>
+</ul></li>
+<li>Apply the security profile to the <userinput>Stock Reservation
+External Endpoint</userinput> and the <userinput>Stock Reservation
+Internal Endpoint</userinput>.</li>
+</ol><p>For more information about certificates, see <xref format="dita"
+href="../Security/se00005_.dita" scope="local" type="concept">Transport
+level security</xref>.</p></li>
+<li>Using a client certificate. You must install a server certificate
+before you use a client certificate.<ol>
+<li>Upload a client certificate, or CA certificate and key on each
+client.</li>
+<li>Add the specific client certificate, or the CA certificate to
+the <uicontrol>trustStore</uicontrol> on the <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> server.
+The <uicontrol>trustStore</uicontrol> points to a file that contains
+trusted certificates so that the server can authenticate the client. </li>
+</ol></li>
+<li>Using FIPS.<p>FIPS increases message security by using cryptography
+that complies with the Federal Information Processing Standards (FIPS).
+Enable FIPS mode by setting the <parmname>FIPS</parmname> parameter
+to <userinput>True</userinput>. You can set <parmname>FIPS</parmname> to <userinput>True</userinput> either
+by using the command line, or by using the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph>. For more
+information about enabling FIPS mode, see <xref format="dita"
+href="../Administering/ad00330_.dita" scope="local" type="concept">Configuring
+security</xref>.</p></li>
+</ul></dd>
+</dlentry></dl></section>
+</conbody>
+</concept>
+<?Pub *0000017593?>

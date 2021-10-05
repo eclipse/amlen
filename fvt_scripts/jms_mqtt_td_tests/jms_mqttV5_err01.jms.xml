@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_mqtt_err01
+
+  Test Category: JMS to/from MQTT
+  
+  Test Description:
+      Test the ability to send messages back and forth between the JMS and MQTT clients.
+      This test errors:
+	  1. MQTT allows Multiple User Property KEYs to be duplicated, JMS will only see the last value set.
+	  2. UNABLE to find a BYTE ARRAY that would be accepted by JMS Client 
+	     yet have MS be unable to convert to STRING for MQTT (UNABLE to TEST THIS)
+	  3. JMS/JMSX Restricted Names - JMS Name limitation, JMSGroupID and JMSGroupSeq are not forwarded
+
+-->
+<LlmJmsTest name="jms_mqttV5_err01_jms">
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_mqttV5_err01</solution>
+    </SyncClient>
+
+    <Action name="syncReset" type="SyncAction">
+        <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+
+    <Action name="syncInit1" type="SyncAction">
+        <ActionParameter name="request">init</ActionParameter>
+        <ActionParameter name="condition">syncPoint</ActionParameter>
+    </Action>
+
+    <Action name="Create_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+        
+    <Action name="SetProps_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="ClientID" value="jms_err01.pub_sub" type="STRING"/>
+        <include>../common/JMS_server.xml</include>
+        <ImaProperty name="Port" value="16102" type="STRING"/>
+    </Action>
+        
+    <Action name="CreateConnection_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+         <ActionParameter name="factory_id">cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession2Rx_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+         <ActionParameter name="structure_id">session_rx_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession2_ReplyTo" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+         <ActionParameter name="structure_id">session_rx_reply_to</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession1Tx_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+         <ActionParameter name="structure_id">session_tx_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession1tx_reply_to" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+         <ActionParameter name="structure_id">session_tx_reply_to</ActionParameter>
+    </Action>
+
+    <Action name="CreateRx_dest1" type="CreateDestination">
+        <ActionParameter name="structure_id">rx_dest1</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/MqttToJms</ApiParameter>
+    </Action>
+
+    <Action name="CreateTx_dest1" type="CreateDestination">
+        <ActionParameter name="structure_id">tx_dest1</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/JmsToMqtt</ApiParameter>
+    </Action>
+
+    <Action name="CreateRx_reply_to" type="CreateDestination">
+        <ActionParameter name="structure_id">rx_reply_to</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/JMS/ReplyTo/MQTT_ResponseTopic</ApiParameter>
+    </Action>
+
+    <Action name="CreateTx_reply_to" type="CreateDestination">
+        <ActionParameter name="structure_id">tx_reply_to</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/MQTT/ResponseTopic/JMSReplyTo</ApiParameter>
+    </Action>
+
+    <Action name="CreateConsumer2Rx_dest1" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_rx_dest1</ActionParameter>
+        <ActionParameter name="dest_id">rx_dest1</ActionParameter>
+        <ActionParameter name="session_id">session_rx_cf1</ActionParameter>
+    </Action>
+        
+    <Action name="CreateConsumer2rx_reply_to" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer_rx_reply_to</ActionParameter>
+        <ActionParameter name="dest_id">rx_reply_to</ActionParameter>
+        <ActionParameter name="session_id">session_rx_reply_to</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer1Tx_dest1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_tx_dest1</ActionParameter>
+        <ActionParameter name="dest_id">tx_dest1</ActionParameter>
+        <ActionParameter name="session_id">session_tx_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer1tx_reply_to" type="CreateProducer">
+        <ActionParameter name="structure_id">producer_tx_reply_to</ActionParameter>
+        <ActionParameter name="dest_id">tx_reply_to</ActionParameter>
+        <ActionParameter name="session_id">session_tx_reply_to</ActionParameter>
+    </Action>        
+    <Action name="StartConnectionTx_cf1" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+        
+    <!-- PRODUCER: Create messages -->
+    <Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+        <ActionParameter name="session_id">session_tx_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <!-- PRODUCER: Set message content -->                
+    <Action name="SetTxtMsg_prod_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+        <ApiParameter name="value">{"TEXT":"test content from JMS"}</ApiParameter>
+    </Action>
+
+    <!-- PRODUCER: Set message Properties -->                
+    <Action name="SetMessageStringProperty" type="SetMessageProperty">
+        <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+        <ApiParameter name="propertyName">GVTStringProperty</ApiParameter>
+        <ApiParameter name="propertyType">Common</ApiParameter>
+        <ApiParameter name="valueType">String</ApiParameter>
+        <ApiParameter name="value">GVT葛渚噓testingUserPropertiesJMS2MQTT</ApiParameter>
+    </Action>
+
+    <Action name="SetMessageGVTProperty" type="SetMessageProperty">
+       <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+	   <!-- Crazy + G dot + GAMMA + T caron -->
+       <ApiParameter name="propertyName">Crazy&#x120;&#x194;&#x164;String</ApiParameter>
+       <ApiParameter name="propertyType">Common</ApiParameter>
+       <ApiParameter name="valueType">String</ApiParameter>
+	   <!-- H stroke + O slash + Thorn + E ogonek + d stroke -->
+       <ApiParameter name="value">&#x126;&#xf8;&#xfe;&#x118;&#x111;</ApiParameter>
+    </Action>
+
+	<!-- 32 bit: 2,147,483,647    FAILS: 64 bit: 9,223,372,036,854,775,807 -->
+    <Action name="SetMessageIntegerProperty" type="SetMessageProperty">
+       <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+       <ApiParameter name="propertyName">SomeIntegerProperty</ApiParameter>
+       <ApiParameter name="propertyType">Common</ApiParameter>
+       <ApiParameter name="valueType">Integer</ApiParameter>    
+       <ApiParameter name="value">2147483647</ApiParameter>
+    </Action>
+
+<!-- PROBLEM:  Can NOT Find a BYTE that will get thru the JMS Client 
+     that can not be convert to string at the MQTT Client - THIS IS UNTESTED STILL -->
+    <Action name="SetMessageByteProperty" type="SetMessageProperty">
+       <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+       <ApiParameter name="propertyName">FailedByte</ApiParameter>
+       <ApiParameter name="propertyType">Common</ApiParameter>
+       <ApiParameter name="valueType">Byte</ApiParameter>
+       <ApiParameter name="value">&#x30;&#x39;</ApiParameter>
+    </Action>
+<!-- I give up trying to find a BYTE that will be acepted by the JMS client but not convertible to String for MQTT -->
+
+<!-- will be 0x03 ContentType in MQTT -->
+    <Action name="SetJMSType" type="SetMessageProperty">
+      <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+      <ApiParameter name="propertyType">MessageType</ApiParameter>
+      <ApiParameter name="value">JMS Hosted JSON Message JMSType</ApiParameter>
+    </Action>
+
+<!-- will be 0x08 ResponseTopic in MQTT -->
+    <Action name="SetJMSReplyTo" type="SetMessageProperty">
+      <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+      <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+      <ApiParameter name="value">rx_reply_to</ApiParameter>
+    </Action>
+
+<!-- will be 0x09 CorrelationData in MQTT -->
+    <Action name="SetJMSCorrelationID" type="SetMessageProperty">
+      <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+      <ApiParameter name="propertyType">CorrelationID</ApiParameter>
+      <ApiParameter name="value">JMS_CorrelationID</ApiParameter>
+    </Action>
+	
+<!-- Property Type = COMMON, otherwise error on ENUM did not recognize JMS*GroupID as type -->
+<!-- JMSGroupID is not forwarded and can not be set  -->
+    <Action name="SetJMSGroupID" type="SetMessageProperty">
+      <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+      <ApiParameter name="propertyName">JMSGroupID</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">JMSGroupID</ApiParameter>
+    </Action>
+        <Action name="GetJMSGroupIDAtProducer" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSGroupID</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+
+    <Action name="SetJMSXGroupID" type="SetMessageProperty">
+      <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+      <ApiParameter name="propertyName">JMSXGroupID</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">JMSXGroup</ApiParameter>
+    </Action>
+
+<!-- Property Type = COMMON, otherwise error on ENUM did not recognize JMS*GroupSeq as type -->
+<!-- JMSGroupSeg is not forwarded and can not be set-->
+    <Action name="SetJMSGroupSeq" type="SetMessageProperty">
+      <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+      <ApiParameter name="propertyName">JMSGroupSeq</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">JMSGroupSeq</ApiParameter>
+    </Action>
+        <Action name="GetJMSGroupSeqAtProducer" type="GetMessageProperty">
+          <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+          <ApiParameter name="propertyName">JMSGroupSeq</ApiParameter>
+          <ApiParameter name="valueType">String</ApiParameter>
+          <ActionParameter name="verifyValue"></ActionParameter>
+        </Action>
+
+
+    <Action name="SetJMSXGroupSeq" type="SetMessageProperty">
+      <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+      <ApiParameter name="propertyName">JMSXGroupSeq</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">JMSXGroupSeq</ApiParameter>
+    </Action>
+	
+    <Action name="SetJMSMessageID" type="SetMessageProperty">
+      <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+      <ApiParameter name="propertyType">MessageID</ApiParameter>
+      <ApiParameter name="value">B52-jms</ApiParameter>
+    </Action>
+
+    
+    <Action name="sync_components_jms1" type="SyncComponentAction">
+        <ActionParameter name="component_name">jms1</ActionParameter>
+        <ActionParameter name="component_list">mqtt1;jms1</ActionParameter>
+        <ActionParameter name="timeout">60000</ActionParameter>
+    </Action>
+
+    <!-- PRODUCER: Send messages -->
+    <Action name="SendTxtMessage_prod_dest1" type="SendMessage" repeat="10" interval="0" thread="2">
+        <dependsOn name="sync_components_jms1" interval="0"/>
+        <ActionParameter name="producer_id">producer_tx_dest1</ActionParameter>
+        <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+    </Action>
+<!--
+
+JMS receive messageWait connect=8: len=379 
+00000: 02820006 04000004 00000000 00000002 00000003 4b000141 1509cb2f 4a6d7354  [....................K..A.../JmsT]
+00032: 6f4d7174 74001502 76016549 484fff15 04d44944 3a423539 35343456 56353142  [oMqtt...v.eIHO....ID:B59544VV51B]
+00064: 39303030 31001505 d24a4d53 5f436f72 72656c61 74696f6e 49440015 06e04a4d  [90001....JMS_CorrelationID....JM]
+00096: 5320486f 73746564 204a534f 4e204d65 73736167 65204a4d 53547970 65001508  [S Hosted JSON Message JMSType...]
+00128: e02f4a4d 532f5265 706c7954 6f2f4d51 54545f52 6573706f 6e736554 6f706963  [./JMS/ReplyTo/MQTT_ResponseTopic]
+00160: 00b24756 54537472 696e6750 726f7065 72747900 ea475654 e8919bef a986e599  [..GVTStringProperty..GVT........]
+00192: 93746573 74696e67 55736572 50726f70 65727469 65734a4d 53324d51 545400ac  [.testingUserPropertiesJMS2MQTT..]
+00224: 4a4d5358 47726f75 70494400 ca4a4d53 5847726f 757000b2 4372617a 79c4a0c6  [JMSXGroupID..JMSXGroup..Crazy...]
+00256: 94c5a453 7472696e 6700cbc4 a6c3b8c3 bec498c4 9100ad4a 4d535847 726f7570  [...String..............JMSXGroup]
+00288: 53657100 cd4a4d53 5847726f 75705365 7100ab46 61696c65 64427974 650039b4  [Seq..JMSXGroupSeq..FailedByte.9.]
+00320: 536f6d65 496e7465 67657250 726f7065 72747900 647fffff ff91207b 22544558  [SomeIntegerProperty.d..... {"TEX]
+00352: 54223a22 74657374 20636f6e 74656e74 2066726f 6d204a4d 53227d             [T":"test content from JMS"}]
+
+MQTT send 30 PUBLISH connect=9: len=410 
+00000: 000a2f4a 6d73546f 4d717474 ec022600 0c4a4d53 54696d65 7374616d 70001832  [../JmsToMqtt..&..JMSTimestamp..2]
+00032: 3031382d 30382d31 37543139 3a30363a 34302e35 31315a26 000c4a4d 534d6573  [018-08-17T19:06:40.511Z&..JMSMes]
+00064: 73616765 49440013 49443a42 35393534 34565635 31423930 30303109 00114a4d  [sageID..ID:B59544VV51B90001...JM]
+00096: 535f436f 7272656c 6174696f 6e494403 001f4a4d 5320486f 73746564 204a534f  [S_CorrelationID...JMS Hosted JSO]
+00128: 4e204d65 73736167 65204a4d 53547970 6508001f 2f4a4d53 2f526570 6c79546f  [N Message JMSType.../JMS/ReplyTo]
+00160: 2f4d5154 545f5265 73706f6e 7365546f 70696326 00114756 54537472 696e6750  [/MQTT_ResponseTopic&..GVTStringP]
+00192: 726f7065 72747900 29475654 e8919bef a986e599 93746573 74696e67 55736572  [roperty.)GVT.........testingUser]
+00224: 50726f70 65727469 65734a4d 53324d51 54542600 0b4a4d53 5847726f 75704944  [PropertiesJMS2MQTT&..JMSXGroupID]
+00256: 00094a4d 53584772 6f757026 00114372 617a79c4 a0c694c5 a4537472 696e6700  [..JMSXGroup&..Crazy......String.]
+00288: 0ac4a6c3 b8c3bec4 98c49126 000c4a4d 53584772 6f757053 6571000c 4a4d5358  [...........&..JMSXGroupSeq..JMSX]
+00320: 47726f75 70536571 26000a46 61696c65 64427974 65000139 26001353 6f6d6549  [GroupSeq&..FailedByte..9&..SomeI]
+00352: 6e746567 65725072 6f706572 7479000a 32313437 34383336 34377b22 54455854  [ntegerProperty..2147483647{"TEXT]
+00384: 223a2274 65737420 636f6e74 656e7420 66726f6d 204a4d53 227d               [":"test content from JMS"}]
+
+-->
+    <Action name="CompositeReceiveMsg" type="CompositeAction" expected="10" interval="0" >
+        <Action name="ReceiveMessage" type="ReceiveMessage"  >
+            <ActionParameter name="consumer_id">consumer_rx_dest1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ApiParameter name="timeout">3000</ApiParameter>
+        </Action>
+            <Action name="GetMessageBytes" type="GetMessageText">
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ActionParameter name="verifyValue">{"TEXT":"test content from MQTT"}</ActionParameter>
+            </Action>
+<!-- Get Message Properties : ONLY have last "Name" value set in MQTT (No Dup Keys) -->
+            <Action name="GetMessageProperty-Name" type="GetMessageProperty">
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ApiParameter name="propertyName">Name</ApiParameter>
+                <ApiParameter name="valueType">String</ApiParameter>
+                <ActionParameter name="verifyValue">Value3</ActionParameter>
+            </Action>
+
+            <Action name="GetMessageProperty-Name_lowercase" type="GetMessageProperty">
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ApiParameter name="propertyName">name</ApiParameter>
+                <ApiParameter name="valueType">String</ApiParameter>
+                <ActionParameter name="verifyValue">value3</ActionParameter>
+            </Action>
+<!-- DEFECT ?  JMSGroupSeq is not making the trip from MQTT 
+            <Action name="GetMessageProperty-JMSGroupSeq" type="GetMessageProperty">
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ApiParameter name="propertyName">JMSGroupSeq</ApiParameter>
+                <ApiParameter name="valueType">String</ApiParameter>
+                <ActionParameter name="verifyValue">MQTTGroupSeq</ActionParameter>
+            </Action>
+-->
+            <Action name="GetMessageProperty-JMSXGroupSeq" type="GetMessageProperty">
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ApiParameter name="propertyName">JMSXGroupSeq</ApiParameter>
+                <ApiParameter name="valueType">String</ApiParameter>
+                <ActionParameter name="verifyValue">MQTTXGroupSeq</ActionParameter>
+            </Action>
+<!-- DEFECT ?  JMSGroupID is not making the trip from MQTT 
+            <Action name="GetMessageProperty-JMSGroupID" type="GetMessageProperty">
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ApiParameter name="propertyName">JMSGroupID</ApiParameter>
+                <ApiParameter name="valueType">String</ApiParameter>
+                <ActionParameter name="verifyValue">MQTTGroupID</ActionParameter>
+            </Action>
+-->
+            <Action name="GetMessageProperty-JMSXGroupID" type="GetMessageProperty"  >
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ApiParameter name="propertyName">JMSXGroupID</ApiParameter>
+                <ApiParameter name="valueType">String</ApiParameter>
+                <ActionParameter name="verifyValue">MQTTXGroupID</ActionParameter>
+            </Action>
+
+            <Action name="GetMessageProperty-JMSMessageID" type="GetMessageProperty">
+                <ActionParameter name="message_id">rxmsg1</ActionParameter>
+                <ApiParameter name="propertyType">MessageID</ApiParameter>
+                <ApiParameter name="valueType">String</ApiParameter>
+                <ActionParameter name="verifyValue">B52-mqtt</ActionParameter>
+            </Action>
+    </Action>
+
+    <Action name="StopConnection_cf1" type="StopConnection">
+        <dependsOn name="SendTxtMessage_prod_dest1"/>
+        <dependsOn name="CompositeReceiveMsg"/>
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+        
+    <Action name="CloseConnection_cf1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+</LlmJmsTest>    

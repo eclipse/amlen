@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2011-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name:
+
+   Test Category: Queues
+   
+   Test Description:
+    TX begins to send 10,000 messages. Another thread sleeps for 1 second, then sets
+   AllowSend=False on the Queue receiving the messages. 
+   RX recieves 1 message to make sure we got something. Then the RX recieves 8000 messages
+   ignoring success (we only expect some fraction of those messages because TX gets cut off).
+   RX then receives 1 message expecting null message. 
+
+-->
+<ImaJmsTest name="jms_queues_disallow_sending">
+  <SyncClient>
+	<server>
+	  <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+	</server>
+	<solution>jms_queues_disallow_sending</solution>
+  </SyncClient>
+
+
+  <!-- RX -->
+  <Action name="rx" type="CompositeAction">
+	<Action name="sync_reset" type="SyncAction">
+	  <ActionParameter name="request">reset</ActionParameter>
+	</Action>
+	<Action name="sync_init" type="SyncAction">
+	  <ActionParameter name="request">init</ActionParameter>
+	  <ActionParameter name="condition">syncPoint</ActionParameter>
+	</Action>
+
+	<Action name="CreateFactory_RX" type="CreateConnectionFactory">
+	  <ActionParameter name="structure_id">CF_rx</ActionParameter>
+	  <ActionParameter name="loglevel">9</ActionParameter>
+	  <ActionParameter name="logfile">stdout</ActionParameter>
+	</Action>
+
+	<Action name="CreateListener_RX" type="CreateExceptionListener">
+	  <ActionParameter name="structure_id">exc_listener</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_RX" type="FillIsmProps">
+	  <ActionParameter name="structure_id">CF_rx</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="ClientID" value="rx_queues_disallow_sending_clientid" type="STRING"/>
+	  <include>../common/JMS_server.xml</include>
+	  <ImaProperty name="Port" value="18458" type="STRING"/>
+	</Action>
+
+	<Action name="CreateConnection_RX" type="CreateConnection">
+	  <ActionParameter name="structure_id">conn_rx</ActionParameter>
+	  <ActionParameter name="factory_id">CF_rx</ActionParameter>
+	  <ApiParameter name="exceptionListener">exc_listener</ApiParameter>
+	</Action>
+
+	<Action name="CreateDestination_RX" type="CreateDestination">
+	  <ApiParameter name="name">JMSQueue15</ApiParameter>
+	  <ActionParameter name="type">queue</ActionParameter>
+	  <ActionParameter name="structure_id">dest_rx</ActionParameter>
+	</Action>
+
+	<Action name="CreateSession_RX" type="CreateSession">
+	  <ActionParameter name="conn_id">conn_rx</ActionParameter>
+	  <ActionParameter name="structure_id">sess_rx</ActionParameter>
+	</Action>
+
+	<Action name="CreateConsumer" type="CreateConsumer">
+	  <ActionParameter name="structure_id">cons</ActionParameter>
+	  <ActionParameter name="dest_id">dest_rx</ActionParameter>
+	  <ActionParameter name="session_id">sess_rx</ActionParameter>
+	</Action>
+
+	<Action name="StartConnection_RX" type="StartConnection">
+	  <ActionParameter name="conn_id">conn_rx</ActionParameter>
+	</Action>
+
+	<Action name="sync_components_RX_1" type="SyncComponentAction"> 
+	  <ActionParameter name="component_name">rx1</ActionParameter>
+	  <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+	  <ActionParameter name="timeout">15000</ActionParameter>
+	</Action>
+
+    <!-- make sure at least 1 message got sent -->
+	<Action name="ReceiveOneMessage" type="ReceiveMessage">
+	  <ActionParameter name="consumer_id">cons</ActionParameter>
+	  <ActionParameter name="structure_id">rxdmsg</ActionParameter>
+	  <ApiParameter name="timeout">4000</ApiParameter>
+	</Action>
+
+    <!-- 10,000 msgs were sent, 1 was received, rx another 8000 -->
+	<Action name="ReceiveRemaining" type="ReceiveMessageLoop">
+	  <ActionParameter name="consumer_id">cons</ActionParameter>
+	  <ActionParameter name="maxID">8000</ActionParameter>
+	  <ActionParameter name="messageIDS">msgs</ActionParameter>
+	  <ApiParameter name="timeout">2000</ApiParameter>
+	</Action>
+
+    <!-- no more available -->
+	<Action name="ReceiveMessage_nomore" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+	  <ActionParameter name="consumer_id">cons</ActionParameter>
+	  <ActionParameter name="structure_id">nomsg</ActionParameter>
+	  <ApiParameter name="timeout">1000</ApiParameter>
+	</Action>
+
+
+    <Action name="sync_components_RX_2" type="SyncComponentAction">
+	  <ActionParameter name="component_name">rx2</ActionParameter>
+	  <ActionParameter name="component_list">tx2;rx2</ActionParameter>
+	  <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_RX" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_rx</ActionParameter>
+    </Action>
+
+  </Action>
+
+
+  <!-- TX -->
+  <Action name="tx" type="CompositeAction">
+	<Action name="CreateFactory_TX" type="CreateConnectionFactory">
+	  <ActionParameter name="structure_id">CF_tx</ActionParameter>
+	  <ActionParameter name="loglevel">9</ActionParameter>
+	  <ActionParameter name="logfile">stdout</ActionParameter>
+	</Action>
+
+	<Action name="CreateListener_TX" type="CreateExceptionListener">
+	  <ActionParameter name="structure_id">exc_listener</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_TX" type="FillIsmProps">
+	  <ActionParameter name="structure_id">CF_tx</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="ClientID" value="tx_queues_disallow_sending_clientid" type="STRING"/>
+	  <include>../common/JMS_server.xml</include>
+	  <ImaProperty name="Port" value="18458" type="STRING"/>
+	</Action>
+
+	<Action name="CreateConnection_TX" type="CreateConnection">
+	  <ActionParameter name="structure_id">conn_tx</ActionParameter>
+	  <ActionParameter name="factory_id">CF_tx</ActionParameter>
+	  <ApiParameter name="exceptionListener">exc_listener</ApiParameter>
+	</Action>
+
+	<Action name="CreateDestination_TX" type="CreateDestination">
+	  <ApiParameter name="name">JMSQueue15</ApiParameter>
+	  <ActionParameter name="type">queue</ActionParameter>
+	  <ActionParameter name="structure_id">dest_tx</ActionParameter>
+	</Action>
+
+	<Action name="CreateSession_TX" type="CreateSession">
+	  <ActionParameter name="conn_id">conn_tx</ActionParameter>
+	  <ActionParameter name="structure_id">sess_tx</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer" type="CreateProducer">
+	  <ActionParameter name="structure_id">prod</ActionParameter>
+	  <ActionParameter name="dest_id">dest_tx</ActionParameter>
+	  <ActionParameter name="session_id">sess_tx</ActionParameter>
+	</Action>
+	
+	<Action name="CreateMessage" type="CreateMessage">
+	  <ActionParameter name="structure_id">txmsg</ActionParameter>
+	  <ActionParameter name="session_id">sess_tx</ActionParameter>
+	  <ApiParameter name="msgType">BYTES</ApiParameter>
+	</Action>
+
+	<Action name="SetMessageText" type="SetMessageText">
+	  <ActionParameter name="message_id">txmsg</ActionParameter>
+	  <ApiParameter name="value">inky pinky was a pig. inky pinky came from Seth. inky pinky went too fast no inky pinky needs to go last!</ApiParameter>
+	</Action>
+
+    <Action name="SetMessagePropID" type="SetMessageProperty">
+      <ActionParameter name="message_id">txmsg</ActionParameter>
+      <ApiParameter name="propertyName">ID</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">1</ApiParameter>
+    </Action>
+
+    <Action name="sync_components_TX_1" type="SyncComponentAction">
+	  <ActionParameter name="component_name">tx1</ActionParameter>
+	  <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+	  <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+
+    <!-- pull the plug while sending messages -->
+    <!-- Action name="DisallowSend" type="ShellAction" thread="2" interval="1000">
+      <dependsOn name="sync_components_TX_1" interval="1000"/>
+      <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=JMSQueue15 AllowSend=False</ActionParameter>
+    </Action -->
+    
+    <Action name="DisallowSend" type="RestAPI"  thread="2" interval="1000">
+    		<dependsOn name="sync_components_TX_1" interval="1000"/>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"JMSQueue15":{"AllowSend":false}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+
+    <Action name="SendLoop1" type="SendMessageLoop" rc="1" reason="CWLNC0216">
+      <ActionParameter name="producer_id">prod</ActionParameter>
+      <ActionParameter name="message_list">txmsg</ActionParameter>
+      <ActionParameter name="maxID">10000</ActionParameter>
+      <ActionParameter name="messageIDS">messageIDs</ActionParameter>
+    </Action>
+
+    <Action name="sync_components_TX_2" type="SyncComponentAction">
+	  <ActionParameter name="component_name">tx2</ActionParameter>
+	  <ActionParameter name="component_list">tx2;rx2</ActionParameter>
+	  <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- re-allow send -->
+    <!-- Action name="ReAllowSend" type="ShellAction">
+      <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=JMSQueue15 AllowSend=True</ActionParameter>
+    </Action -->
+    
+    <Action name="ReAllowSend" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"JMSQueue15":{"AllowSend":true}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+
+
+	<Action name="CloseSession_TX" type="CloseSession">
+	  <ActionParameter name="session_id">sess_tx</ActionParameter>
+	</Action>
+
+	<Action name="StopConnection_TX" type="StopConnection">
+	  <ActionParameter name="conn_id">conn_tx</ActionParameter>
+	</Action>
+
+    <Action name="CloseConnection_TX" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_tx</ActionParameter>
+    </Action>
+
+  </Action>
+
+
+
+
+</ImaJmsTest>

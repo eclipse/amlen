@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="WSTestDriver" default="production" basedir=".">
+
+	<property name="project.dir.name" value="${ant.project.name}" />
+
+	<property name="project.lib.dir" location="lib" />
+	<property name="project.docs.dir" location="${project.lib.dir}/docs" />
+	<property name="project.obj.dir" location="obj" />
+    <property environment="env"/>
+
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+	<property name="client.ship.lib.dir" value="${basedir}/../client_ship/lib"/>
+
+		<property name="src" location="src" />
+	<!-- <property name="src.junit" location="test" /> -->
+	<property name="build" location="${project.obj.dir}/build" />
+	<!-- <property name="junitbuild" location="${project.obj.dir}/test" /> -->
+	<property name="WSTestDriver.jar" location="${project.lib.dir}/WSTestDriver.jar" />
+
+
+    <!--Required Classpath-->
+    <path id="compile.classpath">
+    	<pathelement location="../testTools_DriverSync/lib/DriverSync.jar" />
+        <pathelement location="${client.ship.lib.dir}/ismclientws.jar" />
+        <pathelement location="${client.deps.dir}/com.ibm.micro.client.mqttv3.jar"/>
+       	<pathelement location="${client.ship.lib.dir}/org.eclipse.paho.client.mqttv3.jar" />
+       	<pathelement location="${client.ship.lib.dir}/org.eclipse.paho.mqttv5.client.jar" />
+       	<pathelement location="${client.deps.dir}/vertx-core-3.8.1.jar" />
+        <pathelement location="${client.deps.dir}/netty-buffer-4.1.39.Final.jar" />
+        <pathelement location="${client.deps.dir}/netty-common-4.1.39.Final.jar" />
+        <pathelement location="${client.deps.dir}/netty-transport-4.1.39.Final.jar" />
+        <pathelement location="${client.deps.dir}/netty-resolver-4.1.39.Final.jar" />
+        <pathelement location="${client.deps.dir}/netty-handler-4.1.39.Final.jar" />
+        <pathelement location="${client.deps.dir}/netty-handler-proxy-4.1.39.Final.jar" />
+       	<pathelement location="${client.deps.dir}/com.ibm.jaxrs.thinclient_8.5.0.jar" />
+       	<pathelement location="${client.deps.dir}/kafka-clients-2.0.1.jar" />
+    </path>
+
+    <target name="production" depends="retail, javadoc, ws_publish" description="production build and package">
+		<echo> ==  Invoking ant for testTools_DriverSync build ============= </echo>
+	</target>
+
+    <!-- Build output jar file -->
+	<target name="retail" depends="compile" description="builds jar">
+        <!-- copy MANIFEST.MF file -->
+		<copy file="${src}/META-INF/MANIFEST.MF" todir="${build}/META-INF" failonerror="yes" verbose="true" />
+        <!-- set version= with env.VERSION_ID in the MANIFEST.MF file -->
+		<replace file="${build}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+        <!-- set build= with env.BUILD_ID in the MANIFEST.MF file -->
+		<replace file="${build}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+		<jar destfile="${WSTestDriver.jar}" manifest="${build}/META-INF/MANIFEST.MF">
+			<fileset dir="${build}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" />
+		</jar>
+	</target>
+
+	<!--Compile the project-->
+	<target name="compile" depends="init">
+		<javac  source="1.8" target="1.8" srcdir="${src}" destdir="${build}" debug="Yes" deprecation="Yes">
+	         <classpath refid="compile.classpath" />
+		</javac>
+		<copy todir="${build}" preservelastmodified="yes">
+			<fileset dir="${src}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+	<target name="compile-utils" depends="init">
+        <javac  source="1.8" target="1.8" srcdir="${src.utils}" destdir="${build}" debug="Yes" deprecation="Yes">
+            <classpath refid="compile.classpath" />
+        </javac>
+        <copy todir="${build}" preservelastmodified="yes">
+	        <fileset dir="${src.utils}" excludes="**/*.java" />
+       </copy>
+    </target>
+
+	<target name="init">
+		<mkdir dir="${project.lib.dir}" />
+		<mkdir dir="${project.obj.dir}" />
+		<mkdir dir="${build}" />
+		<!--  <mkdir dir="${junitbuild}" /> -->
+	</target>
+
+	<!-- Generating JAVADOC -->
+	<target name="javadoc" description="generate javadoc">
+		<javadoc packagenames="**.*" sourcepath="src" defaultexcludes="yes" destdir="${project.docs.dir}/api" author="true" version="true" use="true">
+        <classpath refid="compile.classpath" />
+		</javadoc>
+	</target>
+
+	<!-- Copy the product file to ship tree      -->
+	<target name="ws_publish">
+		<echo> ==  Copy files to testTools_ship tree ================ </echo>
+		<copy file="${WSTestDriver.jar}" todir="${testTools.ship.lib.dir}" preservelastmodified="yes"/>
+		<!-- Also copy the new jar files we need! -->
+		<copy todir="${testTools.ship.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/com.ibm.jaxrs.thinclient_8.5.0.jar"/>
+		<copy todir="${testTools.ship.lib.dir}" overwrite="true"
+			file="${client.deps.dir}/kafka-clients-2.0.1.jar"/>
+		<copy todir="${testTools.ship.lib.dir}" overwrite="true"
+			file="${client.ship.lib.dir}/ismclientws.jar"/>
+	</target>
+
+</project>

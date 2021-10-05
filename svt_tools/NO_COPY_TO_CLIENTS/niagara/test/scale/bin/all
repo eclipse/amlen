@@ -1,0 +1,329 @@
+#!/bin/bash
+
+declare scripts=/niagara/test/scripts
+declare bin=/niagara/test/scale/bin
+
+usage()
+{
+  printf "usage:  all <command>\n"
+  printf "\n"
+  printf "<command>:\n"
+  printf "        clientlist\n"
+  printf "        clienthtml\n"
+  printf "        putall <filename>\n"
+  printf "        doall\n"
+  printf "        rmall\n"
+  printf "        serverlist\n"
+}
+
+serverlist()
+{
+  grep A._HOST= /niagara/test/scripts/ISMsetupALL.sh | sed -e "s/.*A._HOST=//" | sort -u
+}
+
+clienthtml()
+{
+  echo \<tr\>
+
+  echo \<td style=\"width: 10px\"\> 
+  echo Group
+  echo \</td\>
+
+  echo \<td style=\"width: 10px\"\> 
+  echo Appliances
+  echo \</td\>
+
+  echo \<td style=\"width: 10px\"\> 
+  echo Clients
+  echo \</td\>
+
+  echo \<td style=\"width: 10px\"\> 
+  echo Comments
+  echo \</td\>
+
+  echo \</tr\>
+  echo \<tr/\>
+
+group listgroups | while read group; do
+  first=1
+
+  group getserver ${group} | read server1 server2
+
+  group listgroupclients ${group} | while read client; do
+  if [ ${first} == 1 ] ; then
+    echo \<tr\>
+
+    echo \<td style=\"width: 10px\"\> 
+    echo ${group}
+    echo \</td\>
+
+    echo \<td style=\"width: 10px\"\> 
+    group getserver ${group}
+    echo \</td\>
+    first=0
+  else
+    echo \<tr\>
+
+    echo \<td style=\"width: 10px\"\> 
+    echo ''
+    echo \</td\>
+
+    echo \<td style=\"width: 10px\"\> 
+    echo ''
+    echo \</td\>
+  fi
+
+  echo \<td style=\"width: 10px\"\> 
+  echo ${client}
+  echo \</td\>
+
+  echo \<td style=\"width: 10px\"\> 
+  client ${client} getcomment
+  echo \</td\>
+
+  echo \</tr\>
+  done
+done
+}
+
+clienthtmlold()
+{
+  echo \<tr\>
+  echo \<td style=\"width: 10px\"\> 
+  echo Client Address
+  echo \</td\>
+
+  echo \<td style=\"width: 10px\"\> 
+  echo GROUP
+  echo \</td\>
+
+  echo \<td style=\"width: 10px\"\> 
+  echo Appliance 1
+  echo \</td\>
+
+  echo \<td style=\"width: 10px\"\> 
+  echo Appliance 2
+  echo \</td\>
+
+  echo \<td style=\"width: 40px\;\"\> 
+  echo Comment
+  echo \</td\>
+  echo \</tr\>
+
+  for i in $(eval echo {1..${M_COUNT}}); do
+    echo \<tr\>
+    echo \<td style=\"width: 10px\"\> 
+    client_address ${i} 9
+    echo \</td\>
+
+    echo \<td style=\"width: 10px\"\> 
+    echo $(eval echo \$\{M${i}_GROUP\})
+    echo \</td\>
+
+    echo \<td style=\"width: 10px\"\> 
+    if [ -n ${A1_HOST} ] ; then
+      echo ${A1_HOST}
+    else
+      echo 'na'
+    fi 
+    echo \</td\>
+
+    echo \<td style=\"width: 10px\"\> 
+    if [ -n ${A2_HOST} ] ; then
+      echo ${A2_HOST}
+    else
+      echo 'na'
+    fi 
+    echo \</td\>
+
+    echo \<td style=\"width: 40px\;\"\> 
+    echo ${M1_COMMENT}
+    echo \</td\>
+
+    echo \</tr\>
+  done
+}
+
+
+client_address()
+{
+  declare host
+  declare client1
+  declare client2
+  declare client3
+  declare client4
+  declare i=$1
+  declare start=$2
+  declare len=${#start}
+
+    host=$(eval echo \$\{M${i}_HOST\})
+    client1=$(eval echo \$\{M${i}_IPv4_1\})
+    client2=$(eval echo \$\{M${i}_IPv4_2\})
+    client3=$(eval echo \$\{M${i}_IPv4_3\})
+    client4=$(eval echo \$\{M${i}_IPv4_4\})
+  
+    if [ "${host:0:${len}}" = "${start}" ] ; then
+      echo ${host}
+    elif [ "${client1:0:${len}}" = "${start}" ] ; then
+      echo ${client1}
+    elif [ "${client2:0:${len}}" = "${start}" ] ; then
+      echo ${client2}
+    elif [ "${client3:0:${len}}" = "${start}" ] ; then
+      echo ${client3}
+    elif [ "${client4:0:${len}}" = "${start}" ] ; then
+      echo ${client4}
+    else
+      echo ${host}
+    fi
+
+  unset start
+  unset len
+  unset host
+  unset client1
+  unset client2
+  unset client3
+  unset client4
+}
+
+
+clientlist()
+{
+  declare start
+
+  if [ -z $1 ]; then
+    start=9
+  else
+    start=$1
+  fi
+  
+  for i in $(eval echo {1..${M_COUNT}}); do
+     client_address ${i} ${start}
+  done
+  
+  unset start
+}
+
+putall()
+{
+
+  declare p
+  declare ip
+  declare list
+  declare local
+  
+  if [ -z "$1" ]; then
+    usage
+  else
+    list=`group clientlist`
+    local=`${bin}/getprivateaddr`
+  
+    if [[ $1 = /* ]]; then
+      f=$1
+    else
+      f=`pwd`/$1
+    fi
+  
+    for ip in ${list}
+    do
+      if [ ${ip} != ${local} ]; then
+        echo scp ${f} $ip:${f}
+        scp ${f} $ip:${f}
+      fi
+    done
+  fi
+  
+  unset p
+  unset ip
+  unset list
+  unset local
+}
+
+doall()
+{
+  declare ip
+  declare list
+  declare local
+  
+
+  list=`${bin}/group clientlist`
+
+  for ip in ${list}
+  do
+    echo ssh ${ip} "$@"
+  done
+
+  read -p "Continue (y/n)? "
+  echo
+
+  if [[ ("$REPLY" == "y")||("$REPLY" == "Y") ]]
+  then
+    for ip in ${list}
+    do
+      echo ssh ${ip} "$@"
+      ssh ${ip} "$@"
+      echo
+    done
+  fi
+
+  unset ip
+  unset list
+  unset local
+}
+
+rmall()
+{
+  declare d
+  declare ip
+  declare f
+  declare list
+
+  d=`pwd`
+
+  list=`${bin}/group clientlist`
+
+  if [[ $1 = /* ]]; then
+    f=$1
+  else
+    f=${d}/$1
+  fi
+
+  for ip in ${list}
+  do
+    echo ssh ${ip} rm -f ${f}
+  done
+
+  read -p "Continue (y/n)? "
+  if [[ ("$REPLY" == "y")||("$REPLY" == "Y") ]]
+  then
+    for ip in ${list}
+    do
+      ssh ${ip} rm -f ${f}
+    done
+  fi
+
+  unset d
+  unset ip
+  unset f
+  unset list
+}
+
+${scripts}/ISMsetup.cfg
+source ${scripts}/ISMsetupALL.sh
+
+if [ -z $1 ] ; then
+  usage
+elif [ "$1" = "clientlist" ] ; then
+  clientlist ${@:2}
+elif [ "$1" = "clienthtml" ] ; then
+  clienthtml ${@:2}
+elif [ "$1" = "putall" ] ; then
+  putall ${@:2}
+elif [ "$1" = "doall" ] ; then
+  doall ${@:2}
+elif [ "$1" = "rmall" ] ; then
+  rmall ${@:2}
+elif [ "$1" = "serverlist" ] ; then
+  serverlist ${@:2}
+else
+  usage
+fi

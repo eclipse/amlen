@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ba00008_" xml:lang="en-us">
+<title>Restoring the high availability environment</title>
+<!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+<!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+<!--Put your short description next; used for first paragraph and abstract.-->
+<shortdesc>System administrators can restore the high availability (HA) environment in <ph
+conref="../TextEntities.dita#TextEntities/ISM"
+/> by using the backup file that was created for the standby server. </shortdesc>
+<!--To optimize PDF retrievability, add prolog and indexing tags that help crystalize why users should be looking up this topic (purpose, task, and what they will learn)-->
+<!--<prolog><metadata><keywords><indexterm></indexterm></keywords></metadata></prolog>-->
+<taskbody>
+<prereq>
+<ul>
+<li> You can restore the backup configuration and store only to the <ph
+          conref="../TextEntities.dita#TextEntities/ISM"
+          /> software level that is greater than, or equal to, the <ph
+          conref="../TextEntities.dita#TextEntities/ISM"
+          /> software level that the file was created with. That is, you cannot use a backup file that was created for a later version of <ph
+          conref="../TextEntities.dita#TextEntities/ISM"
+          /> to restore to an earlier version of server. </li>
+<li>As part of the restore process, you must clean the store unless you are using a backup of the store for this operation. Cleaning the store deletes all persistent data, including messages, subscriptions, and client states.</li>
+<li>MQTT quality of service levels of message delivery cannot be guaranteed.</li>
+<li>If you restore the store from a backed up version, consider that:<ul>
+<li>All messages that were buffered in the store after the store was backed up are lost. </li>
+<li>Retained messages that were sent after the store was backed up are lost.</li>
+<li>Messages that were in store buffers when the store was backed up, and which were sent later and discarded from the store, are restored and resent when subscribers reconnect. They are not marked as duplicate messages for JMS and MQTT.</li>
+<li>Retained messages that were replaced after the store was backed up are restored. The messages that replaced the retained messages are lost.</li>
+</ul></li>
+</ul>
+</prereq>
+<steps>
+<step>
+<cmd>Check that the standby server is running by using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API GET method with the following URI:</cmd>
+<info>
+<codeblock>http://&lt;Standby-Server-IP:port>/ima/v1/service/status/</codeblock>
+</info>
+<substeps>
+<substep>
+<cmd>Verify that the HA role is <codeph>STANDBY</codeph>. If the HA role is <codeph>UNSYNC</codeph>, wait for synchronization to complete before you proceed.</cmd>
+</substep>
+<substep>
+<cmd>If the standby server is in production mode, verify that the value of <parmname>NewRole</parmname> is <codeph>STANDBY</codeph> and that there are 2 <parmname>SyncNodes</parmname>.</cmd>
+</substep>
+</substeps>
+</step>
+<step>
+<cmd>Messaging on the standby server must be stopped to ensure that the store is valid after the restore process. Set the server to maintenance mode using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method with the following URI: </cmd>
+<info>
+<codeblock>http://&lt;Standby-Server-IP:port>/ima/v1/service/restart/</codeblock>
+<p>Provide configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>:</p>
+<codeblock>
+{    
+  "Service": "Server",
+  "Maintenance": "start"
+}</codeblock>
+</info>
+</step>
+<step>
+<cmd>Check that the primary server is running using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API GET method with the following URI: </cmd>
+<info>
+<codeblock>http://&lt;Primary-Server-IP:port>/ima/v1/service/status/</codeblock>
+</info>
+</step>
+<step>
+<cmd>Messaging on the primary server must be stopped to ensure that the store is valid after the restore process. Set the server to maintenance mode using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method with the following URI: </cmd>
+<info>
+<codeblock>http://&lt;Primary-Server-IP:port>/ima/v1/service/restart/</codeblock>
+<p>Provide configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>:</p>
+<codeblock>
+{    
+  "Service": "Server",
+  "Maintenance": "start"
+}</codeblock>
+</info>
+</step>
+<step>
+<cmd>Use standard system tools to restore contents of the backup file to the appropriate directories for the designated primary server: </cmd>
+<info>
+<ul>
+<li><filepath>var/messagesight/data</filepath></li>
+<li><filepath>var/messagesight/store</filepath></li>
+</ul>
+<note>If you are operating in a Docker environment, ensure that you mount these directories on the host volume or volumes and restore the contents of the backup file to the corresponding host directory or directories.</note>
+</info>
+</step>
+<step importance="optional">
+<cmd>If you are not restoring the store data, clean the store on the restored primary server to ensure that the store contents remain synchronized. Use the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method with the following URI:</cmd>
+<info>
+<codeblock>http://&lt;Primary-Server-IP:port>/ima/v1/service/restart/</codeblock>
+<p>Provide configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>:</p>
+<codeblock>
+{    
+  "Service": "Server",
+  "CleanStore": true
+}</codeblock>
+</info>
+</step>
+<step>
+<cmd>When the restored primary server is running, verify that all ntwork settings are correct.</cmd>
+</step>
+<step>
+<cmd>Clean the store on the standby server by using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method with the following URI: </cmd>
+<info>
+<codeblock>http://&lt;Standby-Server-IP:port>/ima/v1/service/restart/</codeblock>
+<p>Provide configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>:</p>
+<codeblock>
+{    
+  "Service": "Server",
+  "CleanStore": true
+}</codeblock>
+</info>
+</step>
+<step id="restartprimary">
+<cmd>Both servers are now ready to be brought back into production mode. You must restart the restored primary server first to ensure that the restored configuration is applied. Set the restored primary server to production mode using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method with the following URI: </cmd>
+<info>
+<codeblock>http://&lt;Primary-Server-IP:port>/ima/v1/service/restart/</codeblock>
+<p>Provide configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>:</p>
+<codeblock>
+{    
+  "Service": "Server",
+  "Maintenance": "stop"
+}</codeblock>
+</info>
+</step>
+<step id="restartstandby">
+        <cmd>Restart the designated standby server and resynchronize it with the new primary server
+          using <ph conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method with the
+          following URI: </cmd>
+        <info>
+          <codeblock>http://&lt;Standby-Server-IP:port>/ima/v1/service/restart/</codeblock>
+          <p>Provide configuration data in the payload of the POST method by using the following
+            schema. <parmname>Content-type</parmname> is set to
+              <userinput>application/json</userinput>:</p>
+          <codeblock>
+{    
+  "Service": "Server",
+  "Maintenance": "stop"
+}</codeblock>
+          <note type="tip">If you have configured your HA environment to use auto-detect mode, you
+            must perform this step immediately after step <xref format="dita"
+              href="ba00008_.dita#ba00008_/restartprimary" scope="local" type="step"/> so that the
+            HA pair can be successfully reestablished. A discovery timeout might occur if there is
+            significant delay between steps <xref format="dita"
+              href="ba00008_.dita#ba00008_/restartprimary" scope="local" type="step"/> and <xref
+              format="dita" href="ba00008_.dita#ba00008_/restartstandby" scope="local" type="step"
+            />. For more information about the discovery timeout, see <xref format="dita"
+              href="../Administering/ad00400_.dita" scope="local" type="concept"/>.</note>
+        </info>
+      </step>
+</steps>
+</taskbody>
+</task>

@@ -1,0 +1,105 @@
+# External LDAP test setup
+#
+# Converted to use all restapis January 2019
+#
+# (Completed, all items migrated)
+#
+#  sslSetup may not ever be used.
+#
+######setup 0 create LDAP Enabled=True URL=ldap://${M1_IPv4_1}:389 Timeout=60 BaseDN=ou=MessageSight,o=IBM UserSuffix=ou=users,ou=MessageSight,o=IBM GroupSuffix=ou=groups,ou=MessageSight,o=IBM UserIdMap=uid GroupIdMap=cn GroupMemberIdMap=member NestedGroupSearch=True
+setup 0 POST configuration {"LDAP":{"Enabled":true,"URL":"ldap://${M1_IPv4_1}:389","Timeout":60,"BaseDN":"ou=MessageSight,o=IBM","UserSuffix":"ou=users,ou=MessageSight,o=IBM","GroupSuffix":"ou=groups,ou=MessageSight,o=IBM","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","NestedGroupSearch":true}}
+
+
+######setup 0 create MessageHub Name=ExternalLDAPHub
+setup 0 POST configuration {"MessageHub":{"ExternalLDAPHub":{}}}
+######setup 0 create ConnectionPolicy Name=ExternalLDAPCP GroupID=group001 Protocol=JMS
+setup 0 POST configuration {"ConnectionPolicy":{"ExternalLDAPCP":{"Protocol":"JMS","GroupID":"group001"}}}
+######setup 0 create MessagingPolicy Name=ExternalLDAPMP GroupID=group001 Protocol=JMS Destination=* DestinationType=Topic "ActionList=Publish,Subscribe"
+setup 0 POST configuration {"TopicPolicy":{"ExternalLDAPMP":{"GroupID":"group001","Protocol":"JMS","Topic":"*","ActionList":"Publish,Subscribe"}}}
+######setup 0 create Endpoint Name=ExternalLDAPEP Enabled=True Port=20008 Protocol=JMS ConnectionPolicies=ExternalLDAPCP MessagingPolicies=ExternalLDAPMP MessageHub=ExternalLDAPHub
+setup 0 POST configuration {"Endpoint":{"ExternalLDAPEP":{"Enabled":true,"Port":20008,"Protocol":"JMS","ConnectionPolicies":"ExternalLDAPCP","TopicPolicies":"ExternalLDAPMP","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"ExternalLDAPHub"}}}
+
+setup 0 POST service/restart {"Service":"Server"}
+
+######enableNested 0 update LDAP NestedGroupSearch=True
+enableNested 0 POST configuration {"LDAP":{"NestedGroupSearch":true}}
+
+######disableNested 0 update LDAP NestedGroupSearch=False
+disableNested 0 POST configuration {"LDAP":{"NestedGroupSearch":false}}
+
+######updateUserIdMap 0 update LDAP UserSuffix= UserIdMap=mail
+updateUserIdMap 0 POST configuration {"LDAP":{"UserSuffix":"","UserIdMap":"mail"}}
+
+######resetUserIdMap 0 update LDAP UserSuffix=ou=users,ou=MessageSight,o=IBM UserIdMap=uid
+resetUserIdMap 0 POST configuration {"LDAP":{"UserSuffix":"ou=users,ou=MessageSight,o=IBM","UserIdMap":"uid"}}
+
+######cleanup 0 delete Endpoint Name=ExternalLDAPEP
+cleanup 0 DELETE configuration/Endpoint/ExternalLDAPEP
+######cleanup 0 delete MessagingPolicy Name=ExternalLDAPMP
+cleanup 0 DELETE configuration/TopicPolicy/ExternalLDAPMP
+######cleanup 0 delete ConnectionPolicy Name=ExternalLDAPCP
+cleanup 0 DELETE configuration/ConnectionPolicy/ExternalLDAPCP
+######cleanup 0 delete MessageHub Name=ExternalLDAPHub
+cleanup 0 DELETE configuration/MessageHub/ExternalLDAPHub
+######cleanup 0 delete LDAP
+cleanup 0 POST configuration {"LDAP":{"Enabled":false}}
+cleanup 0 POST service/restart {"Service":"Server"}
+
+######setupHAb 0 create MessageHub Name=ExternalLDAPHub
+setupHAb 0 POST configuration {"MessageHub":{"ExternalLDAPHub":{}}}
+######setupHAb 0 create ConnectionPolicy Name=ExternalLDAPCP GroupID=group001 Protocol=JMS
+setupHAb 0 POST configuration {"ConnectionPolicy":{"ExternalLDAPCP":{"Protocol":"JMS","GroupID":"group001"}}}
+######setupHAb 0 create MessagingPolicy Name=ExternalLDAPMP GroupID=group001 Protocol=JMS Destination=* DestinationType=Topic "ActionList=Publish,Subscribe"
+setupHAb 0 POST configuration {"TopicPolicy":{"ExternalLDAPMP":{"GroupID":"group001","Protocol":"JMS","Topic":"*","ActionList":"Publish,Subscribe"}}}
+######setupHAb 0 create Endpoint Name=ExternalLDAPEP Enabled=True Port=20008 Protocol=JMS ConnectionPolicies=ExternalLDAPCP MessagingPolicies=ExternalLDAPMP MessageHub=ExternalLDAPHub
+setupHAb 0 POST configuration {"Endpoint":{"ExternalLDAPEP":{"Enabled":true,"Port":20008,"Protocol":"JMS","ConnectionPolicies":"ExternalLDAPCP","TopicPolicies":"ExternalLDAPMP","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"ExternalLDAPHub"}}}
+
+######cleanupHA 0 delete Endpoint Name=ExternalLDAPEP
+cleanupHA 0 DELETE configuration/Endpoint/ExternalLDAPEP
+######cleanupHA 0 delete MessagingPolicy Name=ExternalLDAPMP
+cleanupHA 0 DELETE configuration/TopicPolicy/ExternalLDAPMP
+######cleanupHA 0 delete ConnectionPolicy Name=ExternalLDAPCP
+cleanupHA 0 DELETE configuration/ConnectionPolicy/ExternalLDAPCP
+######cleanupHA 0 delete MessageHub Name=ExternalLDAPHub
+cleanupHA 0 DELETE configuration/MessageHub/ExternalLDAPHub
+######cleanupHA 0 delete LDAP
+cleanupHA 0 POST configuration {"LDAP":{"Enabled":false}}
+
+
+##  February 2019 - Updating tests.  First "test" with incorrect cert uploaded for use as LDAP object cert. 
+######sslSetup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaCA-crt.pem imaCA.pem
+sslSetup 0 PUT file ${M1_TESTROOT}/common/imaCA-crt.pem imaCA.pem
+######sslSetup 0 apply Certificate LDAPCertificate=imaCA.pem (Certificate=imaCA.pem Overwrite=True)
+sslSetup 0 POST configuration {"LDAP":{"Certificate":"imaCA.pem","Overwrite":true}}
+
+###### Test connection -- use "Verify":true so that the update is not committed and use "CheckServerCert":"TrustStore" to enforce that only a valid cert can be loaded.
+###### Failure is expected
+######sslSetup - create LDAP Enabled=True URL=ldaps://${M1_IPv4_1}:6636 Timeout=60 BaseDN=ou=MessageSight,o=IBM UserSuffix=ou=users,ou=MessageSight,o=IBM GroupSuffix=ou=groups,ou=MessageSight,o=IBM UserIdMap=uid GroupIdMap=cn GroupMemberIdMap=member NestedGroupSearch=True 
+sslSetup - POST configuration {"LDAP":{"Enabled":true,"URL":"ldaps://${M1_IPv4_1}:6636","Verify":true,"CheckServerCert":"TrustStore","Timeout":60,"BaseDN":"ou=MessageSight,o=IBM","UserSuffix":"ou=users,ou=MessageSight,o=IBM","GroupSuffix":"ou=groups,ou=MessageSight,o=IBM","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","NestedGroupSearch":true}}
+
+##  Now update the cert file and save it as the correct cert config.
+######sslSetup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem imaCA.pem
+sslSetup 0 PUT file ${M1_TESTROOT}/common/rootCA-crt.pem imaCA.pem
+######sslSetup 0 apply Certificate LDAPCertificate=imaCA.pem (Certificate=imaCA.pem Overwrite=True)
+sslSetup 0 POST configuration {"LDAP":{"Certificate":"imaCA.pem","Overwrite":true}}
+
+###### Test connection -- use "Verify":true so that the update is not committed and use "CheckServerCert":"TrustStore" to enforce that only a valid cert can be loaded.
+###### Success is expected
+######sslSetup 0 create LDAP Enabled=True URL=ldaps://${M1_IPv4_1}:6636 Timeout=60 BaseDN=ou=MessageSight,o=IBM UserSuffix=ou=users,ou=MessageSight,o=IBM GroupSuffix=ou=groups,ou=MessageSight,o=IBM UserIdMap=uid GroupIdMap=cn GroupMemberIdMap=member NestedGroupSearch=True 
+sslSetup 0 POST configuration {"LDAP":{"Enabled":true,"URL":"ldaps://${M1_IPv4_1}:6636","Verify":true,"CheckServerCert":"TrustStore","Timeout":60,"BaseDN":"ou=MessageSight,o=IBM","UserSuffix":"ou=users,ou=MessageSight,o=IBM","GroupSuffix":"ou=groups,ou=MessageSight,o=IBM","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","NestedGroupSearch":true}}
+
+##  Now commit the update correct cert config (omit "Verify":true). And commit with "CheckServerCert" set to "TrustStore" so that an invalid cert cannot replace the valid cert!
+sslSetup 0 POST configuration {"LDAP":{"Enabled":true,"URL":"ldaps://${M1_IPv4_1}:6636","CheckServerCert":"TrustStore","Timeout":60,"BaseDN":"ou=MessageSight,o=IBM","UserSuffix":"ou=users,ou=MessageSight,o=IBM","GroupSuffix":"ou=groups,ou=MessageSight,o=IBM","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","NestedGroupSearch":true}}
+
+######sslSetup 0 POST configuration {"LDAP":{"Verify":true,"URL":"ldaps://${M1_IPv4_1}:6636"}}
+
+######sslSetup 0 create MessageHub Name=ExternalLDAPHub
+sslSetup 0 POST configuration {"MessageHub":{"ExternalLDAPHub":{}}}
+######sslSetup 0 create ConnectionPolicy Name=ExternalLDAPCP GroupID=group001 Protocol=JMS
+sslSetup 0 POST configuration {"ConnectionPolicy":{"ExternalLDAPCP":{"Protocol":"JMS","GroupID":"group001"}}}
+######sslSetup 0 create MessagingPolicy Name=ExternalLDAPMP GroupID=group001 Protocol=JMS Destination=* DestinationType=Topic "ActionList=Publish,Subscribe"
+sslSetup 0 POST configuration {"TopicPolicy":{"ExternalLDAPMP":{"GroupID":"group001","Protocol":"JMS","Topic":"*","ActionList":"Publish,Subscribe"}}}
+######sslSetup 0 create Endpoint Name=ExternalLDAPEP Enabled=True Port=20008 Protocol=JMS ConnectionPolicies=ExternalLDAPCP MessagingPolicies=ExternalLDAPMP MessageHub=ExternalLDAPHub
+sslSetup 0 POST configuration {"Endpoint":{"ExternalLDAPEP":{"Enabled":true,"Port":20008,"Protocol":"JMS","ConnectionPolicies":"ExternalLDAPCP","TopicPolicies":"ExternalLDAPMP","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"ExternalLDAPHub"}}}
+
+sslSetup 0 POST service/restart {"Service":"Server"}

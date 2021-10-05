@@ -1,0 +1,812 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_cmtr_topic
+
+   Test Category:  JCA XA Tests
+   
+   Test Description:
+   This test verifies that we see the expected behavior when using a
+   message-driven bean within a container managed transaction with attribute
+   Required, and a stateless session bean also using container managed
+   transactions.
+   
+   TestProps #1200 - MDB invokes an EJB which also has Required attribute
+        - successfully receives messages
+   TestProps #1201 - MDB invokes an EJB which has RequiresNew attribute
+   TestProps #1202 - MDB invokes an EJB which has Supports attribute
+   TestProps #1203 - MDB invokes an EJB which has Mandatory attribute
+   TestProps #1204 - MDB invokes an EJB which has NotSupported attribute
+   TestProps #1205 - MDB invokes an EJB which has Never attribute  
+
+  -->
+<ImaJcaTest name="jca_cmtr_topic">
+
+    <include>../common/jms_jndi_ldap.xml</include>
+
+    <Action name="Single" type="CompositeAction">
+        
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+             <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyTopic_ContainerR</ActionParameter>
+        </Action>
+
+	    <!-- log topic -->
+    <Action name="Create_log_dest1200" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1200</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1200</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1201" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1201</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1201</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1202" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1202</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1202</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1203" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1203</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1203</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1204" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1204</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1204</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1205" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1205</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1205</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+
+    <!-- log consumer -->
+    <Action name="CreateConsumerLog1200" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1200</ActionParameter>
+      <ActionParameter name="dest_id">logDest1200</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1201" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1201</ActionParameter>
+      <ActionParameter name="dest_id">logDest1201</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1202" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1202</ActionParameter>
+      <ActionParameter name="dest_id">logDest1202</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1203" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1203</ActionParameter>
+      <ActionParameter name="dest_id">logDest1203</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1204" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1204</ActionParameter>
+      <ActionParameter name="dest_id">logDest1204</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1205" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1205</ActionParameter>
+      <ActionParameter name="dest_id">logDest1205</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+        <!-- Test 1200: Stateless Container Bean from CMTR MDB -->
+        <!--            Required EJB -->
+
+        <Action name="CreateConsumer1200" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1200</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+		<Action name="CompositeRcv1200" type="CompositeAction" repeat="10">
+	        <Action name="RcvObjMessage1200_consumer1" type="ReceiveMessage">
+	            <ActionParameter name="consumer_id">consumer1200</ActionParameter>
+	            <ActionParameter name="structure_id">rx_obj_msg1200</ActionParameter>
+	            <ApiParameter name="timeout">60000</ApiParameter>
+	        </Action>
+	
+	        <Action name="GetTestProps1200" type="GetTestPropsMsg">
+	            <ActionParameter name="message_id">rx_obj_msg1200</ActionParameter>
+	            <ActionParameter name="verifyValue">1200</ActionParameter>
+	        </Action>
+        </Action>
+
+        <Action name="HitServlet1200" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1200"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1200</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1200.log</ActionParameter>
+        </Action>
+
+	    <Action name="RX_and_Check_Log_Msgs_1200" type="CompositeAction" repeat="10">
+	      <dependsOn name="HitServlet1200"/>
+	      <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1200</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	      </Action>
+	
+	      <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	      </Action>
+	    </Action>
+
+        <Action name="CloseConsumer1200" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1200</ActionParameter>
+        </Action>
+
+        <!-- End Test 1200 -->
+
+        <!-- Test 1201: Stateless Container Bean from CMTR MDB -->
+        <!--            Requires New EJB -->
+
+        <Action name="CreateConsumer1201" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1201</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+		<Action name="CompositeRcv1201" type="CompositeAction" repeat="10">
+	        <Action name="RcvObjMessage1201_consumer1" type="ReceiveMessage">
+	            <ActionParameter name="consumer_id">consumer1201</ActionParameter>
+	            <ActionParameter name="structure_id">rx_obj_msg1201</ActionParameter>
+	            <ApiParameter name="timeout">60000</ApiParameter>
+	        </Action>
+	
+	        <Action name="GetTestProps1201" type="GetTestPropsMsg">
+	            <ActionParameter name="message_id">rx_obj_msg1201</ActionParameter>
+	            <ActionParameter name="verifyValue">1201</ActionParameter>
+	        </Action>
+		</Action>
+		
+        <Action name="HitServlet1201" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1201"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1201</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1201.log</ActionParameter>
+        </Action>
+
+	    <Action name="RX_and_Check_Log_Msgs_1201" type="CompositeAction" repeat="10">
+	      <dependsOn name="HitServlet1201"/>
+	      <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1201</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	      </Action>
+	
+	      <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	      </Action>
+	    </Action>
+
+        <Action name="CloseConsumer1201" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1201</ActionParameter>
+        </Action>
+
+        <!-- End Test 1201 -->
+
+        <!-- Test 1202: Stateless Container Bean from CMTR MDB -->
+        <!--            Supports EJB -->
+
+        <Action name="CreateConsumer1202" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1202</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+		<Action name="CompositeRcv_1202" type="CompositeAction" repeat="10">
+	        <Action name="RcvObjMessage1202_consumer1" type="ReceiveMessage">
+	            <ActionParameter name="consumer_id">consumer1202</ActionParameter>
+	            <ActionParameter name="structure_id">rx_obj_msg1202</ActionParameter>
+	            <ApiParameter name="timeout">60000</ApiParameter>
+	        </Action>
+	
+	        <Action name="GetTestProps1202" type="GetTestPropsMsg">
+	            <ActionParameter name="message_id">rx_obj_msg1202</ActionParameter>
+	            <ActionParameter name="verifyValue">1202</ActionParameter>
+	        </Action>
+		</Action>
+
+        <Action name="HitServlet1202" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1202"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1202</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1202.log</ActionParameter>
+        </Action>
+
+	    <Action name="RX_and_Check_Log_Msgs_1202" type="CompositeAction" repeat="10">
+	      <dependsOn name="HitServlet1202"/>
+	      <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1202</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	      </Action>
+	
+	      <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	      </Action>
+	    </Action>
+
+        <Action name="CloseConsumer1202" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1202</ActionParameter>
+        </Action>
+
+        <!-- End Test 1202 -->
+
+        <!-- Test 1203: Stateless Container Bean from CMTR MDB -->
+        <!--            Mandatory EJB -->
+
+        <Action name="CreateConsumer1203" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1203</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+		<Action name="CompositeRcv_1203" type="CompositeAction" repeat="10">
+	        <Action name="RcvObjMessage1203_consumer1" type="ReceiveMessage">
+	            <ActionParameter name="consumer_id">consumer1203</ActionParameter>
+	            <ActionParameter name="structure_id">rx_obj_msg1203</ActionParameter>
+	            <ApiParameter name="timeout">60000</ApiParameter>
+	        </Action>
+	
+	        <Action name="GetTestProps1203" type="GetTestPropsMsg">
+	            <ActionParameter name="message_id">rx_obj_msg1203</ActionParameter>
+	            <ActionParameter name="verifyValue">1203</ActionParameter>
+	        </Action>
+		</Action>
+		
+        <Action name="HitServlet1203" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1203"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1203</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1203.log</ActionParameter>
+        </Action>
+
+		<Action name="RX_and_Check_Log_Msgs_1203" type="CompositeAction" repeat="10">
+	      <dependsOn name="HitServlet1203"/>
+	      <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1203</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	      </Action>
+	
+	      <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	      </Action>
+	    </Action>
+
+        <Action name="CloseConsumer1203" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1203</ActionParameter>
+        </Action>
+
+        <!-- End Test 1203 -->
+
+        <!-- Test 1204: Stateless Container Bean from CMTR MDB -->
+        <!--            NotSupported EJB -->
+
+        <Action name="CreateConsumer1204" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1204</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+		<Action name="CompositeRcv_1204" type="CompositeAction" repeat="10">
+	        <Action name="RcvObjMessage1204_consumer1" type="ReceiveMessage">
+	            <ActionParameter name="consumer_id">consumer1204</ActionParameter>
+	            <ActionParameter name="structure_id">rx_obj_msg1204</ActionParameter>
+	            <ApiParameter name="timeout">60000</ApiParameter>
+	        </Action>
+	
+	        <Action name="GetTestProps1204" type="GetTestPropsMsg">
+	            <ActionParameter name="message_id">rx_obj_msg1204</ActionParameter>
+	            <ActionParameter name="verifyValue">1204</ActionParameter>
+	        </Action>
+        </Action>
+
+        <Action name="HitServlet1204" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1204"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1204</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1204.log</ActionParameter>
+        </Action>
+
+	<Action name="RX_and_Check_Log_Msgs_1204" type="CompositeAction" repeat="10">
+	    <dependsOn name="HitServlet1204"/>
+	    <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1204</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	    </Action>
+	</Action>
+
+        <Action name="CloseConsumer1204" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1204</ActionParameter>
+        </Action>
+
+        <!-- End Test 1204 -->
+
+        <!-- Test 1205: Stateless Container Bean from CMTR MDB -->
+        <!--            Never EJB -->
+
+        <Action name="CreateConsumer1205" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1205</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage1205_consumer1" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer1205</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1205</ActionParameter>
+            <ApiParameter name="timeout">10000</ApiParameter>
+        </Action>
+
+        <Action name="HitServlet1205" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1205"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1205</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1205.log</ActionParameter>
+        </Action>
+
+        <Action name="CloseConsumer1205" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1205</ActionParameter>
+        </Action>
+
+	<Action name="RX_and_Check_Log_Msgs_1205" type="CompositeAction" repeat="1">
+	    <dependsOn name="HitServlet1205"/>
+	    <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1205</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	    </Action>
+	</Action>
+
+        <!-- End Test 1205 -->
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+
+    <Action name="Cluster" type="CompositeAction">
+        
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+             <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+	    <!-- log topic -->
+    <Action name="Create_log_dest1200" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1200</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1200</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1201" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1201</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1201</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1202" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1202</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1202</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1203" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1203</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1203</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1204" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1204</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1204</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1205" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1205</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1205</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+
+    <!-- log consumer -->
+    <Action name="CreateConsumerLog1200" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1200</ActionParameter>
+      <ActionParameter name="dest_id">logDest1200</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1201" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1201</ActionParameter>
+      <ActionParameter name="dest_id">logDest1201</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1202" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1202</ActionParameter>
+      <ActionParameter name="dest_id">logDest1202</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1203" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1203</ActionParameter>
+      <ActionParameter name="dest_id">logDest1203</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1204" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1204</ActionParameter>
+      <ActionParameter name="dest_id">logDest1204</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1205" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1205</ActionParameter>
+      <ActionParameter name="dest_id">logDest1205</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyTopic_ContainerR</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <!-- Test 1200: Stateless Container Bean from CMTR MDB -->
+        <!--            Required EJB -->
+
+        <Action name="CreateConsumer1200" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1200</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv1200" type="CompositeAction" repeat="30">
+            <Action name="RcvObjMessage1200_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer1200</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1200</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps1200" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1200</ActionParameter>
+                <ActionParameter name="verifyValue">1200</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="HitServlet1200" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1200"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1200</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1200.log</ActionParameter>
+        </Action>
+
+	<Action name="RX_and_Check_Log_Msgs_1200" type="CompositeAction" repeat="30">
+	    <dependsOn name="HitServlet1200"/>
+	    <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1200</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	    </Action>
+	</Action>
+
+        <Action name="CloseConsumer1200" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1200</ActionParameter>
+        </Action>
+
+        <!-- End Test 1200 -->
+
+        <!-- Test 1201: Stateless Container Bean from CMTR MDB -->
+        <!--            MDB invokes an EJB which has RequiresNew attribute -->
+
+        <Action name="CreateConsumer1201" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1201</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv1201" type="CompositeAction" repeat="30">
+            <Action name="RcvObjMessage1201_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer1201</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1201</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps1201" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1201</ActionParameter>
+                <ActionParameter name="verifyValue">1201</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="HitServlet1201" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1201"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1201</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1201.log</ActionParameter>
+        </Action>
+
+	<Action name="RX_and_Check_Log_Msgs_1201" type="CompositeAction" repeat="30">
+	    <dependsOn name="HitServlet1201"/>
+	    <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1201</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	    </Action>
+	</Action>
+
+        <Action name="CloseConsumer1201" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1201</ActionParameter>
+        </Action>
+
+        <!-- End Test 1201 -->
+
+        <!-- Test 1202: Stateless Container Bean from CMTR MDB -->
+        <!--            MDB invokes an EJB which has Supports attribute -->
+
+        <Action name="CreateConsumer1202" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1202</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv1202" type="CompositeAction" repeat="30">
+            <Action name="RcvObjMessage1202_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer1202</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1202</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps1202" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1202</ActionParameter>
+                <ActionParameter name="verifyValue">1202</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="HitServlet1202" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1202"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1202</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1202.log</ActionParameter>
+        </Action>
+
+	<Action name="RX_and_Check_Log_Msgs_1202" type="CompositeAction" repeat="30">
+	    <dependsOn name="HitServlet1202"/>
+	    <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1202</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	    </Action>
+	</Action>
+
+        <Action name="CloseConsumer1202" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1202</ActionParameter>
+        </Action>
+
+        <!-- End Test 1202 -->
+
+        <!-- Test 1203: Stateless Container Bean from CMTR MDB -->
+        <!--            MDB invokes an EJB which has Mandatory attribute -->
+
+        <Action name="CreateConsumer1203" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1203</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv1203" type="CompositeAction" repeat="30">
+            <Action name="RcvObjMessage1203_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer1203</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1203</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps1203" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1203</ActionParameter>
+                <ActionParameter name="verifyValue">1203</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="HitServlet1203" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1203"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1203</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1203.log</ActionParameter>
+        </Action>
+
+	<Action name="RX_and_Check_Log_Msgs_1203" type="CompositeAction" repeat="30">
+	    <dependsOn name="HitServlet1203"/>
+	    <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1203</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	    </Action>
+	</Action>
+
+        <Action name="CloseConsumer1203" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1203</ActionParameter>
+        </Action>
+
+        <!-- End Test 1203 -->
+
+        <!-- Test 1204: Stateless Container Bean from CMTR MDB -->
+        <!--            MDB invokes an EJB which has NotSupported attribute -->
+
+        <Action name="CreateConsumer1204" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1204</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv1204" type="CompositeAction" repeat="30">
+            <Action name="RcvObjMessage1204_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer1204</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1204</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps1204" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1204</ActionParameter>
+                <ActionParameter name="verifyValue">1204</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="HitServlet1204" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1204"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1204</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1204.log</ActionParameter>
+        </Action>
+
+	<Action name="RX_and_Check_Log_Msgs_1204" type="CompositeAction" repeat="30">
+	    <dependsOn name="HitServlet1204"/>
+	    <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1204</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	    </Action>
+	</Action>
+
+        <Action name="CloseConsumer1204" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1204</ActionParameter>
+        </Action>
+
+        <!-- End Test 1204 -->
+
+        <!-- Test 1205: Stateless Container Bean from CMTR MDB -->
+        <!--            MDB invokes an EJB which has Never attribute --> 
+
+        <Action name="CreateConsumer1205" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer1205</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage1205_consumer1" type="ReceiveMessage" repeat="3">
+            <ActionParameter name="consumer_id">consumer1205</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1205</ActionParameter>
+            <ApiParameter name="timeout">10000</ApiParameter>
+        </Action>
+
+        <Action name="HitServlet1205" type="HttpAction" thread="2">
+            <dependsOn name="CreateConsumer1205"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">1205</ActionParameter>
+            <ActionParameter name="output">JCAServlet.1205.log</ActionParameter>
+        </Action>
+
+        <Action name="CloseConsumer1205" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer1205</ActionParameter>
+        </Action>
+
+	<Action name="RX_and_Check_Log_Msgs_1205" type="CompositeAction" repeat="3">
+	    <dependsOn name="HitServlet1205"/>
+	    <Action name="RX_Log" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer1205</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	    </Action>
+	</Action>
+
+        <!-- End Test 1205 -->
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+</ImaJcaTest>

@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+<project name="proxy" default="build-proxy" basedir=".">
+	<property name="build.dir" location="${basedir}" />
+	<property environment="env"/>
+	<condition property="nogui" value="${env.NOGUI}" else="0">
+		<isset property="env.NOGUI" />
+	</condition>
+
+	<!-- Properties already set by RTC build include:
+	 - buildLabel
+	 - buildResultUUID
+	 -->
+
+	<!-- Loadd contrib library -->
+	<taskdef resource="net/sf/antcontrib/antlib.xml" />
+
+	<!-- Load local properties -->
+	<property file="${build.dir}/server_build.properties" />
+
+	<property name="workspace" location="${build.dir}/.." />
+
+	<!-- if we have a buildResultUUID, we are a jazz build -->
+	<condition property="is.jazz.build">
+		<isset property="buildResultUUID" />
+	</condition>
+	<condition property="is.manual.build">
+		<not>
+			<isset property="is.jazz.build" />
+		</not>
+	</condition>
+
+	<!-- only publish if we're told to, and have somewhere to put it -->
+	<condition property="can.publish">
+		<and>
+			<istrue value="${publish}" />
+			<isset property="buildLabel" />
+		</and>
+	</condition>
+
+	<!-- If we don't have a build label, set a default -->
+	<property name="buildLabel" value="11111111-1111" />
+
+	<!-- Load jazz build toolkit if its there -->
+	<import file="${buildToolkit}/BuildToolkitTaskDefs.xml" optional="true" />
+
+	<!-- main build target -->
+	<target name="build-proxy" depends="build-init, jazz-build, manual-build" />
+
+	<target name="jazz-build" if="is.jazz.build">
+		<antcall target="setup-bedrock-env" />
+		<antcall target="build-server_proxy" />
+		<antcall target="build-client_proxy" />
+		<antcall target="check-build" />
+		<antcall target="cunit-server" />
+		<antcall target="proxy-publish" />
+		<antcall target="change-perms" />
+		<antcall target="staf-event" />
+	</target>
+
+	<target name="manual-build" depends="build-init" if="is.manual.build">
+		<!--antcall target="setup-bedrock-env" /-->
+		<antcall target="build-server_proxy" />
+		<antcall target="build-client_proxy" />
+		<antcall target="check-build" />
+	</target>
+
+	<!-- Setup bedrock environment -->
+	<target name="setup-bedrock-env">
+		<build.activity label="Setting up Bedrock build environment" activityIdProperty="startSetupBuildId" />
+		<exec dir="${basedir}" executable="${basedir}/setup_bedrock_env.sh" resolveexecutable="true" failonerror="true">
+			<arg value="${workspace}" />
+			<arg value="${ISM_BUILD_ID}" />
+			<arg value="${ISM_VERSION_ID}" />
+			<arg value="${BEDROCK_SDK}" />
+			<arg value="${ACTIVATION_ENGINE}" />
+			<arg value="${buildLabel}" />
+			<arg value="${BRMCP_CACHEDIR}" />
+			<arg value="${BEDROCK_SDK_DIR}" />
+			<arg value="${JAVA_RPM}" />
+			<env key="BLD_TYPE" value="${buildType}" />
+		</exec>
+	</target>
+
+	<!-- build server projects first -->
+	<!--
+	     The order should be utils, proxy
+	-->
+	<target name="build-server_proxy" depends="build-init">	
+		
+		<build.activity label="Compiling server_utils" activityIdProperty="compilingServerUtilsId" />
+		<ant dir="${basedir}/../server_utils" inheritRefs="true" />
+		
+		<build.activity label="Compiling server_proxy" activityIdProperty="compilingServerUtilsId" />
+		<ant dir="${basedir}/../server_proxy" inheritRefs="true" />
+
+		<if>
+			<equals arg1="${is.jazz.build}" arg2="true" />
+			<then>
+				<logPublisher failOnError="false" repositoryAddress="${repositoryAddress}" userId="${jazzBuildUserId}" passwordFile="${jazzBuildUserEncryptedPasswdFile}" buildResultUUID="${buildResultUUID}" filePath="${workspace}/build_log/server_utils_beamreport.txt" label="server_utils BEAM report" />
+				<logPublisher failOnError="false" repositoryAddress="${repositoryAddress}" userId="${jazzBuildUserId}" passwordFile="${jazzBuildUserEncryptedPasswdFile}" buildResultUUID="${buildResultUUID}" filePath="${workspace}/build_log/proxy_beamreport.txt" label="server_proxy BEAM report" />
+			</then>
+		</if>
+		
+		<antcall target="check-build-manual" />
+	</target>
+	
+	<target name="build-client_proxy" depends="build-init">    
+		<subant target="build_client_proxy">
+		  <fileset dir="../client_proxy" includes="build.xml"/>
+	    </subant>
+    </target>
+
+	<!-- clean client projects after server build and before client build for Jazz builds. -->
+	<target name="client-clean">
+		<build.activity label="Cleaning client" activityIdProperty="startClientCleanId" />
+		<ant dir="${workspace}/client_build" inheritRefs="true" target="client_clean" />
+	</target>
+
+
+	<!-- Run CUnit Test -->
+	<target name="cunit-server" depends="build-init">
+		<build.activity label="Running server_proxy CUnit Tests" activityIdProperty="runningServerUtilsId" />
+		<ant dir="${basedir}/../server_proxy" inheritRefs="true" target="cunit-srv-proxy" />
+	</target>
+
+
+	<target name="tmp_copy">
+		<mkdir dir="${workspace}/server_ship/test/server_proxy" />
+		<copy todir="${workspace}/server_ship/test/server_proxy">
+			<fileset dir="${workspace}/server_proxy/bin">
+				<exclude name="**/*.o" />
+				<exclude name="**/*.so.map" />
+			</fileset>
+		</copy>
+
+	</target>
+
+	<!-- Copy the built files to publish tree -->
+	<target name="proxy-publish" if="can.publish">
+		<build.activity label="Publishing PROXY" activityIdProperty="startISMPublishId" />
+
+		<!-- make dir structure -->
+		<mkdir dir="publish/${buildLabel}/application" />
+
+		<exec dir="${basedir}" executable="${basedir}/proxy_build_publish.sh" resultproperty="app-retcode" resolveexecutable="true">
+			<arg value="${workspace}" />
+			<arg value="${RSYNCCMD}" />
+
+			<env key="BUILD_LABEL" value="${buildLabel}" />
+			<env key="PUBLISH_DIR" value="${proxyPublishBuild}" />
+			<env key="IMA_PROXY_VERSION_ID" value="${IMA_PROXY_VERSION_ID}" />
+			<env key="BLD_TYPE" value="${buildType}" />
+		</exec>
+
+		<condition property="app-errcode">
+			<not>
+				<equals arg1="${app-retcode}" arg2="0" />
+			</not>
+		</condition>
+		<fail message="proxy-publish failed with exit code ${app-retcode}">
+			<condition>
+				<isset property="app-errcode" />
+			</condition>
+		</fail>
+	</target>
+
+	<!-- Change permissions so users can access the data -->
+	<target name="change-perms">
+		<build.activity label="Changing workspace permissions so users can access data" activityIdProperty="runChOwn" />
+
+		<exec dir="${basedir}" executable="${basedir}/change_perms.sh" resultproperty="perms-retcode" resolveexecutable="true">
+			<arg value="${workspace}" />
+			<arg value="${BEDROCK_SDK}" />
+			<arg value="${IMABUILDER}" />
+			<arg value="${IMAGROUP}" />
+		</exec>
+
+		<!-- Run after check-build, so need own error checking -->
+		<condition property="perms-errcode">
+			<not>
+				<equals arg1="${perms-retcode}" arg2="0" />
+			</not>
+		</condition>
+		<fail message="run_chown failed with exit code ${perms-retcode}">
+			<condition>
+				<isset property="perms-errcode" />
+			</condition>
+		</fail>
+	</target>
+
+	<target name="clean">
+		<echo> ==  clean server_proxy build ================ </echo>
+		<!-- delete dir="${workspace}/server_ship/bin" quiet="true" /-->
+		<delete dir="${workspace}/build_log" quiet="true" />
+		<delete>
+			<fileset dir="${workspace}/server_proxy/bin" />
+			<fileset dir="${workspace}/server_proxy/lib" />
+			<fileset dir="${workspace}/server_proxy/lib_s" />
+			<fileset dir="${workspace}/server_proxy/debug" />
+		</delete>
+	</target>
+
+	<target name="build-init" unless="build.Initialized">
+		<build.activity label="Initialising build environment" activityIdProperty="initBuild" />
+		<echo>==================================</echo>
+		<echo> build-init </echo>
+		<echo>==================================</echo>
+
+		<!-- sort out line endings -->
+		<fixcrlf eol="unix" srcdir="${build.dir}">
+			<include name="build.sh" />
+			<include name="build_appliance.sh" />
+			<include name="setup_bedrock_env.sh" />
+			<include name="staf.sh" />
+			<include name="run_chown.sh" />
+		</fixcrlf>
+
+		<!-- change file permissions of scripts -->
+		<chmod perm="755">
+			<fileset id="scripts" dir="${build.dir}">
+				<include name="*.sh" />
+			</fileset>
+		</chmod>
+
+		<!-- remove all build_logs then create new log dir -->
+		<delete dir="${workspace}/build_log" quiet="true" />
+		<mkdir dir="${workspace}/build_log" />
+
+		<!-- Create lib and include ship directories -->
+		<mkdir dir="${workspace}/server_ship/lib" />
+		<mkdir dir="${workspace}/server_ship/debug/lib" />
+		<mkdir dir="${workspace}/server_ship/include" />
+		
+		
+		<property name="env.TMS_ROOT" location="/opt/ibm/TMS" />
+		<property name="env.TMS2DITA_ROOT" location="/opt/ibm/tms2dita" />
+
+		<property name="build.Initialized" value="true" />
+	</target>
+
+	<target name="check-build-test" depends="check-build-concat,check-build-fail-test" if="is.jazz.build" />
+
+	<target name="check-build-manual" if="is.manual.build">
+		<antcall target="check-build" />
+	</target>
+
+	<target name="check-build" depends="check-build-concat,check-build-fail" />
+	<target name="check-build-concat">
+		<!-- Merge the codes -->
+		<concat destfile="${workspace}/build_log/all.errorcodes">
+			<fileset dir="${workspace}/build_log" includes="*.errorcode" />
+		</concat>
+		<!-- Check for failures -->
+		<available property="errorcodes.exist" file="${workspace}/build_log/all.errorcodes" />
+	</target>
+	<target name="check-build-fail" if="errorcodes.exist">
+		<!-- Load the codes to a property -->
+		<loadfile srcfile="${workspace}/build_log/all.errorcodes" property="errorcodes" />
+		<!-- Fail the build -->
+		<fail message="${errorcodes}" />
+	</target>
+	<target name="check-build-fail-test" if="errorcodes.exist">
+		<!-- Load the codes to a property -->
+		<loadfile srcfile="${workspace}/build_log/all.errorcodes" property="errorcodes" />
+		<!-- Fail the build -->
+		<fail message="${errorcodes}" />
+		<env key="PUBLISH" value="false" />
+	</target>
+
+
+	<!-- build fvt projects after server image. fvt build does not depend on any thing from server build. -->
+	<target name="build-fvt">
+		<build.activity label="Running fvt build" activityIdProperty="startFvtBuildId" />
+		<ant dir="${workspace}/fvt_build" inheritRefs="false" />
+	</target>
+
+	<target name="staf-event" if="is.jazz.build">
+		<exec dir="${basedir}" executable="${basedir}/proxy_staf.sh" resultproperty="retcode" resolveexecutable="true" failonerror="false">
+			<env key="PUBLISH" value="${publish}" />
+			<env key="BUILD_LABEL" value="${buildLabel}" />
+			<env key="BLD_TYPE" value="${buildType}" />
+			<env key="PERSONAL_BUILD" value="${personalBuild}" />
+			<env key="WORKSPACE" value="${workspace}" />
+			<env key="USER_ID" value="${buildRequesterUserId}" />
+			<env key="BLD_ENGINE" value="${DevBuildEngine}" />
+			<env key="RUN_BVT" value="${runBVT}" />
+		</exec>
+	</target>
+
+	<!-- Macro for starting a build activity - starts a jazz activity if available -->
+	<macrodef name="build.activity">
+		<attribute name="label" />
+		<attribute name="activityIdProperty" />
+		<attribute name="autoComplete" default="true" />
+		<sequential>
+			<echo>==================================</echo>
+			<echo> @{label}</echo>
+			<echo>==================================</echo>
+			<antcall target="jazz.build.activity">
+				<param name="label" value="@{label}" />
+				<param name="activityIdProperty" value="@{activityIdProperty}" />
+				<param name="autoComplete" value="@{autoComplete}" />
+			</antcall>
+		</sequential>
+	</macrodef>
+	<target name="jazz.build.activity" if="is.jazz.build">
+		<startBuildActivity label="${label}" activityIdProperty="${activityIdProperty}" buildResultUUID="${buildResultUUID}" repositoryAddress="${repositoryAddress}" autoComplete="${autoComplete}" userId="${jazzBuildUserId}" passwordFile="${jazzBuildUserEncryptedPasswdFile}" />
+	</target>
+</project>

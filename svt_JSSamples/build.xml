@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="svt_javascript" default="build_svt_javascript"  basedir=".">
+    <property name="build.dir" value="${basedir}"/>
+	<property name="svt.javascript.src.dir" location="${basedir}/src" />
+	<property name="svt.javascript.bin.dir" location="${basedir}/bin" />
+	<property name="svt.javascript.lib.dir" location="${basedir}/lib" />
+	<property name="svt.ship.dir"  location="${build.dir}/.." />
+	<!-- define client_ws jar file name -->
+	<property name="svt_jssamples.jar" location="${svt.javascript.lib.dir}/svt_jssamples.jar"/>
+
+    <property name="testTools.lib.dir" location="${env.DEPS_HOME}"/>
+	<property name="svt_js.scripts.dir" value="${basedir}/scripts"/>
+	<property name="svt_js.web.dir" value="${basedir}/web"/>
+
+	<condition property="is64">
+       <or>
+           <os arch="x86_64" />
+           <os arch="amd64" />
+       </or>
+	</condition>
+	<condition property="OSbit" value="64">
+       <isset property="is64" />
+	</condition>
+   <condition property="OSbit" value="32">
+       <not>
+           <isset property="is64" />
+       </not>
+	</condition>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+     <pathelement location="${testTools.lib.dir}/android_webdriver_library.jar"/>
+     <pathelement location="${testTools.lib.dir}/com.ibm.automation.core.jar"/>
+     <pathelement location="${testTools.lib.dir}/com.ibm.automation.core.selenium.jar"/>
+     <pathelement location="${testTools.lib.dir}/log4j.jar"/>
+     <pathelement location="${testTools.lib.dir}/selenium-java.jar"/>
+     <pathelement location="${testTools.lib.dir}/selenium-server-standalone.jar"/>
+   </path>
+	
+	<property name="compile_classpath" refid="compile.classpath"/>
+	<echo message="compile.classpath = ${compile_classpath}"/>
+	
+   <!--path id="test.classpath">
+      <path refid="compile.classpath" />
+   	  <pathelement location="/opt/apache-ant/lib" />
+      <pathelement location="${svt.javascript.bin.dir}" />
+      <pathelement location="${jms.jar.dir}" />
+   </path-->
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${svt.javascript.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="jssample_publish">
+		<echo> ==  jssample_publish called (TBD) ================ </echo>
+		<echo> ==  Copy files to svt_ship tree ================ </echo>
+        <fixcrlf eol="unix" srcdir="${svt_js.scripts.dir}" includes="**/*" excludes="**/*.jks **/*.pkcs12"/>
+    	<fixcrlf eol="unix" srcdir="${svt_js.web.dir}" includes="**/*" excludes="**/*.jks **/*.pkcs12"/>
+		<copy file="${svt_jssamples.jar}" todir="${svt.ship.dir}/lib" preservelastmodified="yes" verbose="true"/>
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, javadoc, package"  -->
+	<target name="build_svt_javascript"  depends="build_jssample_jar, jssample_publish">
+		<echo> ==  Invoking ant for svt_javascript build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_jssample_jar" depends="java_compile" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${svt.javascript.src.dir}/META-INF/MANIFEST.MF" todir="${svt.javascript.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${svt.javascript.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+	
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${svt.javascript.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${svt_jssamples.jar}">
+			<!--fileset dir="${svt.javascript.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/*" /-->
+			<fileset dir="${svt.javascript.bin.dir}" includes="**/*.class" />
+			<!--fileset dir="${svt.javascript.bin.dir}/test" includes="**/*.class" /-->
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${svt_jssamples.jar}" manifest="${svt.javascript.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!--Compile the project-->
+	<target name="java_compile" depends="svt_javascript_init">
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac srcdir="${svt.javascript.src.dir}" destdir="${svt.javascript.bin.dir}" deprecation="no"
+             includeAntRuntime="no"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${svt.javascript.src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+        <copy todir="${svt.javascript.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${svt.javascript.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+	
+    <!-- Initialize the build environment -->
+	<target name="svt_javascript_init">
+		<mkdir dir="${svt.javascript.lib.dir}"/>
+		<mkdir dir="${svt.javascript.bin.dir}"/>
+	</target>
+</project>

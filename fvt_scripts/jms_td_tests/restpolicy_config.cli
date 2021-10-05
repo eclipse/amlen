@@ -1,0 +1,876 @@
+#######################################
+# Important:  Ports from 20000 to 21000 
+# are reserved for tests that create 
+# endpoints via "ShellAction" commands
+# in xml scripts. The following list
+# shows which ones are known to be used.
+# 
+# format for POST:
+# <TAG> <EXPECTED_RC> POST <API_PATH> <PAYLOAD>
+#
+# format for PUT:
+# <TAG> <EXPECTED_RC> PUT <API_PATH> <SRC_FILE> [DEST_FILE]
+#
+# format for GET:
+# <TAG> <EXPECTED_RC> GET <API_PATH>
+#
+# format for DELETE:
+# <TAG> <EXPECTED_RC> DELETE <API_PATH>
+#
+# SECTIONS:
+# setup,
+# cleanup,
+# setupM2,
+# cleanupM2,
+# sssetup,
+# sscleanup,
+# setupMM,
+# cleanupMM,
+# DisEn,
+# FIPSon,
+# FIPSoff,
+# discard,
+# enable,
+# disable
+# cleanupldap
+###############################################################################
+
+###############################################################################
+# setup is run as part of the 
+# initial setup for the JMS 
+# regular and HA runs
+###############################################################################
+# Ports used by setup:
+#
+# 18400 - 18402 (wildcard/wildcard_config.cli)
+# 18430 - 18436 (chainedcerts/chaincerts_config.cli)
+# 18475 - 18476 (HA/resync_config.cli)
+# 20000 (ssl/jms_ssl_021.xml)
+# 20001 (ssl/jms_ssl_022.xml)
+# 20004 - 20007 (oauth/oauth_policy_config.cli)
+# 20008 (ldap/ldap_policy_config.cli)
+# 20010 (queues/jms_queues_max.xml)
+# 20011 (msgdelivery/jms_msgdelivery_MP_max.xml)
+# 20020 (expiration)
+# 20021 (expiration)
+# 20022 (expiration)
+# 20023 (expiration)
+# 20024 (expiration)
+# 20025 (expiration)
+# 20026 (Dynamic Policy Updates)
+# 20027 (Dynamic Policy Updates)
+# 20028 (Dynamic Policy Updates)
+# 20029 (Dynamic Policy Updates)
+# 20030 (Dynamic Policy Updates)
+#
+# 21004 (oauth/oauth_policy_config.cli)
+###############################################################################
+
+#########################
+# Create messaging groups
+#########################
+setup 0 group add GroupID=JMSGroup1
+setup 0 group add GroupID=JMSGroup2
+setup 0 group add GroupID=JMSGroup3
+setup 0 group add GroupID=JMSGroup4
+setup 0 group add GroupID=JMSGroup5a
+setup 0 group add GroupID=JMSGroup5b GroupMembership=JMSGroup5a
+setup 0 group add GroupID=JMSGroup5c GroupMembership=JMSGroup5b
+setup 0 group add GroupID=JMSGroup5d GroupMembership=JMSGroup5c
+setup 0 group add GroupID=VarGroup
+setup 0 group add GroupID=☆Group
+
+########################
+# Create messaging users
+########################
+setup 0 user add UserID=JMSUser1 type=messaging password=test
+setup 0 user add UserID=JMSUser2 type=messaging password=test GroupMembership=JMSGroup1
+setup 0 user add UserID=JMSUser3 type=messaging password=test GroupMembership=JMSGroup2
+setup 0 user add UserID=JMSUser4 type=messaging password=test 
+setup 0 user add UserID=JMSUser5 type=messaging password=test GroupMembership=JMSGroup3
+setup 0 user add UserID=JMSUser6 type=messaging password=original
+setup 0 user add UserID=JMSUser7 type=messaging password=test GroupMembership=JMSGroup4
+setup 0 user add UserID=JMSUser8a type=messaging password=test GroupMembership=JMSGroup5a
+setup 0 user add UserID=JMSUser8b type=messaging password=test GroupMembership=JMSGroup5b
+setup 0 user add UserID=JMSUser8c type=messaging password=test GroupMembership=JMSGroup5c
+setup 0 user add UserID=JMSUser8d type=messaging password=test GroupMembership=JMSGroup5d
+setup 0 user add UserID=VarUser1 type=messaging password=test GroupMembership=VarGroup
+setup 0 user add UserID=VarUser2 type=messaging password=test GroupMembership=VarGroup
+setup 0 user add UserID=☆ type=messaging password=test GroupMembership=☆Group
+
+setup 0 POST configuration {"TraceLevel":"5"}
+
+####################################################
+# Increase MaxMessages for Message Delivery Test (MD9)
+####################################################
+setup 0 POST configuration {"TopicPolicy":{"DemoTopicPolicy":{"Topic":"*","MaxMessages":30000,"ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"QueuePolicy":{"MessagingPolicyQueue":{"Queue":"*","ClientAddress":"*","Protocol":"JMS","ActionList":"Send,Receive"}}}
+setup 0 POST configuration {"QueuePolicy":{"MessagingPolicyQueueGVT":{"Queue":"葛渚噓","Protocol":"JMS","ActionList":"Send,Receive"}}}
+setup 0 POST configuration {"Endpoint":{"DemoEndpoint":{"Enabled":true,"TopicPolicies":"DemoTopicPolicy","QueuePolicies":"MessagingPolicyQueue,MessagingPolicyQueueGVT","SubscriptionPolicies":"DemoSubscriptionPolicy"}}}
+
+
+#######################
+# SSL Certificate Setup
+#######################
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-crt.pem jmsimaserver-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-key.pem jmsimaserver-key.pem
+
+
+############################################
+# SSL Certificate and Security Profile Setup
+############################################
+setup 0 POST configuration {"CertificateProfile":{"JMSSSLCertProf1":{"Certificate":"jmsimaserver-crt.pem","Key":"jmsimaserver-key.pem"}}}
+setup 0 POST configuration {"SecurityProfile":{"JMSSSLSecureProf1":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"JMSSSLCertProf1"}}}
+setup 0 POST configuration {"SecurityProfile":{"JMSSSLSecureProf2":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"JMSSSLCertProf1","UsePasswordAuthentication":true}}}
+setup 0 POST configuration {"SecurityProfile":{"JMSSSLSecureProf3":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"JMSSSLCertProf1","UsePasswordAuthentication":false}}}
+
+setup 0 POST configuration {"SecurityProfile":{"JMSSSLSecureProfForFipsTrue1":{"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":false,"Ciphers":"Best","CertificateProfile":"JMSSSLCertProf1"}}}
+setup 0 POST configuration {"SecurityProfile":{"JMSSSLSecureProfForFipsTrue2":{"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"JMSSSLCertProf1"}}}
+setup 0 POST configuration {"SecurityProfile":{"JMSSSLSecureProfForFipsTrue3":{"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":false,"Ciphers":"Medium","CertificateProfile":"JMSSSLCertProf1"}}}
+setup 0 POST configuration {"SecurityProfile":{"JMSSSLSecureProfForFipsTrue4":{"MinimumProtocolMethod":"TLSv1.1","UseClientCertificate":false,"Ciphers":"Medium","CertificateProfile":"JMSSSLCertProf1"}}}
+
+############################################
+# Non-TLS Security Profile Setup
+############################################
+setup 0 POST configuration {"SecurityProfile":{"JMSNoTLSSecureProf1":{"TLSEnabled":false,"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"JMSSSLCertProf1"}}}
+setup 0 POST configuration {"SecurityProfile":{"JMSNoTLSSecureProfForFipsTrue1":{"TLSEnabled":false,"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":false,"Ciphers":"Best","CertificateProfile":"JMSSSLCertProf1"}}}
+
+####################################################
+# Commands for client certificates
+# 
+####################################################
+setup 0 PUT file ${M1_TESTROOT}/common/imaCA-crt.pem JMSimaCA-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/rootCA-crt.pem JMSrootCA-crt.pem
+setup 0 POST configuration {"SecurityProfile":{"JMSSSLSecureProf4":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"UsePasswordAuthentication":false,"Ciphers":"Fast","CertificateProfile":"JMSSSLCertProf1"}}}
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSrootCA-crt.pem","SecurityProfileName":"JMSSSLSecureProf4","Overwrite":true}]}
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"JMSimaCA-crt.pem","SecurityProfileName":"JMSSSLSecureProf4","Overwrite":true}]}
+
+###############################
+# Message Hub for SSL Endpoints
+###############################
+setup 0 POST configuration {"MessageHub":{"JMSSSLHub":{"Description":"JMSSSLHub"}}}
+setup 0 POST configuration {"MessageHub":{"☆Hub":{"Description":"☆"}}}
+
+########################################im
+# Plain Message Hub config that WILL NEVER EVER CHANGE
+########################################
+setup 0 POST configuration {"MessageHub":{"JMSPlainHub":{"Description":"DoNotModify"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSPlainCP":{"Protocol":"JMS,MQTT"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSPlainMP":{"UserID":"*","GroupID":"*","Topic":"*","Protocol":"JMS,MQTT","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSPlainMPExp":{"UserID":"*","GroupID":"*","Topic":"/sports/*","MaxMessageTimeToLive":"8","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"Endpoint":{"JMSPlainEP":{"Enabled":true,"Port":19500,"ConnectionPolicies":"JMSPlainCP","TopicPolicies":"JMSPlainMPExp,JMSPlainMP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"262144KB","MessageHub":"JMSPlainHub"}}}
+setup 0 POST configuration {"Endpoint":{"NoQueuesDemoEndpoint":{"Enabled":true,"Port":18502,"ConnectionPolicies":"DemoConnectionPolicy","TopicPolicies":"DemoTopicPolicy","QueuePolicies":"","SubscriptionPolicies":"DemoSubscriptionPolicy","MessageHub":"DemoHub"}}}
+
+########################################
+# Administratively expiring messages Endpoints 
+########################################
+setup 0 POST configuration {"MessageHub":{"JMSExpiringHub":{"Description":"Endpoints_s_which_s_set_s_an_s_Adminstrative_s_MaxMessageTimeToLive"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSExpCP":{"Protocol":"JMS,MQTT"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSExpMP1":{"UserID":"*","GroupID":"*","Topic":"*","MaxMessageTimeToLive":"120000","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSExpMP2":{"UserID":"*","GroupID":"*","Topic":"*","MaxMessageTimeToLive":"15","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"Endpoint":{"JMSExpEP1":{"Enabled":true,"Port":19501,"ConnectionPolicies":"JMSExpCP","TopicPolicies":"JMSExpMP1","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSExpiringHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSExpEP2":{"Enabled":true,"Port":19502,"ConnectionPolicies":"JMSExpCP","TopicPolicies":"JMSExpMP2","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSExpiringHub"}}}
+
+###############
+# Create Queues
+# JMSQueue009 and 012 are specific to testcases jms_queues_009.xml and jms_queues_012.xml 
+# JMSQueueExp is specific to jms_queues_012ExpiredMsgs.xml
+# Do not reuse it for any other tests.
+###############
+setup 0 POST configuration {"Queue":{"JMSQueueBrowser":{"AllowSend":true,"ConcurrentConsumers":false,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue1":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSZombieQueue1":{"AllowSend":true,"ConcurrentConsumers":false,"MaxMessages":200}}}
+setup 0 POST configuration {"Queue":{"葛渚噓":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue2":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100}}}
+setup 0 POST configuration {"Queue":{"JMSZombieQueue2":{"AllowSend":true,"ConcurrentConsumers":false,"MaxMessages":200}}}
+setup 0 POST configuration {"Queue":{"JMSQueue3":{"AllowSend":true,"ConcurrentConsumers":false,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue4":{"AllowSend":false,"ConcurrentConsumers":true,"MaxMessages":5000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue5":{"AllowSend":true,"ConcurrentConsumers":false,"MaxMessages":1000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue6":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue7":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue8":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue9":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue10":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue11":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue12":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue13":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue14":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue15":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue16":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue17":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue009":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue012":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"JMSQueueExp":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":5000}}}
+setup 0 POST configuration {"Queue":{"JMSQueue014":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+# Defaults are AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setup 0 POST configuration {"Queue":{"JMSQueue022":{}}}
+setup 0 POST configuration {"Queue":{"trans_queue01":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"trans_queue02":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"trans_queue03":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"trans_queue04":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+setup 0 POST configuration {"Queue":{"jms_ha_queue01":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+
+#####################
+# ☆ Connection Policy
+#####################
+setup 0 POST configuration {"ConnectionPolicy":{"☆CP":{"Protocol":"JMS"}}}
+
+#########################
+# Queue Connection Policy (All Queue Tests)
+#########################
+setup 0 POST configuration {"ConnectionPolicy":{"JMSQueueConnectionPolicy1":{"Protocol":"JMS"}}}
+
+#######################################
+# Connection Policies for SSL Endpoints (Tests 1-8, 16,17)
+#######################################
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy1":{"ClientID":"jms*","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy2":{"ClientAddress":"${M1_IPv4_1}","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy3":{"UserID":"JMSUser4","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy4":{"ClientID":"jmsClient1","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy5":{"UserID":"JMSUser3","GroupID":"JMSGroup2","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy6":{"ClientID":"*","Protocol":"MQTT"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy7":{"ClientID":"jmsClient1","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy8":{"Protocol":"JMS","UserID":"JMSUser6"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy9":{"GroupID":"JMSGroup4","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy10":{"GroupID":"JMSGroup5b","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy11":{"ClientID":"JMSclient0","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSSSLConnectionPolicy14":{"CommonNames":"IMA Test Team(imaclient*","Protocol":"JMS"}}}
+
+#########################################
+# Connection Policy for Wildcard Endpoint (Test 10)
+#########################################
+setup 0 POST configuration {"ConnectionPolicy":{"WildConnectionPolicy1":{"ClientID":"jmsClient*","Protocol":"JMS"}}}
+
+################################################
+# Connection Policy for Variable Policy Endpoint (Test 11-12)
+################################################
+setup 0 POST configuration {"ConnectionPolicy":{"JMSVarConnPol1":{"GroupID":"VarGroup","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSVarConnPol2":{"GroupID":"VarGroup","Protocol":"JMS"}}}
+
+####################################
+# Connection Policies for SSL Test 9 (Test 9)
+####################################
+setup 0 POST configuration {"ConnectionPolicy":{"JMSConnectionPolicy1":{"GroupID":"JMSGroup1","Protocol":"JMS"}}}
+setup 0 POST configuration {"ConnectionPolicy":{"JMSConnectionPolicy2":{"GroupID":"JMSGroup2","Protocol":"JMS"}}}
+
+####################
+# ☆ Messaging Policy
+####################
+setup 0 POST configuration {"TopicPolicy":{"☆MP":{"UserID":"☆","GroupID":"☆Group","Topic":"*","Protocol":"JMS","ActionList":"Publish,Subscribe"}}}
+
+##########################
+# Queue Messaging Policies (All Queue Tests)
+##########################
+setup 0 POST configuration {"QueuePolicy":{"JMSQueueMessagingPolicy01":{"Queue":"*","ActionList":"Send,Receive,Browse","Protocol":"JMS"}}}
+setup 0 POST configuration {"QueuePolicy":{"JMSQueueMessagingPolicy02":{"Queue":"*","ActionList":"Send,Browse","Protocol":"JMS"}}}
+
+######################################
+# Messaging Policies for SSL Endpoints (Test 1-8)
+######################################
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy01":{"Topic":"dest1","ActionList":"Publish,Subscribe","Protocol":"JMS"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy02":{"Topic":"dest2","ActionList":"Publish","Protocol":"JMS"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy03":{"Topic":"dest3","ActionList":"Subscribe","Protocol":"JMS"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy04":{"Topic":"dest4","Protocol":"MQTT","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy05":{"Topic":"dest5","UserID":"JMSUser2","GroupID":"JMSGroup1","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy06":{"Topic":"dest6","ClientAddress":"${new_M1_IPv6_1}","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy07":{"Topic":"dest7","ClientID":"jmsClient7","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy08":{"Topic":"topic*","ClientID":"jmsClient1","ClientAddress":"${M1_IPv4_1}","ActionList":"Publish,Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy09":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"JMS"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy14":{"Topic":"*","ActionList":"Publish,Subscribe","CommonNames":"IMA Test Team(imaclient*","Protocol":"JMS"}}}
+setup 0 POST configuration {"SubscriptionPolicy":{"JMSSSLMsgSubPolicy09A":{"Subscription":"sharedSSL_014","ActionList":"Control,Receive","CommonNames":"IMA Test Team(imaclient*"}}}
+setup 0 POST configuration {"SubscriptionPolicy":{"JMSSSLMsgSubPolicy09B":{"Subscription":"sharedSSL_014","ActionList":"Control,Receive","CommonNames":"Notima*"}}}
+setup 0 POST configuration {"SubscriptionPolicy":{"JMSSSLMsgSubPolicy09C":{"Subscription":"sharedSSL_014","ActionList":"Receive","CommonNames":"IMA Test Team(imaclient*"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSSSLMessagingPolicy10":{"GroupID":"JMSGroup3","Topic":"dest10","ActionList":"Publish,Subscribe"}}}
+
+##########################################
+# Messaging Policies for Wildcard Endpoint (Test 10)
+##########################################
+setup 0 POST configuration {"TopicPolicy":{"WildMessagingPolicy1":{"ClientID":"jmsClient1","Topic":"/topic/a","ActionList":"Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"WildMessagingPolicy2":{"ClientID":"jmsClient1","Topic":"/topic/b","ActionList":"Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"WildMessagingPolicy3":{"ClientID":"jmsClient2","Topic":"/topic/*","ActionList":"Publish"}}}
+
+###############################################
+# Messaging Policy for Variable Policy Endpoint (Test 11-12)
+###############################################
+setup 0 POST configuration {"TopicPolicy":{"JMSVarMsgPol1":{"Topic":"/accounts/${ClientID}/data","ActionList":"Publish,Subscribe","Protocol":"JMS"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSVarMsgPol2":{"Topic":"/accounts/${UserID}/data","ActionList":"Publish,Subscribe","Protocol":"JMS"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSVarMsgPol3":{"Topic":"/${UserID}/${ClientID}/info","ActionList":"Publish","Protocol":"JMS"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSVarMsgPol4":{"Topic":"*","ActionList":"Subscribe","Protocol":"JMS"}}}
+
+###################################
+# Messaging Policies for SSL Test 9 (Test 9)
+###################################
+setup 0 POST configuration {"TopicPolicy":{"JMSMessagingPolicy1":{"ClientID":"jmsClient1","UserID":"JMSUser2","Topic":"/topic/subTopic","ActionList":"Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSMessagingPolicy2":{"ClientID":"jmsClient2","UserID":"JMSUser3","Topic":"/topic/subTopic/subSubTopic","ActionList":"Subscribe"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSMessagingPolicy3":{"ClientID":"jmsClient3","UserID":"JMSUser2","Topic":"/topic/sub*","ActionList":"Publish"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSMessagingPolicy4":{"ClientID":"jmsClient4","UserID":"JMSUser3","Topic":"/topic/subTopic/subSubTopic","ActionList":"Publish"}}}
+setup 0 POST configuration {"TopicPolicy":{"JMSMessagingPolicy5":{"ClientID":"jmsClient*","UserID":"JMSUser*","GroupID":"JMSGroup*","Topic":"/topic","ActionList":"Publish,Subscribe"}}}
+
+############
+# ☆ Endpoint
+############
+setup 0 POST configuration {"Endpoint":{"☆EP":{"Enabled":true,"Port":18456,"ConnectionPolicies":"☆CP","TopicPolicies":"☆MP","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"☆Hub"}}}
+
+################
+# Queue Endpoint
+################
+setup 0 POST configuration {"Endpoint":{"JMSQueueEndpoint":{"Enabled":true,"Port":18458,"ConnectionPolicies":"JMSQueueConnectionPolicy1","TopicPolicies":"","QueuePolicies":"JMSQueueMessagingPolicy01","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSQueueBrowserEndpoint":{"Enabled":true,"Port":18457,"ConnectionPolicies":"JMSQueueConnectionPolicy1","TopicPolicies":"","QueuePolicies":"JMSQueueMessagingPolicy02","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+
+######################################
+# Endpoint for wildcards with policies (Test 10)
+######################################
+setup 0 POST configuration {"Endpoint":{"WildEndpoint1":{"Enabled":true,"Port":18459,"ConnectionPolicies":"WildConnectionPolicy1","TopicPolicies":"WildMessagingPolicy1,WildMessagingPolicy2,WildMessagingPolicy3","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+
+################
+# Basic Endpoint (Test 8)
+################
+setup 0 POST configuration {"Endpoint":{"JMSBasicEndpoint1":{"Enabled":true,"Port":18465,"ConnectionPolicies":"JMSSSLConnectionPolicy7","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+
+###########################
+# Variable Policy Endpoints (Test 11-12)
+###########################
+setup 0 POST configuration {"Endpoint":{"JMSVarEndpoint1":{"Enabled":true,"Port":18464,"ConnectionPolicies":"JMSVarConnPol1","TopicPolicies":"JMSVarMsgPol1,JMSVarMsgPol2","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSVarEndpoint2":{"Enabled":true,"Port":18463,"ConnectionPolicies":"JMSVarConnPol2","TopicPolicies":"JMSVarMsgPol3,JMSVarMsgPol4","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+
+###############
+# SSL Endpoints (Test 1-7, 16)
+###############
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint1":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18466,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint2":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18467,"ConnectionPolicies":"JMSSSLConnectionPolicy2","TopicPolicies":"JMSSSLMessagingPolicy06,JMSSSLMessagingPolicy10","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint3":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18468,"ConnectionPolicies":"JMSSSLConnectionPolicy3","TopicPolicies":"JMSSSLMessagingPolicy06,JMSSSLMessagingPolicy07","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint4":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18469,"ConnectionPolicies":"JMSSSLConnectionPolicy4","TopicPolicies":"JMSSSLMessagingPolicy08,JMSSSLMessagingPolicy10","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint5":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18470,"ConnectionPolicies":"JMSSSLConnectionPolicy5","TopicPolicies":"JMSSSLMessagingPolicy09","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint6":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18471,"ConnectionPolicies":"JMSSSLConnectionPolicy6","TopicPolicies":"JMSSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint7":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18479,"ConnectionPolicies":"JMSSSLConnectionPolicy8","TopicPolicies":"JMSSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"1MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint8":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18480,"ConnectionPolicies":"JMSSSLConnectionPolicy9","TopicPolicies":"JMSSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"1KB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint9":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18481,"ConnectionPolicies":"JMSSSLConnectionPolicy10","TopicPolicies":"JMSSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"1KB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint10":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf1","Port":18482,"ConnectionPolicies":"JMSSSLConnectionPolicy11","TopicPolicies":"JMSSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"1KB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLFIPSTrueEndpoint1":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProfForFipsTrue1","Port":18483,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLFIPSTrueEndpoint2":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProfForFipsTrue2","Port":18484,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLFIPSTrueEndpoint3":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProfForFipsTrue3","Port":18485,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLFIPSTrueEndpoint4":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProfForFipsTrue4","Port":18486,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+
+##########################
+# Endpoints for SSL Test 9 (Test 9)
+##########################
+setup 0 POST configuration {"Endpoint":{"JMSEndpoint1":{"Enabled":true,"Port":18460,"ConnectionPolicies":"JMSConnectionPolicy1","TopicPolicies":"JMSMessagingPolicy1,JMSMessagingPolicy3,JMSMessagingPolicy5","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSEndpoint2":{"Enabled":true,"Port":18461,"ConnectionPolicies":"JMSConnectionPolicy2","TopicPolicies":"JMSMessagingPolicy2,JMSMessagingPolicy4,JMSMessagingPolicy5","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+
+################################
+# Endpoints for SSL UserAuth Test (Test 13)
+################################
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint13":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf2","Port":18472,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSSSLEndpoint13b":{"Enabled":true,"SecurityProfile":"JMSSSLSecureProf3","Port":18473,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+
+#######################################
+# Endpoint for Client Certificate Tests (Test 14)
+#######################################
+setup 0 POST configuration {"Endpoint":{"ClientCertEndpoint014A":{"Enabled":true,"Port":18474,"SecurityProfile":"JMSSSLSecureProf4","ConnectionPolicies":"JMSSSLConnectionPolicy14","TopicPolicies":"JMSSSLMessagingPolicy14","QueuePolicies":"","SubscriptionPolicies":"JMSSSLMsgSubPolicy09A","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"ClientCertEndpoint014B":{"Enabled":true,"Port":18475,"SecurityProfile":"JMSSSLSecureProf4","ConnectionPolicies":"JMSSSLConnectionPolicy14","TopicPolicies":"JMSSSLMessagingPolicy14","QueuePolicies":"","SubscriptionPolicies":"JMSSSLMsgSubPolicy09B","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"ClientCertEndpoint014C":{"Enabled":true,"Port":18476,"SecurityProfile":"JMSSSLSecureProf4","ConnectionPolicies":"JMSSSLConnectionPolicy14","TopicPolicies":"JMSSSLMessagingPolicy14","QueuePolicies":"","SubscriptionPolicies":"JMSSSLMsgSubPolicy09C","MessageHub":"JMSSSLHub"}}}
+
+##########################
+# Endpoints with non-TLS SecurityProfiles
+##########################
+setup 0 POST configuration {"Endpoint":{"JMSNoTLSEndpoint1":{"Enabled":true,"SecurityProfile":"JMSNoTLSSecureProf1","Port":28466,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+setup 0 POST configuration {"Endpoint":{"JMSNoTLSFIPSTrueEndpoint1":{"Enabled":true,"SecurityProfile":"JMSNoTLSSecureProfForFipsTrue1","Port":28483,"ConnectionPolicies":"JMSSSLConnectionPolicy1","TopicPolicies":"JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSSSLHub"}}}
+
+setup 0 POST configuration {"TraceLevel":"5"}
+
+#######################################################
+# Connection Policies for further ClientAddress testing (Test 15)
+#######################################################
+setup 0 user add UserID=TestUser type=messaging password=password
+setupM2 0 POST configuration {"ConnectionPolicy":{"JMSCPm1":{"ClientAddress":"${M1_IPv4_1}","Protocol":"JMS"}}}
+setupM2 0 POST configuration {"ConnectionPolicy":{"JMSCPm2":{"ClientAddress":"${M2_IPv4_1}","Protocol":"JMS"}}}
+setupM2 0 POST configuration {"ConnectionPolicy":{"JMSCPipLow":{"ClientAddress":"9.9.9.9","Protocol":"JMS"}}}
+setupM2 0 POST configuration {"ConnectionPolicy":{"JMSCPipHigh":{"ClientAddress":"255.255.255.255","Protocol":"JMS"}}}
+
+##########################################################
+# Messaging Policies for more robust ClientAddress testing (Test 15)
+##########################################################
+setupM2 0 POST configuration {"TopicPolicy":{"JMSMPm1":{"Topic":"IPtopic","ClientAddress":"${M1_IPv4_1}","ActionList":"Subscribe"}}}
+setupM2 0 POST configuration {"TopicPolicy":{"JMSMPm2":{"Topic":"IPtopic","ClientAddress":"${M2_IPv4_1}","ActionList":"Publish"}}}
+setupM2 0 POST configuration {"TopicPolicy":{"JMSMPipLow":{"Topic":"badIPtopic","ClientAddress":"9.9.9.9","ActionList":"Publish,Subscribe"}}}
+setupM2 0 POST configuration {"TopicPolicy":{"JMSMPipHigh":{"Topic":"badIPtopic","ClientAddress":"255.255.255.255","ActionList":"Publish,Subscribe"}}}
+
+#################################################
+# Endpoints for more robust ClientAddress testing (Test 15)
+#################################################
+setupM2 0 POST configuration {"Endpoint":{"JMSEndpointIP":{"Enabled":true,"Port":18477,"ConnectionPolicies":"JMSCPm1,JMSCPm2","TopicPolicies":"JMSMPm1,JMSMPm2,JMSMPipLow,JMSMPipHigh","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"DemoHub"}}}
+setupM2 0 POST configuration {"Endpoint":{"JMSEndpointIPinvalid":{"Enabled":true,"Port":18478,"ConnectionPolicies":"JMSCPipLow,JMSCPipHigh","TopicPolicies":"JMSMPipLow,JMSMPipHigh","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"DemoHub"}}}
+
+################################
+# cleanup is run at the end of 
+# the JMS regular and HA runs
+################################
+cleanup x DELETE service/Subscription/rx_DSRet_clientid/jmsDurableRetCons1
+cleanup x DELETE service/Subscription/rx_DSRet_clientid/jmsDurableRetCons2
+cleanup x DELETE service/Subscription/rx_DSRet_clientid/jmsDurableRetCons3
+cleanup x DELETE service/Subscription/rx_DSRet_clientid/jmsDurableRetCons4
+cleanup x DELETE service/Subscription/__Shared/sharedSSL_014
+cleanup x DELETE service/Subscription/HASubscriber/subscription1
+cleanup x DELETE service/Subscription/DurSubWildcard/BeforeRet
+cleanup x DELETE service/Subscription/DurSubWildcard/AfterRet
+cleanup x DELETE service/Subscription/__Shared/Message_Expiry_01_JMS_DS
+cleanup x DELETE service/Subscription/Message_Expiry_JMS/Message_Expiry_01_JMS
+cleanup x DELETE service/Subscription/ME_01_Cons_QoS_0//MessageExpiry_01/+
+cleanup x DELETE service/Subscription/ME_01_Cons_QoS_1//MessageExpiry_01/+
+cleanup x DELETE service/Subscription/ME_01_Cons_QoS_2//MessageExpiry_01/+
+cleanup x DELETE service/Subscription/__Shared/Message_Expiry_01_MQTT
+cleanup x DELETE service/Subscription/__Shared/Message_Expiry_01_Collector
+cleanup x DELETE service/Subscription/jmsClient1/rmdr1dest1
+cleanup x DELETE service/Subscription/jmsClient1/rmdr1dest2
+cleanup x DELETE service/Subscription/jmsClient2/rmdr2dest1
+cleanup x DELETE service/Subscription/jmsClient2/rmdr2dest2
+
+#######################################
+# Security Policy Cleanup Configuration
+#######################################
+cleanup 0 POST configuration {"TraceLevel":"5"}
+
+cleanup 0 DELETE configuration/Endpoint/☆EP
+cleanup 0 DELETE configuration/Endpoint/JMSQueueEndpoint
+cleanup 0 DELETE configuration/Endpoint/JMSQueueBrowserEndpoint
+cleanup 0 DELETE configuration/Endpoint/WildEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSBasicEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSVarEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSVarEndpoint2
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSNoTLSEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint2
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint3
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint4
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint5
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint6
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint7
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint8
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint9
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint10
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint13
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint13b
+cleanup 0 DELETE configuration/Endpoint/JMSSSLFIPSTrueEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSNoTLSFIPSTrueEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSSSLFIPSTrueEndpoint2
+cleanup 0 DELETE configuration/Endpoint/JMSSSLFIPSTrueEndpoint3
+cleanup 0 DELETE configuration/Endpoint/JMSSSLFIPSTrueEndpoint4
+cleanup 0 DELETE configuration/Endpoint/JMSEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSEndpoint2
+cleanup 0 DELETE configuration/Endpoint/ClientCertEndpoint014A
+cleanup 0 DELETE configuration/Endpoint/ClientCertEndpoint014B
+cleanup 0 DELETE configuration/Endpoint/ClientCertEndpoint014C
+cleanup 0 DELETE configuration/Endpoint/JMSExpEP1
+cleanup 0 DELETE configuration/Endpoint/JMSExpEP2
+
+#Cleanup for security profiles
+
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProf1
+cleanup 0 DELETE configuration/SecurityProfile/JMSNoTLSSecureProf1
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProf2
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProf3
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProf4
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProfForFipsTrue1
+cleanup 0 DELETE configuration/SecurityProfile/JMSNoTLSSecureProfForFipsTrue1
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProfForFipsTrue2
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProfForFipsTrue3
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProfForFipsTrue4
+cleanup 0 DELETE configuration/CertificateProfile/JMSSSLCertProf1
+
+
+#cleanup ConnectionPolicies
+cleanup 0 DELETE configuration/ConnectionPolicy/☆CP
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSQueueConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy2
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy3
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy4
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy5
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy6
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy7
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy8
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy9
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy10
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy11
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy14
+cleanup 0 DELETE configuration/ConnectionPolicy/WildConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSVarConnPol1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSVarConnPol2
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSConnectionPolicy2
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSExpCP
+cleanup 0 DELETE configuration/TopicPolicy/☆MP
+
+#Cleanup for queue policies 
+cleanup 0 DELETE configuration/QueuePolicy/JMSQueueMessagingPolicy01
+cleanup 0 DELETE configuration/QueuePolicy/JMSQueueMessagingPolicy02
+
+#cleanup for TopicPolicies
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy01
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy02
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy03
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy04
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy05
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy06
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy07
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy08
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy09
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy14
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSSSLMsgSubPolicy09A
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSSSLMsgSubPolicy09B
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSSSLMsgSubPolicy09C
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy10
+cleanup 0 DELETE configuration/TopicPolicy/WildMessagingPolicy1
+cleanup 0 DELETE configuration/TopicPolicy/WildMessagingPolicy2
+cleanup 0 DELETE configuration/TopicPolicy/WildMessagingPolicy3
+cleanup 0 DELETE configuration/TopicPolicy/JMSVarMsgPol1
+cleanup 0 DELETE configuration/TopicPolicy/JMSVarMsgPol2
+cleanup 0 DELETE configuration/TopicPolicy/JMSVarMsgPol3
+cleanup 0 DELETE configuration/TopicPolicy/JMSVarMsgPol4
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy1
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy2
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy3
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy4
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy5
+cleanup 0 DELETE configuration/TopicPolicy/JMSExpMP1
+cleanup 0 DELETE configuration/TopicPolicy/JMSExpMP2
+
+#cleanup Queues
+cleanup 0 DELETE configuration/Queue/JMSQueueBrowser?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue1?Disc
+cleanup 0 DELETE configuration/Queue/JMSZombieQueue1?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/葛渚噓?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue2?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSZombieQueue2?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue3?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue4?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue5?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue6?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue7?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue8?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue9?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue10?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue11?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue12?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue13?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue14?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue022?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue15?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue16?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue17?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue009?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue012?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueueExp?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/JMSQueue014?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/trans_queue01?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/trans_queue02?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/trans_queue03?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/trans_queue04?DiscardMessages=true
+cleanup 0 DELETE configuration/Queue/jms_ha_queue01?DiscardMessages=true
+
+#cleanup MessageHubs
+cleanup 0 DELETE configuration/MessageHub/☆Hub
+cleanup 0 DELETE configuration/MessageHub/JMSSSLHub
+cleanup 0 DELETE configuration/MessageHub/JMSExpiringHub
+
+cleanup 0 user delete UserID=☆ type=messaging
+cleanup 0 user delete UserID=JMSUser1 type=messaging
+cleanup 0 user delete UserID=JMSUser2 type=messaging
+cleanup 0 user delete UserID=JMSUser3 type=messaging
+cleanup 0 user delete UserID=JMSUser4 type=messaging
+cleanup 0 user delete UserID=JMSUser5 type=messaging
+cleanup 0 user delete UserID=JMSUser6 type=messaging
+cleanup 0 user delete UserID=JMSUser7 type=messaging
+cleanup 0 user delete UserID=JMSUser8a type=messaging
+cleanup 0 user delete UserID=JMSUser8b type=messaging
+cleanup 0 user delete UserID=JMSUser8c type=messaging
+cleanup 0 user delete UserID=JMSUser8d type=messaging
+cleanup 0 user delete UserID=VarUser1 type=messaging
+cleanup 0 user delete UserID=VarUser2 type=messaging
+cleanup 0 user delete UserID=TestUser Type=Messaging
+cleanup 0 group delete GroupID=☆Group
+cleanup 0 group delete GroupID=JMSGroup1
+cleanup 0 group delete GroupID=JMSGroup2
+cleanup 0 group delete GroupID=JMSGroup3
+cleanup 0 group delete GroupID=JMSGroup4
+cleanup 0 group delete GroupID=JMSGroup5a
+cleanup 0 group delete GroupID=JMSGroup5b
+cleanup 0 group delete GroupID=JMSGroup5c
+cleanup 0 group delete GroupID=JMSGroup5d
+cleanup 0 group delete GroupID=VarGroup
+
+#More deletes. 
+cleanup 0 POST configuration {"TopicPolicy":{"DemoTopicPolicy":{"Topic":"*","MaxMessages":5000,"ActionList":"Publish,Subscribe"}}}
+cleanup 0 POST configuration {"Endpoint":{"DemoEndpoint":{"TopicPolicies":"DemoTopicPolicy","QueuePolicies":"","SubscriptionPolicies":"DemoSubscriptionPolicy"}}}
+
+cleanup 0 DELETE configuration/QueuePolicy/MessagingPolicyQueue
+cleanup 0 DELETE configuration/QueuePolicy/MessagingPolicyQueueGVT
+cleanup 0 DELETE configuration/Endpoint/JMSPlainEP
+cleanup 0 DELETE configuration/Endpoint/NoQueuesDemoEndpoint
+cleanup 0 DELETE configuration/MessageHub/JMSPlainHub
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSPlainCP
+cleanup 0 DELETE configuration/TopicPolicy/JMSPlainMP
+cleanup 0 DELETE configuration/TopicPolicy/JMSPlainMPExp
+
+
+cleanup x DELETE configuration/Endpoint/CART_EP
+cleanup x DELETE configuration/Endpoint/M_EP
+cleanup x DELETE configuration/Endpoint/Q_EP
+cleanup x DELETE configuration/Endpoint/MM_EP
+cleanup x DELETE configuration/Endpoint/C_EP
+cleanup x DELETE configuration/ConnectionPolicy/CART_CP
+cleanup x DELETE configuration/ConnectionPolicy/M_CP
+cleanup x DELETE configuration/ConnectionPolicy/Q_CP
+cleanup x DELETE configuration/ConnectionPolicy/MM_CP
+cleanup x DELETE configuration/ConnectionPolicy/C_CP
+cleanup x DELETE configuration/TopicPolicy/CART_MP
+cleanup x DELETE configuration/TopicPolicy/M_MP
+cleanup x DELETE configuration/QueuePolicy/Q_MP
+cleanup x DELETE configuration/TopicPolicy/MM_MP
+cleanup x DELETE configuration/TopicPolicy/C_MP
+cleanup x DELETE configuration/Queue/Q_Q?DiscardMessages=true
+cleanup x DELETE configuration/Queue/M_Q?DiscardMessages=true
+
+# jms_ssl_cert
+cleanup x DELETE configuration/Endpoint/TestEP
+cleanup x DELETE configuration/SecurityProfile/TestSecProf
+cleanup x DELETE configuration/CertificateProfile/TestCertProf
+cleanup x DELETE configuration/MessageHub/TestHub
+cleanup x DELETE configuration/ConnectionPolicy/TestCP
+cleanup x DELETE configuration/TopicPolicy/TestMP
+
+#####################################################
+
+# CleanupM2
+
+#####################################################
+cleanupM2 0 DELETE configuration/Endpoint/JMSEndpointIP
+cleanupM2 0 DELETE configuration/Endpoint/JMSEndpointIPinvalid
+cleanupM2 0 DELETE configuration/ConnectionPolicy/JMSCPm1
+cleanupM2 0 DELETE configuration/ConnectionPolicy/JMSCPm2
+cleanupM2 0 DELETE configuration/ConnectionPolicy/JMSCPipLow
+cleanupM2 0 DELETE configuration/ConnectionPolicy/JMSCPipHigh
+cleanupM2 0 DELETE configuration/TopicPolicy/JMSMPm1
+cleanupM2 0 DELETE configuration/TopicPolicy/JMSMPm2
+cleanupM2 0 DELETE configuration/TopicPolicy/JMSMPipLow
+cleanupM2 0 DELETE configuration/TopicPolicy/JMSMPipHigh
+# jms_ssl_sec
+cleanupM2 0 DELETE configuration/Endpoint/SecTestEP
+cleanupM2 0 DELETE configuration/SecurityProfile/SecProfTest
+cleanupM2 0 DELETE configuration/CertificateProfile/CertProfTest
+cleanupM2 0 DELETE configuration/CertificateProfile/NewCertProfTest
+cleanupM2 0 DELETE configuration/MessageHub/SecTestHub
+cleanupM2 0 DELETE configuration/ConnectionPolicy/SecTestCP
+cleanupM2 0 DELETE configuration/TopicPolicy/SecTestMP
+cleanupM2 0 POST configuration {"TraceLevel":"5"}
+#####################################################
+
+######################################
+# Setup for SharedSubscription tests
+######################################
+
+sssetup 0 user add UserID=JMSNonSharedUser1 type=messaging password=test
+sssetup 0 POST configuration {"MessageHub":{"JMSSharedSubHub":{"Description":"Message_s_Hub_s_for_s_testing_s_messaging_s_policies_s_of_s_type_s_Subscription"}}}
+sssetup 0 POST configuration {"ConnectionPolicy":{"JMSSharedConnectionPolicy1":{"UserID":"JMS*","Protocol":"JMS"}}}
+sssetup 0 POST configuration {"TopicPolicy":{"JMSSharedSubTopicMP1":{"Topic":"TopicSecureDS_001","UserID":"JMSUser*","ActionList":"Publish,Subscribe"}}}
+sssetup 0 POST configuration {"TopicPolicy":{"JMSSharedSubTopicMP2":{"Topic":"TopicSecureDS_002","UserID":"JMSUser1","ActionList":"Publish,Subscribe"}}}
+sssetup 0 POST configuration {"SubscriptionPolicy":{"JMSSharedSubSubscriptionMP1":{"Subscription":"Durname_SecureDS_001","UserID":"JMSUser1","ActionList":"Control,Receive","MaxMessages":15555}}}
+sssetup 0 POST configuration {"SubscriptionPolicy":{"JMSSharedSubSubscriptionMP2":{"Subscription":"Durname_SecureDS_001","UserID":"JMSUser2","ActionList":"Control"}}}
+sssetup 0 POST configuration {"SubscriptionPolicy":{"JMSSharedSubSubscriptionMP3":{"Subscription":"Durname_SecureDS_001","UserID":"JMSUser3","ActionList":"Receive"}}}
+sssetup 0 POST configuration {"SubscriptionPolicy":{"JMSSharedSubSubscriptionMP4":{"Subscription":"Durname_SecureDS_001","UserID":"JMSNonSharedUser1","ActionList":"Control,Receive"}}}
+sssetup 0 POST configuration {"QueuePolicy":{"JMSQueueMP":{"Queue":"*","UserID":"*","ActionList":"Send,Receive"}}}
+sssetup 0 POST configuration {"TopicPolicy":{"JMSSecSharedSubTopicMP1":{"Topic":"SecureTopic*","GroupID":"JMSGroup5a","ActionList":"Publish,Subscribe"}}}
+sssetup 0 POST configuration {"SubscriptionPolicy":{"JMSSecSubMP1":{"Subscription":"SecureSubReceive1","GroupID":"JMSGroup5","ActionList":"Receive"}}}
+sssetup 0 POST configuration {"SubscriptionPolicy":{"JMSSecSubMP2":{"Subscription":"SecureSub*","GroupID":"JMSGroup5a","ActionList":"Control,Receive"}}}
+sssetup 0 POST configuration {"SubscriptionPolicy":{"MPSharedSubMM":{"Subscription":"*","ActionList":"Receive,Control","MaxMessages":10000,"Protocol":"JMS"}}}
+
+# GVT Subscription messaging policy
+sssetup 0 POST configuration {"SubscriptionPolicy":{"葛渚噓":{"Subscription":"葛渚噓","Protocol":"JMS","ActionList":"Control,Receive"}}}
+
+sssetup 0 POST configuration {"Endpoint":{"JMSSharedSubEndpoint1":{"Enabled":true,"Port":18500,"ConnectionPolicies":"JMSSharedConnectionPolicy1","TopicPolicies":"JMSSharedSubTopicMP1,JMSSharedSubTopicMP2","QueuePolicies":"JMSQueueMP","SubscriptionPolicies":"JMSSharedSubSubscriptionMP1,JMSSharedSubSubscriptionMP2,JMSSharedSubSubscriptionMP3,JMSSharedSubSubscriptionMP4","MaxMessageSize":"4MB","MessageHub":"JMSSharedSubHub"}}}
+sssetup 0 POST configuration {"Endpoint":{"JMSSharedSubEndpoint2":{"Enabled":true,"Port":18501,"ConnectionPolicies":"JMSSharedConnectionPolicy1","TopicPolicies":"JMSSecSharedSubTopicMP1","QueuePolicies":"JMSQueueMP","SubscriptionPolicies":"JMSSecSubMP1,JMSSecSubMP2","MaxMessageSize":"4MB","MessageHub":"JMSSharedSubHub"}}}
+sssetup 0 POST configuration {"Endpoint":{"JMSSharedSubMMEndpoint":{"Enabled":true,"Port":18504,"ConnectionPolicies":"DemoConnectionPolicy","TopicPolicies":"DemoTopicPolicy","QueuePolicies":"","SubscriptionPolicies":"MPSharedSubMM","MaxMessageSize":"4MB","MessageHub":"DemoHub"}}}
+
+# Endpoint for GVT Subscription messaging policy
+sssetup 0 POST configuration {"Endpoint":{"JMSSharedSubGVTEndpoint":{"Enabled":true,"Port":18503,"ConnectionPolicies":"DemoConnectionPolicy","TopicPolicies":"DemoTopicPolicy","QueuePolicies":"","SubscriptionPolicies":"葛渚噓","MaxMessageSize":"4MB","MessageHub":"DemoHub"}}}
+
+#####################################################
+# Cleanup of NonDurable shared subscriptions. If these ever exist its needs to be defected.
+# NonDurable shared subscriptions should automatically be cleaned when there are no 
+# subscribers, but because they are created using 'createDurableSubscriber', sometimes 
+# they've turned out to be more Durable than they should be.  
+
+sscleanup - DELETE service/Subscription/__SharedND/sharedNDS_mcBasic
+sscleanup - DELETE service/Subscription/__SharedND/sharedNDS_Trans
+sscleanup - DELETE service/Subscription/__SharedND/Durname_SecureDS_001
+sscleanup - DELETE service/Subscription/__SharedND/shared_Mixed
+
+# GVT Shared subscription
+sscleanup x DELETE service/Subscription/__Shared/葛渚噓
+
+# This one (sharedNDS_scngBasic) has BOTH a shared nondurable, and a regular Durable subscription.  
+# If the non-durable one still exists, then there is a defect.  If the regular one exists, 
+# it is likely caused by a failed unsubscribe or test error. But, we need to check. 
+sscleanup x DELETE service/Subscription/jms_sharedNDS_scngBasic_ClientID/sharedNDS_scngBasic
+
+# The following are to clean up shared durable subscriptions for the next run, in case a test 
+# failed somewhere and an unsubscribe was not completed.  
+
+sscleanup x DELETE service/Subscription/__Shared/sharedDS_mcBasic
+sscleanup x DELETE service/Subscription/__Shared/sharedDS_scgBasic
+sscleanup x DELETE service/Subscription/__Shared/sharedNDS_Trans
+sscleanup x DELETE service/Subscription/jms_sharedDS_scngBasic_ClientID/sharedDS_scngBasic
+sscleanup x DELETE service/Subscription/__Shared/Durname_SecureDS_001
+sscleanup x DELETE service/Subscription/JMSUser3_ClientID/Durname_SecureDS_001
+sscleanup x DELETE service/Subscription/__Shared/shared_Mixed
+sscleanup x DELETE service/Subscription/__Shared/SecureSub1
+sscleanup x DELETE service/Subscription/__Shared/SecureSub2
+
+#Delete endpoints for Shared Subs 
+sscleanup 0 DELETE configuration/Endpoint/JMSSharedSubEndpoint1
+sscleanup 0 DELETE configuration/Endpoint/JMSSharedSubEndpoint2
+sscleanup 0 DELETE configuration/Endpoint/JMSSharedSubMMEndpoint
+sscleanup 0 DELETE configuration/Endpoint/JMSSharedSubGVTEndpoint
+sscleanup 0 DELETE configuration/ConnectionPolicy/JMSSharedConnectionPolicy1
+sscleanup 0 DELETE configuration/SubscriptionPolicy/葛渚噓
+sscleanup 0 DELETE configuration/TopicPolicy/JMSSharedSubTopicMP1
+sscleanup 0 DELETE configuration/TopicPolicy/JMSSharedSubTopicMP2
+sscleanup 0 DELETE configuration/TopicPolicy/JMSSecSharedSubTopicMP1
+sscleanup 0 DELETE configuration/SubscriptionPolicy/JMSSharedSubSubscriptionMP1
+sscleanup 0 DELETE configuration/SubscriptionPolicy/JMSSharedSubSubscriptionMP2
+sscleanup 0 DELETE configuration/SubscriptionPolicy/JMSSharedSubSubscriptionMP3
+sscleanup 0 DELETE configuration/SubscriptionPolicy/JMSSharedSubSubscriptionMP4
+sscleanup 0 DELETE configuration/SubscriptionPolicy/MPSharedSubMM
+sscleanup 0 DELETE configuration/QueuePolicy/JMSQueueMP
+sscleanup 0 DELETE configuration/SubscriptionPolicy/JMSSecSubMP1
+sscleanup 0 DELETE configuration/SubscriptionPolicy/JMSSecSubMP2
+sscleanup 0 DELETE configuration/MessageHub/JMSSharedSubHub
+sscleanup 0 user delete UserID=JMSNonSharedUser1 type=messaging
+
+# Users/groups for MaxMessages behavior
+
+setupMM 0 group add GroupID=JMS_MM
+setupMM 0 user add UserID=JMS_MMSUBND type=Messaging password=password
+setupMM 0 user add UserID=JMS_MMSUBDUR type=Messaging password=password
+setupMM 0 user add UserID=JMS_MMPUB type=Messaging password=password
+setupMM 0 user add UserID=JMS_MMSUBDYN type=Messaging password=password
+setupMM 0 user edit UserID=JMS_MMSUBND type=Messaging AddGroupMembership=JMS_MM
+setupMM 0 user edit UserID=JMS_MMSUBDUR type=Messaging AddGroupMembership=JMS_MM
+setupMM 0 user edit UserID=JMS_MMPUB type=Messaging AddGroupMembership=JMS_MM
+setupMM 0 user edit UserID=JMS_MMSUBDYN type=Messaging AddGroupMembership=JMS_MM
+
+# Message Hub for MaxMessages behaviors
+setupMM 0 POST configuration {"MessageHub":{"JMSMMHub":{"Description":"JMSMMHub"}}}
+
+# Connection Policies for MaxMessages behavior
+setupMM 0 POST configuration {"ConnectionPolicy":{"JMSMMConnectionPolicy":{"Protocol":"JMS"}}}
+setupMM 0 POST configuration {"ConnectionPolicy":{"JMSMMConnectionPolicy2":{"Protocol":"MQTT,JMS"}}}
+
+# MessagingPolcies for MaxMessages behavior
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy01":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"JMS","ClientID":"jmsslow01_clientid","MaxMessagesBehavior":"DiscardOldMessages"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy02":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"JMS","MaxMessages":100,"ClientID":"jms_mm001*","MaxMessagesBehavior":"DiscardOldMessages"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy03":{"Topic":"/MM/*","ActionList":"Publish,Subscribe","Protocol":"JMS","MaxMessages":11111,"MaxMessagesBehavior":"DiscardOldMessages","ClientID":"jms_mm004*"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy04":{"Topic":"/MM/Transacted","ActionList":"Publish,Subscribe","Protocol":"JMS,MQTT","MaxMessages":10,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy273":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"JMS","MaxMessages":273,"ClientID":"jmsMMSub273_clientid","MaxMessagesBehavior":"DiscardOldMessages"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy146":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"JMS","MaxMessages":146,"ClientID":"jmsMMSub146_clientid","MaxMessagesBehavior":"DiscardOldMessages"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy35":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"JMS","GroupID":"JMS_MM","MaxMessages":2227}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy239ND":{"Topic":"/MM/*","ActionList":"Publish,Subscribe","Protocol":"JMS","MaxMessages":239,"GroupID":"JMS_MM","MaxMessagesBehavior":"DiscardOldMessages"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy207Dur":{"Topic":"/MM/*","ActionList":"Publish,Subscribe","Protocol":"JMS","GroupID":"JMS_MM"}}}
+setupMM 0 POST configuration {"SubscriptionPolicy":{"JMSMMSubscriptionPolicy":{"Subscription":"jmsMaxMsg_005","GroupID":"JMS_MM","ActionList":"Control,Receive","MaxMessages":207,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy08":{"Topic":"/MM/Slow08","ActionList":"Publish,Subscribe","Protocol":"JMS","MaxMessages":10,"MaxMessagesBehavior":"DiscardOldMessages","ClientID":"jms_hiccup"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy08b":{"Topic":"/MM/Slow08","ActionList":"Publish,Subscribe","Protocol":"JMS","MaxMessages":21,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+
+# Endpoint for MaxMessages behavior
+setupMM 0 POST configuration {"Endpoint":{"JMSMMEndpoint":{"Enabled":true,"Port":29304,"ConnectionPolicies":"JMSMMConnectionPolicy","TopicPolicies":"JMSMMMessagingPolicy273,JMSMMMessagingPolicy146,JMSMMMessagingPolicy35,JMSMMMessagingPolicy01,JMSMMMessagingPolicy02,JMSMMMessagingPolicy03","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"JMSMMHub"}}}
+setupMM 0 POST configuration {"Endpoint":{"JMSMMEndpoint2":{"Enabled":true,"Port":29305,"ConnectionPolicies":"JMSMMConnectionPolicy2","TopicPolicies":"JMSMMMessagingPolicy239ND","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"JMSMMHub"}}}
+setupMM 0 POST configuration {"Endpoint":{"JMSMMEndpoint8":{"Enabled":true,"Port":29306,"ConnectionPolicies":"JMSMMConnectionPolicy","TopicPolicies":"JMSMMMessagingPolicy08,JMSMMMessagingPolicy08b","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"JMSMMHub"}}}
+setupMM 0 POST configuration {"Endpoint":{"JMSMMEndpoint4":{"Enabled":true,"Port":29307,"ConnectionPolicies":"JMSMMConnectionPolicy2","TopicPolicies":"JMSMMMessagingPolicy04","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"JMSMMHub"}}}
+setupMM 0 POST configuration {"Endpoint":{"JMSMMEndpoint5":{"Enabled":true,"Port":29308,"ConnectionPolicies":"JMSMMConnectionPolicy","TopicPolicies":"JMSMMMessagingPolicy207Dur","QueuePolicies":"","SubscriptionPolicies":"JMSMMSubscriptionPolicy","MessageHub":"JMSMMHub"}}}
+
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy35":{"MaxMessages":892,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+
+# The next few lines may look a little strange. They are a testcase for defect 64687, where a cycle of create/update/delete/create/update
+# of the messagingpolicy and endpoint caused incorrect values for MaxMessages to be used when creating 
+# Subscriptions.  To get that defect, it was necessary to those steps, without stopping the server. The values on subscriptions created with the 
+#JMSMMMessagingPolicy35 are checked in testcase jms_maxmsgsDynamic_001.xml 
+
+setupMM 0 DELETE configuration/Endpoint/JMSMMEndpoint
+setupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy35
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy35":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"JMS","GroupID":"JMS_MM","MaxMessages":5529}}}
+setupMM 0 POST configuration {"Endpoint":{"JMSMMEndpoint":{"Enabled":true,"Port":29304,"ConnectionPolicies":"JMSMMConnectionPolicy","TopicPolicies":"JMSMMMessagingPolicy273,JMSMMMessagingPolicy146,JMSMMMessagingPolicy35,JMSMMMessagingPolicy01,JMSMMMessagingPolicy02,JMSMMMessagingPolicy03","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"JMSMMHub"}}}
+setupMM 0 POST configuration {"TopicPolicy":{"JMSMMMessagingPolicy35":{"MaxMessages":35,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+
+#####################################################
+
+cleanupMM x DELETE service/Subscription/__Shared/jmsMaxMsg_005
+cleanupMM x DELETE service/Subscription/jms_mm001_clientid/jmsMaxMsg_003
+cleanupMM x DELETE service/Subscription/jms_mm001_clientid2/jmsMaxMsg_003
+cleanupMM x DELETE service/Subscription/jms_mmd001_clientid/jmsMaxMsgDynamic_001
+
+# MaxMessages behavior cleanup
+cleanupMM 0 DELETE configuration/Endpoint/JMSMMEndpoint
+cleanupMM 0 DELETE configuration/Endpoint/JMSMMEndpoint2
+cleanupMM 0 DELETE configuration/Endpoint/JMSMMEndpoint8
+cleanupMM 0 DELETE configuration/Endpoint/JMSMMEndpoint4
+cleanupMM 0 DELETE configuration/Endpoint/JMSMMEndpoint5
+cleanupMM 0 DELETE configuration/MessageHub/JMSMMHub
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy01
+# debug statement, as we seemed to have something using this one before the delete. 
+cleanupMM 0 GET monitor/Subscription/
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy02
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy03
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy04
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy08
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy08b
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy273
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy146
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy35
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy239ND
+cleanupMM 0 DELETE configuration/TopicPolicy/JMSMMMessagingPolicy207Dur
+cleanupMM 0 DELETE configuration/SubscriptionPolicy/JMSMMSubscriptionPolicy
+cleanupMM 0 DELETE configuration/ConnectionPolicy/JMSMMConnectionPolicy
+cleanupMM 0 DELETE configuration/ConnectionPolicy/JMSMMConnectionPolicy2
+cleanupMM 0 user delete UserID=JMS_MMSUBND Type=Messaging
+cleanupMM 0 user delete UserID=JMS_MMSUBDUR Type=Messaging
+cleanupMM 0 user delete UserID=JMS_MMSUBDYN Type=Messaging
+
+cleanupMM 0 user delete UserID=JMS_MMPUB Type=Messaging
+cleanupMM 0 group delete GroupID=JMS_MM
+
+##########################
+# External LDAP test setup
+##########################
+
+setupldap 0 POST configuration {"LDAP":{"Enabled":true,"URL":"ldap://${M1_IPv4_1}:389","Timeout":60,"BaseDN":"ou=MessageSight,o=IBM","UserSuffix":"ou=users,ou=MessageSight,o=IBM","GroupSuffix":"ou=groups,ou=MessageSight,o=IBM","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","NestedGroupSearch":true}}
+
+#####################################################
+
+cleanupldap 0 POST configuration {"LDAP":{"Enabled":false}}
+
+#####################################################
+# delete queues 
+
+discard 0 DELETE configuration/Queue/JMSQueue1?DiscardMessages=true
+discard - DELETE configuration/Queue/JMSQueue2?DiscardMessages=false
+discard 0 POST configuration {"Queue":{"JMSQueue1":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":100000}}}
+discard 0 GET configuration/Queue/JMSQueue2
+
+#####################################################
+# enable trace for JMS 
+
+enable 0 POST configuration {"TraceLevel":"5,jms:9"}
+
+#####################################################
+# disable trace for JMS 
+
+disable 0 POST configuration {"TraceLevel":"5"}
+
+# Turn FIPS mode on/off
+FIPSon 0 POST configuration {"FIPS":true} 
+FIPSoff 0 POST configuration {"FIPS":false}
+
+# Defect 83703 (also a PMR).  
+DisEn 0 POST configuration {"Endpoint":{"JMSPlainEP":{"Enabled":false}}}
+DisEn 0 POST configuration {"Endpoint":{"JMSPlainEP":{"Enabled":true}}}
+

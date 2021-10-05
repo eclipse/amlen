@@ -1,0 +1,405 @@
+#!/bin/bash +x
+source ../scripts/ISMsetup.sh
+
+######################################################################
+### Parameters for the general execution of dynamicrun, (has problems on APPLE OS)
+
+declare sys=`uname -s`
+declare hn=`hostname`
+declare -i INSTANCES=2	# Number of Total client instances to try to start in each iteration before do MEM and IDLE checks
+declare -i MAX_CLIENT_COUNT=999   #Maximum number of client manualrun's 'target command' can support
+declare -i minfree=10000	# Minimum memory free before stopping launch iterations
+declare -i minidle=50	# Minimum idle free before stopping launch iterations  (was 45)
+declare -i finalidle=20
+declare -i critfree=100
+declare -i critidle=0
+declare -i maxsleep=35
+declare stop=false
+
+
+
+######################################################################
+### Parameters for the general execution of manualrun, 
+###  also see usage() for additional parameter information for manualrun HATopic and HAQueue
+###
+ declare app="$0"
+ declare params="$@"
+ declare -i batch=1		# How do I describe this -- this is HOW MANY instances the target client starts with one invocation, NEED to be in sync with dynamicrun
+ declare stack="-Xss1024m"
+
+###  Specific Parameters for Execution of HA JMS Client:
+# Subscriber:
+ declare -i RECV_TIMEOUT=300	# Receive Timeout for FIRST msg
+ declare -i MSGWAIT_TIMEOUT=300	# Receive Timeout for Subsequent msgs
+ declare -i FORCE_TIMEOUT=600  	# Receive Timeout force exit, giving up on receiveing
+ declare -i CONNECT_TIMEOUT=630	# How long to keep retrying for connection to MessageSight
+ declare -i SUB_PORT=16103
+
+# Common Pub/Sub:
+ declare -i MSG_COUNT=20000000	# Number of Messages to Send/Receive
+# declare -i MSG_COUNT=200	# Number of Messages to Send/Receive
+ declare -i TRACELEVEL=9
+ declare TOPIC_FROM="/APP/APP1"
+ declare TOPIC_TO="/USER/"
+ declare QUEUE_APP="APP/APP1"
+ declare QUEUE_USER="USER/"
+ 
+#  Publisher:
+ declare -i MSG_RATE=10000	# Good for Topic Pub Rate
+ declare -i Q_MSG_RATE=750	# Good for Queue Pub Rate
+ declare -i PUB_PORT=16102
+
+####################################
+  # DO NOT CHANGE THESE PARAMETERS
+  declare IMASERVER=""
+  declare PRIMARY=""
+  declare STANDBY=""
+  declare SERVERLIST=""
+  declare USERHOST=""
+  declare USERCNT=""
+set -x
+MY_TESTROOT=$(eval echo \$${THIS}_TESTROOT)
+source ${MY_TESTROOT}/scripts/getImaVersion.sh
+if [[ "${IMA_VERSION}" == "1.2" ]]; then
+  declare QueueName_SYNTAX="Name"
+else
+  declare QueueName_SYNTAX="QueueName"
+fi
+set +x
+
+
+###############################################################################
+##  DYNAMICRUN Functions:
+
+## FN_FREE()  #################################################################
+fn__free() {
+  local mem=100000
+
+  if [ "${sys}" == "Linux" ]; then
+    mem=`free | head -n 2 | tail -n 1|tr -s ' ' |cut -d' ' -f 4`
+  elif [ "${sys}" == "Darwin" ]; then
+# "Apple RAM memory, shown by opening Activity Monitor (Applications/Utilities) - set to crit free+1 just to continue"
+    mem=$((${minfree}+1))
+  fi
+ 
+  printf "%d\n" ${mem}
+}
+
+## FN_IDLE()  #################################################################
+fn__idle() {
+  local id=100
+
+  if [ "${sys}" == "Linux" ]; then
+    id=`top -b -i -n 3  | grep Cpu |cut -f4 -d',' | tail -1`
+    printf "%d\n" ${id:0:3}
+  #  iostat -c | tail -n 2 | head -n 1 |tr -s ' '| cut -d ' ' -f 7
+  elif [ "${sys}" == "Darwin" ]; then
+    id=`iostat -c4 | tail -n 1 | tr -s ' '| cut -d ' ' -f 7`
+    printf "%d\n" ${id}
+  else
+    printf "%d\n" 0
+  fi
+}
+
+## FN_PID()  ##################################################################
+fn__pid() {
+  local pid=0
+
+  if [ "${sys}" == "Linux" ]; then
+    pid=`ps -ef | grep java | grep -v grep | sort |tail -n 1| tr -s ' '| cut -d' ' -f 2`
+  elif [ "${sys}" == "Darwin" ]; then 
+    pid=`ps -ef | grep java | grep -v grep | sort |tail -n 1| tr -s ' '| cut -d' ' -f 3`
+  fi
+
+  printf "%d\n" ${pid}
+}
+
+## FN_CHECKIDLE()  ############################################################
+fn__checkidle() {
+    local t=0
+    local u=0
+    local pid=0
+    local svtidle=0
+
+    svtidle=`fn__idle`
+    printf "[%s] idle:  %d (min %d)\n" ${hn} ${svtidle} ${minidle}
+
+    while [[ (${svtidle} -lt ${minidle}) && ("${stop}" == "false") ]]; do
+      sleep 20s
+      ((t++))
+
+      svtidle=`fn__idle`
+      printf "[%s] idle:  %d (min %d)\n" ${hn} ${svtidle} ${minidle}
+
+      if [ ${svtidle} -le ${critidle} ]; then
+        stop=true
+
+        sleep 120s
+        while [[ (${pid} -eq 0) && (${u} -lt 60) ]]; do
+          ((u++))
+
+          sleep 60s
+          svtidle=`fn__idle`
+          if [ ${svtidle} -le ${critidle} ]; then
+            u=60
+            pid=`fn__pid`
+            if [ ${pid} -ne 0 ]; then
+               echo kill ${pid}
+               kill ${pid}
+            fi
+          fi
+        done
+      elif [ ${t} -gt 5 ]; then
+        if [[ (${svtidle} -ge $((${minidle-5}))) && ($((${minidle}-5)) -ge ${finalidle}) ]]; then
+           ((minidle-=5))
+        fi
+      elif [ ${t} -gt 15 ]; then
+        if [[ (${svtidle} -ge $((${minidle-10}))) && ($((${minidle}-10)) -ge ${finalidle}) ]]; then
+           ((minidle-=10))
+        fi
+      elif [ ${t} -ge ${maxsleep} ]; then
+        stop=true
+      fi
+    done
+}
+
+## FN_CHECKFREE()  ############################################################
+fn__checkfree() {
+    local svtfree=0
+
+    svtfree=`fn__free`
+    printf "[%s] free:  %d (min %d)\n" ${hn} ${svtfree} ${minfree}
+
+    if [ ${svtfree} -le ${critfree} ]; then
+      stop=true
+      pid=`fn__pid`
+      if [ ${pid} -ne 0 ]; then
+         echo kill ${pid}
+         kill ${pid}
+      fi
+    elif [ ${svtfree} -le ${minfree} ]; then 
+      stop=true
+    fi
+}
+
+
+
+###########################################################################
+## MANUALRUN Functions:  
+
+#--  USAGE()  -------------------------------------------------------
+#  for HA JMS Client, minutes is ignored and MSG_COUNT (above) is used
+#  yet all 3 parameters are required.
+#  HA Publisher has two parameters, [DURABLE: TRUE|FALSE] [DEBUG]
+#  HA Subscriber can also run [DEBUG] to get a verbose client log
+#--  USAGE()  --------------------------------------------------------------
+usage() {
+  printf "%s %s     --> invalid parameters <--\n" "$app" "$params"
+  printf "\n"
+  printf "usage:  %s <clients> <id> <minutes> [DURABLE] [DEBUG]\n" $app
+  printf "where: \n"
+  printf "         <clients>  number of clients to start\n"
+  printf "         <id>       starting client id number, eg. 0\n"
+  printf "         <minutes>  minutes to run\n"
+  printf "\n"
+  printf "OPTIONAL: \n"
+  printf "         [DURABLE]  TRUE|FALSE - Publisher to create Durable topic before publishing to it\n"
+  printf "         [DEBUG]       DEBUG - verbose client loggging \n"
+  printf "example:  %s %s\n" "$app" "500 0 5"
+  printf "example:  %s %s\n" "$app" "500 0 5  FALSE DEBUG"
+}
+
+#--  PING-IMASERVER ()  ------------------------------------------------
+function ping-imaserver {
+
+  echo "   Pinging ${IMASERVER} until it responds (takes up to 10 mins)..."
+  # Some how appliance can ping successfully when it is being restarted
+#JCD#
+#  sleep 10
+  while [ 1 ]
+  do
+    # If IP Pings successfully, break out of While Loop
+    ping -c1 $IMASERVER &> /dev/null && break
+    sleep 10
+
+  done
+
+}
+
+#-- pollQueueConnections()  -----------------------------------------------
+#################################
+# STATS QUEUE (polls) and waits until all connections are terminated, 
+#  typically called after Delete Queue fails due to 'Destination In Use'
+#   Assumes EXPORTS
+#     PRIMIARY - IMASERVER of HA Pair
+#     QUEUE_NAME - QUEUE to monitor connections
+# Returns:
+#   0-All connections have been terminated
+#   1-Aborted waiting on connections to terminate
+#################################
+function pollQueueConnections {
+   stat_count=0
+   abort_count=0
+   rc=0
+
+   ssh admin@${PRIMARY} "datetime get"
+   QUEUE_STAT=`ssh admin@${PRIMARY} "imaserver stat Queue \"${QueueName_SYNTAX}=${QUEUE_NAME}\" " `
+   SUB_STAT=`ssh admin@${PRIMARY} "imaserver stat Subscription  " `
+   CONN_STAT=`ssh admin@${PRIMARY} "imaserver stat Connection " `
+
+   echo "QueStat=${QUEUE_STAT}"
+
+   CURRENT_CONNS=`echo ${QUEUE_STAT} | cut -d , -f 13` 
+   while [ "${CURRENT_CONNS}" != "0" ]
+   do
+      sleep 5
+      ((stat_count+=1))
+      QUEUE_STAT=`ssh admin@${PRIMARY} "imaserver stat Queue \"${QueueName_SYNTAX}=${QUEUE_NAME}\" " `
+      CURRENT_CONNS=`echo ${QUEUE_STAT} | cut -d , -f 13` 
+      if [ ${stat_count} -eq 20 ]; then
+         echo "Still waiting for ${CURRENT_CONNS} Queue Stat connections to disconnect on queue ${QUEUE_NAME}"
+         stat_count=0
+         ((abort_count+=1))
+         if [ ${abort_count} -eq 200 ]; then
+            echo "Aborting the wait for ${CURRENT_CONNS} Queue Stat connections to disconnect on queue ${QUEUE_NAME}"
+            rc=1 
+            break
+         fi  
+      fi
+   done
+
+return ${rc}
+}
+
+#-- STATUS-IMASERVER()  -----------------------------------------------
+#################################
+# Returns:
+#   0-Primary/Standby identified
+#   1-UNSYNC, Maintenance (Unusable, Unrecoverable state)
+#   2-Stopped
+#   9-UNKNOWN Status
+#################################
+function status-imaserver {
+#set -x
+  echo "   Status ${IMASERVER} until it Syncs..."
+  unsync=0
+  unsync_error=28
+  stop_count=0
+  stop_error=3
+  rc=0
+  while [ 1 ]
+  do
+    HAROLE=`ssh -nx admin@${IMASERVER} "status imaserver" | grep "HARole = "`
+    STATUS=`ssh -nx admin@${IMASERVER} "status imaserver" | grep "Status = "`
+
+    if [[ "${STATUS}" == *"Maintenance"* ]]; then
+        UNSYNC=`echo ${IMASERVER}`
+        echo "IMAServer: ${IMASERVER} HARole is: '"${HAROLE}"' and Status is: '"${STATUS}"' which is unexpected, aborting."
+        rc=1
+        break      
+    elif [[ "${STATUS}" == *"Stopped" ]]; then
+      STANDBY=`echo ${IMASERVER}`
+      stop_count=$(( ${stop_count}+1 ))
+      echo 'IMAServer: '${STANDBY}'  is  '${STATUS}' '${stop_count}' time(s).'
+      if [ "${stop_count}" == "${stop_error}" ]; then
+        rc=2
+        break
+      fi
+    elif [[ "${HAROLE}" == *"PRIMARY" &&  "${STATUS}" == *"Running"* ]]; then
+      PRIMARY=`echo ${IMASERVER}`
+      echo 'IMAServer: '${PRIMARY}' '${HAROLE}' and '${STATUS}
+      break
+    elif  [[ "${HAROLE}" == *"STANDBY" &&  "${STATUS}" == *"Standby" ]]; then
+      STANDBY=`echo ${IMASERVER}`
+      echo 'IMAServer: '${STANDBY}' '${HAROLE}' and '${STATUS}
+      break
+    elif  [[ "${HAROLE}" == *"UNSYNC"* ]]; then
+      unsync=$(( ${unsync}+1 ))
+      echo '   IMAServer: '${IMASERVER}'  '${HAROLE}' and '${STATUS}' '${unsync}' time(s).  TIME: ' ` ssh admin@${IMASERVER} "datetime get" `
+      if [[ "${unsync}" == "${unsync_error}" ]]; then
+        UNSYNC=`echo ${IMASERVER}`
+        echo "IMAServer: ${IMASERVER} HARole is: '"${HAROLE}"' and Status is: '"${STATUS}"' which is unexpected, aborting."
+        rc=1
+        break
+      fi
+    elif [[ "${HAROLE}" == "" ]];then
+       HAROLE=`ssh -nx admin@${IMASERVER} "imaserver harole" | grep "NewRole = "`       
+       if [[ "${HAROLE}" == *"HADISABLED"* ]];then
+          echo "IMAServer: ${IMASERVER} role: ${HAROLE}, status: ${STATUS}"
+          PRIMARY=${IMASERVER}
+          break
+       fi
+    else 
+      # HA Role is unexpected - has been blank and other values
+      unsync=$(( ${unsync}+1 ))
+      echo "   IMAServer: '${IMASERVER}'  '${HAROLE}' and '${STATUS}' '${unsync}' time(s).  TIME: " ` ssh admin@${IMASERVER} "datetime get" `
+      if [[ "${unsync}" == "${unsync_error}" ]]; then
+        UNSYNC=`echo ${IMASERVER}`
+        echo "IMAServer: ${IMASERVER} HARole is: '"${HAROLE}"' and Status is: '"${STATUS}"' which is unexpected, aborting."
+        rc=9
+        break
+      fi
+    fi
+    sleep 15
+  done
+  return ${rc}
+#set +x
+}
+
+
+#--  SERVER_LIST()  -------------------------------------------------------
+server_list() {
+  SERVERS=`$(eval echo $\{${THIS}_TESTROOT\})/scripts/getServerList`
+  ## Make the SERVER array into a CSV list and use in java calls
+  for IMASERVER in ${SERVERS[@]}
+  do
+    if [[ "${SERVERLIST}" == "" ]]; then
+        SERVERLIST=${IMASERVER}
+    else
+        SERVERLIST=${SERVERLIST}","${IMASERVER}
+    fi
+
+      # Is the Server Booted?
+      ping-imaserver
+      # Is the Server the Primary?
+      status-imaserver
+      RC=$?
+      if [[ "${RC}" -ne "0" ]]; then
+        echo " "
+        echo "THERE IS A PROBLEM WITH IMASERVER "${IMASERVER}".  Check the status and collect logs!"
+        exit -1
+      fi
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!###########################################
+#?break   #?Why is this break here?  WAS this when STANDBY was DEAD and running HA in StandAlone 1 srv env?   
+  done
+  echo "The Server List:  " ${SERVERLIST}
+
+
+}
+
+
+#--  CLIENT_NAME()  -------------------------------------------------------
+client-name() {
+set -x
+  automation_config_path=$(eval echo \$${THIS}_TESTROOT)
+  automation_config_file=${automation_config_path}"/testEnv.sh"
+  echo "  %==> Automation_config_file FULLPATH = ${automation_config_file}  -- expected value is '/niagara/test/testEnv.sh'.  <==%  "
+  # If running Automation Env, the 'minutes' field will be the USERHOST (last 4 of IP, since APP Dest is kind of rigidly named)
+  if [ -f "${automation_config_file}"  ];then
+     USERHOST=`printf "%03d" ${minutes}`
+     USERCNT=`printf "%03d" ${id}`
+  else
+     # BUILD CLIENT USERNAME for CLIENT_ID and LDAP if added.
+     declare CLIENT=`getlocaladdr`
+     declare CLIENT_IP3=` echo ${CLIENT} | cut -d . -f 3`
+     declare CLIENT_IP4=` echo ${CLIENT} | cut -d . -f 4`
+     if [[ ${CLIENT_IP3} -eq 177 || ${CLIENT_IP3} -eq 1 ]]; then
+       CLIENT_IP4=$((${CLIENT_IP4}+300))
+     fi
+     USERHOST=`printf "%03d" ${CLIENT_IP4}`
+     USERCNT=`printf "%03d" ${id}`
+  fi
+     USERHOST=`printf "%03d" ${minutes}`
+     USERCNT=`printf "%03d" ${id}`
+set +x
+}

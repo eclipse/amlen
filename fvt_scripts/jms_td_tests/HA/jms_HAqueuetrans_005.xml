@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name:  JMS_HAqueuetrans_005
+
+  Test Category:  JMS High Availability
+  
+  Test Description:
+  	Test persistent messaging with a durable subscription using high
+  	availability. All sending occurs before the primary dies. Receiving 
+  	occurs before and after the primary dies.
+  	This test uses transacted Sessions.
+  	
+  	Send 2400 messages with property ID=1 through ID=2400
+  	Begin receiving messages
+  	Crash the primary server during receiving messages
+  	Reconnect to standby server
+  	Receive all 2400 messages since we never got to commit before crashing
+  	
+  	All messages that were in the client cache before the cache, but not
+  	yet received, should be thrown away.
+  	
+  	All 2400 messages must be redelivered after the crash.
+  
+*****************************************************************************/
+-->
+<LlmJmsTest name="jms_HAqueuetrans_005" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_HQqueuetrans_005</solution>
+	</SyncClient>
+	
+	<Action name="rmdr" type="CompositeAction">
+
+		<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+		<Action name="syncReset" type="SyncAction">
+			<ActionParameter name="request">reset</ActionParameter>
+		</Action>
+
+                <!-- Set up the connection for the first time -->
+		<Action name="Create_qcf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+			<ActionParameter name="type">queue</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+		</Action>
+			
+		<Action name="SetProps_qcf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx_HA005_clientid" type="STRING"/>
+			<include>../common/JMS_serverHA.xml</include>
+			<ImaProperty name="Port" value="16102" type="INT"/>
+		</Action>
+		
+		<Action name="CreateListener" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="CreateConnection" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses1</ActionParameter>
+	 		<ApiParameter name="transacted">1</ApiParameter>
+		</Action>
+
+		<Action name="CreateDestination" type="CreateDestination">
+			<ApiParameter name="name">jms_ha_queue01</ApiParameter>
+			<ActionParameter name="type">queue</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX1</ActionParameter>
+		</Action>
+
+		<!-- Create durable subscription highAvail2 and start the connection -->
+		<Action name="CreateConsumer" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX1</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+		</Action>
+
+		<!-- Sync point before sending/receiving -->
+		<Action name="sync_components1" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+
+		<Action name="sync_components2" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx1a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+			<ActionParameter name="timeout">180000</ActionParameter>
+		</Action>
+
+		<Action name="StartConnectionRX" type="StartConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+		<!-- start receiving messages -->
+		<Action name="Receive" type="ReceiveMessageLoop">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+			<ActionParameter name="maxID">2400</ActionParameter>
+			<ActionParameter name="messageIDS">messageIDs</ActionParameter>
+		</Action>
+
+		<Action name="CrashServer" type="CompositeAction" thread="3">
+			<dependsOn name="StartConnectionRX"/>
+			<Action name="ShellAction" type="ShellAction">
+                                <ActionParameter name="command">python ../scripts/haFunctions.py -f jms_HAqueuetrans_005.xml.crashPrimary.log -a crashPrimary</ActionParameter>
+				<ActionParameter name="print_result">1</ActionParameter>
+			</Action>
+		</Action>
+
+		<!-- Reconnect -->
+		<Action name="Create2_qcf1" type="CreateConnectionFactory">
+			<dependsOn name="CrashServer"/>
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+			<ActionParameter name="type">queue</ActionParameter>
+		</Action>
+			
+		<Action name="SetProps2_qcf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx_HA005_clientid" type="STRING"/>
+			<include>../common/JMS_serverHA.xml</include>
+			<ImaProperty name="Port" value="16102" type="INT"/>
+		</Action>
+		
+		<Action name="CreateListener2" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="CreateConnection2" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession2" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses1</ActionParameter>
+	 		<ApiParameter name="transacted">1</ApiParameter>
+		</Action>
+
+		<Action name="CreateDestination2" type="CreateDestination">
+			<ApiParameter name="name">jms_ha_queue01</ApiParameter>
+			<ActionParameter name="type">queue</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX1</ActionParameter>
+		</Action>
+
+		<!-- Create durable subscription highAvail2 and start the connection -->
+		<Action name="CreateConsumer2" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX1</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="StartConnectionRX2" type="StartConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+		<!-- Finish receiving messages -->
+		<Action name="ReceiveFinal" type="ReceiveMessageLoop">>
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+			<ActionParameter name="maxID">2400</ActionParameter>
+			<ActionParameter name="messageIDS">messageIDs</ActionParameter>
+			<ActionParameter name="checkIDS">true</ActionParameter>
+		</Action>
+
+		<Action name="Commit" type="SessionCommit">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession1" type="CloseSession">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection" type="StopConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+	</Action>  
+
+	<Action name="rmdt" type="CompositeAction">
+		<Action name="Create_qcf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+			<ActionParameter name="type">queue</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+		</Action>
+			
+		<Action name="SetProps_qcf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="tx_HA005_clientid" type="STRING"/>
+			<include>../common/JMS_serverHA.xml</include>
+			<ImaProperty name="Port" value="16102" type="INT"/>
+		</Action>
+
+		<Action name="CreateListener_TX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="CreateConnection_TX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+			<ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+			<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_TX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+			<ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+	 		<ApiParameter name="transacted">1</ApiParameter>
+		</Action>
+
+		<Action name="CreateDestination" type="CreateDestination">
+			<ApiParameter name="name">jms_ha_queue01</ApiParameter>
+			<ActionParameter name="type">queue</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="dest_id">destTX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="StartConnection_TX" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateMessage1" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">We are testing delivery modes here</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage2" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg2</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage2Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+			<ApiParameter name="value">I wonder if delivery mode is implemented correctly</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage3" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg3</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage3Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+			<ApiParameter name="value">Only one way to find out</ApiParameter>
+		</Action>
+	
+		<Action name="SetMessage1Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="propertyName">ID</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">1</ApiParameter>
+		</Action>
+	
+		<Action name="SetMessage2Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+			<ApiParameter name="propertyName">ID</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">2</ApiParameter>
+		</Action>
+	
+		<Action name="SetMessage3Property" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+			<ApiParameter name="propertyName">ID</ApiParameter>
+			<ApiParameter name="propertyType">Common</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="value">3</ApiParameter>
+		</Action>
+	
+		<Action name="sync_components1" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+
+		<Action name="CompositeSnd" type="CompositeAction" repeat="800" interval="0">
+			<Action name="SendMessage1" type="SendMessage">
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg1</ActionParameter>
+				<ActionParameter name="incrID">3</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage2" type="SendMessage">
+				<dependsOn name="SendMessage1" interval="0"/>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg2</ActionParameter>
+				<ActionParameter name="incrID">3</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage3" type="SendMessage">
+				<dependsOn name="SendMessage2" interval="0"/>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg3</ActionParameter>
+				<ActionParameter name="incrID">3</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="Commit" type="SessionCommit">
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<!-- kill the server -->
+		<Action name="sync_components2" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx1a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+	</Action>
+</LlmJmsTest>

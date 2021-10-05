@@ -1,0 +1,714 @@
+#######################################
+# Important:  Ports from 20000 to 21000 
+# are reserved for tests that create 
+# endpoints via "ShellAction" commands
+# in xml scripts. The following list
+# shows which ones are known to be used.
+#
+#  The cleanup for this was migrated in 
+#  February 2019 to use restapi.
+#
+#  The setup is for a 1.2 version 
+#  and wasn not migrated. 
+#
+#
+#  Note: The setup was (presumably) what was used for the hardcoded 1.2 
+#        store that this test imports.  Since 1.2 goes out of service 
+#        in 2019 or 2020, it can be removed after all customers migrate  
+#        off 1.2. I'm not even sure this is supported. (JLS) 
+# 
+#######################################
+# 18400 - 18402 (wildcard/wildcard_config.cli)
+# 18430 - 18436 (chainedcerts/chaincerts_config.cli)
+# 18475 - 18476 (HA/resync_config.cli)
+# 20000 (ssl/jms_ssl_021.xml)
+# 20001 (ssl/jms_ssl_022.xml)
+# 20004 - 20007 (oauth/oauth_policy_config.cli)
+# 20008 (ldap/ldap_policy_config.cli)
+# 20010 (queues/jms_queues_max.xml)
+# 20011 (msgdelivery/jms_msgdelivery_MP_max.xml)
+# 20020 (expiration)
+# 20021 (expiration)
+# 20022 (expiration)
+# 20023 (expiration)
+# 20024 (expiration)
+# 20025 (expiration)
+# 20026 (Dynamic Policy Updates)
+# 20027 (Dynamic Policy Updates)
+# 20028 (Dynamic Policy Updates)
+# 20029 (Dynamic Policy Updates)
+# 20030 (Dynamic Policy Updates)
+#
+# 21004 (oauth/oauth_policy_config.cli)
+
+#########################
+# Create messaging groups
+#########################
+setup 0 group add GroupID=JMSGroup1
+setup 0 group add GroupID=JMSGroup2
+setup 0 group add GroupID=JMSGroup3
+setup 0 group add GroupID=JMSGroup4
+setup 0 group add GroupID=JMSGroup5a
+setup 0 group add GroupID=JMSGroup5b GroupMembership=JMSGroup5a
+setup 0 group add GroupID=JMSGroup5c GroupMembership=JMSGroup5b
+setup 0 group add GroupID=JMSGroup5d GroupMembership=JMSGroup5c
+# setup 0 group edit GroupID=JMSGroup5a AddGroupMembership=JMSGroup5a ### circular groups disabled as of 31942
+setup 0 group add GroupID=VarGroup
+setup 0 group add GroupID=☆Group
+setup 0 group add GroupID=JMS_DCN_Group
+
+########################
+# Create messaging users
+########################
+setup 0 user add UserID=JMSUser1 type=messaging password=test
+setup 0 user add UserID=JMSUser2 type=messaging password=test GroupMembership=JMSGroup1
+setup 0 user add UserID=JMSUser3 type=messaging password=test GroupMembership=JMSGroup2
+setup 0 user add UserID=JMSUser4 type=messaging password=test 
+setup 0 user add UserID=JMSUser5 type=messaging password=test GroupMembership=JMSGroup3
+setup 0 user add UserID=JMSUser6 type=messaging password=original
+setup 0 user add UserID=JMSUser7 type=messaging password=test GroupMembership=JMSGroup4
+setup 0 user add UserID=JMSUser8a type=messaging password=test GroupMembership=JMSGroup5a
+setup 0 user add UserID=JMSUser8b type=messaging password=test GroupMembership=JMSGroup5b
+setup 0 user add UserID=JMSUser8c type=messaging password=test GroupMembership=JMSGroup5c
+setup 0 user add UserID=JMSUser8d type=messaging password=test GroupMembership=JMSGroup5d
+setup 0 user add UserID=VarUser1 type=messaging password=test GroupMembership=VarGroup
+setup 0 user add UserID=VarUser2 type=messaging password=test GroupMembership=VarGroup
+setup 0 user add UserID=☆ type=messaging password=test GroupMembership=☆Group
+setup 0 user add UserID=JMS_DCN_User type=messaging password=test GroupMembership=JMS_DCN_Group
+setup 0 user add UserID=JMS_DCN_app_User type=messaging password=test GroupMembership=JMS_DCN_Group
+
+#setup 0 set TraceLevel=8
+
+####################################################
+# Increase MaxMessages for Message Delivery Test (MD9)
+####################################################
+setup 0 update MessagingPolicy Name=DemoMessagingPolicy Destination=* DestinationType=Topic MaxMessages=30000 "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=MessagingPolicyQueue Destination=* ClientAddress=* DestinationType=Queue Protocol=JMS "ActionList=Send,Receive"
+setup 0 create MessagingPolicy Name=MessagingPolicyQueueGVT Destination=葛渚噓 DestinationType=Queue Protocol=JMS "ActionList=Send,Receive"
+setup 0 update Endpoint Name=DemoEndpoint Enabled=True MessagingPolicies=DemoMessagingPolicy,MessagingPolicyQueue,MessagingPolicyQueueGVT,DemoMPForSharedSub
+
+#setup 0 set TraceLevel=7
+
+#######################
+# SSL Certificate Setup
+#######################
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem jmsimaserver-crt.pem
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem jmsimaserver-key.pem
+setup 0 apply Certificate CertFileName=jmsimaserver-crt.pem "CertFilePassword=" KeyFileName=jmsimaserver-key.pem "KeyFilePassword=" Overwrite=True
+
+############################################
+# SSL Certificate and Security Profile Setup
+############################################
+setup 0 create CertificateProfile Name=JMSSSLCertProf1 Certificate=jmsimaserver-crt.pem Key=jmsimaserver-key.pem
+setup 0 create SecurityProfile Name=JMSSSLSecureProf1 MinimumProtocolMethod=SSLv3 UseClientCertificate=False Ciphers=Fast CertificateProfile=JMSSSLCertProf1
+setup 0 create SecurityProfile Name=JMSSSLSecureProf2 MinimumProtocolMethod=SSLv3 UseClientCertificate=False Ciphers=Fast CertificateProfile=JMSSSLCertProf1 UsePasswordAuthentication=True
+setup 0 create SecurityProfile Name=JMSSSLSecureProf3 MinimumProtocolMethod=SSLv3 UseClientCertificate=False Ciphers=Fast CertificateProfile=JMSSSLCertProf1 UsePasswordAuthentication=False
+
+setup 0 create SecurityProfile Name=JMSSSLSecureProfForFipsTrue1 MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Best CertificateProfile=JMSSSLCertProf1
+setup 0 create SecurityProfile Name=JMSSSLSecureProfForFipsTrue2 MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Fast CertificateProfile=JMSSSLCertProf1
+setup 0 create SecurityProfile Name=JMSSSLSecureProfForFipsTrue3 MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Medium CertificateProfile=JMSSSLCertProf1
+setup 0 create SecurityProfile Name=JMSSSLSecureProfForFipsTrue4 MinimumProtocolMethod=TLSv1.1 UseClientCertificate=False Ciphers=Medium CertificateProfile=JMSSSLCertProf1
+
+############################################
+# Non-TLS Security Profile Setup
+############################################
+setup 0 create SecurityProfile Name=JMSNoTLSSecureProf1 TLSEnabled=False MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=JMSSSLCertProf1
+setup 0 create SecurityProfile Name=JMSNoTLSSecureProfForFipsTrue1 TLSEnabled=False MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Best CertificateProfile=JMSSSLCertProf1
+
+####################################################
+# Commands for client certificates
+# Server code not currently using the correct CAPath
+####################################################
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaCA-crt.pem JMSimaCA-crt.pem
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem JMSrootCA-crt.pem
+setup 0 create SecurityProfile Name=JMSSSLSecureProf4 MinimumProtocolMethod=SSLv3 UseClientCertificate=True UsePasswordAuthentication=False Ciphers=Fast CertificateProfile=JMSSSLCertProf1
+setup 0 apply Certificate TrustedCertificate=JMSrootCA-crt.pem SecurityProfileName=JMSSSLSecureProf4 Overwrite=True
+setup 0 apply Certificate TrustedCertificate=JMSimaCA-crt.pem SecurityProfileName=JMSSSLSecureProf4 Overwrite=True
+
+###############################
+# Message Hub for SSL Endpoints
+###############################
+setup 0 create MessageHub Name=JMSSSLHub Description=JMSSSLHub
+setup 0 create MessageHub Name=☆Hub Description=☆
+
+####################################################
+# Message Hub for Disconnected Client Notification
+####################################################
+setup 0 create MessageHub Name=JMS_DCN_Hub Description=JMS_DCN_Hub
+
+########################################im
+# Plain Message Hub config that WILL NEVER EVER CHANGE
+########################################
+setup 0 create MessageHub Name=JMSPlainHub Description=DoNotModify
+setup 0 create ConnectionPolicy Name=JMSPlainCP Protocol=JMS,MQTT
+setup 0 create MessagingPolicy Name=JMSPlainMP UserID=* GroupID=* Destination=* DestinationType=Topic Protocol=JMS,MQTT "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=JMSPlainMPExp UserID=* GroupID=* Destination=/sports/* MaxMessageTimeToLive=8  DestinationType=Topic  "ActionList=Publish,Subscribe"
+setup 0 create Endpoint Name=JMSPlainEP Enabled=True Port=19500 ConnectionPolicies=JMSPlainCP MessagingPolicies=JMSPlainMPExp,JMSPlainMP MaxMessageSize=4MB MessageHub=JMSPlainHub
+setup 0 create Endpoint Name=NoQueuesDemoEndpoint Enabled=True Port=18502 ConnectionPolicies=DemoConnectionPolicy MessagingPolicies=DemoMessagingPolicy,DemoMPForSharedSub MessageHub=DemoHub
+
+########################################
+# Administratively expiring messages Endpoints 
+########################################
+setup 0 create MessageHub Name=JMSExpiringHub "Description=Endpoints which set an Adminstrative MaxMessageTimeToLive"
+setup 0 create ConnectionPolicy Name=JMSExpCP Protocol=JMS,MQTT
+setup 0 create MessagingPolicy Name=JMSExpMP1 UserID=* GroupID=* Destination=* MaxMessageTimeToLive=120000  DestinationType=Topic "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=JMSExpMP2 UserID=* GroupID=* Destination=* MaxMessageTimeToLive=15  DestinationType=Topic "ActionList=Publish,Subscribe"
+setup 0 create Endpoint Name=JMSExpEP1 Enabled=True Port=19501 ConnectionPolicies=JMSExpCP MessagingPolicies=JMSExpMP1 MaxMessageSize=4MB MessageHub=JMSExpiringHub
+setup 0 create Endpoint Name=JMSExpEP2 Enabled=True Port=19502 ConnectionPolicies=JMSExpCP MessagingPolicies=JMSExpMP2 MaxMessageSize=4MB MessageHub=JMSExpiringHub
+#
+
+###############
+# Create Queues
+# JMSQueue009 and 012 are specific to testcases jms_queues_009.xml and jms_queues_012.xml 
+# JMSQueueExp is specific to jms_queues_012ExpiredMsgs.xml
+# Do not reuse it for any other tests.
+###############
+setup 0 create Queue Name=JMSQueueBrowser AllowSend=True ConcurrentConsumers=False MaxMessages=100000
+setup 0 create Queue Name=JMSQueue1 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSZombieQueue1 AllowSend=True ConcurrentConsumers=False MaxMessages=200
+setup 0 create Queue Name=葛渚噓 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue2 AllowSend=True ConcurrentConsumers=True MaxMessages=100
+setup 0 create Queue Name=JMSZombieQueue2 AllowSend=True ConcurrentConsumers=False MaxMessages=200
+setup 0 create Queue Name=JMSQueue3 AllowSend=True ConcurrentConsumers=False MaxMessages=100000
+setup 0 create Queue Name=JMSQueue4 AllowSend=False ConcurrentConsumers=True MaxMessages=5000
+setup 0 create Queue Name=JMSQueue5 AllowSend=True ConcurrentConsumers=False MaxMessages=1000
+setup 0 create Queue Name=JMSQueue6 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue7 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue8 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue9 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue10 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue11 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue12 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue13 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue14 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue15 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue16 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue17 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue009 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueue012 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=JMSQueueExp AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setup 0 create Queue Name=JMSQueue014 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+# Defaults are AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setup 0 create Queue Name=JMSQueue022
+setup 0 create Queue Name=trans_queue01 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=trans_queue02 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=trans_queue03 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=trans_queue04 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=jms_ha_queue01 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+
+#####################
+# ☆ Connection Policy
+#####################
+setup 0 create ConnectionPolicy Name=☆CP Protocol=JMS
+
+#########################
+# Queue Connection Policy (All Queue Tests)
+#########################
+setup 0 create ConnectionPolicy Name=JMSQueueConnectionPolicy1 Protocol=JMS
+
+#######################################
+# Connection Policies for SSL Endpoints (Tests 1-8, 16,17)
+#######################################
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy1 ClientID=jms* Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy2 ClientAddress=${M1_IPv4_1} Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy3 UserID=JMSUser4 Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy4 ClientID=jmsClient1 Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy5 UserID=JMSUser3 GroupID=JMSGroup2 Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy6 ClientID=* Protocol=MQTT
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy7 ClientID=jmsClient1 Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy8 Protocol=JMS UserID=JMSUser6
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy9 GroupID=JMSGroup4 Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy10 GroupID=JMSGroup5b Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy11 ClientID=JMSclient0 Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSSSLConnectionPolicy14 "CommonNames=IMA Test Team(imaclient*"  Protocol=JMS
+
+#########################################
+# Connection Policy for Wildcard Endpoint (Test 10)
+#########################################
+setup 0 create ConnectionPolicy Name=WildConnectionPolicy1 ClientID=jmsClient* Protocol=JMS
+
+################################################
+# Connection Policy for Variable Policy Endpoint (Test 11-12)
+################################################
+setup 0 create ConnectionPolicy Name=JMSVarConnPol1 GroupID=VarGroup Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSVarConnPol2 GroupID=VarGroup Protocol=JMS
+
+####################################
+# Connection Policies for SSL Test 9 (Test 9)
+####################################
+setup 0 create ConnectionPolicy Name=JMSConnectionPolicy1 GroupID=JMSGroup1 Protocol=JMS
+setup 0 create ConnectionPolicy Name=JMSConnectionPolicy2 GroupID=JMSGroup2 Protocol=JMS
+
+############################
+# ConnectionPolicy for DCN
+############################
+setup 0 create ConnectionPolicy Name=JMS_DCN_CP GroupID=JMS_DCN_Group Protocol=JMS
+
+###########################
+# Messaging Policy for DCN
+###########################
+setup 0 create MessagingPolicy Name=JMS_DCN_MP Destination=\$SYS/DisconnectedClientNotification DestinationType=Topic ActionList=Subscribe Protocol=JMS
+setup 0 create MessagingPolicy Name=JMS_DCN_app_MP Destination=/Foo DestinationType=Topic ActionList=Subscribe,Publish DisconnectedClientNotification=True Protocol=JMS
+
+####################
+# ☆ Messaging Policy
+####################
+setup 0 create MessagingPolicy Name=☆MP UserID=☆ GroupID=☆Group Destination=* DestinationType=Topic Protocol=JMS "ActionList=Publish,Subscribe"
+
+##########################
+# Queue Messaging Policies (All Queue Tests)
+##########################
+setup 0 create MessagingPolicy Name=JMSQueueMessagingPolicy01 Destination=* DestinationType=Queue "ActionList=Send,Receive,Browse" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSQueueMessagingPolicy02 Destination=* DestinationType=Queue "ActionList=Send,Browse" Protocol=JMS
+
+######################################
+# Messaging Policies for SSL Endpoints (Test 1-8)
+######################################
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy01 Destination=dest1 DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy02 Destination=dest2 DestinationType=Topic "ActionList=Publish" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy03 Destination=dest3 DestinationType=Topic "ActionList=Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy04 Destination=dest4 DestinationType=Topic Protocol=MQTT "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy05 Destination=dest5 DestinationType=Topic UserID=JMSUser2 GroupID=JMSGroup1 "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy06 Destination=dest6 DestinationType=Topic ClientAddress=[${M1_IPv6_1}] "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy07 Destination=dest7 DestinationType=Topic ClientID=jmsClient7 "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy08 Destination=topic* DestinationType=Topic ClientID=jmsClient1 ClientAddress=${M1_IPv4_1} "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy09 Destination=* DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy14 Destination=* DestinationType=Topic "ActionList=Publish,Subscribe" "CommonNames=IMA Test Team(imaclient*" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSSSLMsgSubPolicy09A Destination=sharedSSL_014 DestinationType=Subscription "ActionList=Control,Receive" "CommonNames=IMA Test Team(imaclient*" 
+setup 0 create MessagingPolicy Name=JMSSSLMsgSubPolicy09B Destination=sharedSSL_014 DestinationType=Subscription "ActionList=Control,Receive" "CommonNames=Notima*" 
+setup 0 create MessagingPolicy Name=JMSSSLMsgSubPolicy09C Destination=sharedSSL_014 DestinationType=Subscription "ActionList=Receive" "CommonNames=IMA Test Team(imaclient*" 
+
+setup 0 create MessagingPolicy Name=JMSSSLMessagingPolicy10 GroupID=JMSGroup3 Destination=dest10 DestinationType=Topic "ActionList=Publish,Subscribe"
+
+##########################################
+# Messaging Policies for Wildcard Endpoint (Test 10)
+##########################################
+setup 0 create MessagingPolicy Name=WildMessagingPolicy1 ClientID=jmsClient1 Destination=/topic/a DestinationType=Topic "ActionList=Subscribe"
+setup 0 create MessagingPolicy Name=WildMessagingPolicy2 ClientID=jmsClient1 Destination=/topic/b DestinationType=Topic "ActionList=Subscribe"
+setup 0 create MessagingPolicy Name=WildMessagingPolicy3 ClientID=jmsClient2 Destination=/topic/* DestinationType=Topic "ActionList=Publish"
+
+###############################################
+# Messaging Policy for Variable Policy Endpoint (Test 11-12)
+###############################################
+setup 0 create MessagingPolicy Name=JMSVarMsgPol1 Destination=/accounts/\${ClientID}/data DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSVarMsgPol2 Destination=/accounts/\${UserID}/data DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSVarMsgPol3 Destination=/\${UserID}/\${ClientID}/info DestinationType=Topic "ActionList=Publish" Protocol=JMS
+setup 0 create MessagingPolicy Name=JMSVarMsgPol4 Destination=* DestinationType=Topic "ActionList=Subscribe" Protocol=JMS
+
+###################################
+# Messaging Policies for SSL Test 9 (Test 9)
+###################################
+setup 0 create MessagingPolicy Name=JMSMessagingPolicy1 ClientID=jmsClient1 UserID=JMSUser2 Destination=/topic/subTopic DestinationType=Topic "ActionList=Subscribe"
+setup 0 create MessagingPolicy Name=JMSMessagingPolicy2 ClientID=jmsClient2 UserID=JMSUser3 Destination=/topic/subTopic/subSubTopic DestinationType=Topic "ActionList=Subscribe"
+setup 0 create MessagingPolicy Name=JMSMessagingPolicy3 ClientID=jmsClient3 UserID=JMSUser2 Destination=/topic/sub* DestinationType=Topic "ActionList=Publish"
+setup 0 create MessagingPolicy Name=JMSMessagingPolicy4 ClientID=jmsClient4 UserID=JMSUser3 Destination=/topic/subTopic/subSubTopic DestinationType=Topic "ActionList=Publish"
+setup 0 create MessagingPolicy Name=JMSMessagingPolicy5 ClientID=jmsClient* UserID=JMSUser* GroupID=JMSGroup* Destination=/topic DestinationType=Topic "ActionList=Publish,Subscribe"
+
+############
+# ☆ Endpoint
+############
+setup 0 create Endpoint Name=☆EP Enabled=True Port=18456 ConnectionPolicies=☆CP MessagingPolicies=☆MP MaxMessageSize=4MB MessageHub=☆Hub
+
+################
+# Queue Endpoint
+################
+setup 0 create Endpoint Name=JMSQueueEndpoint Enabled=True Port=18458 ConnectionPolicies=JMSQueueConnectionPolicy1 MessagingPolicies=JMSQueueMessagingPolicy01 MaxMessageSize=4MB MessageHub=JMSSSLHub
+setup 0 create Endpoint Name=JMSQueueBrowserEndpoint Enabled=True Port=18457 ConnectionPolicies=JMSQueueConnectionPolicy1 MessagingPolicies=JMSQueueMessagingPolicy02 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+######################################
+# Endpoint for wildcards with policies (Test 10)
+######################################
+setup 0 create Endpoint Name=WildEndpoint1 Enabled=True Port=18459 ConnectionPolicies=WildConnectionPolicy1 MessagingPolicies=WildMessagingPolicy1,WildMessagingPolicy2,WildMessagingPolicy3 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+################
+# Basic Endpoint (Test 8)
+################
+setup 0 create Endpoint Name=JMSBasicEndpoint1 Enabled=True Port=18465 ConnectionPolicies=JMSSSLConnectionPolicy7 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+
+############################################
+# Disconnected Client Notification Endpoint
+############################################
+setup 0 create Endpoint Name=JMS_DCN_EP Enabled=True Port=29301 ConnectionPolicies=JMS_DCN_CP MessagingPolicies=JMS_DCN_MP,JMS_DCN_app_MP MessageHub=JMS_DCN_Hub
+
+###########################
+# Variable Policy Endpoints (Test 11-12)
+###########################
+setup 0 create Endpoint Name=JMSVarEndpoint1 Enabled=True Port=18464 ConnectionPolicies=JMSVarConnPol1 MessagingPolicies=JMSVarMsgPol1,JMSVarMsgPol2 MaxMessageSize=4MB MessageHub=JMSSSLHub
+setup 0 create Endpoint Name=JMSVarEndpoint2 Enabled=True Port=18463 ConnectionPolicies=JMSVarConnPol2 MessagingPolicies=JMSVarMsgPol3,JMSVarMsgPol4 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+###############
+# SSL Endpoints (Test 1-7, 16)
+###############
+setup 0 create Endpoint Name=JMSSSLEndpoint1 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18466 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint2 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18467 ConnectionPolicies=JMSSSLConnectionPolicy2 MessagingPolicies=JMSSSLMessagingPolicy06,JMSSSLMessagingPolicy10 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint3 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18468 ConnectionPolicies=JMSSSLConnectionPolicy3 MessagingPolicies=JMSSSLMessagingPolicy06,JMSSSLMessagingPolicy07 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint4 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18469 ConnectionPolicies=JMSSSLConnectionPolicy4 MessagingPolicies=JMSSSLMessagingPolicy08,JMSSSLMessagingPolicy10 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint5 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18470 ConnectionPolicies=JMSSSLConnectionPolicy5 MessagingPolicies=JMSSSLMessagingPolicy09 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint6 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18471 ConnectionPolicies=JMSSSLConnectionPolicy6 MessagingPolicies=JMSSSLMessagingPolicy01 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint7 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18479 ConnectionPolicies=JMSSSLConnectionPolicy8 MessagingPolicies=JMSSSLMessagingPolicy01 MaxMessageSize=1MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint8 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18480 ConnectionPolicies=JMSSSLConnectionPolicy9 MessagingPolicies=JMSSSLMessagingPolicy01 MaxMessageSize=1K MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint9 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18481 ConnectionPolicies=JMSSSLConnectionPolicy10 MessagingPolicies=JMSSSLMessagingPolicy01 MaxMessageSize=1K MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLEndpoint10 Enabled=True SecurityProfile=JMSSSLSecureProf1 Port=18482 ConnectionPolicies=JMSSSLConnectionPolicy11 MessagingPolicies=JMSSSLMessagingPolicy01 MaxMessageSize=1K MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLFIPSTrueEndpoint1 Enabled=True SecurityProfile=JMSSSLSecureProfForFipsTrue1 Port=18483 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLFIPSTrueEndpoint2 Enabled=True SecurityProfile=JMSSSLSecureProfForFipsTrue2 Port=18484 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLFIPSTrueEndpoint3 Enabled=True SecurityProfile=JMSSSLSecureProfForFipsTrue3 Port=18485 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+setup 0 create Endpoint Name=JMSSSLFIPSTrueEndpoint4 Enabled=True SecurityProfile=JMSSSLSecureProfForFipsTrue4 Port=18486 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+##########################
+# Endpoints for SSL Test 9 (Test 9)
+##########################
+setup 0 create Endpoint Name=JMSEndpoint1 Enabled=True Port=18460 ConnectionPolicies=JMSConnectionPolicy1 MessagingPolicies=JMSMessagingPolicy1,JMSMessagingPolicy3,JMSMessagingPolicy5 MaxMessageSize=4MB MessageHub=JMSSSLHub
+setup 0 create Endpoint Name=JMSEndpoint2 Enabled=True Port=18461 ConnectionPolicies=JMSConnectionPolicy2 MessagingPolicies=JMSMessagingPolicy2,JMSMessagingPolicy4,JMSMessagingPolicy5 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+################################
+# Endpoints for SSL UserAuth Test (Test 13)
+################################
+setup 0 create Endpoint Name=JMSSSLEndpoint13 Enabled=True SecurityProfile=JMSSSLSecureProf2 Port=18472 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+setup 0 create Endpoint Name=JMSSSLEndpoint13b Enabled=True SecurityProfile=JMSSSLSecureProf3 Port=18473 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+#######################################
+# Endpoint for Client Certificate Tests (Test 14)
+#######################################
+setup 0 create Endpoint Name=ClientCertEndpoint014A Enabled=True Port=18474 SecurityProfile=JMSSSLSecureProf4 ConnectionPolicies=JMSSSLConnectionPolicy14 MessagingPolicies=JMSSSLMessagingPolicy14,JMSSSLMsgSubPolicy09A MessageHub=JMSSSLHub
+setup 0 create Endpoint Name=ClientCertEndpoint014B Enabled=True Port=18475 SecurityProfile=JMSSSLSecureProf4 ConnectionPolicies=JMSSSLConnectionPolicy14 MessagingPolicies=JMSSSLMessagingPolicy14,JMSSSLMsgSubPolicy09B MessageHub=JMSSSLHub
+setup 0 create Endpoint Name=ClientCertEndpoint014C Enabled=True Port=18476 SecurityProfile=JMSSSLSecureProf4 ConnectionPolicies=JMSSSLConnectionPolicy14 MessagingPolicies=JMSSSLMessagingPolicy14,JMSSSLMsgSubPolicy09C MessageHub=JMSSSLHub
+
+##########################
+# Endpoints with non-TLS SecurityProfiles
+##########################
+setup 0 create Endpoint Name=JMSNoTLSEndpoint1 Enabled=True SecurityProfile=JMSNoTLSSecureProf1 Port=28466 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+setup 0 create Endpoint Name=JMSNoTLSFIPSTrueEndpoint1 Enabled=True SecurityProfile=JMSNoTLSSecureProfForFipsTrue1 Port=28483 ConnectionPolicies=JMSSSLConnectionPolicy1 MessagingPolicies=JMSSSLMessagingPolicy01,JMSSSLMessagingPolicy02,JMSSSLMessagingPolicy03,JMSSSLMessagingPolicy04,JMSSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=JMSSSLHub
+
+#######################################################
+# Connection Policies for further ClientAddress testing (Test 15)
+#######################################################
+setupM2 0 create ConnectionPolicy Name=JMSCPm1 ClientAddress=${M1_IPv4_1} Protocol=JMS
+setupM2 0 create ConnectionPolicy Name=JMSCPm2 ClientAddress=${M2_IPv4_1} Protocol=JMS
+setupM2 0 create ConnectionPolicy Name=JMSCPipLow ClientAddress=9.9.9.9 Protocol=JMS
+setupM2 0 create ConnectionPolicy Name=JMSCPipHigh ClientAddress=255.255.255.255 Protocol=JMS
+
+##########################################################
+# Messaging Policies for more robust ClientAddress testing (Test 15)
+##########################################################
+setupM2 0 create MessagingPolicy Name=JMSMPm1 Destination=IPtopic ClientAddress=${M1_IPv4_1} DestinationType=Topic "ActionList=Subscribe"
+setupM2 0 create MessagingPolicy Name=JMSMPm2 Destination=IPtopic ClientAddress=${M2_IPv4_1} DestinationType=Topic "ActionList=Publish"
+setupM2 0 create MessagingPolicy Name=JMSMPipLow Destination=badIPtopic ClientAddress=9.9.9.9 DestinationType=Topic "ActionList=Publish,Subscribe"
+setupM2 0 create MessagingPolicy Name=JMSMPipHigh Destination=badIPtopic ClientAddress=255.255.255.255 DestinationType=Topic "ActionList=Publish,Subscribe"
+
+#################################################
+# Endpoints for more robust ClientAddress testing (Test 15)
+#################################################
+setupM2 0 create Endpoint Name=JMSEndpointIP Enabled=True Port=18477 ConnectionPolicies=JMSCPm1,JMSCPm2 MessagingPolicies=JMSMPm1,JMSMPm2,JMSMPipLow,JMSMPipHigh MessageHub=DemoHub
+setupM2 0 create Endpoint Name=JMSEndpointIPinvalid Enabled=True Port=18478 ConnectionPolicies=JMSCPipLow,JMSCPipHigh MessagingPolicies=JMSMPipLow,JMSMPipHigh MessageHub=DemoHub
+
+
+#######################################
+# Security Policy Cleanup Configuration
+#######################################
+
+#####cleanup 0 delete Endpoint Name=☆EP
+cleanup 0 DELETE configuration/Endpoint/☆EP
+#####cleanup 0 delete Endpoint Name=JMSQueueEndpoint
+cleanup 0 DELETE configuration/Endpoint/JMSQueueEndpoint
+#####cleanup 0 delete Endpoint Name=JMSQueueBrowserEndpoint
+cleanup 0 DELETE configuration/Endpoint/JMSQueueBrowserEndpoint
+#####cleanup 0 delete Endpoint Name=WildEndpoint1
+cleanup 0 DELETE configuration/Endpoint/WildEndpoint1
+#####cleanup 0 delete Endpoint Name=JMSBasicEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSBasicEndpoint1
+#####cleanup 0 delete Endpoint Name=JMSVarEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSVarEndpoint1
+#####cleanup 0 delete Endpoint Name=JMSVarEndpoint2
+cleanup 0 DELETE configuration/Endpoint/JMSVarEndpoint2
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint1
+#####cleanup 0 delete Endpoint Name=JMSNoTLSEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSNoTLSEndpoint1
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint2
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint2
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint3
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint3
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint4
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint4
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint5
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint5
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint6
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint6
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint7
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint7
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint8
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint8
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint9
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint9
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint10
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint10
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint13
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint13
+#####cleanup 0 delete Endpoint Name=JMSSSLEndpoint13b
+cleanup 0 DELETE configuration/Endpoint/JMSSSLEndpoint13b
+#####cleanup 0 delete Endpoint Name=JMSSSLFIPSTrueEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSSSLFIPSTrueEndpoint1
+#####cleanup 0 delete Endpoint Name=JMSNoTLSFIPSTrueEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSNoTLSFIPSTrueEndpoint1
+#####cleanup 0 delete Endpoint Name=JMSSSLFIPSTrueEndpoint2
+cleanup 0 DELETE configuration/Endpoint/JMSSSLFIPSTrueEndpoint2
+#####cleanup 0 delete Endpoint Name=JMSSSLFIPSTrueEndpoint3
+cleanup 0 DELETE configuration/Endpoint/JMSSSLFIPSTrueEndpoint3
+#####cleanup 0 delete Endpoint Name=JMSSSLFIPSTrueEndpoint4
+cleanup 0 DELETE configuration/Endpoint/JMSSSLFIPSTrueEndpoint4
+#####cleanup 0 delete Endpoint Name=JMSEndpoint1
+cleanup 0 DELETE configuration/Endpoint/JMSEndpoint1
+#####cleanup 0 delete Endpoint Name=JMSEndpoint2
+cleanup 0 DELETE configuration/Endpoint/JMSEndpoint2
+#####cleanup 0 delete Endpoint Name=ClientCertEndpoint014A
+cleanup 0 DELETE configuration/Endpoint/ClientCertEndpoint014A
+#####cleanup 0 delete Endpoint Name=ClientCertEndpoint014B
+cleanup 0 DELETE configuration/Endpoint/ClientCertEndpoint014B
+#####cleanup 0 delete Endpoint Name=ClientCertEndpoint014C
+cleanup 0 DELETE configuration/Endpoint/ClientCertEndpoint014C
+#####cleanup 0 delete Endpoint Name=JMSExpEP1
+cleanup 0 DELETE configuration/Endpoint/JMSExpEP1
+#####cleanup 0 delete Endpoint Name=JMSExpEP2
+cleanup 0 DELETE configuration/Endpoint/JMSExpEP2
+#####cleanup 0 delete SecurityProfile Name=JMSSSLSecureProf1
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProf1
+#####cleanup 0 delete SecurityProfile Name=JMSNoTLSSecureProf1
+cleanup 0 DELETE configuration/SecurityProfile/JMSNoTLSSecureProf1
+#####cleanup 0 delete SecurityProfile Name=JMSSSLSecureProf2
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProf2
+#####cleanup 0 delete SecurityProfile Name=JMSSSLSecureProf3
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProf3
+#####cleanup 0 delete SecurityProfile Name=JMSSSLSecureProf4
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProf4
+#####cleanup 0 delete SecurityProfile Name=JMSSSLSecureProfForFipsTrue1
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProfForFipsTrue1
+#####cleanup 0 delete SecurityProfile Name=JMSNoTLSSecureProfForFipsTrue1
+cleanup 0 DELETE configuration/SecurityProfile/JMSNoTLSSecureProfForFipsTrue1
+#####cleanup 0 delete SecurityProfile Name=JMSSSLSecureProfForFipsTrue2
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProfForFipsTrue2
+#####cleanup 0 delete SecurityProfile Name=JMSSSLSecureProfForFipsTrue3
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProfForFipsTrue3
+#####cleanup 0 delete SecurityProfile Name=JMSSSLSecureProfForFipsTrue4
+cleanup 0 DELETE configuration/SecurityProfile/JMSSSLSecureProfForFipsTrue4
+#####cleanup 0 delete CertificateProfile Name=JMSSSLCertProf1
+cleanup 0 DELETE configuration/CertificateProfile/JMSSSLCertProf1
+
+#####cleanup 0 delete ConnectionPolicy Name=☆CP
+cleanup 0 DELETE configuration/ConnectionPolicy/☆CP
+#####cleanup 0 delete ConnectionPolicy Name=JMSQueueConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSQueueConnectionPolicy1
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy1
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy2
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy2
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy3
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy3
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy4
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy4
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy5
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy5
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy6
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy6
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy7
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy7
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy8
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy8
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy9
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy9
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy10
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy10
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy11
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy11
+#####cleanup 0 delete ConnectionPolicy Name=JMSSSLConnectionPolicy14
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSSSLConnectionPolicy14
+#####cleanup 0 delete ConnectionPolicy Name=WildConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/WildConnectionPolicy1
+#####cleanup 0 delete ConnectionPolicy Name=JMSVarConnPol1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSVarConnPol1
+#####cleanup 0 delete ConnectionPolicy Name=JMSVarConnPol2
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSVarConnPol2
+#####cleanup 0 delete ConnectionPolicy Name=JMSConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSConnectionPolicy1
+#####cleanup 0 delete ConnectionPolicy Name=JMSConnectionPolicy2
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSConnectionPolicy2
+#####cleanup 0 delete ConnectionPolicy Name=JMSExpCP
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSExpCP
+#####cleanup 0 delete MessagingPolicy Name=☆MP
+cleanup 0 DELETE configuration/TopicPolicy/☆MP
+#####cleanup 0 delete MessagingPolicy Name=JMSQueueMessagingPolicy01
+cleanup 0 DELETE configuration/QueuePolicy/JMSQueueMessagingPolicy01
+#####cleanup 0 delete MessagingPolicy Name=JMSQueueMessagingPolicy02
+cleanup 0 DELETE configuration/QueuePolicy/JMSQueueMessagingPolicy02
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy01
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy01
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy02
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy02
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy03
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy03
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy04
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy04
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy05
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy05
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy06
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy06
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy07
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy07
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy08
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy08
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy09
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy09
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy14
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy14
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMsgSubPolicy09A
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSSSLMsgSubPolicy09A
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMsgSubPolicy09B
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSSSLMsgSubPolicy09B
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMsgSubPolicy09C
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSSSLMsgSubPolicy09C
+#####cleanup 0 delete MessagingPolicy Name=JMSSSLMessagingPolicy10
+cleanup 0 DELETE configuration/TopicPolicy/JMSSSLMessagingPolicy10
+#####cleanup 0 delete MessagingPolicy Name=WildMessagingPolicy1
+cleanup 0 DELETE configuration/TopicPolicy/WildMessagingPolicy1
+#####cleanup 0 delete MessagingPolicy Name=WildMessagingPolicy2
+cleanup 0 DELETE configuration/TopicPolicy/WildMessagingPolicy2
+#####cleanup 0 delete MessagingPolicy Name=WildMessagingPolicy3
+cleanup 0 DELETE configuration/TopicPolicy/WildMessagingPolicy3
+#####cleanup 0 delete MessagingPolicy Name=JMSVarMsgPol1
+cleanup 0 DELETE configuration/TopicPolicy/JMSVarMsgPol1
+#####cleanup 0 delete MessagingPolicy Name=JMSVarMsgPol2
+cleanup 0 DELETE configuration/TopicPolicy/JMSVarMsgPol2
+#####cleanup 0 delete MessagingPolicy Name=JMSVarMsgPol3
+cleanup 0 DELETE configuration/TopicPolicy/JMSVarMsgPol3
+#####cleanup 0 delete MessagingPolicy Name=JMSVarMsgPol4
+cleanup 0 DELETE configuration/TopicPolicy/JMSVarMsgPol4
+#####cleanup 0 delete MessagingPolicy Name=JMSMessagingPolicy1
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy1
+#####cleanup 0 delete MessagingPolicy Name=JMSMessagingPolicy2
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy2
+#####cleanup 0 delete MessagingPolicy Name=JMSMessagingPolicy3
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy3
+#####cleanup 0 delete MessagingPolicy Name=JMSMessagingPolicy4
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy4
+#####cleanup 0 delete MessagingPolicy Name=JMSMessagingPolicy5
+cleanup 0 DELETE configuration/TopicPolicy/JMSMessagingPolicy5
+#####cleanup 0 delete MessagingPolicy Name=JMSExpMP1
+cleanup 0 DELETE configuration/TopicPolicy/JMSExpMP1
+#####cleanup 0 delete MessagingPolicy Name=JMSExpMP2
+cleanup 0 DELETE configuration/TopicPolicy/JMSExpMP2
+#####cleanup 0 delete Queue Name=JMSQueueBrowser DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueueBrowser?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue1 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue1?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSZombieQueue1 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSZombieQueue1?DiscardMessages=true
+#####cleanup 0 delete Queue Name=葛渚噓 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/葛渚噓?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue2 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue2?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSZombieQueue2 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSZombieQueue2?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue3 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue3?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue4 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue4?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue5 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue5?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue6 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue6?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue7 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue7?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue8 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue8?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue9 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue9?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue10 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue10?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue11 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue11?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue12 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue12?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue13 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue13?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue14 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue14?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue022 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue022?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue15 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue15?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue16 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue16?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue17 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue17?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue009 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue009?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue012 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue012?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueueExp DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueueExp?DiscardMessages=true
+#####cleanup 0 delete Queue Name=JMSQueue014 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/JMSQueue014?DiscardMessages=true
+#####cleanup 0 delete Queue Name=trans_queue01 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/trans_queue01?DiscardMessages=true
+#####cleanup 0 delete Queue Name=trans_queue02 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/trans_queue02?DiscardMessages=true
+#####cleanup 0 delete Queue Name=trans_queue03 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/trans_queue03?DiscardMessages=true
+#####cleanup 0 delete Queue Name=trans_queue04 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/trans_queue04?DiscardMessages=true
+#####cleanup 0 delete Queue Name=jms_ha_queue01 DiscardMessages=True
+cleanup 0 DELETE configuration/Queue/jms_ha_queue01?DiscardMessages=true
+#####cleanup 0 delete MessageHub Name=☆Hub
+cleanup 0 DELETE configuration/MessageHub/☆Hub
+#####cleanup 0 delete MessageHub Name=JMSSSLHub
+cleanup 0 DELETE configuration/MessageHub/JMSSSLHub
+#####cleanup 0 delete MessageHub Name=JMSExpiringHub
+cleanup 0 DELETE configuration/MessageHub/JMSExpiringHub
+#####cleanup 0 update MessagingPolicy Name=DemoMessagingPolicy Destination=* DestinationType=Topic MaxMessages=5000 "ActionList=Publish,Subscribe"
+cleanup 0 POST configuration {"TopicPolicy":{"DemoMessagingPolicy":{"Topic":"*","MaxMessages":5000,"ActionList":"Publish,Subscribe"}}}
+#####cleanup 0 update Endpoint Name=DemoEndpoint MessagingPolicies=DemoMessagingPolicy,DemoMPForSharedSub
+cleanup 0 POST configuration {"Endpoint":{"DemoEndpoint":{"TopicPolicies":"DemoTopicPolicy","QueuePolicies":"","SubscriptionPolicies":""}}}
+#####cleanup 0 delete MessagingPolicy Name=MessagingPolicyQueue
+cleanup 0 DELETE configuration/QueuePolicy/MessagingPolicyQueue
+#####cleanup 0 delete MessagingPolicy Name=MessagingPolicyQueueGVT
+cleanup 0 DELETE configuration/QueuePolicy/MessagingPolicyQueueGVT
+#####cleanup 0 delete Endpoint Name=JMSPlainEP
+cleanup 0 DELETE configuration/Endpoint/JMSPlainEP
+#####cleanup 0 delete Endpoint Name=NoQueuesDemoEndpoint
+cleanup 0 DELETE configuration/Endpoint/NoQueuesDemoEndpoint
+#####cleanup 0 delete MessageHub Name=JMSPlainHub
+cleanup 0 DELETE configuration/MessageHub/JMSPlainHub
+#####cleanup 0 delete ConnectionPolicy Name=JMSPlainCP
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSPlainCP
+#####cleanup 0 delete MessagingPolicy Name=JMSPlainMP
+cleanup 0 DELETE configuration/TopicPolicy/JMSPlainMP
+#####cleanup 0 delete MessagingPolicy Name=JMSPlainMPExp
+cleanup 0 DELETE configuration/TopicPolicy/JMSPlainMPExp
+#####cleanup 0 delete Endpoint Name=JMS_DCN_EP
+cleanup 0 DELETE configuration/Endpoint/JMS_DCN_EP
+#####cleanup 0 delete MessagingPolicy Name=JMS_DCN_MP
+cleanup 0 DELETE configuration/TopicPolicy/JMS_DCN_MP
+#####cleanup 0 delete MessagingPolicy Name=JMS_DCN_app_MP
+cleanup 0 DELETE configuration/TopicPolicy/JMS_DCN_app_MP
+#####cleanup 0 delete ConnectionPolicy Name=JMS_DCN_CP
+cleanup 0 DELETE configuration/ConnectionPolicy/JMS_DCN_CP
+#####cleanup 0 delete MessageHub Name=JMS_DCN_Hub
+cleanup 0 DELETE configuration/MessageHub/JMS_DCN_Hub
+
+cleanup 0 POST configuration {"Endpoint":{"DemoEndpoint":{"Enabled":true}}}
+cleanup 0 POST configuration {"Endpoint":{"DemoMqttEndpoint":{"Enabled":true}}}
+cleanup 0 GET configuration/Endpoint
+cleanup 0 set TraceLevel=5
+

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<!--
+# Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<html lang="en">
+
+<title>Demonstration of IMA sending and receiving messages from
+	IIB</title>
+
+<style type="text/css">
+form.tabContent {
+	border: 1px solid #c9c3ba;
+	padding: 0.5em;
+}
+
+form.tabContent {
+	border: 1px solid #c9c3ba;
+	padding: 0.5em;
+	background-image: url('resources/heartbeat.jpg');
+	background-position: right top;
+	background-repeat: no-repeat;
+	background-color: #F5F5F5
+}
+
+h1 {
+	text-align: center;
+	font-family: courier;
+}
+
+fieldset,legend {
+	font-family: courier;
+}
+
+body {
+	
+}
+
+textarea,select,input {
+	
+}
+
+p {
+	text-align: center;
+	font-family: courier;
+}
+</style>
+<script type="text/javascript" src="resources/mqttws31.js"></script>
+<script type="text/javascript">
+	/** Websocket API. */
+	var client;
+	var connectOptions;
+
+	function connect(form) {
+		try {
+			client = new Messaging.Client(form.host.value,
+					Number(form.port.value), form.clientId.value);
+
+			client.startTrace();
+			client.onMessageArrived = onMessageArrived;
+			client.onConnectionLost = onConnectionLost;
+
+			// Set values from the connect form.
+			var connectForm = document.getElementById('connect');
+			var connectOptions = new Object();
+			connectOptions.timeout = 5;
+			connectOptions.keepAliveInterval = 60;
+			connectOptions.useSSL = false;
+			connectOptions.onSuccess = function(responseObject) {
+				connectForms();
+				log("Connected");
+			};
+			connectOptions.onFailure = function(responseObject) {
+				alert(responseObject.errorMessage);
+			};
+
+			client.connect(connectOptions);
+
+		} catch (error) {
+			alert(error.message);
+		}
+	}
+
+	function disconnect() {
+		// The conectonLost callback is driven when the connection closes.
+		try {
+			var form = document.getElementById('connect');
+			form.responseMessage.value=" ";
+			client.disconnect();
+			log("Disconnected");
+		} catch (error) {
+			alert(error.message);
+		}
+	}
+
+	function doSend(form) {
+		try {
+			if (form.requestMessage.value == "") {
+				message = new Messaging.Message("");
+
+			} else {
+				message = new Messaging.Message(form.requestMessage.value);
+			}
+
+			message.destinationName = form.topicName.value;
+			message.qos = 0;
+
+			client.send(message);
+			log("Message Published");
+			client.subscribe("/IIB/" + form.transport.value + "/OUT", null);
+
+		} catch (error) {
+			alert(error.message);
+		}
+	}
+
+	function log(message) {
+		var form = document.getElementById('connect');
+		var currenthist = form.hist.value;
+		var currenttime = new Date().toLocaleTimeString();
+		form.hist.value = currenttime + " " + message + "\n" + currenthist;
+	}
+
+	function updateMessage() {
+		var form = document.getElementById('connect');
+
+		form.topicName.value = "/IIB/" + form.transport.value + "/IN";
+		form.requestMessage.value = "{\n" + "\"traffic\": {\n"
+				+ "\t\"name\":\"Mopac\",\n"
+				+ "\t\"direction\":\"southbound\",\n"
+				+ "\t\"rating\":\"pit of despair\",\n" + "\t\"hotspots\": {\n"
+				+ "\t\t\"intersections\": [\n"
+				+ "\t\t\t{\"exit\":\"anderson lane\",\"color\":\"yellow\"},\n"
+				+ "\t\t\t{\"exit\":\"breaker lane\",\"color\":\"green\"},\n"
+				+ "\t\t\t{\"exit\":\"cesar chavez\",\"color\":\"red\"}\n"
+				+ "\t\t]\n\t}\n}\n}\n";
+	}
+
+	function formatXml (xml)  {
+        var reg = /(>)(<)(\/*)/g;
+        var wsexp = / *(.*) +\n/g;
+        var contexp = /(<.+>)(.+\n)/g;
+        xml = xml.replace(reg, '$1\n$2$3').replace(wsexp, '$1\n').replace(contexp, '$1\n$2');
+        var pad = 0;
+        var formatted = '';
+        var lines = xml.split('\n');
+        var indent = 0;
+        var lastType = 'other';
+        // 4 types of tags - single, closing, opening, other (text, doctype, comment) - 4*4 = 16 transitions 
+        var transitions = {
+            'single->single': 0,
+            'single->closing': -1,
+            'single->opening': 0,
+            'single->other': 0,
+            'closing->single': 0,
+            'closing->closing': -1,
+            'closing->opening': 0,
+            'closing->other': 0,
+            'opening->single': 1,
+            'opening->closing': 0,
+            'opening->opening': 1,
+            'opening->other': 1,
+            'other->single': 0,
+            'other->closing': -1,
+            'other->opening': 0,
+            'other->other': 0
+        };
+
+        for (var i = 0; i < lines.length; i++) {
+            var ln = lines[i];
+            var single = Boolean(ln.match(/<.+\/>/)); // is this line a single tag? ex. <br />
+            var closing = Boolean(ln.match(/<\/.+>/)); // is this a closing tag? ex. </a>
+            var opening = Boolean(ln.match(/<[^!].*>/)); // is this even a tag (that's not <!something>)
+            var type = single ? 'single' : closing ? 'closing' : opening ? 'opening' : 'other';
+            var fromTo = lastType + '->' + type;
+            lastType = type;
+            var padding = '';
+
+            indent += transitions[fromTo];
+            for (var j = 0; j < indent; j++) {
+                padding += '\t';
+            }
+            if (fromTo == 'opening->closing')
+                formatted = formatted.substr(0, formatted.length - 1) + ln + '\n'; // substr removes line break (\n) from prev loop
+            else
+                formatted += padding + ln + '\n';
+        }
+
+        return formatted;
+    };
+	
+	
+	/**
+	 * Websockets API callbacks.
+	 */
+
+	function onConnectionLost(responseObject) {
+		var form = document.getElementById('connect');
+		disconnectForms();
+		if (responseObject.errorCode !== 0)
+			alert(client.clientId + " disconnected error code="
+					+ responseObject.errorCode + " reason="
+					+ responseObject.errorMessage);
+	}
+
+	function onMessageArrived(message) {
+		var form = document.getElementById('connect');
+		form.responseMessage.value = formatXml(message.payloadString);
+	}
+
+	/**
+	 * HTML Application logic.
+	 */
+	function onLoad() {
+		disconnectForms();
+		var form = document.getElementById("connect");
+		form.clientId.value = "ImaToIIB" + new Date().getSeconds()
+				+ new Date().getMilliseconds();
+		form.transport.value = "MQTT";
+		form.topicName.value = "/IIB/" + form.transport.value + "/IN";
+		form.host.value = "9.3.177.87";
+		form.port.value = 51414;
+		updateMessage();
+	}
+
+	// On connection
+	function connectForms() {
+		var form = document.getElementById('connect');
+		form.host.disabled = "true";
+		form.port.disabled = "true";
+		form.clientId.disabled = "true";
+		form.conn.disabled = "true";
+		form.disc.disabled = "";
+
+		form.topicName.disabled = "";
+		form.requestMessage.disabled = "";
+		form.sendButton.disabled = "";
+	}
+
+	// On disconnection and on page load
+	function disconnectForms() {
+		var form = document.getElementById("connect");
+		form.host.disabled = "";
+		form.port.disabled = "";
+		form.clientId.disabled = "";
+		form.conn.disabled = "";
+		form.disc.disabled = "true";
+
+		form.topicName.disabled = "true";
+		form.requestMessage.disabled = "true";
+		form.sendButton.disabled = "true";
+	}
+
+	function clearLog(form) {
+		form.hist.value = "";
+	}
+
+	function onUnload() {
+		// Do not do a normal disconnection of the client if the browser window is closed, 
+		// just let the connection fail, abnormally, any LastWill and Testament processing 
+		// will then take place. 
+		// if (client && client.isConnected)
+		//   client.disconnect();
+	}
+</script>
+<h1>Message Sight to Integration Bus Demo App</h1>
+<p>This client sends and receives messages that to an IMA server
+	that forwards them to IIB for transformation and returns a response.</p>
+</head>
+
+<body onload="onLoad()" onunload="onUnload()">
+
+	<span id="basicAnchor" style="position: fixed; display: none"></span>
+	<form id="connect" class="tabContent">
+		<fieldset>
+			<legend>Connection to event gateway endpoint</legend>
+			<br /> Server <input type="text" name="host" size="30" /> Port <input
+				type="text" name="port" size="5" maxlength="5" /> <br /> <input
+				type="hidden" name="clientId" size="23" maxlength="23"
+				value="ImaToIIB" /> <br /> <br /> <input type="button"
+				value="Connect" onclick="connect(this.form)" name="conn" /> <input
+				type="button" value="Disconnect" onclick="disconnect()" name="disc" />
+			<br /> <br />
+		</fieldset>
+
+		<fieldset>
+			<legend>Publish message and receive response</legend>
+			<br />
+			<div id="basicSendTopic">
+				Topic <input type="text" name="topicName" size="40">
+				Transport <select name="transport" onchange="updateMessage()">
+					<option value="MQTT">MQTT</option>
+					<option value="JMS">JMS</option>
+					<option value="MQ">MQ</option>
+				</select>
+			</div>
+			<br />
+			<table id="requestResponse" cellspacing="10">
+				<tr>
+					<td>Request</td>
+					<td>Response</td>
+				</tr>
+				<tr>
+					<td><textarea name="requestMessage" rows="30" cols="80"></textarea>
+					</td>
+					<td><textarea name="responseMessage" rows="30" cols="80"></textarea>
+					</td>
+				</tr>
+			</table>
+			<br /> <br /> <input type="button" value="Publish"
+				onClick="doSend(this.form)" name="sendButton" />
+		</fieldset>
+
+		<fieldset>
+			<legend>Log</legend>
+			<textarea name="hist" rows="5" cols="80" readonly="readonly">
+</textarea>
+			<input type="button" value="Clear Log" onClick="clearLog(this.form)"
+				name="clearButton" />
+		</fieldset>
+	</form>
+
+</body>
+
+</html>

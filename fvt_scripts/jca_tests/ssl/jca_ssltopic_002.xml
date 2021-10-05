@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_ssltopic_002
+
+   Test Category:  JCA SSL Tests
+   
+   Test Description:
+   
+   This test uses JMS SSL connections.
+
+   SSLSocketFactory class = com.ibm.websphere.ssl.protocol.SSLSocketFactory
+   
+   0201
+   0202
+   0203
+   0208
+
+  -->
+<ImaJcaTest name="jca_ssltopic_002">
+
+    <include>../common/jms_jndi_ldap.xml</include>
+        
+    <Action name="Cluster" type="CompositeAction">
+
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_SECURE_CF</ActionParameter>
+            <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+            <ActionParameter name="keyStorePassword">password</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+            <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <!-- log topic -->
+		<Action name="Create_log_dest0201" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest0201</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/201</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+		<Action name="Create_log_dest0202" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest0202</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/202</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+		<Action name="Create_log_dest0203" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest0203</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/203</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+		<Action name="Create_log_dest0208" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest0208</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/208</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+	
+	    <!-- log consumer -->
+	    <Action name="CreateConsumerLog0201" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer0201</ActionParameter>
+	      <ActionParameter name="dest_id">logDest0201</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+	    <Action name="CreateConsumerLog0202" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer0202</ActionParameter>
+	      <ActionParameter name="dest_id">logDest0202</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+	    <Action name="CreateConsumerLog0203" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer0203</ActionParameter>
+	      <ActionParameter name="dest_id">logDest0203</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+	    <Action name="CreateConsumerLog0208" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer0208</ActionParameter>
+	      <ActionParameter name="dest_id">logDest0208</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyTopicSsl</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <!--  -->
+        <Action name="HitServlet" type="HttpAction">
+            <dependsOn name="StartConnection"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0201</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_002a.log</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage0201_consumer1" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+        <!--  -->
+        <Action name="HitServlet2" type="HttpAction">
+            <dependsOn name="HitServlet" interval="2000"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0202</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_002b.log</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv0202" type="CompositeAction" repeat="3">
+            <Action name="RcvObjMessage0202_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps0202" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+                <ActionParameter name="verifyValue">0202</ActionParameter>
+            </Action>
+        </Action>
+
+        <!--  -->
+        <Action name="HitServlet3" type="HttpAction">
+            <dependsOn name="HitServlet2" interval="2000"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0203</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_002c.log</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage0203_consumer1" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+        <!--  -->
+        <Action name="HitServlet4" type="HttpAction">
+            <dependsOn name="HitServlet3" interval="2000"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0208</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_002d.log</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv0208" type="CompositeAction" repeat="3">
+            <Action name="RcvObjMessage0208_consumer1" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps0208" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+                <ActionParameter name="verifyValue">0208</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="RcvTxtMessageFail_consumer1" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_txt_msg2</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+	    <Action name="RX_and_Check_Log_Msgs0202" type="CompositeAction" repeat="3">
+	      <Action name="RX_Log0202" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer0202</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	      </Action>
+	
+	      <Action name="ShowLogs0202" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	      </Action>
+	    </Action>
+	    
+	    <Action name="RX_and_Check_Log_Msgs0208" type="CompositeAction" repeat="3">
+	      <Action name="RX_Log0208" type="ReceiveMessage">
+	        <ActionParameter name="consumer_id">logConsumer0208</ActionParameter>
+	        <ActionParameter name="structure_id">log_msg</ActionParameter>
+	        <ApiParameter name="timeout">5000</ApiParameter>
+	      </Action>
+	
+	      <Action name="ShowLogs0208" type="GetMessageText">
+	        <ActionParameter name="message_id">log_msg</ActionParameter>
+	      </Action>
+	    </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+
+    <Action name="Single" type="CompositeAction">
+
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_SECURE_CF</ActionParameter>
+            <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+            <ActionParameter name="keyStorePassword">password</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+            <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <!-- log topic -->
+		<Action name="Create_log_dest0201" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest0201</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/201</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+		<Action name="Create_log_dest0202" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest0202</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/202</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+		<Action name="Create_log_dest0203" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest0203</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/203</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+		<Action name="Create_log_dest0208" type="CreateDestination">
+		  <ActionParameter name="structure_id">logDest0208</ActionParameter>
+		  <ApiParameter name="name">/log/Topic/208</ApiParameter>
+		  <ActionParameter name="type">topic</ActionParameter>
+		</Action>
+	
+	    <!-- log consumer -->
+	    <Action name="CreateConsumerLog0201" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer0201</ActionParameter>
+	      <ActionParameter name="dest_id">logDest0201</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+	    <Action name="CreateConsumerLog0202" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer0202</ActionParameter>
+	      <ActionParameter name="dest_id">logDest0202</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+	    <Action name="CreateConsumerLog0203" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer0203</ActionParameter>
+	      <ActionParameter name="dest_id">logDest0203</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+	    <Action name="CreateConsumerLog0208" type="CreateConsumer">
+	      <ActionParameter name="structure_id">logConsumer0208</ActionParameter>
+	      <ActionParameter name="dest_id">logDest0208</ActionParameter>
+	      <ActionParameter name="session_id">session</ActionParameter>
+	    </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyTopicSsl</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <!--  -->
+        <Action name="HitServlet" type="HttpAction">
+            <dependsOn name="StartConnection"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0201</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_002a.log</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage0201_consumer1" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+        <!--  -->
+        <Action name="HitServlet2" type="HttpAction">
+            <dependsOn name="HitServlet" interval="2000"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0202</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_002b.log</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage0202_consumer1" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="GetTestProps0202" type="GetTestPropsMsg">
+            <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+            <ActionParameter name="verifyValue">0202</ActionParameter>
+        </Action>
+
+        <!--  -->
+        <Action name="HitServlet3" type="HttpAction">
+            <dependsOn name="HitServlet2" interval="2000"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0203</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_002c.log</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage0203_consumer1" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+        <!--  -->
+        <Action name="HitServlet4" type="HttpAction">
+            <dependsOn name="HitServlet3" interval="2000"/>
+            <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+            <ActionParameter name="parameter">0208</ActionParameter>
+            <ActionParameter name="output">JCAServlet.jca_ssltopic_002d.log</ActionParameter>
+        </Action>
+
+        <Action name="RcvObjMessage0208_consumer1" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">60000</ApiParameter>
+        </Action>
+
+        <Action name="GetTestProps0208" type="GetTestPropsMsg">
+            <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+            <ActionParameter name="verifyValue">0208</ActionParameter>
+        </Action>
+
+        <Action name="RcvTxtMessageFail_consumer1" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_txt_msg2</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+	    <Action name="RX_Log0202" type="ReceiveMessage">
+	      <ActionParameter name="consumer_id">logConsumer0202</ActionParameter>
+	      <ActionParameter name="structure_id">log_msg0202</ActionParameter>
+	      <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs0202" type="GetMessageText">
+	      <ActionParameter name="message_id">log_msg0202</ActionParameter>
+	    </Action>
+	    
+	    <Action name="RX_Log0208" type="ReceiveMessage">
+	      <ActionParameter name="consumer_id">logConsumer0208</ActionParameter>
+	      <ActionParameter name="structure_id">log_msg0208</ActionParameter>
+	      <ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>
+	
+	    <Action name="ShowLogs0208" type="GetMessageText">
+	      <ActionParameter name="message_id">log_msg0208</ActionParameter>
+	    </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+</ImaJcaTest>

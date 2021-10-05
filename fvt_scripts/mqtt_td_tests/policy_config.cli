@@ -1,0 +1,1192 @@
+# Ports used in other config.cli files, that should not be re-used.
+# 20024 (admin_dynamic)
+# 20025 (admin_dynamic)
+# 20026 (admin_dynamic)
+# 20027 (admin_dynamic)
+# 20028 (admin_dynamic)
+# 20041 (admin_dynamic)
+# 20020 (expiry)
+# 20029  (connect)
+# 20030  (connect)
+
+# Create messaging groups
+setup 0 group add GroupID=MQTTGroup1
+setup 0 group add GroupID=MQTTGroup2
+setup 0 group add GroupID=MQTTGroup3
+setup 0 group add GroupID=MQTTGroupDCN
+
+# Create messaging users
+setup 0 user add UserID=MQTTUser1 type=messaging password=test
+setup 0 user add UserID=MQTTUser2 type=messaging password=test GroupMembership=MQTTGroup1
+setup 0 user add UserID=MQTTUser3 type=messaging password=test GroupMembership=MQTTGroup2
+setup 0 user add UserID=MQTTUser4 type=messaging password=test
+setup 0 user add UserID=MQTTUser5 type=messaging password=test GroupMembership=MQTTGroup3
+setup 0 user add "UserID=MQTT*User6" type=messaging password=test GroupMembership=MQTTGroup1
+setup 0 user add UserID=MQTTUserDCN type=messaging password=test GroupMembership=MQTTGroupDCN
+setup 0 user add "UserID=user ,\\""#+\<\>\'\;" type=messaging Password=test
+
+# SSL Certificate Setup
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/mqtt_td_tests/certs/A1/imaserver-crt.pem mqttimaserver-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/certs/A1/imaserver-crt.pem mqttimaserver-crt.pem
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/mqtt_td_tests/certs/A1/imaserver-key.pem mqttimaserver-key.pem
+setup 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/certs/A1/imaserver-key.pem mqttimaserver-key.pem
+#####setup 0 apply Certificate "CertFilePassword=" CertFileName=mqttimaserver-crt.pem KeyFileName=mqttimaserver-key.pem "KeyFilePassword=" overwrite=true
+
+
+# SSL Certificate and Security Profile Setup
+#####setup 0 create CertificateProfile Name=MQTTSSLCertProf1 Certificate=mqttimaserver-crt.pem Key=mqttimaserver-key.pem
+setup 0 POST configuration {"CertificateProfile":{"MQTTSSLCertProf1":{"Certificate":"mqttimaserver-crt.pem","Key":"mqttimaserver-key.pem"}}}
+#####setup 0 create SecurityProfile Name=MQTTSSLSecureProf1 UsePasswordAuthentication=False MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=MQTTSSLCertProf1
+setup 0 POST configuration {"SecurityProfile":{"MQTTSSLSecureProf1":{"UsePasswordAuthentication":false,"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"MQTTSSLCertProf1"}}}
+#####setup 0 create SecurityProfile Name=MQTTSSLSecureProf2 UsePasswordAuthentication=True MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=MQTTSSLCertProf1
+setup 0 POST configuration {"SecurityProfile":{"MQTTSSLSecureProf2":{"UsePasswordAuthentication":true,"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"MQTTSSLCertProf1"}}}
+
+
+# SSL Client certificate setup
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaCA-crt.pem mqttimaCA-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/certs/A1/imaCA-crt.pem mqttimaCA-crt.pem
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem mqttrootCA-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/certs/A1/rootCA-crt.pem mqttrootCA-crt.pem
+#####setup 0 set TraceLevel=8
+setup 0 POST configuration {"TraceLevel":"8"}
+#####setup 0 create SecurityProfile Name=MQTTSSLSecureProf3 MinimumProtocolMethod=TLSv1 UseClientCertificate=True UsePasswordAuthentication=False Ciphers=Fast CertificateProfile=MQTTSSLCertProf1
+setup 0 POST configuration {"SecurityProfile":{"MQTTSSLSecureProf3":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"UsePasswordAuthentication":false,"Ciphers":"Fast","CertificateProfile":"MQTTSSLCertProf1"}}}
+#####setup 0 apply Certificate TrustedCertificate=mqttrootCA-crt.pem SecurityProfileName=MQTTSSLSecureProf3 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"mqttrootCA-crt.pem","SecurityProfileName":"MQTTSSLSecureProf3","Overwrite":true}]}
+#####setup 0 apply Certificate TrustedCertificate=mqttimaCA-crt.pem SecurityProfileName=MQTTSSLSecureProf3 Overwrite=True
+setup 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"mqttimaCA-crt.pem","SecurityProfileName":"MQTTSSLSecureProf3","Overwrite":true}]}
+#####setup 0 set TraceLevel=5
+setup 0 POST configuration {"TraceLevel":"5"}
+
+
+# Message Hub for SSL Endpoints
+#####setup 0 create MessageHub Name=MQTTSSLHub Description=MQTTSSLHub
+setup 0 POST configuration {"MessageHub":{"MQTTSSLHub":{"Description":"MQTTSSLHub"}}}
+
+
+# Message Hub for DisconnectedClientNotification
+#####setup 0 create MessageHub Name=MQTTDCNHub Description=MQTTDCNHub
+setup 0 POST configuration {"MessageHub":{"MQTTDCNHub":{"Description":"MQTTDCNHub"}}}
+
+
+# Connection Policies for SSL Endpoints
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy01":{"Protocol":"MQTT","ClientID":"mqtt*","ExpectedMessageRate":"Default"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy02 ClientAddress=${M1_IPv4_1} Protocol=MQTT ExpectedMessageRate=High
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy02":{"ClientAddress":"${M1_IPv4_1}","Protocol":"MQTT","ExpectedMessageRate":"High"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy03 UserID=MQTTUser4 Protocol=MQTT ExpectedMessageRate=Max
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy03":{"UserID":"MQTTUser4","Protocol":"MQTT","ExpectedMessageRate":"Max"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy04 ClientID=mqttClient1 Protocol=MQTT ExpectedMessageRate=High
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy04":{"ClientID":"mqttClient1","Protocol":"MQTT","ExpectedMessageRate":"High"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy05 UserID=MQTTUser3 GroupID=MQTTGroup2 Protocol=MQTT ExpectedMessageRate=Default
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy05":{"UserID":"MQTTUser3","GroupID":"MQTTGroup2","Protocol":"MQTT","ExpectedMessageRate":"Default"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy06 ClientID=* Protocol=MQTT ExpectedMessageRate=High
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy06":{"ClientID":"*","Protocol":"MQTT","ExpectedMessageRate":"High"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy07 ClientID=* Protocol=JMS
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy07":{"ClientID":"*","Protocol":"JMS"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy08 ClientID=* Protocol=MQTT
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy08":{"ClientID":"*","Protocol":"MQTT"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy09 ClientID=* Protocol=MQTT
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy09":{"ClientID":"*","Protocol":"MQTT"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy10 ClientID=* Protocol=JMS
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy10":{"ClientID":"*","Protocol":"JMS"}}}
+#####setup 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy11 ClientID=* Protocol=MQTT
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy11":{"ClientID":"*","Protocol":"MQTT"}}}
+
+
+# Connection Policies for DisconnectedClientNotification
+#####setup 0 create ConnectionPolicy Name=MQTTDCNConnectionPolicy GroupID=MQTTGroupDCN Protocol=MQTT ExpectedMessageRate=Low
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTDCNConnectionPolicy":{"GroupID":"MQTTGroupDCN","Protocol":"MQTT","ExpectedMessageRate":"Low"}}}
+
+# Messaging Policies for SSL Endpoints
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy01 Destination=/dest1 DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy01":{"Topic":"/dest1","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy02 Destination=/dest2 DestinationType=Topic "ActionList=Publish" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy02":{"Topic":"/dest2","ActionList":"Publish","Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy03 Destination=/dest3 DestinationType=Topic "ActionList=Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy03":{"Topic":"/dest3","ActionList":"Subscribe","Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy04 Destination=/dest4 DestinationType=Topic Protocol=MQTT "ActionList=Publish,Subscribe"
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy04":{"Topic":"/dest4","Protocol":"MQTT","ActionList":"Publish,Subscribe"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy05 Destination=/dest5 DestinationType=Topic UserID=MQTTUser2 GroupID=MQTTGroup1 "ActionList=Publish,Subscribe"
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy05":{"Topic":"/dest5","UserID":"MQTTUser2","GroupID":"MQTTGroup1","ActionList":"Publish,Subscribe"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy06 Destination=/dest6 DestinationType=Topic ClientAddress=${M1_IPv6_1} "ActionList=Publish,Subscribe"
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy06":{"Topic":"/dest6","ClientAddress":"${M1_IPv6_1}","ActionList":"Publish,Subscribe"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy07 Destination=/dest7 DestinationType=Topic ClientID=mqttClient7 "ActionList=Publish,Subscribe"
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy07":{"Topic":"/dest7","ClientID":"mqttClient7","ActionList":"Publish,Subscribe"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy08 Destination=/topic8/* DestinationType=Topic ClientID=mqttClient1 ClientAddress=${M1_IPv4_1} "ActionList=Publish,Subscribe"
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy08":{"Topic":"/topic8/*","ClientID":"mqttClient1","ClientAddress":"${M1_IPv4_1}","ActionList":"Publish,Subscribe"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy09 Destination=* DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy09":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy10 GroupID=MQTTGroup3 Destination=/dest10 DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy10":{"GroupID":"MQTTGroup3","Topic":"/dest10","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTMessagingPolicy11 "Destination=/a*c*e" DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTMessagingPolicy11":{"Topic":"/a*c*e","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTMessagingPolicy12 "Destination=/\${UserID}/dest10*" DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTMessagingPolicy12":{"Topic":"/${UserID}/dest10*","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTMessagingPolicy13 "Destination=/\${ClientID}/dest10*" DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTMessagingPolicy13":{"Topic":"/${ClientID}/dest10*","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+
+
+# MessagingPolicies for DisconnectedClientNotification
+#####setup 0 create MessagingPolicy Name=MQTTDCNMessagingPolicy Destination=\$SYS/DisconnectedClientNotification DestinationType=Topic ActionList=Subscribe Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTDCNMessagingPolicy":{"Topic":"\$SYS/DisconnectedClientNotification","ActionList":"Subscribe","Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTDCNEnabledAppMessagingPolicy Destination=/DCN/enabled DestinationType=Topic ActionList=Publish,Subscribe DisconnectedClientNotification=True Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTDCNEnabledAppMessagingPolicy":{"Topic":"/DCN/enabled","ActionList":"Publish,Subscribe","DisconnectedClientNotification":true,"Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTDCNEnabledMessagingPolicy Destination=/DCN/policy DestinationType=Topic ActionList=Publish,Subscribe DisconnectedClientNotification=True Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTDCNEnabledMessagingPolicy":{"Topic":"/DCN/policy","ActionList":"Publish,Subscribe","DisconnectedClientNotification":true,"Protocol":"MQTT"}}}
+#####setup 0 create MessagingPolicy Name=MQTTDCNDisabledAppMessagingPolicy Destination=/DCN/disabled DestinationType=Topic ActionList=Publish,Subscribe DisconnectedClientNotification=False Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTDCNDisabledAppMessagingPolicy":{"Topic":"/DCN/disabled","ActionList":"Publish,Subscribe","DisconnectedClientNotification":false,"Protocol":"MQTT"}}}
+
+
+# SSL Endpoints
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint01 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21450 ConnectionPolicies=MQTTSSLConnectionPolicy01 MessagingPolicies=MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint01":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21450,"ConnectionPolicies":"MQTTSSLConnectionPolicy01","TopicPolicies":"MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint02 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21451 ConnectionPolicies=MQTTSSLConnectionPolicy02 MessagingPolicies=MQTTSSLMessagingPolicy06 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint02":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21451,"ConnectionPolicies":"MQTTSSLConnectionPolicy02","TopicPolicies":"MQTTSSLMessagingPolicy06","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint03 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21452 ConnectionPolicies=MQTTSSLConnectionPolicy03 MessagingPolicies=MQTTSSLMessagingPolicy06,MQTTSSLMessagingPolicy07 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint03":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21452,"ConnectionPolicies":"MQTTSSLConnectionPolicy03","TopicPolicies":"MQTTSSLMessagingPolicy06,MQTTSSLMessagingPolicy07","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint04 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21453 ConnectionPolicies=MQTTSSLConnectionPolicy04 MessagingPolicies=MQTTSSLMessagingPolicy08,MQTTSSLMessagingPolicy10 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint04":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21453,"ConnectionPolicies":"MQTTSSLConnectionPolicy04","TopicPolicies":"MQTTSSLMessagingPolicy08,MQTTSSLMessagingPolicy10","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint05 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21454 ConnectionPolicies=MQTTSSLConnectionPolicy05 MessagingPolicies=MQTTSSLMessagingPolicy09 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint05":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21454,"ConnectionPolicies":"MQTTSSLConnectionPolicy05","TopicPolicies":"MQTTSSLMessagingPolicy09","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint06 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21455 ConnectionPolicies=MQTTSSLConnectionPolicy06 MessagingPolicies=MQTTSSLMessagingPolicy01 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint06":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21455,"ConnectionPolicies":"MQTTSSLConnectionPolicy06","TopicPolicies":"MQTTSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint07 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21456 ConnectionPolicies=MQTTSSLConnectionPolicy08 MessagingPolicies=MQTTSSLMessagingPolicy09 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint07":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21456,"ConnectionPolicies":"MQTTSSLConnectionPolicy08","TopicPolicies":"MQTTSSLMessagingPolicy09","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint08 Enabled=True Port=21457 ConnectionPolicies=MQTTSSLConnectionPolicy07 MessagingPolicies=MQTTSSLMessagingPolicy09 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint08":{"Enabled":true,"Port":21457,"ConnectionPolicies":"MQTTSSLConnectionPolicy07","TopicPolicies":"MQTTSSLMessagingPolicy09","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint09 Enabled=True Port=21458 ConnectionPolicies=MQTTSSLConnectionPolicy09 MessagingPolicies=MQTTSSLMessagingPolicy09 MessageHub=MQTTSSLHub MaxMessageSize=200MB Protocol=JMS
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint09":{"Enabled":true,"Port":21458,"ConnectionPolicies":"MQTTSSLConnectionPolicy09","TopicPolicies":"MQTTSSLMessagingPolicy09","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB","Protocol":"JMS"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint10 Enabled=True Port=21459 ConnectionPolicies=MQTTSSLConnectionPolicy10 MessagingPolicies=MQTTSSLMessagingPolicy09 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint10":{"Enabled":true,"Port":21459,"ConnectionPolicies":"MQTTSSLConnectionPolicy10","TopicPolicies":"MQTTSSLMessagingPolicy09","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint11 Enabled=True Port=21460 ConnectionPolicies=MQTTSSLConnectionPolicy11 MessagingPolicies=MQTTSSLMessagingPolicy09 MessageHub=MQTTSSLHub MaxMessageSize=200MB Protocol=MQTT
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint11":{"Enabled":true,"Port":21460,"ConnectionPolicies":"MQTTSSLConnectionPolicy11","TopicPolicies":"MQTTSSLMessagingPolicy09","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB","Protocol":"MQTT"}}}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint12 Enabled=True SecurityProfile=MQTTSSLSecureProf2 Port=21461 ConnectionPolicies=MQTTSSLConnectionPolicy01 MessagingPolicies=MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint12":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf2","Port":21461,"ConnectionPolicies":"MQTTSSLConnectionPolicy01","TopicPolicies":"MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 set TraceLevel=8
+setup 0 POST configuration {"TraceLevel":"8"}
+#####setup 0 create Endpoint Name=MQTTSSLEndpoint13 Enabled=True SecurityProfile=MQTTSSLSecureProf3 Port=21462 ConnectionPolicies=MQTTSSLConnectionPolicy01 MessagingPolicies=MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint13":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf3","Port":21462,"ConnectionPolicies":"MQTTSSLConnectionPolicy01","TopicPolicies":"MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 set TraceLevel=5
+setup 0 POST configuration {"TraceLevel":"5"}
+#####setup 0 create Endpoint Name=MQTTEndpoint14 Enabled=True Port=21463 ConnectionPolicies=MQTTSSLConnectionPolicy06 MessagingPolicies=MQTTMessagingPolicy11 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTEndpoint14":{"Enabled":true,"Port":21463,"ConnectionPolicies":"MQTTSSLConnectionPolicy06","TopicPolicies":"MQTTMessagingPolicy11","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTEndpoint15 Enabled=True Port=21464 ConnectionPolicies=MQTTSSLConnectionPolicy06 MessagingPolicies=MQTTMessagingPolicy12 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTEndpoint15":{"Enabled":true,"Port":21464,"ConnectionPolicies":"MQTTSSLConnectionPolicy06","TopicPolicies":"MQTTMessagingPolicy12","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setup 0 create Endpoint Name=MQTTEndpoint16 Enabled=True Port=21465 ConnectionPolicies=MQTTSSLConnectionPolicy06 MessagingPolicies=MQTTMessagingPolicy13 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setup 0 POST configuration {"Endpoint":{"MQTTEndpoint16":{"Enabled":true,"Port":21465,"ConnectionPolicies":"MQTTSSLConnectionPolicy06","TopicPolicies":"MQTTMessagingPolicy13","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+
+# Endpoint for DisconnectedClientNotification
+#####setup 0 create Endpoint Name=MQTTDCNEndpoint Enabled=True Port=29300 ConnectionPolicies=MQTTDCNConnectionPolicy MessagingPolicies=MQTTDCNMessagingPolicy,MQTTDCNEnabledAppMessagingPolicy,MQTTDCNDisabledAppMessagingPolicy,MQTTDCNEnabledMessagingPolicy MessageHub=MQTTDCNHub
+setup 0 POST configuration {"Endpoint":{"MQTTDCNEndpoint":{"Enabled":true,"Port":29300,"ConnectionPolicies":"MQTTDCNConnectionPolicy","TopicPolicies":"MQTTDCNMessagingPolicy,MQTTDCNEnabledAppMessagingPolicy,MQTTDCNDisabledAppMessagingPolicy,MQTTDCNEnabledMessagingPolicy","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTDCNHub"}}}
+
+# Set trace level for more info
+#####settrace 0 set TraceLevel=7
+settrace 0 POST configuration {"TraceLevel":"7"}
+#####resettrace 0 set TraceLevel=5
+resettrace 0 POST configuration {"TraceLevel":"5"}
+
+# Reset DCN policies after dynamic update test
+#####dynamicDCNupdate 0 update MessagingPolicy Name=MQTTDCNEnabledAppMessagingPolicy DisconnectedClientNotification=True
+dynamicDCNupdate 0 POST configuration {"TopicPolicy":{"MQTTDCNEnabledAppMessagingPolicy":{"DisconnectedClientNotification":true}}}
+#####dynamicDCNupdate 0 update MessagingPolicy Name=MQTTDCNDisabledAppMessagingPolicy DisconnectedClientNotification=False
+dynamicDCNupdate 0 POST configuration {"TopicPolicy":{"MQTTDCNDisabledAppMessagingPolicy":{"DisconnectedClientNotification":false}}}
+
+# start TopicMonitor
+
+#####monitorOn 0 create TopicMonitor "TopicString=/a/whole/new/topic/#"
+monitorOn 0 POST configuration {"TopicMonitor":["/a/whole/new/topic/#"]}
+#####monitorOn2 0 create TopicMonitor "TopicString=/b/whole/new/topic/#"
+monitorOn 0 POST configuration {"TopicMonitor":["/b/whole/new/topic/#"]}
+
+# stop TopicMonitor
+
+#####monitorOff 0 delete TopicMonitor "TopicString=/a/whole/new/topic/#"
+monitorOff 0 DELETE configuration/TopicMonitor//a/whole/new/topic/%23
+#####monitorOff 0 delete TopicMonitor "TopicString=/b/whole/new/topic/#"
+monitorOff 0 DELETE configuration/TopicMonitor//b/whole/new/topic/%23
+
+
+#####cleanup 0 set TraceLevel=5
+cleanup 0 POST configuration {"TraceLevel":"5"}
+
+# Cleanup subscriptions which only exist in misc bucket
+#####cleanup x delete Subscription SubName=/DCN/enabled ClientID=FAA
+cleanup x DELETE service/Subscription/FAA//DCN/enabled
+#####cleanup x delete Subscription SubName=/DCN/disabled ClientID=FBB
+cleanup x DELETE service/Subscription/FBB//DCN/disabled
+#####cleanup x delete Subscription SubName=/DCN/enabled ClientID=SALLY
+cleanup x DELETE service/Subscription/SALLY//DCN/enabled
+
+# SSL Policy Cleanup Configuration
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint01
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint01
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint02
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint02
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint03
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint03
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint04
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint04
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint05
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint05
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint06
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint06
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint07
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint07
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint08
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint08
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint09
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint09
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint10
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint10
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint11
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint11
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint12
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint12
+#####cleanup 0 delete Endpoint Name=MQTTSSLEndpoint13
+cleanup 0 DELETE configuration/Endpoint/MQTTSSLEndpoint13
+#####cleanup 0 delete Endpoint Name=MQTTEndpoint14
+cleanup 0 DELETE configuration/Endpoint/MQTTEndpoint14
+#####cleanup 0 delete Endpoint Name=MQTTEndpoint15
+cleanup 0 DELETE configuration/Endpoint/MQTTEndpoint15
+#####cleanup 0 delete Endpoint Name=MQTTEndpoint16
+cleanup 0 DELETE configuration/Endpoint/MQTTEndpoint16
+#####cleanup 0 delete Endpoint Name=MQTTDCNEndpoint
+cleanup 0 DELETE configuration/Endpoint/MQTTDCNEndpoint
+
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy01
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy01
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy02
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy02
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy03
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy03
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy04
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy04
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy05
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy05
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy06
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy06
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy07
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy07
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy08
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy08
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy09
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy09
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy10
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy10
+#####cleanup 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy11
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy11
+#####cleanup 0 delete ConnectionPolicy Name=MQTTDCNConnectionPolicy
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTDCNConnectionPolicy
+
+
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy01
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy01
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy02
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy02
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy03
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy03
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy04
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy04
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy05
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy05
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy06
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy06
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy07
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy07
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy08
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy08
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy09
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy09
+#####cleanup 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy10
+cleanup 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy10
+#####cleanup 0 delete MessagingPolicy Name=MQTTMessagingPolicy11
+cleanup 0 DELETE configuration/TopicPolicy/MQTTMessagingPolicy11
+#####cleanup 0 delete MessagingPolicy Name=MQTTMessagingPolicy12
+cleanup 0 DELETE configuration/TopicPolicy/MQTTMessagingPolicy12
+#####cleanup 0 delete MessagingPolicy Name=MQTTMessagingPolicy13
+cleanup 0 DELETE configuration/TopicPolicy/MQTTMessagingPolicy13
+#####cleanup 0 delete MessagingPolicy Name=MQTTDCNMessagingPolicy
+cleanup 0 DELETE configuration/TopicPolicy/MQTTDCNMessagingPolicy
+#####cleanup 0 delete MessagingPolicy Name=MQTTDCNEnabledAppMessagingPolicy
+cleanup 0 DELETE configuration/TopicPolicy/MQTTDCNEnabledAppMessagingPolicy
+#####cleanup 0 delete MessagingPolicy Name=MQTTDCNEnabledMessagingPolicy
+cleanup 0 DELETE configuration/TopicPolicy/MQTTDCNEnabledMessagingPolicy
+#####cleanup 0 delete MessagingPolicy Name=MQTTDCNDisabledAppMessagingPolicy
+cleanup 0 DELETE configuration/TopicPolicy/MQTTDCNDisabledAppMessagingPolicy
+
+#####cleanup 0 delete MessageHub Name=MQTTSSLHub
+cleanup 0 DELETE configuration/MessageHub/MQTTSSLHub
+#####cleanup 0 delete MessageHub Name=MQTTDCNHub
+cleanup 0 DELETE configuration/MessageHub/MQTTDCNHub
+
+#####cleanup 0 delete SecurityProfile Name=MQTTSSLSecureProf1
+cleanup 0 DELETE configuration/SecurityProfile/MQTTSSLSecureProf1
+#####cleanup 0 delete SecurityProfile Name=MQTTSSLSecureProf2
+cleanup 0 DELETE configuration/SecurityProfile/MQTTSSLSecureProf2
+#####cleanup 0 delete SecurityProfile Name=MQTTSSLSecureProf3
+cleanup 0 DELETE configuration/SecurityProfile/MQTTSSLSecureProf3
+#####cleanup 0 delete CertificateProfile Name=MQTTSSLCertProf1
+cleanup 0 DELETE configuration/CertificateProfile/MQTTSSLCertProf1
+
+cleanup 0 user delete UserID=MQTTUser1 type=messaging
+cleanup 0 user delete UserID=MQTTUser2 type=messaging
+cleanup 0 user delete UserID=MQTTUser3 type=messaging
+cleanup 0 user delete UserID=MQTTUser4 type=messaging
+cleanup 0 user delete UserID=MQTTUser5 type=messaging
+cleanup 0 user delete "UserID=MQTT*User6" type=messaging
+cleanup 0 user delete UserID=MQTTUserDCN type=messaging
+cleanup 0 user delete "UserID=user ,\\""#+\<\>\'\;" type=messaging
+cleanup 0 group delete GroupID=MQTTGroup1
+cleanup 0 group delete GroupID=MQTTGroup2
+cleanup 0 group delete GroupID=MQTTGroup3
+cleanup 0 group delete GroupID=MQTTGroupDCN
+
+# Turn off/on UsePasswordAuthentication
+#####turnoff 0 update SecurityProfile Name=MQTTSSLSecureProf2 UsePasswordAuthentication=False
+turnoff 0 POST configuration {"SecurityProfile":{"MQTTSSLSecureProf2":{"UsePasswordAuthentication":false}}}
+#####turnon 0 update SecurityProfile Name=MQTTSSLSecureProf2 UsePasswordAuthentication=True
+turnon 0 POST configuration {"SecurityProfile":{"MQTTSSLSecureProf2":{"UsePasswordAuthentication":true}}}
+
+# Setup LTPA/LDAP
+#####setupLTPA x delete LDAP
+setupLTPA x  POST configuration {"LDAP":{"Enabled":false}}
+#####setupLTPA x list LTPAProfile
+setupLTPA x GET configuration/LTPAProfile
+#####setupLTPA x set TraceLevel=5,admin:9
+setupLTPA x POST configuration {"TraceLevel":"5,admin:9"}
+#####setupLTPA 0 create LDAP "URL=ldap://${LDAP_URI}:389" "BaseDN=ou=LTPATest,o=jndiTest" "UserIdMap=uid" "GroupIdMap=cn" "GroupMemberIdMap=member" "UserSuffix=ou=users,ou=LTPATest,o=jndiTest" "GroupSuffix=ou=groups,ou=LTPATest,o=jndiTest" "Enabled=true" "NestedGroupSearch=true" "Timeout=10"
+setupLTPA 0 POST configuration {"LDAP":{"URL":"ldap://${LDAP_URI}:389","BaseDN":"ou=LTPATest,o=jndiTest","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","UserSuffix":"ou=users,ou=LTPATest,o=jndiTest","GroupSuffix":"ou=groups,ou=LTPATest,o=jndiTest","Enabled":true,"NestedGroupSearch":true,"Timeout":10}}
+#####setupLTPA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem ldapimaserver-crt.pem
+setupLTPA 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/certs/A1/imaserver-crt.pem ldapimaserver-crt.pem
+#####setupLTPA x set TraceLevel=5
+setupLTPA x POST configuration {"TraceLevel":"5"}
+#####setupLTPA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem ldapimaserver-key.pem
+setupLTPA 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/certs/A1/imaserver-key.pem ldapimaserver-key.pem
+#####setupLTPA 0 apply Certificate "CertFilePassword=" CertFileName=ldapimaserver-crt.pem KeyFileName=ldapimaserver-key.pem "KeyFilePassword=" overwrite=true
+#####setupLTPA 0 create CertificateProfile Name=LTPACertProf1 Certificate=ldapimaserver-crt.pem Key=ldapimaserver-key.pem
+setupLTPA 0 POST configuration {"CertificateProfile":{"LTPACertProf1":{"Certificate":"ldapimaserver-crt.pem","Key":"ldapimaserver-key.pem"}}}
+#####setupLTPA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/LTPA.key LTPA.key
+setupLTPA 0 PUT file ${M1_TESTROOT}/common/LTPA.key LTPA.key
+#####setupLTPA 0 create LTPAProfile Name=LTPAProfile1 KeyFileName=LTPA.key "Password=ima4test"
+setupLTPA 0 POST configuration {"LTPAProfile":{"LTPAProfile1":{"KeyFileName":"LTPA.key","Password":"ima4test"}}}
+#####setupLTPA 0 create SecurityProfile Name=LTPASecurityProfile1  UsePasswordAuthentication=True MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=LTPACertProf1 LTPAProfile=LTPAProfile1
+setupLTPA 0 POST configuration {"SecurityProfile":{"LTPASecurityProfile1":{"UsePasswordAuthentication":true,"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"LTPACertProf1","LTPAProfile":"LTPAProfile1"}}}
+#####setupLTPA 0 create SecurityProfile Name=LTPASecurityProfile2  UsePasswordAuthentication=True MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Fast CertificateProfile=LTPACertProf1 LTPAProfile=LTPAProfile1
+setupLTPA 0 POST configuration {"SecurityProfile":{"LTPASecurityProfile2":{"UsePasswordAuthentication":true,"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"LTPACertProf1","LTPAProfile":"LTPAProfile1"}}}
+#####setupLTPA 0 create ConnectionPolicy Name=LTPAConnectionPolicy01 UserID=LTPAUser1 Protocol=MQTT
+setupLTPA 0 POST configuration {"ConnectionPolicy":{"LTPAConnectionPolicy01":{"UserID":"LTPAUser1","Protocol":"MQTT"}}}
+#####setupLTPA 0 create ConnectionPolicy Name=LTPAConnectionPolicy02 GroupID=LTPAGroup2 Protocol=MQTT
+setupLTPA 0 POST configuration {"ConnectionPolicy":{"LTPAConnectionPolicy02":{"GroupID":"LTPAGroup2","Protocol":"MQTT"}}}
+#####setupLTPA 0 create MessagingPolicy Name=LTPAMessagingPolicy01 Destination=* DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setupLTPA 0 POST configuration {"TopicPolicy":{"LTPAMessagingPolicy01":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setupLTPA 0 create MessageHub Name=MQTTLTPAHub Description=MQTTLTPAHub
+setupLTPA 0 POST configuration {"MessageHub":{"MQTTLTPAHub":{"Description":"MQTTLTPAHub"}}}
+#####setupLTPA 0 create Endpoint Name=LTPASSLEndpoint011 Enabled=True SecurityProfile=LTPASecurityProfile1 Port=21470 ConnectionPolicies=LTPAConnectionPolicy01 MessagingPolicies=LTPAMessagingPolicy01 MessageHub=MQTTLTPAHub MaxMessageSize=200MB
+setupLTPA 0 POST configuration {"Endpoint":{"LTPASSLEndpoint011":{"Enabled":true,"SecurityProfile":"LTPASecurityProfile1","Port":21470,"ConnectionPolicies":"LTPAConnectionPolicy01","TopicPolicies":"LTPAMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTLTPAHub","MaxMessageSize":"200MB"}}}
+#####setupLTPA 0 create Endpoint Name=LTPASSLEndpoint012 Enabled=True SecurityProfile=LTPASecurityProfile1 Port=21471 ConnectionPolicies=LTPAConnectionPolicy02 MessagingPolicies=LTPAMessagingPolicy01 MessageHub=MQTTLTPAHub MaxMessageSize=200MB
+setupLTPA 0 POST configuration {"Endpoint":{"LTPASSLEndpoint012":{"Enabled":true,"SecurityProfile":"LTPASecurityProfile1","Port":21471,"ConnectionPolicies":"LTPAConnectionPolicy02","TopicPolicies":"LTPAMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTLTPAHub","MaxMessageSize":"200MB"}}}
+#####setupLTPA 0 create Endpoint Name=LTPASSLEndpoint021 Enabled=True SecurityProfile=LTPASecurityProfile2 Port=21472 ConnectionPolicies=LTPAConnectionPolicy01 MessagingPolicies=LTPAMessagingPolicy01 MessageHub=MQTTLTPAHub MaxMessageSize=200MB
+setupLTPA 0 POST configuration {"Endpoint":{"LTPASSLEndpoint021":{"Enabled":true,"SecurityProfile":"LTPASecurityProfile2","Port":21472,"ConnectionPolicies":"LTPAConnectionPolicy01","TopicPolicies":"LTPAMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTLTPAHub","MaxMessageSize":"200MB"}}}
+#####setupLTPA 0 create Endpoint Name=LTPASSLEndpoint022 Enabled=True SecurityProfile=LTPASecurityProfile2 Port=21473 ConnectionPolicies=LTPAConnectionPolicy02 MessagingPolicies=LTPAMessagingPolicy01 MessageHub=MQTTLTPAHub MaxMessageSize=200MB
+setupLTPA 0 POST configuration {"Endpoint":{"LTPASSLEndpoint022":{"Enabled":true,"SecurityProfile":"LTPASecurityProfile2","Port":21473,"ConnectionPolicies":"LTPAConnectionPolicy02","TopicPolicies":"LTPAMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTLTPAHub","MaxMessageSize":"200MB"}}}
+#####setupLTPA 0 create SecurityProfile Name=MQTTSSLSecureProf1 UsePasswordAuthentication=False MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=LTPACertProf1
+setupLTPA 0 POST configuration {"SecurityProfile":{"MQTTSSLSecureProf1":{"UsePasswordAuthentication":false,"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"LTPACertProf1"}}}
+#####setupLTPA 0 create SecurityProfile Name=MQTTSSLSecureProf2 UsePasswordAuthentication=False MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Fast CertificateProfile=LTPACertProf1
+setupLTPA 0 POST configuration {"SecurityProfile":{"MQTTSSLSecureProf2":{"UsePasswordAuthentication":false,"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"LTPACertProf1"}}}
+#####setupLTPA 0 create ConnectionPolicy Name=MQTTSSLConnectionPolicy06 ClientID=* Protocol=MQTT
+setupLTPA 0 POST configuration {"ConnectionPolicy":{"MQTTSSLConnectionPolicy06":{"ClientID":"*","Protocol":"MQTT"}}}
+#####setupLTPA 0 create MessagingPolicy Name=MQTTSSLMessagingPolicy01 Destination=/dest1 DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setupLTPA 0 POST configuration {"TopicPolicy":{"MQTTSSLMessagingPolicy01":{"Topic":"/dest1","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setupLTPA 0 create Endpoint Name=MQTTSSLEndpoint06 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21455 ConnectionPolicies=MQTTSSLConnectionPolicy06 MessagingPolicies=MQTTSSLMessagingPolicy01 MessageHub=MQTTLTPAHub MaxMessageSize=200MB
+setupLTPA 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint06":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21455,"ConnectionPolicies":"MQTTSSLConnectionPolicy06","TopicPolicies":"MQTTSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTLTPAHub","MaxMessageSize":"200MB"}}}
+#####setupLTPA 0 create Endpoint Name=MQTTSSLEndpoint07 Enabled=True SecurityProfile=MQTTSSLSecureProf1 Port=21456 ConnectionPolicies=MQTTSSLConnectionPolicy06 MessagingPolicies=MQTTSSLMessagingPolicy01 MessageHub=MQTTLTPAHub MaxMessageSize=200MB
+setupLTPA 0 POST configuration {"Endpoint":{"MQTTSSLEndpoint07":{"Enabled":true,"SecurityProfile":"MQTTSSLSecureProf1","Port":21456,"ConnectionPolicies":"MQTTSSLConnectionPolicy06","TopicPolicies":"MQTTSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTLTPAHub","MaxMessageSize":"200MB"}}}
+
+#LTPA - TLSEnabled=False
+#####setupLTPA 0 create SecurityProfile Name=LTPANoTLSSecProf1  TLSEnabled=False UsePasswordAuthentication=True MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=LTPACertProf1 LTPAProfile=LTPAProfile1
+setupLTPA 0 POST configuration {"SecurityProfile":{"LTPANoTLSSecProf1":{"TLSEnabled":false,"UsePasswordAuthentication":true,"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"LTPACertProf1","LTPAProfile":"LTPAProfile1"}}}
+#####setupLTPA 0 create Endpoint Name=LTPASSLEndpoint311 Enabled=True SecurityProfile=LTPANoTLSSecProf1 Port=31470 ConnectionPolicies=LTPAConnectionPolicy01 MessagingPolicies=LTPAMessagingPolicy01 MessageHub=MQTTLTPAHub MaxMessageSize=200MB
+setupLTPA 0 POST configuration {"Endpoint":{"LTPASSLEndpoint311":{"Enabled":true,"SecurityProfile":"LTPANoTLSSecProf1","Port":31470,"ConnectionPolicies":"LTPAConnectionPolicy01","TopicPolicies":"LTPAMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTLTPAHub","MaxMessageSize":"200MB"}}}
+#####setupLTPA 0 create Endpoint Name=LTPASSLEndpoint312 Enabled=True SecurityProfile=LTPANoTLSSecProf1 Port=31471 ConnectionPolicies=LTPAConnectionPolicy02 MessagingPolicies=LTPAMessagingPolicy01 MessageHub=MQTTLTPAHub MaxMessageSize=200MB
+setupLTPA 0 POST configuration {"Endpoint":{"LTPASSLEndpoint312":{"Enabled":true,"SecurityProfile":"LTPANoTLSSecProf1","Port":31471,"ConnectionPolicies":"LTPAConnectionPolicy02","TopicPolicies":"LTPAMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTLTPAHub","MaxMessageSize":"200MB"}}}
+
+#####updateLTPA 0 update LDAP UserSuffix= UserIdMap=mail
+updateLTPA 0 POST configuration {"LDAP":{"UserSuffix":"","UserIdMap":"mail"}}
+
+#####resetLTPAuserIDMap 0 update LDAP UserSuffix=ou=users,ou=LTPATest,o=jndiTest UserIdMap=uid
+resetLTPAuserIDMap 0 POST configuration {"LDAP":{"UserSuffix":"ou=users,ou=LTPATest,o=jndiTest","UserIdMap":"uid"}}
+
+# Cleanup LTPA/LDAP
+#####cleanupLTPA 0 delete Endpoint Name=MQTTSSLEndpoint07
+cleanupLTPA 0 DELETE configuration/Endpoint/MQTTSSLEndpoint07
+#####cleanupLTPA 0 delete Endpoint Name=MQTTSSLEndpoint06
+cleanupLTPA 0 DELETE configuration/Endpoint/MQTTSSLEndpoint06
+#####cleanupLTPA 0 delete Endpoint Name=LTPASSLEndpoint311
+cleanupLTPA 0 DELETE configuration/Endpoint/LTPASSLEndpoint311
+#####cleanupLTPA 0 delete Endpoint Name=LTPASSLEndpoint312
+cleanupLTPA 0 DELETE configuration/Endpoint/LTPASSLEndpoint312
+#####cleanupLTPA 0 delete MessagingPolicy Name=MQTTSSLMessagingPolicy01
+cleanupLTPA 0 DELETE configuration/TopicPolicy/MQTTSSLMessagingPolicy01
+#####cleanupLTPA 0 delete ConnectionPolicy Name=MQTTSSLConnectionPolicy06
+cleanupLTPA 0 DELETE configuration/ConnectionPolicy/MQTTSSLConnectionPolicy06
+#####cleanupLTPA 0 delete SecurityProfile Name=MQTTSSLSecureProf2
+cleanupLTPA 0 DELETE configuration/SecurityProfile/MQTTSSLSecureProf2
+#####cleanupLTPA 0 delete SecurityProfile Name=MQTTSSLSecureProf1
+cleanupLTPA 0 DELETE configuration/SecurityProfile/MQTTSSLSecureProf1
+#####cleanupLTPA 0 delete Endpoint Name=LTPASSLEndpoint022
+cleanupLTPA 0 DELETE configuration/Endpoint/LTPASSLEndpoint022
+#####cleanupLTPA 0 delete Endpoint Name=LTPASSLEndpoint021
+cleanupLTPA 0 DELETE configuration/Endpoint/LTPASSLEndpoint021
+#####cleanupLTPA 0 delete Endpoint Name=LTPASSLEndpoint012
+cleanupLTPA 0 DELETE configuration/Endpoint/LTPASSLEndpoint012
+#####cleanupLTPA 0 delete Endpoint Name=LTPASSLEndpoint011
+cleanupLTPA 0 DELETE configuration/Endpoint/LTPASSLEndpoint011
+#####cleanupLTPA 0 delete MessageHub Name=MQTTLTPAHub
+cleanupLTPA 0 DELETE configuration/MessageHub/MQTTLTPAHub
+#####cleanupLTPA 0 delete ConnectionPolicy Name=LTPAConnectionPolicy02
+cleanupLTPA 0 DELETE configuration/ConnectionPolicy/LTPAConnectionPolicy02
+#####cleanupLTPA 0 delete ConnectionPolicy Name=LTPAConnectionPolicy01
+cleanupLTPA 0 DELETE configuration/ConnectionPolicy/LTPAConnectionPolicy01
+#####cleanupLTPA 0 delete MessagingPolicy Name=LTPAMessagingPolicy01
+cleanupLTPA 0 DELETE configuration/TopicPolicy/LTPAMessagingPolicy01
+#####cleanupLTPA 0 delete SecurityProfile Name=LTPASecurityProfile2
+cleanupLTPA 0 DELETE configuration/SecurityProfile/LTPASecurityProfile2
+#####cleanupLTPA 0 delete SecurityProfile Name=LTPASecurityProfile1
+cleanupLTPA 0 DELETE configuration/SecurityProfile/LTPASecurityProfile1
+#####cleanupLTPA 0 delete SecurityProfile Name=LTPANoTLSSecProf1
+cleanupLTPA 0 DELETE configuration/SecurityProfile/LTPANoTLSSecProf1
+#####cleanupLTPA 0 delete LTPAProfile Name=LTPAProfile1
+cleanupLTPA 0 DELETE configuration/LTPAProfile/LTPAProfile1
+#####cleanupLTPA 0 delete CertificateProfile Name=LTPACertProf1
+cleanupLTPA 0 DELETE configuration/CertificateProfile/LTPACertProf1
+#####cleanupLTPA 0 delete LDAP
+cleanupLTPA 0 POST configuration {"LDAP":{"Enabled":false}}
+
+
+# Turn FIPS mode on/off
+#####FIPSon 0 set FIPS=true
+#####FIPSoff 0 set FIPS=false
+FIPSon 0 POST configuration {"FIPS":true}
+FIPSoff 0 POST configuration {"FIPS":false}
+
+# configuration setup for CommonName testing
+# SSL Certificate Setup
+#####setupcmn 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/mqtt_td_tests/ssl/servercert.pem servercert.pem
+setupcmn 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/ssl/servercert.pem servercert.pem
+#####setupcmn 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/mqtt_td_tests/ssl/serverkey.pem serverkey.pem
+setupcmn 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/ssl/serverkey.pem serverkey.pem
+#####setupcmn 0 apply Certificate "CertFilePassword=" CertFileName=servercert.pem KeyFileName=serverkey.pem "KeyFilePassword=" overwrite=true
+
+
+# SSL Certificate Profile Setup
+#####setupcmn 0 create CertificateProfile Name=MQTTCMNCertProf1 Certificate=servercert.pem Key=serverkey.pem
+setupcmn 0 POST configuration {"CertificateProfile":{"MQTTCMNCertProf1":{"Certificate":"servercert.pem","Key":"serverkey.pem"}}}
+
+# SSL Client certificate setup
+#####setupcmn 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/mqtt_td_tests/ssl/cacert.pem cacert.pem
+setupcmn 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/ssl/cacert.pem cacert.pem
+#####setupcmn 0 create SecurityProfile Name=MQTTCMNSecureProf1 MinimumProtocolMethod=TLSv1 UseClientCertificate=True UsePasswordAuthentication=False Ciphers=Fast CertificateProfile=MQTTCMNCertProf1
+setupcmn 0 POST configuration {"SecurityProfile":{"MQTTCMNSecureProf1":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"UsePasswordAuthentication":false,"Ciphers":"Fast","CertificateProfile":"MQTTCMNCertProf1"}}}
+#####setupcmn 0 apply Certificate TrustedCertificate=cacert.pem SecurityProfileName=MQTTCMNSecureProf1 Overwrite=True
+setupcmn 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"cacert.pem","SecurityProfileName":"MQTTCMNSecureProf1","Overwrite":true}]}
+
+# Connection Policies for SSL Endpoints
+#####setupcmn 0 create ConnectionPolicy Name=MQTTCMNConnectionPolicy01 "ClientID=${CommonName}" Protocol=MQTT
+setupcmn 0 POST configuration {"ConnectionPolicy":{"MQTTCMNConnectionPolicy01":{"ClientID":"\${CommonName}","Protocol":"MQTT"}}}
+#####setupcmn 0 create ConnectionPolicy Name=MQTTCMNConnectionPolicy02 "ClientID=b${CommonName}" Protocol=MQTT
+setupcmn 0 POST configuration {"ConnectionPolicy":{"MQTTCMNConnectionPolicy02":{"ClientID":"b\${CommonName}","Protocol":"MQTT"}}}
+#####setupcmn 0 create ConnectionPolicy Name=MQTTCMNConnectionPolicy03 "ClientID=user_\${UserID}" Protocol=MQTT
+setupcmn 0 POST configuration {"ConnectionPolicy":{"MQTTCMNConnectionPolicy03":{"ClientID":"user_${UserID}","Protocol":"MQTT"}}}
+
+
+# Messaging Policies for SSL Endpoints
+#####setupcmn 0 create MessagingPolicy Name=MQTTCMNMessagingPolicy01p "Destination=/bottom/\${CommonName}/*" DestinationType=Topic "ActionList=Publish" Protocol=MQTT
+setupcmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy01p":{"Topic":"/bottom/${CommonName}/*","ActionList":"Publish","Protocol":"MQTT"}}}
+#####setupcmn 0 create MessagingPolicy Name=MQTTCMNMessagingPolicy02p "Destination=/\${CommonName}/*" DestinationType=Topic "ActionList=Publish" Protocol=MQTT
+setupcmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy02p":{"Topic":"/${CommonName}/*","ActionList":"Publish","Protocol":"MQTT"}}}
+#####setupcmn 0 create MessagingPolicy Name=MQTTCMNMessagingPolicy03p "Destination=/\${CommonName}/\${UserID}/*" DestinationType=Topic "ActionList=Publish" Protocol=MQTT
+setupcmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy03p":{"Topic":"/${CommonName}/${UserID}/*","ActionList":"Publish","Protocol":"MQTT"}}}
+#####setupcmn 0 create MessagingPolicy Name=MQTTCMNMessagingPolicy01s "Destination=/bottom/\${CommonName}/*" DestinationType=Topic "ActionList=Subscribe" Protocol=MQTT
+setupcmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy01s":{"Topic":"/bottom/${CommonName}/*","ActionList":"Subscribe","Protocol":"MQTT"}}}
+#####setupcmn 0 create MessagingPolicy Name=MQTTCMNMessagingPolicy02s "Destination=/\${CommonName}/*" DestinationType=Topic "ActionList=Subscribe" Protocol=MQTT
+setupcmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy02s":{"Topic":"/${CommonName}/*","ActionList":"Subscribe","Protocol":"MQTT"}}}
+#####setupcmn 0 create MessagingPolicy Name=MQTTCMNMessagingPolicy03s "Destination=/\${CommonName}/\${UserID}/*" DestinationType=Topic "ActionList=Subscribe" Protocol=MQTT
+setupcmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy03s":{"Topic":"/${CommonName}/${UserID}/*","ActionList":"Subscribe","Protocol":"MQTT"}}}
+#####setupcmn 0 create MessagingPolicy Name=MQTTCMNMessagingPolicy04 "Destination=/\${CommonName}/dest10/*" DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setupcmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy04":{"Topic":"/${CommonName}/dest10/*","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setupcmn 0 create MessagingPolicy Name=MQTTCMNMessagingPolicy05 "Destination=*" DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setupcmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy05":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+
+# SSL Endpoints
+#####setupcmn 0 create MessageHub Name=MQTTCMNHub
+setupcmn 0 POST configuration {"MessageHub":{"MQTTCMNHub":{}}}
+#####setupcmn 0 create Endpoint Name=MQTTCMNEndpoint01 Enabled=True SecurityProfile=MQTTCMNSecureProf1 Port=21450 ConnectionPolicies=MQTTCMNConnectionPolicy01 MessagingPolicies=MQTTCMNMessagingPolicy01p,MQTTCMNMessagingPolicy01s MessageHub=MQTTCMNHub MaxMessageSize=200MB
+setupcmn 0 POST configuration {"Endpoint":{"MQTTCMNEndpoint01":{"Enabled":true,"SecurityProfile":"MQTTCMNSecureProf1","Port":21450,"ConnectionPolicies":"MQTTCMNConnectionPolicy01","TopicPolicies":"MQTTCMNMessagingPolicy01p,MQTTCMNMessagingPolicy01s","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTCMNHub","MaxMessageSize":"200MB"}}}
+#####setupcmn 0 create Endpoint Name=MQTTCMNEndpoint02 Enabled=True SecurityProfile=MQTTCMNSecureProf1 Port=21451 ConnectionPolicies=MQTTCMNConnectionPolicy02 MessagingPolicies=MQTTCMNMessagingPolicy02p,MQTTCMNMessagingPolicy02s MessageHub=MQTTCMNHub MaxMessageSize=200MB
+setupcmn 0 POST configuration {"Endpoint":{"MQTTCMNEndpoint02":{"Enabled":true,"SecurityProfile":"MQTTCMNSecureProf1","Port":21451,"ConnectionPolicies":"MQTTCMNConnectionPolicy02","TopicPolicies":"MQTTCMNMessagingPolicy02p,MQTTCMNMessagingPolicy02s","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTCMNHub","MaxMessageSize":"200MB"}}}
+#####setupcmn 0 create Endpoint Name=MQTTCMNEndpoint03 Enabled=True SecurityProfile=MQTTCMNSecureProf1 Port=21452 ConnectionPolicies=MQTTCMNConnectionPolicy03 MessagingPolicies=MQTTCMNMessagingPolicy03p,MQTTCMNMessagingPolicy03s MessageHub=MQTTCMNHub MaxMessageSize=200MB
+setupcmn 0 POST configuration {"Endpoint":{"MQTTCMNEndpoint03":{"Enabled":true,"SecurityProfile":"MQTTCMNSecureProf1","Port":21452,"ConnectionPolicies":"MQTTCMNConnectionPolicy03","TopicPolicies":"MQTTCMNMessagingPolicy03p,MQTTCMNMessagingPolicy03s","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTCMNHub","MaxMessageSize":"200MB"}}}
+#####setupcmn 0 create Endpoint Name=MQTTCMNEndpoint04 Enabled=True SecurityProfile=MQTTCMNSecureProf1 Port=21453 ConnectionPolicies=MQTTCMNConnectionPolicy01 MessagingPolicies=MQTTCMNMessagingPolicy04 MessageHub=MQTTCMNHub MaxMessageSize=200MB
+setupcmn 0 POST configuration {"Endpoint":{"MQTTCMNEndpoint04":{"Enabled":true,"SecurityProfile":"MQTTCMNSecureProf1","Port":21453,"ConnectionPolicies":"MQTTCMNConnectionPolicy01","TopicPolicies":"MQTTCMNMessagingPolicy04","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTCMNHub","MaxMessageSize":"200MB"}}}
+#####setupcmn 0 create Endpoint Name=MQTTCMNEndpoint05 Enabled=True SecurityProfile=MQTTCMNSecureProf1 Port=21454 ConnectionPolicies=MQTTCMNConnectionPolicy01 MessagingPolicies=MQTTCMNMessagingPolicy05 MessageHub=MQTTCMNHub MaxMessageSize=200MB
+setupcmn 0 POST configuration {"Endpoint":{"MQTTCMNEndpoint05":{"Enabled":true,"SecurityProfile":"MQTTCMNSecureProf1","Port":21454,"ConnectionPolicies":"MQTTCMNConnectionPolicy01","TopicPolicies":"MQTTCMNMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTCMNHub","MaxMessageSize":"200MB"}}}
+
+# Turn FIPS mode on
+#####setupcmn 0 set FIPS=true
+setupcmn 0 POST configuration {"FIPS":true}
+
+# Add users to test UserID=${CommonName}
+setupcmn 0 user add UserID=MQTTUser1 type=messaging password=test
+setupcmn 0 user add UserID=MQTTUser2 type=messaging password=test
+setupcmn 0 user add "UserID=MQTT*User3" type=messaging password=test
+setupcmn 0 user add UserID=oddUser type=messaging password=test
+
+# update commands
+#####updatecmn 0 update MessagingPolicy Name=MQTTCMNMessagingPolicy05 "Destination=/bottom/\${CommonName}/*"
+updatecmn 0 POST configuration {"TopicPolicy":{"MQTTCMNMessagingPolicy05":{"Topic":"/bottom/${CommonName}/*"}}}
+
+# Cleanup the CommonName items
+
+cleanupcmn 0 user delete UserID=oddUser type=messaging
+cleanupcmn 0 user delete "UserID=MQTT*User3" type=messaging
+cleanupcmn 0 user delete UserID=MQTTUser2 type=messaging
+cleanupcmn 0 user delete UserID=MQTTUser1 type=messaging
+
+# Turn FIPS mode off
+#####cleanupcmn 0 set FIPS=false
+cleanupcmn 0 POST configuration {"FIPS":false}
+#####cleanupcmn 0 delete Endpoint Name=MQTTCMNEndpoint05
+cleanupcmn 0 DELETE configuration/Endpoint/MQTTCMNEndpoint05
+#####cleanupcmn 0 delete Endpoint Name=MQTTCMNEndpoint04
+cleanupcmn 0 DELETE configuration/Endpoint/MQTTCMNEndpoint04
+#####cleanupcmn 0 delete Endpoint Name=MQTTCMNEndpoint03
+cleanupcmn 0 DELETE configuration/Endpoint/MQTTCMNEndpoint03
+#####cleanupcmn 0 delete Endpoint Name=MQTTCMNEndpoint02
+cleanupcmn 0 DELETE configuration/Endpoint/MQTTCMNEndpoint02
+#####cleanupcmn 0 delete Endpoint Name=MQTTCMNEndpoint01
+cleanupcmn 0 DELETE configuration/Endpoint/MQTTCMNEndpoint01
+#####cleanupcmn 0 delete MessageHub Name=MQTTCMNHub
+cleanupcmn 0 DELETE configuration/MessageHub/MQTTCMNHub
+#####cleanupcmn 0 delete MessagingPolicy Name=MQTTCMNMessagingPolicy05
+cleanupcmn 0 DELETE configuration/TopicPolicy/MQTTCMNMessagingPolicy05
+#####cleanupcmn 0 delete MessagingPolicy Name=MQTTCMNMessagingPolicy04
+cleanupcmn 0 DELETE configuration/TopicPolicy/MQTTCMNMessagingPolicy04
+#####cleanupcmn 0 delete MessagingPolicy Name=MQTTCMNMessagingPolicy03s
+cleanupcmn 0 DELETE configuration/TopicPolicy/MQTTCMNMessagingPolicy03s
+#####cleanupcmn 0 delete MessagingPolicy Name=MQTTCMNMessagingPolicy02s
+cleanupcmn 0 DELETE configuration/TopicPolicy/MQTTCMNMessagingPolicy02s
+#####cleanupcmn 0 delete MessagingPolicy Name=MQTTCMNMessagingPolicy01s
+cleanupcmn 0 DELETE configuration/TopicPolicy/MQTTCMNMessagingPolicy01s
+#####cleanupcmn 0 delete MessagingPolicy Name=MQTTCMNMessagingPolicy03p
+cleanupcmn 0 DELETE configuration/TopicPolicy/MQTTCMNMessagingPolicy03p
+#####cleanupcmn 0 delete MessagingPolicy Name=MQTTCMNMessagingPolicy02p
+cleanupcmn 0 DELETE configuration/TopicPolicy/MQTTCMNMessagingPolicy02p
+#####cleanupcmn 0 delete MessagingPolicy Name=MQTTCMNMessagingPolicy01p
+cleanupcmn 0 DELETE configuration/TopicPolicy/MQTTCMNMessagingPolicy01p
+#####cleanupcmn 0 delete ConnectionPolicy Name=MQTTCMNConnectionPolicy03
+cleanupcmn 0 DELETE configuration/ConnectionPolicy/MQTTCMNConnectionPolicy03
+#####cleanupcmn 0 delete ConnectionPolicy Name=MQTTCMNConnectionPolicy02
+cleanupcmn 0 DELETE configuration/ConnectionPolicy/MQTTCMNConnectionPolicy02
+#####cleanupcmn 0 delete ConnectionPolicy Name=MQTTCMNConnectionPolicy01
+cleanupcmn 0 DELETE configuration/ConnectionPolicy/MQTTCMNConnectionPolicy01
+#####cleanupcmn 0 delete TrustedCertificate "TrustedCertificate=cacert.pem" "SecurityProfileName=MQTTCMNSecureProf1"
+cleanupcmn 0 DELETE configuration/TrustedCertificate/MQTTCMNSecureProf1/cacert.pem
+#####cleanupcmn 0 delete SecurityProfile Name=MQTTCMNSecureProf1
+cleanupcmn 0 DELETE configuration/SecurityProfile/MQTTCMNSecureProf1
+#####cleanupcmn 0 delete CertificateProfile Name=MQTTCMNCertProf1
+cleanupcmn 0 DELETE configuration/CertificateProfile/MQTTCMNCertProf1
+
+# setup for update MessagingPolicy test
+#####setupupdate 0 create ConnectionPolicy Name=UpdatePolicyTest Protocol=MQTT
+setupupdate 0 POST configuration {"ConnectionPolicy":{"UpdatePolicyTest":{"Protocol":"MQTT"}}}
+#####setupupdate 0 create MessagingPolicy Name=UpdatePolicyTest "DestinationType=Topic" "Destination=/UpdatePolicyTest" "ActionList=Publish,Subscribe" Protocol=MQTT
+setupupdate 0 POST configuration {"TopicPolicy":{"UpdatePolicyTest":{"Topic":"/UpdatePolicyTest","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setupupdate 0 create MessageHub Name=UpdatePolicyTestHub
+setupupdate 0 POST configuration {"MessageHub":{"UpdatePolicyTestHub":{}}}
+#####setupupdate 0 create Endpoint Name=UpdatePolicyTestEnpoint Port=5005 Protocol=MQTT ConnectionPolicies=UpdatePolicyTest MessagingPolicies=UpdatePolicyTest MessageHub=UpdatePolicyTestHub
+setupupdate 0 POST configuration {"Endpoint":{"UpdatePolicyTestEnpoint":{"Port":5005,"Protocol":"MQTT","ConnectionPolicies":"UpdatePolicyTest","TopicPolicies":"UpdatePolicyTest","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"UpdatePolicyTestHub"}}}
+
+
+# update changesvoc for update MessagingPolicy test
+# update changes for update MessagingPolicy test
+#####updateupdate 0 stat Subscription
+updateupdate 0 GET monitor/Subscription
+#####updateupdate 0 update MessagingPolicy Name=UpdatePolicyTest GroupID=TEST
+updateupdate 0 POST configuration {"TopicPolicy":{"UpdatePolicyTest":{"GroupID":"TEST"}}}
+#####updateupdate 0 set LogLevel=MAX
+updateupdate 0 POST configuration {"LogLevel":"MAX"}
+#####updateupdate 0 set ConnectionLog=MAX
+updateupdate 0 POST configuration {"ConnectionLog":"MAX"}
+#####updateupdate 0 set SecurityLog=MAX
+updateupdate 0 POST configuration {"SecurityLog":"MAX"}
+#####updateupdate 0 set AdminLog=MAX
+updateupdate 0 POST configuration {"AdminLog":"MAX"}
+#####updateupdate 0 set TraceLevel=9
+updateupdate 0 POST configuration {"TraceLevel":"9"}
+
+# cleanup for update MessagingPolicy test
+#####deleteupdate 0 set LogLevel=NORMAL
+deleteupdate 0 POST configuration {"LogLevel":"NORMAL"}
+#####deleteupdate 0 set ConnectionLog=NORMAL
+deleteupdate 0 POST configuration {"ConnectionLog":"NORMAL"}
+#####deleteupdate 0 set SecurityLog=NORMAL
+deleteupdate 0 POST configuration {"SecurityLog":"NORMAL"}
+#####deleteupdate 0 set AdminLog=NORMAL
+deleteupdate 0 POST configuration {"AdminLog":"NORMAL"}
+#####deleteupdate 0 set TraceLevel=5
+deleteupdate 0 POST configuration {"TraceLevel":"5"}
+#####deleteupdate 0 delete Endpoint Name=UpdatePolicyTestEnpoint
+deleteupdate 0 DELETE configuration/Endpoint/UpdatePolicyTestEnpoint
+#####deleteupdate 0 delete MessageHub Name=UpdatePolicyTestHub
+deleteupdate 0 DELETE configuration/MessageHub/UpdatePolicyTestHub
+#####deleteupdate 0 delete MessagingPolicy Name=UpdatePolicyTest
+deleteupdate 0 DELETE configuration/TopicPolicy/UpdatePolicyTest
+#####deleteupdate 0 delete ConnectionPolicy Name=UpdatePolicyTest
+deleteupdate 0 DELETE configuration/ConnectionPolicy/UpdatePolicyTest
+
+# Users/groups for MaxMessages behavior
+
+setupMM 0 group add GroupID=MQTT_MM
+setupMM 0 user add UserID=MQTT_MMSUBND type=Messaging password=password
+setupMM 0 user add UserID=MQTT_MMPUB type=Messaging password=password
+setupMM 0 user edit UserID=MQTT_MMSUBND type=Messaging AddGroupMembership=MQTT_MM
+setupMM 0 user edit UserID=MQTT_MMPUB type=Messaging AddGroupMembership=MQTT_MM
+
+# Message Hub for MaxMessages behaviors
+#####setupMM 0 create MessageHub Name=MQTTMMHub Description=MQTTMMHub
+setupMM 0 POST configuration {"MessageHub":{"MQTTMMHub":{"Description":"MQTTMMHub"}}}
+
+# Connection Policies for MaxMessages behavior
+#####setupMM 0 create ConnectionPolicy Name=MQTTMMConnectionPolicy Protocol=MQTT
+setupMM 0 POST configuration {"ConnectionPolicy":{"MQTTMMConnectionPolicy":{"Protocol":"MQTT"}}}
+#####setupMM 0 create ConnectionPolicy Name=MQTTMMConnectionPolicy2 Protocol=MQTT,JMS
+setupMM 0 POST configuration {"ConnectionPolicy":{"MQTTMMConnectionPolicy2":{"Protocol":"MQTT,JMS"}}}
+
+
+# MessagingPolicies for MaxMessages behavior
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy01 Destination=/MM/* DestinationType=Topic ActionList=Subscribe Protocol=MQTT ClientID=mqttslow01_clientid MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy01":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"MQTT","ClientID":"mqttslow01_clientid","MaxMessagesBehavior":"DiscardOldMessages"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy02 Destination=/MM/* DestinationType=Topic ActionList=Subscribe Protocol=MQTT MaxMessages=273 ClientID=mqtt03SmallMM_clientid MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy02":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"MQTT","MaxMessages":273,"ClientID":"mqtt03SmallMM_clientid","MaxMessagesBehavior":"DiscardOldMessages"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy03 Destination=/MM/* DestinationType=Topic ActionList=Publish,Subscribe Protocol=MQTT MaxMessages=11111 MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy03":{"Topic":"/MM/*","ActionList":"Publish,Subscribe","Protocol":"MQTT","MaxMessages":11111,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy273 Destination=/MM/* DestinationType=Topic ActionList=Subscribe Protocol=MQTT MaxMessages=273 ClientID=mqtt05Sub273_clientid MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy273":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"MQTT","MaxMessages":273,"ClientID":"mqtt05Sub273_clientid","MaxMessagesBehavior":"DiscardOldMessages"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy146 Destination=/MM/* DestinationType=Topic ActionList=Subscribe Protocol=MQTT MaxMessages=146 ClientID=mqtt05Sub146_clientid MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy146":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"MQTT","MaxMessages":146,"ClientID":"mqtt05Sub146_clientid","MaxMessagesBehavior":"DiscardOldMessages"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy35 Destination=/MM/* DestinationType=Topic ActionList=Subscribe Protocol=MQTT ClientID=mqtt05Sub35_clientid
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy35":{"Topic":"/MM/*","ActionList":"Subscribe","Protocol":"MQTT","ClientID":"mqtt05Sub35_clientid"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy36ND Destination=/MM/* DestinationType=Topic ActionList=Publish,Subscribe Protocol=MQTT MaxMessages=36 GroupID=MQTT_MM
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy36ND":{"Topic":"/MM/*","ActionList":"Publish,Subscribe","Protocol":"MQTT","MaxMessages":36,"GroupID":"MQTT_MM"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicyJMS Destination=/MM/* DestinationType=Topic ActionList=Publish,Subscribe Protocol=JMS MaxMessages=2000 ClientID=*
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicyJMS":{"Topic":"/MM/*","ActionList":"Publish,Subscribe","Protocol":"JMS","MaxMessages":2000,"ClientID":"*"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy08 Destination=/MM/Slow08 DestinationType=Topic ActionList=Publish,Subscribe Protocol=MQTT MaxMessages=11 MaxMessagesBehavior=DiscardOldMessages ClientID=mqtt_hiccup
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy08":{"Topic":"/MM/Slow08","ActionList":"Publish,Subscribe","Protocol":"MQTT","MaxMessages":11,"MaxMessagesBehavior":"DiscardOldMessages","ClientID":"mqtt_hiccup"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy08b Destination=/MM/Slow08 DestinationType=Topic ActionList=Publish,Subscribe Protocol=MQTT MaxMessages=55 MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy08b":{"Topic":"/MM/Slow08","ActionList":"Publish,Subscribe","Protocol":"MQTT","MaxMessages":55,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicy16 Destination=/MM/Max* DestinationType=Topic ActionList=Publish,Subscribe Protocol=MQTT MaxMessages=345
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy16":{"Topic":"/MM/Max*","ActionList":"Publish,Subscribe","Protocol":"MQTT","MaxMessages":345}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMessagingPolicyRcv Destination=MQTTMM_Sub DestinationType=Subscription "ActionList=Control,Receive" Protocol=MQTT MaxMessages=160 MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"SubscriptionPolicy":{"MQTTMMessagingPolicyRcv":{"Subscription":"MQTTMM_Sub","ActionList":"Control,Receive","Protocol":"MQTT","MaxMessages":160,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMessagingPolicyRcv02 Destination=MQTTMM_Sub02 DestinationType=Subscription "ActionList=Control,Receive" Protocol=MQTT MaxMessages=160 MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"SubscriptionPolicy":{"MQTTMMessagingPolicyRcv02":{"Subscription":"MQTTMM_Sub02","ActionList":"Control,Receive","Protocol":"MQTT","MaxMessages":160,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+
+# Endpoint for MaxMessages behavior
+#####setupMM 0 create Endpoint Name=MQTTMMEndpoint Enabled=True Port=29301 ConnectionPolicies=MQTTMMConnectionPolicy MessagingPolicies=MQTTMMMessagingPolicy273,MQTTMMMessagingPolicy146,MQTTMMMessagingPolicy35,MQTTMMMessagingPolicy01,MQTTMMMessagingPolicy02,MQTTMMMessagingPolicy03 MessageHub=MQTTMMHub
+setupMM 0 POST configuration {"Endpoint":{"MQTTMMEndpoint":{"Enabled":true,"Port":29301,"ConnectionPolicies":"MQTTMMConnectionPolicy","TopicPolicies":"MQTTMMMessagingPolicy273,MQTTMMMessagingPolicy146,MQTTMMMessagingPolicy35,MQTTMMMessagingPolicy01,MQTTMMMessagingPolicy02,MQTTMMMessagingPolicy03","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTMMHub"}}}
+#####setupMM 0 create Endpoint Name=MQTTMMEndpoint2 Enabled=True Port=29303 ConnectionPolicies=MQTTMMConnectionPolicy2 MessagingPolicies=MQTTMMMessagingPolicy36ND,MQTTMMMessagingPolicyJMS MessageHub=MQTTMMHub
+setupMM 0 POST configuration {"Endpoint":{"MQTTMMEndpoint2":{"Enabled":true,"Port":29303,"ConnectionPolicies":"MQTTMMConnectionPolicy2","TopicPolicies":"MQTTMMMessagingPolicy36ND,MQTTMMMessagingPolicyJMS","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTMMHub"}}}
+#####setupMM 0 create Endpoint Name=MQTTMMEndpoint8 Enabled=True Port=29308 ConnectionPolicies=MQTTMMConnectionPolicy MessagingPolicies=MQTTMMMessagingPolicy08,MQTTMMMessagingPolicy08b MessageHub=MQTTMMHub
+setupMM 0 POST configuration {"Endpoint":{"MQTTMMEndpoint8":{"Enabled":true,"Port":29308,"ConnectionPolicies":"MQTTMMConnectionPolicy","TopicPolicies":"MQTTMMMessagingPolicy08,MQTTMMMessagingPolicy08b","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTMMHub"}}}
+#####setupMM 0 create Endpoint Name=MQTTMMEndpoint16 Enabled=True Port=29316 ConnectionPolicies=MQTTMMConnectionPolicy MessagingPolicies=MQTTMMMessagingPolicy16,MQTTMMessagingPolicyRcv MessageHub=MQTTMMHub
+setupMM 0 POST configuration {"Endpoint":{"MQTTMMEndpoint16":{"Enabled":true,"Port":29316,"ConnectionPolicies":"MQTTMMConnectionPolicy","TopicPolicies":"MQTTMMMessagingPolicy16","QueuePolicies":"","SubscriptionPolicies":"MQTTMMessagingPolicyRcv","MessageHub":"MQTTMMHub"}}}
+#####setupMM 0 create Endpoint Name=MQTTMMEndpoint17 Enabled=True Port=29317 ConnectionPolicies=MQTTMMConnectionPolicy MessagingPolicies=MQTTMMMessagingPolicy16,MQTTMMessagingPolicyRcv02 MessageHub=MQTTMMHub
+setupMM 0 POST configuration {"Endpoint":{"MQTTMMEndpoint17":{"Enabled":true,"Port":29317,"ConnectionPolicies":"MQTTMMConnectionPolicy","TopicPolicies":"MQTTMMMessagingPolicy16","QueuePolicies":"","SubscriptionPolicies":"MQTTMMessagingPolicyRcv02","MessageHub":"MQTTMMHub"}}}
+#####setupMM 0 update MessagingPolicy Name=MQTTMMMessagingPolicy35 MaxMessages=35 MaxMessagesBehavior=DiscardOldMessages
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicy35":{"MaxMessages":35,"MaxMessagesBehavior":"DiscardOldMessages"}}}
+
+# MaxMessages behavior cleanup
+#####cleanupMM x delete Subscription SubName=/MM/Slow01 ClientID=mqttslow01_clientid
+cleanupMM x DELETE service/Subscription/mqttslow01_clientid//MM/Slow01
+#####cleanupMM x delete Subscription SubName=/MM/Slow02 ClientID=mqttslow01_clientid
+cleanupMM x DELETE service/Subscription/mqttslow01_clientid//MM/Slow02
+#####cleanupMM x delete Subscription SubName=/MM/Slow02 ClientID=mqttslow02_clientid
+cleanupMM x DELETE service/Subscription/mqttslow02_clientid//MM/Slow02
+#####cleanupMM x delete Subscription SubName=/MM/Slow02 ClientID=mqttslow03_clientid
+cleanupMM x DELETE service/Subscription/mqttslow03_clientid//MM/Slow02
+#####cleanupMM x delete Subscription SubName=/MM/Slow03 ClientID=mqttslow01_clientid
+cleanupMM x DELETE service/Subscription/mqttslow01_clientid//MM/Slow03
+#####cleanupMM x delete Subscription SubName=/MM/Slow03 ClientID=mqtt03SmallMM_clientid
+cleanupMM x DELETE service/Subscription/mqtt03SmallMM_clientid//MM/Slow03
+#####cleanupMM x delete Subscription SubName=/MM/Slow04 ClientID=mqtt03SmallMM_clientid
+cleanupMM x DELETE service/Subscription/mqtt03SmallMM_clientid//MM/Slow04
+#####cleanupMM x delete Subscription SubName=/MM/Slow05 ClientID=mqtt05Sub273_clientid
+cleanupMM x DELETE service/Subscription/mqtt05Sub273_clientid//MM/Slow05
+#####cleanupMM x delete Subscription SubName=/MM/Slow05 ClientID=mqtt05Sub146_clientid
+cleanupMM x DELETE service/Subscription/mqtt05Sub146_clientid//MM/Slow05
+#####cleanupMM x delete Subscription SubName=/MM/Slow05 ClientID=mqtt05Sub35_clientid
+cleanupMM x DELETE service/Subscription/mqtt05Sub35_clientid//MM/Slow05
+#####cleanupMM x delete Subscription SubName=/MM/Slow05 ClientID=mqtt05Sub36ND_clientid
+cleanupMM x DELETE service/Subscription/mqtt05Sub36ND_clientid//MM/Slow05
+#####cleanupMM x delete Subscription SubName=MQTTMM_Sub ClientID=__Shared
+cleanupMM x DELETE service/Subscription/__Shared/MQTTMM_Sub
+#####cleanupMM x delete Subscription SubName=MQTTMM_Sub02 ClientID=__Shared
+cleanupMM x DELETE service/Subscription/__Shared/MQTTMM_Sub02
+
+
+#####cleanupMM 0 delete Endpoint Name=MQTTMMEndpoint
+cleanupMM 0 DELETE configuration/Endpoint/MQTTMMEndpoint
+#####cleanupMM 0 delete Endpoint Name=MQTTMMEndpoint2
+cleanupMM 0 DELETE configuration/Endpoint/MQTTMMEndpoint2
+#####cleanupMM 0 delete Endpoint Name=MQTTMMEndpoint8
+cleanupMM 0 DELETE configuration/Endpoint/MQTTMMEndpoint8
+#####cleanupMM 0 delete Endpoint Name=MQTTMMEndpoint16
+cleanupMM 0 DELETE configuration/Endpoint/MQTTMMEndpoint16
+#####cleanupMM 0 delete Endpoint Name=MQTTMMEndpoint17
+cleanupMM 0 DELETE configuration/Endpoint/MQTTMMEndpoint17
+#####cleanupMM 0 delete MessageHub Name=MQTTMMHub
+cleanupMM 0 DELETE configuration/MessageHub/MQTTMMHub
+
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy01
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy01
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy02
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy02
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy03
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy03
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy08
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy08
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy08b
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy08b
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy16
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy16
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy273
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy273
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy146
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy146
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy35
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy35
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicy36ND
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicy36ND
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicyJMS
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicyJMS
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMessagingPolicyRcv
+cleanupMM 0 DELETE configuration/SubscriptionPolicy/MQTTMMessagingPolicyRcv
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMessagingPolicyRcv02
+cleanupMM 0 DELETE configuration/SubscriptionPolicy/MQTTMMessagingPolicyRcv02
+#####cleanupMM 0 delete ConnectionPolicy Name=MQTTMMConnectionPolicy
+cleanupMM 0 DELETE configuration/ConnectionPolicy/MQTTMMConnectionPolicy
+#####cleanupMM 0 delete ConnectionPolicy Name=MQTTMMConnectionPolicy2
+cleanupMM 0 DELETE configuration/ConnectionPolicy/MQTTMMConnectionPolicy2
+
+cleanupMM 0 user delete UserID=MQTT_MMSUBND Type=Messaging
+cleanupMM 0 user delete UserID=MQTT_MMPUB Type=Messaging
+cleanupMM 0 group delete GroupID=MQTT_MM
+
+# Policies for Dynamic Policy Updates
+#####setupMM 0 create MessageHub Name=MQTTMMHubDyn Description=MQTTMMHubDynamic
+setupMM 0 POST configuration {"MessageHub":{"MQTTMMHubDyn":{"Description":"MQTTMMHubDynamic"}}}
+#####setupMM 0 create ConnectionPolicy Name=MQTTMMDynConnectionPolicy Protocol=MQTT
+setupMM 0 POST configuration {"ConnectionPolicy":{"MQTTMMDynConnectionPolicy":{"Protocol":"MQTT"}}}
+
+setupMM 0 user add UserID=MQTTDynamic_1Sa type=Messaging password=dynamic
+setupMM 0 user add UserID=MQTTDynamic_1Sb type=Messaging password=dynamic
+setupMM 0 user add UserID=MQTTDynamic_NS type=Messaging password=dynamic
+
+#Some non-dynamic updates, which might catch the problem in defeect 64687
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicyDyn1 Destination=/MQTT/Dynamic/* DestinationType=Topic ActionList=Subscribe Protocol=MQTT MaxMessagesBehavior=RejectNewMessages MaxMessages=68 UserID=MQTTDynamic_NS
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicyDyn1":{"Topic":"/MQTT/Dynamic/*","ActionList":"Subscribe","Protocol":"MQTT","MaxMessagesBehavior":"RejectNewMessages","MaxMessages":68,"UserID":"MQTTDynamic_NS"}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMMessagingPolicyDyn2 Destination=/MQTT/Dynamic/* DestinationType=Topic ActionList=Subscribe Protocol=MQTT MaxMessagesBehavior=DiscardOldMessages UserID=MQTTDynamic_1S* MaxMessages=58
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicyDyn2":{"Topic":"/MQTT/Dynamic/*","ActionList":"Subscribe","Protocol":"MQTT","MaxMessagesBehavior":"DiscardOldMessages","UserID":"MQTTDynamic_1S*","MaxMessages":58}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMSSubPolicyDynamic1 Destination=MQTTDDynamic_001 DestinationType=Subscription "ActionList=Control,Receive" Protocol=MQTT UserID=MQTTDynamic_1SaNonExistent MaxMessages=67
+setupMM 0 POST configuration {"SubscriptionPolicy":{"MQTTMMSSubPolicyDynamic1":{"Subscription":"MQTTDDynamic_001","ActionList":"Control,Receive","Protocol":"MQTT","UserID":"MQTTDynamic_1SaNonExistent","MaxMessages":67}}}
+#####setupMM 0 create MessagingPolicy Name=MQTTMMSSubPolicyDynamic2 Destination=MQTTDDynamic_001 DestinationType=Subscription "ActionList=Receive" Protocol=MQTT UserID=MQTTDynamic_1Sb MaxMessages=6000
+setupMM 0 POST configuration {"SubscriptionPolicy":{"MQTTMMSSubPolicyDynamic2":{"Subscription":"MQTTDDynamic_001","ActionList":"Receive","Protocol":"MQTT","UserID":"MQTTDynamic_1Sb","MaxMessages":6000}}}
+
+#####setupMM 0 create Endpoint Name=MQTTMMEndpointDyn Enabled=True Port=20021 ConnectionPolicies=MQTTMMDynConnectionPolicy MessagingPolicies=MQTTMMMessagingPolicyDyn1,MQTTMMMessagingPolicyDyn2,MQTTMMSSubPolicyDynamic1,MQTTMMSSubPolicyDynamic2 MessageHub=MQTTMMHubDyn
+setupMM 0 POST configuration {"Endpoint":{"MQTTMMEndpointDyn":{"Enabled":true,"Port":20021,"ConnectionPolicies":"MQTTMMDynConnectionPolicy","TopicPolicies":"MQTTMMMessagingPolicyDyn1,MQTTMMMessagingPolicyDyn2","QueuePolicies":"","SubscriptionPolicies":"MQTTMMSSubPolicyDynamic1,MQTTMMSSubPolicyDynamic2","MessageHub":"MQTTMMHubDyn"}}}
+
+#Some non-dynamic updates, which might catch the problem in defeect 64687 (updates to those created above)
+#####setupMM 0 update MessagingPolicy Name=MQTTMMMessagingPolicyDyn1 MaxMessages=58
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicyDyn1":{"MaxMessages":58}}}
+#####setupMM 0 update MessagingPolicy Name=MQTTMMMessagingPolicyDyn2 MaxMessagesBehavior=RejectNewMessages
+setupMM 0 POST configuration {"TopicPolicy":{"MQTTMMMessagingPolicyDyn2":{"MaxMessagesBehavior":"RejectNewMessages"}}}
+#####setupMM 0 update MessagingPolicy Name=MQTTMMSSubPolicyDynamic1 MaxMessagesBehavior=RejectNewMessages MaxMessages=57  UserID=MQTTDynamic_1Sa
+setupMM 0 POST configuration {"SubscriptionPolicy":{"MQTTMMSSubPolicyDynamic1":{"MaxMessagesBehavior":"RejectNewMessages","MaxMessages":57,"UserID":"MQTTDynamic_1Sa"}}}
+#####setupMM 0 update MessagingPolicy Name=MQTTMMSSubPolicyDynamic2 MaxMessagesBehavior=DiscardOldMessages MaxMessages=4500
+setupMM 0 POST configuration {"SubscriptionPolicy":{"MQTTMMSSubPolicyDynamic2":{"MaxMessagesBehavior":"DiscardOldMessages","MaxMessages":4500}}}
+
+
+#Some non-dynamic updates, which might catch the problem in defect 64687
+#####cleanupMM x delete Subscription SubName=/MQTT/Dynamic/+ ClientID=MMD_01_Cons_QoS_0
+cleanupMM x DELETE service/Subscription/MMD_01_Cons_QoS_0//MQTT/Dynamic/+
+#####cleanupMM x delete Subscription SubName=/MQTT/Dynamic/+ ClientID=MMD_01_Cons_QoS_1
+cleanupMM x DELETE service/Subscription/MMD_01_Cons_QoS_1//MQTT/Dynamic/+
+#####cleanupMM x delete Subscription SubName=/MQTT/Dynamic/+ ClientID=MMD_01_Cons_QoS_2
+cleanupMM x DELETE service/Subscription/MMD_01_Cons_QoS_2//MQTT/Dynamic/+
+#####cleanupMM x delete Subscription SubName=MQTTDDynamic_001 ClientID=__Shared
+cleanupMM x DELETE service/Subscription/__Shared/MQTTDDynamic_001
+
+
+cleanupMM 0 user delete UserID=MQTTDynamic_1Sa type=Messaging
+cleanupMM 0 user delete UserID=MQTTDynamic_1Sb type=Messaging
+cleanupMM 0 user delete UserID=MQTTDynamic_NS type=Messaging
+
+#####cleanupMM 0 delete Endpoint Name=MQTTMMEndpointDyn
+cleanupMM 0 DELETE configuration/Endpoint/MQTTMMEndpointDyn
+#####cleanupMM 0 delete ConnectionPolicy Name=MQTTMMDynConnectionPolicy
+cleanupMM 0 DELETE configuration/ConnectionPolicy/MQTTMMDynConnectionPolicy
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicyDyn1
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicyDyn1
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMMessagingPolicyDyn2
+cleanupMM 0 DELETE configuration/TopicPolicy/MQTTMMMessagingPolicyDyn2
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMSSubPolicyDynamic1
+cleanupMM 0 DELETE configuration/SubscriptionPolicy/MQTTMMSSubPolicyDynamic1
+#####cleanupMM 0 delete MessagingPolicy Name=MQTTMMSSubPolicyDynamic2
+cleanupMM 0 DELETE configuration/SubscriptionPolicy/MQTTMMSSubPolicyDynamic2
+
+#####cleanupMM 0 delete MessageHub Name=MQTTMMHubDyn
+cleanupMM 0 DELETE configuration/MessageHub/MQTTMMHubDyn
+
+
+# ${GroupID} in MessagingPolicy
+
+#####setupGID 0 set TraceLevel=5,security:9
+setupGID 0 POST configuration {"TraceLevel":"5,security:9"}
+
+
+setupGID 0 group add GroupID=MQTT_Shipper
+setupGID 0 group add GroupID=MQTT_DHL GroupMembership=MQTT_Shipper
+setupGID 0 group add GroupID=MQTT_Driver GroupMembership=MQTT_DHL
+setupGID 0 group add GroupID=MQTT_DriverMonitor GroupMembership=MQTT_Driver
+setupGID 0 user add UserID=MQTT_David Type=Messaging Password=david
+setupGID 0 user edit UserID=MQTT_David Type=Messaging AddGroupMembership=MQTT_DHL
+setupGID 0 user add UserID=MQTT_Igor Type=Messaging Password=igor
+setupGID 0 user add UserID=MQTT_Sally Type=Messaging Password=sally
+setupGID 0 user edit UserID=MQTT_Sally Type=Messaging AddGroupMembership=MQTT_DHL
+setupGID 0 user add UserID=MQTT_Eve Type=Messaging Password=eve
+setupGID 0 user add UserID=MQTT_Dolly Type=Messaging Password=dolly
+setupGID 0 user edit UserID=MQTT_Dolly Type=Messaging AddGroupMembership=MQTT_Driver
+setupGID 0 user add UserID=MQTT_Molly Type=Messaging Password=molly
+setupGID 0 user edit UserID=MQTT_Molly Type=Messaging AddGroupMembership=MQTT_DriverMonitor
+
+#####setupGID 0 create MessageHub Name=MQTTGIDHub Description=MQTTGIDHub
+setupGID 0 POST configuration {"MessageHub":{"MQTTGIDHub":{"Description":"MQTTGIDHub"}}}
+
+#####setupGID 0 create ConnectionPolicy Name=MQTTGIDConnectionPolicy Protocol=MQTT
+setupGID 0 POST configuration {"ConnectionPolicy":{"MQTTGIDConnectionPolicy":{"Protocol":"MQTT"}}}
+
+#####setupGID 0 create MessagingPolicy Name=MQTTGIDMessagingPolicy01 Destination=\${GroupID}/chat DestinationType=Topic ActionList=Publish,Subscribe Protocol=MQTT
+setupGID 0 POST configuration {"TopicPolicy":{"MQTTGIDMessagingPolicy01":{"Topic":"${GroupID}/chat","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+#####setupGID - create MessagingPolicy Name=MQTTGIDMessagingPolicy02 Destination=one/\${GroupID}/two/\${GroupID}/three DestinationType=Topic ActionList=Publish,Subscribe Protocol=MQTT
+setupGID - POST configuration {"TopicPolicy":{"MQTTGIDMessagingPolicy02":{"Topic":"one/${GroupID}/two/${GroupID}/three","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+
+#####setupGID 0 create Endpoint Name=MQTTGIDEndpoint Enabled=True Port=29307 ConnectionPolicies=MQTTGIDConnectionPolicy MessagingPolicies=MQTTGIDMessagingPolicy01 MessageHub=MQTTGIDHub
+setupGID 0 POST configuration {"Endpoint":{"MQTTGIDEndpoint":{"Enabled":true,"Port":29307,"ConnectionPolicies":"MQTTGIDConnectionPolicy","TopicPolicies":"MQTTGIDMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTGIDHub"}}}
+
+#####cleanupGID 0 delete Endpoint Name=MQTTGIDEndpoint
+cleanupGID 0 DELETE configuration/Endpoint/MQTTGIDEndpoint
+#####cleanupGID 0 delete MessageHub Name=MQTTGIDHub
+cleanupGID 0 DELETE configuration/MessageHub/MQTTGIDHub
+#####cleanupGID 0 delete MessagingPolicy Name=MQTTGIDMessagingPolicy01
+cleanupGID 0 DELETE configuration/TopicPolicy/MQTTGIDMessagingPolicy01
+#####cleanupGID 0 delete ConnectionPolicy Name=MQTTGIDConnectionPolicy
+cleanupGID 0 DELETE configuration/ConnectionPolicy/MQTTGIDConnectionPolicy
+
+
+cleanupGID 0 user delete UserID=MQTT_David Type=Messaging
+cleanupGID 0 user delete UserID=MQTT_Sally Type=Messaging
+cleanupGID 0 user delete UserID=MQTT_Igor Type=Messaging
+cleanupGID 0 user delete UserID=MQTT_Eve Type=Messaging
+cleanupGID 0 user delete UserID=MQTT_Molly Type=Messaging
+cleanupGID 0 user delete UserID=MQTT_Dolly Type=Messaging
+cleanupGID 0 group delete GroupID=MQTT_DriverMonitor
+cleanupGID 0 group delete GroupID=MQTT_Driver
+cleanupGID 0 group delete GroupID=MQTT_DHL
+cleanupGID 0 group delete GroupID=MQTT_Shipper
+
+#####cleanupGID 0 set TraceLevel=5
+cleanupGID 0 POST configuration {"TraceLevel":"5"}
+
+
+# Shared Subscription setup
+
+# MessageHub for Durable Shared Subscriptions
+
+
+#####setupSS 0 create MessageHub Name=MQTTDSSHub1 Description=MQTTDurable_Shared_Subscriptions
+setupSS 0 POST configuration {"MessageHub":{"MQTTDSSHub1":{"Description":"MQTTDurable_Shared_Subscriptions"}}}
+
+setupSS 0 user add UserID=MQTT_DSSSec_Both type=Messaging password=password
+setupSS 0 user add UserID=MQTT_DSSSec_Pub type=Messaging password=password
+setupSS 0 user add UserID=MQTT_DSSSec_Sub type=Messaging password=password
+setupSS 0 user add UserID=MQTT_DSSSec_None type=Messaging password=password
+
+##### setupSS 0 create ConnectionPolicy Name=MQTTDSSConnectionPolicy01 ClientID=MQTT* Protocol=MQTT,JMS
+setupSS 0 POST configuration {"ConnectionPolicy":{"MQTTDSSConnectionPolicy01":{"Protocol":"MQTT,JMS","ClientID":"MQTT*","ExpectedMessageRate":"High"}}}
+
+#####setupSS 0 create MessagingPolicy Name=MQTTDSSMessagingPolicyBoth Destination=/MQTTDSS_sec01/Topic1 DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT UserID=MQTT_DSSSec_Both
+setupSS 0 POST configuration {"TopicPolicy":{"MQTTDSSMessagingPolicyBoth":{"Topic":"/MQTTDSS_sec01/Topic1","ActionList":"Publish,Subscribe","Protocol":"MQTT","UserID":"MQTT_DSSSec_Both"}}}
+#####setupSS 0 create MessagingPolicy Name=MQTTDSSMessagingPolicySub  Destination=/MQTTDSS_sec01/Topic1 DestinationType=Topic "ActionList=Subscribe" Protocol=MQTT UserID=MQTT_DSSSec_Sub
+setupSS 0 POST configuration {"TopicPolicy":{"MQTTDSSMessagingPolicySub":{"Topic":"/MQTTDSS_sec01/Topic1","ActionList":"Subscribe","Protocol":"MQTT","UserID":"MQTT_DSSSec_Sub"}}}
+#####setupSS 0 create MessagingPolicy Name=MQTTDSSMessagingPolicyPub  Destination=/MQTTDSS_sec01/Topic1 DestinationType=Topic "ActionList=Publish" Protocol=MQTT UserID=MQTT_DSSSec_Pub
+setupSS 0 POST configuration {"TopicPolicy":{"MQTTDSSMessagingPolicyPub":{"Topic":"/MQTTDSS_sec01/Topic1","ActionList":"Publish","Protocol":"MQTT","UserID":"MQTT_DSSSec_Pub"}}}
+#####setupSS 0 create MessagingPolicy "Name=MQTTDSSMsgPol_Topic" "Destination=/DS/DS*" "DestinationType=Topic" "ActionList=Publish,Subscribe" "Protocol=MQTT" "MaxMessages=100000"
+setupSS 0 POST configuration {"TopicPolicy":{"MQTTDSSMsgPol_Topic":{"Topic":"/DS/DS*","ActionList":"Publish,Subscribe","Protocol":"MQTT","MaxMessages":100000}}}
+#####setupSS 0 create MessagingPolicy "Name=MQTTMixedSSMsgPol_SubTopic" "Destination=/SS/SS*" "DestinationType=Topic" "ActionList=Subscribe" "Protocol=MQTT" "MaxMessages=6000"
+setupSS 0 POST configuration {"TopicPolicy":{"MQTTMixedSSMsgPol_SubTopic":{"Topic":"/SS/SS*","ActionList":"Subscribe","Protocol":"MQTT","MaxMessages":6000}}}
+#####setupSS 0 create MessagingPolicy "Name=MQTTMixedSSMsgPol_PubTopic" "Destination=*" "DestinationType=Topic" "ActionList=Publish" "Protocol=MQTT"
+setupSS 0 POST configuration {"TopicPolicy":{"MQTTMixedSSMsgPol_PubTopic":{"Topic":"*","ActionList":"Publish","Protocol":"MQTT"}}}
+
+#####setupSS 0 create MessagingPolicy Name=MQTTDSSSubPolicyBoth Destination=MQTTDSS_SecSub0* DestinationType=Subscription "ActionList=Control,Receive" Protocol=MQTT UserID=MQTT*
+setupSS 0 POST configuration {"SubscriptionPolicy":{"MQTTDSSSubPolicyBoth":{"Subscription":"MQTTDSS_SecSub0*","ActionList":"Control,Receive","Protocol":"MQTT","UserID":"MQTT*"}}}
+#####setupSS 0 create MessagingPolicy Name=MQTTDSSSubPolicyControl Destination=MQTTDSS_SecSub0* DestinationType=Subscription "ActionList=Control" Protocol=MQTT UserID=MQTT*
+setupSS 0 POST configuration {"SubscriptionPolicy":{"MQTTDSSSubPolicyControl":{"Subscription":"MQTTDSS_SecSub0*","ActionList":"Control","Protocol":"MQTT","UserID":"MQTT*"}}}
+#####setupSS 0 create MessagingPolicy Name=MQTTDSSSubPolicyReceive Destination=MQTTDSS_SecSub0* DestinationType=Subscription "ActionList=Receive" Protocol=MQTT UserID=MQTT*
+setupSS 0 POST configuration {"SubscriptionPolicy":{"MQTTDSSSubPolicyReceive":{"Subscription":"MQTTDSS_SecSub0*","ActionList":"Receive","Protocol":"MQTT","UserID":"MQTT*"}}}
+#####setupSS 0 create MessagingPolicy "Name=MQTTDSSMsgPol_Sub" "Destination=SubDS_*" "DestinationType=Subscription" "ActionList=Control,Receive" "Protocol=MQTT" "MaxMessages=100000"
+setupSS 0 POST configuration {"SubscriptionPolicy":{"MQTTDSSMsgPol_Sub":{"Subscription":"SubDS_*","ActionList":"Control,Receive","Protocol":"MQTT","MaxMessages":100000}}}
+#####setupSS 0 create MessagingPolicy "Name=MQTTMixedSSMsgPol_Sub" "Destination=SubSS_*" "DestinationType=Subscription" "ActionList=Control,Receive" "Protocol=MQTT"
+setupSS 0 POST configuration {"SubscriptionPolicy":{"MQTTMixedSSMsgPol_Sub":{"Subscription":"SubSS_*","ActionList":"Control,Receive","Protocol":"MQTT"}}}
+
+#####setupSS 0 create Endpoint Name=MQTTDSSEndpoint1 Enabled=True Port=29310 ConnectionPolicies=MQTTDSSConnectionPolicy01 MessagingPolicies=MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub,MQTTDSSSubPolicyBoth MessageHub=MQTTDSSHub1
+setupSS 0 POST configuration {"Endpoint":{"MQTTDSSEndpoint1":{"Enabled":true,"Port":29310,"ConnectionPolicies":"MQTTDSSConnectionPolicy01","TopicPolicies":"MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub","QueuePolicies":"","SubscriptionPolicies":"MQTTDSSSubPolicyBoth","MessageHub":"MQTTDSSHub1"}}}
+#####setupSS 0 create Endpoint Name=MQTTDSSEndpoint2 Enabled=True Port=29311 ConnectionPolicies=MQTTDSSConnectionPolicy01 MessagingPolicies=MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub,MQTTDSSSubPolicyControl MessageHub=MQTTDSSHub1
+setupSS 0 POST configuration {"Endpoint":{"MQTTDSSEndpoint2":{"Enabled":true,"Port":29311,"ConnectionPolicies":"MQTTDSSConnectionPolicy01","TopicPolicies":"MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub","QueuePolicies":"","SubscriptionPolicies":"MQTTDSSSubPolicyControl","MessageHub":"MQTTDSSHub1"}}}
+#####setupSS 0 create Endpoint Name=MQTTDSSEndpoint3 Enabled=True Port=29312 ConnectionPolicies=MQTTDSSConnectionPolicy01 MessagingPolicies=MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub,MQTTDSSSubPolicyReceive MessageHub=MQTTDSSHub1
+setupSS 0 POST configuration {"Endpoint":{"MQTTDSSEndpoint3":{"Enabled":true,"Port":29312,"ConnectionPolicies":"MQTTDSSConnectionPolicy01","TopicPolicies":"MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub","QueuePolicies":"","SubscriptionPolicies":"MQTTDSSSubPolicyReceive","MessageHub":"MQTTDSSHub1"}}}
+#####setupSS 0 create Endpoint Name=MQTTDSSEndpoint4 Enabled=True Port=29313 ConnectionPolicies=MQTTDSSConnectionPolicy01 MessagingPolicies=MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub MessageHub=MQTTDSSHub1
+setupSS 0 POST configuration {"Endpoint":{"MQTTDSSEndpoint4":{"Enabled":true,"Port":29313,"ConnectionPolicies":"MQTTDSSConnectionPolicy01","TopicPolicies":"MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTDSSHub1"}}}
+#####setupSS 0 create Endpoint Name=MQTTDSSEndpoint5 Enabled=True Port=29400 ConnectionPolicies=MQTTDSSConnectionPolicy01 MessagingPolicies=MQTTDSSMsgPol_Topic,MQTTDSSMsgPol_Sub MessageHub=MQTTDSSHub1
+setupSS 0 POST configuration {"Endpoint":{"MQTTDSSEndpoint5":{"Enabled":true,"Port":29400,"ConnectionPolicies":"MQTTDSSConnectionPolicy01","TopicPolicies":"MQTTDSSMsgPol_Topic","QueuePolicies":"","SubscriptionPolicies":"MQTTDSSMsgPol_Sub","MessageHub":"MQTTDSSHub1"}}}
+#####setupSS 0 create Endpoint Name=MQTTMixedSSEndpoint1 Enabled=True Port=29314 ConnectionPolicies=MQTTDSSConnectionPolicy01 MessagingPolicies=MQTTMixedSSMsgPol_Sub,MQTTMixedSSMsgPol_SubTopic,MQTTMixedSSMsgPol_PubTopic MessageHub=MQTTDSSHub1
+setupSS 0 POST configuration {"Endpoint":{"MQTTMixedSSEndpoint1":{"Enabled":true,"Port":29314,"ConnectionPolicies":"MQTTDSSConnectionPolicy01","TopicPolicies":"MQTTMixedSSMsgPol_SubTopic,MQTTMixedSSMsgPol_PubTopic","QueuePolicies":"","SubscriptionPolicies":"MQTTMixedSSMsgPol_Sub","MessageHub":"MQTTDSSHub1"}}}
+
+# Shared Subscription cleanup
+# The following are non-durable subscriptions, that SHOULD NOT ever
+# be present, as there will be no consumers when the cleanup runs.
+# IF they are ever present, and there wasn't an orphaned
+# test process subscribed, then its a bug.
+
+#####cleanupSS -  delete Subscription SubName=SubErrorTests  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubErrorTests
+#####cleanupSS -  delete Subscription SubName=葛渚噓 ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/葛渚噓
+
+#####cleanupSS -  delete Subscription SubName=SubNDS_01  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_01
+#####cleanupSS -  delete Subscription SubName=SubNDS_01_Collector  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_01_Collector
+#####cleanupSS -  delete Subscription SubName=SubNDS_01_QOSM  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_01_QOSM
+#####cleanupSS -  delete Subscription SubName=SubNDS_01_1_Collector  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_01_1_Collector
+#####cleanupSS -  delete Subscription SubName=SubNDS_02_QOSM  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_02_QOSM
+#####cleanupSS -  delete Subscription SubName=SubNDS_02_1_Collector  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_02_1_Collector
+#####cleanupSS -  delete Subscription SubName=SubNDS_02  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_02
+#####cleanupSS -  delete Subscription SubName=SubNDS_02_Collector  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_02_Collector
+#####cleanupSS -  delete Subscription SubName=SubNDS_03  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_03
+#####cleanupSS -  delete Subscription SubName=SubNDS_03_Collector  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_03_Collector
+#####cleanupSS -  delete Subscription SubName=SubNDS_04  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_04
+#####cleanupSS -  delete Subscription SubName=SubNDS_04_Collector  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubNDS_04_Collector
+#####cleanupSS -  delete Subscription SubName=SharedSub_error01Subname  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SharedSub_error01Subname
+#####cleanupSS -  delete Subscription SubName=SubErrorTests  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubErrorTests
+#####cleanupSS -  delete Subscription SubName=SubErrorTests03A  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubErrorTests03A
+#####cleanupSS -  delete Subscription SubName=SubErrorTests03B  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubErrorTests03B
+#####cleanupSS -  delete Subscription SubName=SubErrorTests03C  ClientID=__SharedND
+cleanupSS - DELETE service/Subscription/__SharedND/SubErrorTests03C
+
+######################################################################################################
+# The next one is for defect 73742. It is a durable shared subscription that
+# is not being deleted with CleanSession=True.  If Showdursharedsub_error01Subname2_gone
+# failed in testcase testmqtt_dursharedsub_error01.xml AND this failed, then 73742 is
+# an even bigger problem than we think.
+######################################################################################################
+
+#####cleanupSS -  delete Subscription SubName=dursharedsub_error01Subname2 ClientID=__Shared
+cleanupSS - DELETE service/Subscription/__Shared/dursharedsub_error01Subname2
+
+# Regular cleanup for tests that might fail.
+#####cleanupSS x  delete Subscription SubName=DurSubErrorTests03A  ClientID=__Shared
+cleanupSS x DELETE service/Subscription/__Shared/DurSubErrorTests03A
+#####cleanupSS x  delete Subscription SubName=DurSubErrorTests03B  ClientID=__Shared
+cleanupSS x DELETE service/Subscription/__Shared/DurSubErrorTests03B
+#####cleanupSS x  delete Subscription SubName=DurSubErrorTests03C  ClientID=__Shared
+cleanupSS x DELETE service/Subscription/__Shared/DurSubErrorTests03C
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=MQTTDSS_SecSub02
+cleanupSS x DELETE service/Subscription/__Shared/MQTTDSS_SecSub02
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=MQTTDSS_SecSub02b
+cleanupSS x DELETE service/Subscription/__Shared/MQTTDSS_SecSub02b
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubMP_01_QOSM
+cleanupSS x DELETE service/Subscription/__Shared/SubMP_01_QOSM
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubMP_01_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubMP_01_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_000_000
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_000_000
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_000_000_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_000_000_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_001_000
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_001_000
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_001_000_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_001_000_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_001_111
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_001_111
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_001_111_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_001_111_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_001_222
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_001_222
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_001_222_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_001_222_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_002_000
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_002_000
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_002_000_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_002_000_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_002_111
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_002_111
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_002_111_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_002_111_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_002_222
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_002_222
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_002_222_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_002_222_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_012_222
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_012_222
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_012_222_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_012_222_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_012_111
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_012_111
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_012_111_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_012_111_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_012_000
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_012_000
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_012_000_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_012_000_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_111_111
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_111_111
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_111_111_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_111_111_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_222_222
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_222_222
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubDS_222_222_Collector
+cleanupSS x DELETE service/Subscription/__Shared/SubDS_222_222_Collector
+#####cleanupSS x  delete Subscription ClientID=__Shared Subname=SubSS_05_QOSM
+cleanupSS x DELETE service/Subscription/__Shared/SubSS_05_QOSM
+
+#####cleanupSS 0 set TraceLevel=5
+cleanupSS 0 POST configuration {"TraceLevel":"5"}
+
+#####cleanupSS 0 delete Endpoint Name=MQTTDSSEndpoint1
+cleanupSS 0 DELETE configuration/Endpoint/MQTTDSSEndpoint1
+#####cleanupSS 0 delete Endpoint Name=MQTTDSSEndpoint2
+cleanupSS 0 DELETE configuration/Endpoint/MQTTDSSEndpoint2
+#####cleanupSS 0 delete Endpoint Name=MQTTDSSEndpoint3
+cleanupSS 0 DELETE configuration/Endpoint/MQTTDSSEndpoint3
+#####cleanupSS 0 delete Endpoint Name=MQTTDSSEndpoint4
+cleanupSS 0 DELETE configuration/Endpoint/MQTTDSSEndpoint4
+#####cleanupSS 0 delete Endpoint Name=MQTTDSSEndpoint5
+cleanupSS 0 DELETE configuration/Endpoint/MQTTDSSEndpoint5
+#####cleanupSS 0 delete Endpoint Name=MQTTMixedSSEndpoint1
+cleanupSS 0 DELETE configuration/Endpoint/MQTTMixedSSEndpoint1
+#####cleanupSS 0 delete MessagingPolicy Name=MQTTDSSSubPolicyBoth
+cleanupSS 0 DELETE configuration/SubscriptionPolicy/MQTTDSSSubPolicyBoth
+#####cleanupSS 0 delete MessagingPolicy Name=MQTTDSSSubPolicyControl
+cleanupSS 0 DELETE configuration/SubscriptionPolicy/MQTTDSSSubPolicyControl
+#####cleanupSS 0 delete MessagingPolicy Name=MQTTDSSSubPolicyReceive
+cleanupSS 0 DELETE configuration/SubscriptionPolicy/MQTTDSSSubPolicyReceive
+#####cleanupSS 0 delete MessagingPolicy Name=MQTTDSSMessagingPolicyBoth
+cleanupSS 0 DELETE configuration/TopicPolicy/MQTTDSSMessagingPolicyBoth
+#####cleanupSS 0 delete MessagingPolicy Name=MQTTDSSMessagingPolicySub
+cleanupSS 0 DELETE configuration/TopicPolicy/MQTTDSSMessagingPolicySub
+#####cleanupSS 0 delete MessagingPolicy Name=MQTTDSSMessagingPolicyPub
+cleanupSS 0 DELETE configuration/TopicPolicy/MQTTDSSMessagingPolicyPub
+#####cleanupSS 0 delete MessagingPolicy "Name=MQTTDSSMsgPol_Topic"
+cleanupSS 0 DELETE configuration/TopicPolicy/MQTTDSSMsgPol_Topic
+#####cleanupSS 0 delete MessagingPolicy "Name=MQTTDSSMsgPol_Sub"
+cleanupSS 0 DELETE configuration/SubscriptionPolicy/MQTTDSSMsgPol_Sub
+#####cleanupSS 0 delete MessagingPolicy "Name=MQTTMixedSSMsgPol_Sub"
+cleanupSS 0 DELETE configuration/SubscriptionPolicy/MQTTMixedSSMsgPol_Sub
+#####cleanupSS 0 delete MessagingPolicy "Name=MQTTMixedSSMsgPol_SubTopic"
+cleanupSS 0 DELETE configuration/TopicPolicy/MQTTMixedSSMsgPol_SubTopic
+#####cleanupSS 0 delete MessagingPolicy "Name=MQTTMixedSSMsgPol_PubTopic"
+cleanupSS 0 DELETE configuration/TopicPolicy/MQTTMixedSSMsgPol_PubTopic
+#####cleanupSS 0 delete ConnectionPolicy Name=MQTTDSSConnectionPolicy01
+cleanupSS 0 DELETE configuration/ConnectionPolicy/MQTTDSSConnectionPolicy01
+
+cleanupSS 0 user delete UserID=MQTT_DSSSec_Both type=Messaging
+cleanupSS 0 user delete UserID=MQTT_DSSSec_Pub type=Messaging
+cleanupSS 0 user delete UserID=MQTT_DSSSec_Sub type=Messaging
+cleanupSS 0 user delete UserID=MQTT_DSSSec_None type=Messaging
+
+#####cleanupSS 0 delete MessageHub Name=MQTTDSSHub1
+cleanupSS 0 DELETE configuration/MessageHub/MQTTDSSHub1
+
+# Long Username, Password, ClientId
+
+#####setupXXL - create ConnectionPolicy Name=XXLCP ClientID=* UserID=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN(truncated here) Protocol=MQTT
+setupXXL - POST configuration {"ConnectionPolicy":{"XXLCP":{"ClientID":"*","Protocol":"MQTT","UserID":"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890wxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"}}}
+#####setupXXL - create MessagingPolicy Name=MQTTXXLMP Destination=/xxl DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT UserID=abcdefghijklmnopqrstuvwxyzABCDEFG(truncated here)
+setupXXL - POST configuration {"TopicPolicy":{"MQTTXXLMP":{"Topic":"/xxl","ActionList":"Publish,Subscribe","Protocol":"MQTT","UserID":"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890wxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"}}}
+
+#####setupXXL 0 create ConnectionPolicy Name=MQTTXXLCP_wild ClientID=* UserID=*
+setupXXL 0 POST configuration {"ConnectionPolicy":{"MQTTXXLCP_wild":{"ClientID":"*","UserID":"*"}}}
+
+#####setupXXL 0 create Endpoint Name=MQTTXXLEndpoint Enabled=True Port=11440 ConnectionPolicies=MQTTXXLCP_wild MessagingPolicies=DemoTopicPolicy MessageHub=DemoHub
+setupXXL 0 POST configuration {"Endpoint":{"MQTTXXLEndpoint":{"Enabled":true,"Port":11440,"ConnectionPolicies":"MQTTXXLCP_wild","TopicPolicies":"DemoTopicPolicy","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"DemoHub"}}}
+
+#####cleanupXXL - delete ConnectionPolicy Name=XXLCP
+cleanupXXL - DELETE configuration/ConnectionPolicy/XXLCP
+#####cleanupXXL - delete MessagingPolicy Name=MQTTXXLMP
+cleanupXXL - DELETE configuration/TopicPolicy/MQTTXXLMP
+#####cleanupXXL 0 delete Endpoint Name=MQTTXXLEndpoint
+cleanupXXL 0 DELETE configuration/Endpoint/MQTTXXLEndpoint
+#####cleanupXXL 0 delete ConnectionPolicy Name=MQTTXXLCP_wild
+cleanupXXL 0 DELETE configuration/ConnectionPolicy/MQTTXXLCP_wild
+
+#####setupNoTLS 0 create SecurityProfile Name=MQTTNoTLSSecureProf1 TLSEnabled=False UsePasswordAuthentication=False MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=MQTTSSLCertProf1
+setupNoTLS 0 POST configuration {"SecurityProfile":{"MQTTNoTLSSecureProf1":{"TLSEnabled":false,"UsePasswordAuthentication":false,"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"MQTTSSLCertProf1"}}}
+#####setupNoTLS 0 create SecurityProfile Name=MQTTNoTLSSecureProf3 TLSEnabled=False MinimumProtocolMethod=TLSv1 UseClientCertificate=True UsePasswordAuthentication=False Ciphers=Fast CertificateProfile=MQTTSSLCertProf1
+setupNoTLS 0 POST configuration {"SecurityProfile":{"MQTTNoTLSSecureProf3":{"TLSEnabled":false,"MinimumProtocolMethod":"TLSv1","UseClientCertificate":true,"UsePasswordAuthentication":false,"Ciphers":"Fast","CertificateProfile":"MQTTSSLCertProf1"}}}
+#####setupNoTLS 0 create Endpoint Name=MQTTNoTLSEndpoint06 Enabled=True SecurityProfile=MQTTNoTLSSecureProf1 Port=31455 ConnectionPolicies=MQTTSSLConnectionPolicy06 MessagingPolicies=MQTTSSLMessagingPolicy01 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setupNoTLS 0 POST configuration {"Endpoint":{"MQTTNoTLSEndpoint06":{"Enabled":true,"SecurityProfile":"MQTTNoTLSSecureProf1","Port":31455,"ConnectionPolicies":"MQTTSSLConnectionPolicy06","TopicPolicies":"MQTTSSLMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+
+#The following command should fail even though TLSEnabled=False.  If they've specified UseClientCertificate, the need to set the trusted certificate before an endpoint can be created
+#####setupNoTLS - create Endpoint Name=MQTTNoTLSEndpoint13 Enabled=True SecurityProfile=MQTTNoTLSSecureProf3 Port=31462 ConnectionPolicies=MQTTSSLConnectionPolicy01 MessagingPolicies=MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setupNoTLS - POST configuration {"Endpoint":{"MQTTNoTLSEndpoint13":{"Enabled":true,"SecurityProfile":"MQTTNoTLSSecureProf3","Port":31462,"ConnectionPolicies":"MQTTSSLConnectionPolicy01","TopicPolicies":"MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+#####setupNoTLS 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem cliRootCA-crt.pem
+setupNoTLS 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/certs/A1/rootCA-crt.pem cliRootCA-crt.pem
+#####setupNoTLS 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaCA-crt.pem cliImaCA-crt.pem
+setupNoTLS 0 PUT file ${M1_TESTROOT}/mqtt_td_tests/certs/A1/imaCA-crt.pem cliImaCA-crt.pem
+#####setupNoTLS 0 apply Certificate TrustedCertificate=cliRootCA-crt.pem SecurityProfileName=MQTTNoTLSSecureProf3
+setupNoTLS 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"cliRootCA-crt.pem","SecurityProfileName":"MQTTNoTLSSecureProf3"}]}
+#####setupNoTLS 0 apply Certificate TrustedCertificate=cliImaCA-crt.pem SecurityProfileName=MQTTNoTLSSecureProf3
+setupNoTLS 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"cliImaCA-crt.pem","SecurityProfileName":"MQTTNoTLSSecureProf3"}]}
+
+#This time the command should succeed because the trusted certificates are in place
+#####setupNoTLS 0 create Endpoint Name=MQTTNoTLSEndpoint13 Enabled=True SecurityProfile=MQTTNoTLSSecureProf3 Port=31462 ConnectionPolicies=MQTTSSLConnectionPolicy01 MessagingPolicies=MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05 MessageHub=MQTTSSLHub MaxMessageSize=200MB
+setupNoTLS 0 POST configuration {"Endpoint":{"MQTTNoTLSEndpoint13":{"Enabled":true,"SecurityProfile":"MQTTNoTLSSecureProf3","Port":31462,"ConnectionPolicies":"MQTTSSLConnectionPolicy01","TopicPolicies":"MQTTSSLMessagingPolicy01,MQTTSSLMessagingPolicy02,MQTTSSLMessagingPolicy03,MQTTSSLMessagingPolicy04,MQTTSSLMessagingPolicy05","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTSSLHub","MaxMessageSize":"200MB"}}}
+
+
+#####cleanupNoTLS 0 delete Endpoint Name=MQTTNoTLSEndpoint06
+cleanupNoTLS 0 DELETE configuration/Endpoint/MQTTNoTLSEndpoint06
+#####cleanupNoTLS 0 delete Endpoint Name=MQTTNoTLSEndpoint13
+cleanupNoTLS 0 DELETE configuration/Endpoint/MQTTNoTLSEndpoint13
+#####cleanupNoTLS 0 delete SecurityProfile Name=MQTTNoTLSSecureProf1
+cleanupNoTLS 0 DELETE configuration/SecurityProfile/MQTTNoTLSSecureProf1
+#####cleanupNoTLS 0 delete TrustedCertificate SecurityProfileName=MQTTNoTLSSecureProf3 TrustedCertificate=cliImaCA-crt.pem
+cleanupNoTLS 0 DELETE configuration/TrustedCertificate/MQTTNoTLSSecureProf3/cliImaCA-crt.pem
+#####cleanupNoTLS 0 delete TrustedCertificate SecurityProfileName=MQTTNoTLSSecureProf3 TrustedCertificate=cliRootCA-crt.pem
+cleanupNoTLS 0 DELETE configuration/TrustedCertificate/MQTTNoTLSSecureProf3/cliRootCA-crt.pem
+#####cleanupNoTLS 0 delete SecurityProfile Name=MQTTNoTLSSecureProf3
+cleanupNoTLS 0 DELETE configuration/SecurityProfile/MQTTNoTLSSecureProf3

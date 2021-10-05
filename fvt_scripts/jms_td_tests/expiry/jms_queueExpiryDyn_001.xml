@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_queueExpiryDyn_001
+
+  Test Category: Dynamic (and static) Message Expiration
+  
+  Test Description:
+  
+  There are two queues, one with a non-receiving consumer, one without a consumer.  Both
+  use the same messaging policy. 
+  
+  Static Updates;
+  
+  In expiry_config.cli, there are some updates of QueuePolicy and Queues that 
+  are done.  The first thing this test does, is verify that those values were
+  correctly applied to the Queues, and the QueuePolicy.  
+  
+  Dymamic Updates;
+  
+  We change the MaxMessageTimeToLive on the policy, and send messages to both
+  queues with various settings. 
+  
+  The connection is eventually closed, which eliminates teh messages 'inflight' on the
+  single consumer, freeing them to be expired and deleted.  
+  
+  Then we wait long enough for the reaper to run, and verify that both queues end up
+  with a certain number of messages. (400)
+   
+  Along the way, we verify that the QueuePolicy reflects the correct value for the 
+  MaxMessageTimeToLive.
+  
+  Much of the verification for this test is in the compareLogs. 
+
+-->
+    <ImaJmsTest name="jms_queueExpiryDyn_001">
+    
+    <!-- Put out the stats, and have CompareLogs check they are correct values
+    from the final updates in expiry_config.cli setup section.  --> 
+    
+    <!-- Verify:  AllowSend, MaxMessages, and ConcurrentConsumers --> 
+    <Action name="StaticUpdates_Check_Queue" type="RestAPI">
+		<ActionParameter name="structureID">StaticUpdates_Check_Queue</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration/Queue/expiryqueueDyn</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	    	
+	<Action name="CompareStaticUpdates_Check_Queue" type="CompareREST">
+	    <ActionParameter name="structureID">StaticUpdates_Check_Queue</ActionParameter>
+	    <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">expiryqueueDyn</ActionParameter>
+	    <ObjectProperty name="ConcurrentConsumers" value="true"/>
+	    <ObjectProperty name="AllowSend" value="true"/>
+	    <ObjectProperty name="MaxMessages" value="4000"/>
+	</Action>
+    
+    <!-- Verify:  AllowSend, MaxMessages, and ConcurrentConsumers --> 
+    <Action name="StaticUpdates_Check_Queue2" type="RestAPI">
+		<ActionParameter name="structureID">StaticUpdates_Check_Queue2</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration/Queue/expiryqueueDyn2</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	    	
+	<Action name="CompareStaticUpdates_Check_Queue2" type="CompareREST">
+	    <ActionParameter name="structureID">StaticUpdates_Check_Queue2</ActionParameter>
+	    <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">expiryqueueDyn2</ActionParameter>
+	    <ObjectProperty name="ConcurrentConsumers" value="true"/>
+	    <ObjectProperty name="AllowSend" value="true"/>
+	    <ObjectProperty name="MaxMessages" value="4000"/>
+	</Action>
+
+	<!-- Verify MaxMessageTimeToLive, Destination, and ActionList --> 
+	<Action name="StaticUpdates_Check_Messaging_Policy" type="RestAPI">
+		<ActionParameter name="structureID">StaticUpdates_Check_Messaging_Policy</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration/QueuePolicy/ExpirationOpenDyn</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	    	
+	<Action name="CompareStaticUpdates_Check_Messaging_Policy" type="CompareREST">
+	    <ActionParameter name="structureID">StaticUpdates_Check_Messaging_Policy</ActionParameter>
+	    <ActionParameter name="topLevelKey">QueuePolicy</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">ExpirationOpenDyn</ActionParameter>
+	    <ObjectProperty name="MaxMessageTimeToLive" value="10"/>
+	    <ObjectProperty name="ActionList" value="Send,Receive"/>
+	    <ObjectProperty name="Queue" value="expiryqueueD*"/>
+	</Action>
+    
+    <!-- Verify Port and Enabled -->
+    <Action name="StaticUpdates_Check_Messaging_Endpoint" type="RestAPI">
+		<ActionParameter name="structureID">StaticUpdates_Check_Messaging_Endpoint</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration/Endpoint/ExpirationOpenDyn</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	    	
+	<Action name="CompareStaticUpdates_Check_Messaging_Endpoint" type="CompareREST">
+	    <ActionParameter name="structureID">StaticUpdates_Check_Messaging_Endpoint</ActionParameter>
+	    <ActionParameter name="topLevelKey">Endpoint</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">ExpirationOpenDyn</ActionParameter>
+	    <ObjectProperty name="Enabled" value="true"/>
+	    <ObjectProperty name="Port" value="20022"/>
+	</Action>
+
+    <Action name="Create_qcf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">qcf1</ActionParameter>
+        <ActionParameter name="loglevel">9</ActionParameter>
+        <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="fillProps" type="FillIsmProps">
+        <ActionParameter name="structure_id">qcf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Port" value="20022" />
+        <include>../common/JMS_server.xml</include>
+        <ImaProperty name="ClientMessageCache" value="1000" type="INT"/>
+    </Action>
+
+    <Action name="CreateConnection_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+        <ActionParameter name="factory_id">qcf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession1_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session1_cf1</ActionParameter>
+        <ApiParameter name="ack_mode">2</ApiParameter>
+    </Action>
+    
+    <Action name="CreateSession2_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        <ActionParameter name="structure_id">session2_cf1</ActionParameter>
+    </Action>    
+
+    <Action name="Create_queue1" type="CreateDestination">
+        <ActionParameter name="structure_id">queue1</ActionParameter>
+        <ActionParameter name="type">queue</ActionParameter>
+        <ApiParameter name="name">expiryqueueDyn</ApiParameter>
+    </Action>
+    
+    <Action name="Create_queue2" type="CreateDestination">
+        <ActionParameter name="structure_id">queue2</ActionParameter>
+        <ActionParameter name="type">queue</ActionParameter>
+        <ApiParameter name="name">expiryqueueDyn2</ApiParameter>
+    </Action>
+    
+    <Action name="CreateProducer1_queue1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer1_queue1</ActionParameter>
+        <ActionParameter name="dest_id">queue1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer1_queue2" type="CreateProducer" thread="11">
+     	<dependsOn name="CreateProducer1_queue1"/>
+        <ActionParameter name="structure_id">producer2_queue2</ActionParameter>
+        <ActionParameter name="dest_id">queue2</ActionParameter>
+        <ActionParameter name="session_id">session2_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer1_queue1" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer1_queue1</ActionParameter>
+        <ActionParameter name="dest_id">queue1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod_txt_msg1</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	
+    
+    <Action name="CreateTxtMessage_prod2_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod2_txt_msg1</ActionParameter>
+        <ActionParameter name="session_id">session2_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	 
+    
+    <Action name="CreateTxtMessage2_prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod_txt_msg2</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	
+    
+    <Action name="CreateTxtMessage2_prod2_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod2_txt_msg2</ActionParameter>
+        <ActionParameter name="session_id">session2_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	    
+  
+    <Action name="CreateTxtMessage3_prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod_txt_msg3</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	
+    
+    <Action name="CreateTxtMessage3_prod2_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod2_txt_msg3</ActionParameter>
+        <ActionParameter name="session_id">session2_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	 
+    
+    <Action name="CreateTxtMessage4_prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod_txt_msg4</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	
+    
+    <Action name="CreateTxtMessage4_prod2_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod2_txt_msg4</ActionParameter>
+        <ActionParameter name="session_id">session2_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	 
+    
+    <Action name="CreateTxtMessage5_prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod_txt_msg5</ActionParameter>
+        <ActionParameter name="session_id">session1_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	
+    
+    <Action name="CreateTxtMessage5_prod2_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">prod2_txt_msg5</ActionParameter>
+        <ActionParameter name="session_id">session2_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>	              
+              
+
+    <!-- PRODUCER: Set message content -->				
+    <Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod_txt_msg1</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer1:  MessageExpires in 10 seconds</ApiParameter>
+    </Action>
+    
+   <Action name="WriteBytesMessage_prod2_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod2_txt_msg1</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer2:  MessageExpires in 10 seconds</ApiParameter>
+    </Action>
+    			
+    <Action name="WriteBytesMessage2_prod_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod_txt_msg2</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer1:  MessageExpires in 1 seconds</ApiParameter>
+    </Action>
+    
+   <Action name="WriteBytesMessage2_prod2_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod2_txt_msg2</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer2:  MessageExpires in 1 seconds</ApiParameter>
+    </Action>
+    
+    <Action name="WriteBytesMessage3_prod_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod_txt_msg3</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer1:  MessageExpires never </ApiParameter>
+    </Action>
+    
+   <Action name="WriteBytesMessage3_prod2_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod2_txt_msg3</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer2:  MessageExpires never </ApiParameter>
+    </Action>
+    
+    <Action name="WriteBytesMessage4_prod_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod_txt_msg4</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer1: MessageExpires in 5 seconds </ApiParameter>
+    </Action>
+    
+   <Action name="WriteBytesMessage4_prod2_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod2_txt_msg4</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer2:  MessageExpires in 5 seconds </ApiParameter>
+    </Action>
+    
+    <Action name="WriteBytesMessage5_prod_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod_txt_msg5</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer1: MessageExpires in thousands of seconds </ApiParameter>
+    </Action>
+    
+   <Action name="WriteBytesMessage5_prod2_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">prod2_txt_msg5</ActionParameter>
+        <ApiParameter name="value">TEXT: Producer2:  MessageExpires in thousands of  seconds </ApiParameter>
+    </Action>
+    
+    <Action name="SendBytesMessage_prod_topic1_Admin_10Secs" type="SendMessage" repeat="200" repeat_interval="0" interval="0" >
+        <ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+        <ActionParameter name="message_id">prod_txt_msg1</ActionParameter>
+    </Action>
+    
+   <Action name="SendBytesMessage_prod2_topic1_Admin_10Secs" type="SendMessage" repeat="200" repeat_interval="0" interval="0" thread="11" >
+   		<dependsOn name="WriteBytesMessage_prod2_dest1"/>
+        <ActionParameter name="producer_id">producer2_queue2</ActionParameter>
+        <ActionParameter name="message_id">prod2_txt_msg1</ActionParameter>
+    </Action>
+        
+   	<Action name="Update_to_1Sec" type="RestAPI">
+   		<dependsOn name="SendBytesMessage_prod2_topic1_Admin_10Secs" interval="0"/>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+		<ActionParameter name="action">POST</ActionParameter>
+	    <ActionParameter name="payload">{"QueuePolicy":{"ExpirationOpenDyn":{"MaxMessageTimeToLive":"1"}}}</ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+    
+     <!-- Verify MaxMessageTimeToLive --> 
+     <Action name="DynamicUpdates_Check_Messaging_Policy_1Sec" type="RestAPI">
+		<ActionParameter name="structureID">DynamicUpdates_Check_Messaging_Policy_1Sec</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration/QueuePolicy/ExpirationOpenDyn</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	    	
+	<Action name="CompareDynamicUpdates_Check_Messaging_Policy_1Sec" type="CompareREST">
+	    <ActionParameter name="structureID">DynamicUpdates_Check_Messaging_Policy_1Sec</ActionParameter>
+	    <ActionParameter name="topLevelKey">QueuePolicy</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">ExpirationOpenDyn</ActionParameter>
+	    <ObjectProperty name="MaxMessageTimeToLive" value="1"/>
+	</Action>
+    
+   <Action name="SendBytesMessage_prod_topic1_Admin_1Sec" type="SendMessage" repeat="200" repeat_interval="0" interval="0" >
+        <ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+        <ActionParameter name="message_id">prod_txt_msg2</ActionParameter>
+    </Action>
+
+   <Action name="SendBytesMessage_prod2_topic1_Admin_1Sec" type="SendMessage" repeat="200" repeat_interval="0" interval="0" thread="11">
+   		<dependsOn name="Update_to_1Sec" interval="0"/>
+        <ActionParameter name="producer_id">producer2_queue2</ActionParameter>
+        <ActionParameter name="message_id">prod2_txt_msg2</ActionParameter>
+    </Action>
+    
+    <Action name="Update_to_NoExpiry" type="RestAPI">
+   		<dependsOn name="SendBytesMessage_prod2_topic1_Admin_1Sec" interval="0"/>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+		<ActionParameter name="action">POST</ActionParameter>
+	    <ActionParameter name="payload">{"QueuePolicy":{"ExpirationOpenDyn":{"MaxMessageTimeToLive":"unlimited"}}}</ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+    
+    <!-- Verify MaxMessageTimeToLive --> 
+    <Action name="DynamicUpdates_Check_Messaging_Policy_NoExpiry" type="RestAPI">
+		<ActionParameter name="structureID">DynamicUpdates_Check_Messaging_Policy_NoExpiry</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration/QueuePolicy/ExpirationOpenDyn</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	    	
+	<Action name="CompareDynamicUpdates_Check_Messaging_Policy_NoExpiry" type="CompareREST">
+	    <ActionParameter name="structureID">DynamicUpdates_Check_Messaging_Policy_NoExpiry</ActionParameter>
+	    <ActionParameter name="topLevelKey">QueuePolicy</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">ExpirationOpenDyn</ActionParameter>
+	    <ObjectProperty name="MaxMessageTimeToLive" value="unlimited"/>
+	</Action>
+    
+   <Action name="SendBytesMessage_prod_topic1_Admin_NoExpiry" type="SendMessage" repeat="200" repeat_interval="0" interval="0" >
+        <ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+        <ActionParameter name="message_id">prod_txt_msg3</ActionParameter>
+    </Action> 
+    
+  <Action name="SendBytesMessage_prod2_topic1_Admin_NoExpiry" type="SendMessage" repeat="200" repeat_interval="0" interval="0" thread="11">
+   		<dependsOn name="Update_to_NoExpiry" interval="0"/>
+        <ActionParameter name="producer_id">producer2_queue2</ActionParameter>
+        <ActionParameter name="message_id">prod2_txt_msg3</ActionParameter>
+    </Action>    
+    
+    <Action name="Update_to_5_Secs" type="RestAPI">
+	    <dependsOn name="SendBytesMessage_prod2_topic1_Admin_NoExpiry" interval="0"/>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+		<ActionParameter name="action">POST</ActionParameter>
+	    <ActionParameter name="payload">{"QueuePolicy":{"ExpirationOpenDyn":{"MaxMessageTimeToLive":"5"}}}</ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+    
+     <!-- Verify MaxMessageTimeToLive --> 
+     <Action name="DynamicUpdates_Check_Messaging_Policy_5Sec" type="RestAPI">
+		<ActionParameter name="structureID">DynamicUpdates_Check_Messaging_Policy_5Sec</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration/QueuePolicy/ExpirationOpenDyn</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	    	
+	<Action name="CompareDynamicUpdates_Check_Messaging_Policy_5Sec" type="CompareREST">
+	    <ActionParameter name="structureID">DynamicUpdates_Check_Messaging_Policy_5Sec</ActionParameter>
+	    <ActionParameter name="topLevelKey">QueuePolicy</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">ExpirationOpenDyn</ActionParameter>
+	    <ObjectProperty name="MaxMessageTimeToLive" value="5"/>
+	</Action>    
+    
+   <Action name="SendBytesMessage_prod_topic1_Admin_5Secs" type="SendMessage" repeat="200" repeat_interval="0" interval="0" >
+        <ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+        <ActionParameter name="message_id">prod_txt_msg4</ActionParameter>
+    </Action>  
+    
+    <Action name="SendBytesMessage_prod2_topic1_Admin_5Secs" type="SendMessage" repeat="200" repeat_interval="0" interval="0" thread="11">
+   		<dependsOn name="Update_to_5_Secs" interval="0"/>
+        <ActionParameter name="producer_id">producer2_queue2</ActionParameter>
+        <ActionParameter name="message_id">prod2_txt_msg4</ActionParameter>
+    </Action>    
+    
+    <Action name="Update_to_VeryLong" type="RestAPI">
+	    <dependsOn name="SendBytesMessage_prod2_topic1_Admin_5Secs" interval="0"/>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+		<ActionParameter name="action">POST</ActionParameter>
+	    <ActionParameter name="payload">{"QueuePolicy":{"ExpirationOpenDyn":{"MaxMessageTimeToLive":"1000000"}}}</ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+    
+         <!-- Verify MaxMessageTimeToLive --> 
+    <Action name="DynamicUpdates_Check_Messaging_Policy_VeryLongSec" type="RestAPI">
+		<ActionParameter name="structureID">DynamicUpdates_Check_Messaging_Policy_VeryLongSec</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/configuration/QueuePolicy/ExpirationOpenDyn</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	    	
+	<Action name="CompareDynamicUpdates_Check_Messaging_Policy_VeryLongSec" type="CompareREST">
+	    <ActionParameter name="structureID">DynamicUpdates_Check_Messaging_Policy_VeryLongSec</ActionParameter>
+	    <ActionParameter name="topLevelKey">QueuePolicy</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">ExpirationOpenDyn</ActionParameter>
+	    <ObjectProperty name="MaxMessageTimeToLive" value="1000000"/>
+	</Action>     
+    
+   <Action name="SendBytesMessage_prod_topic1_Admin_VeryLongSecs" type="SendMessage" repeat="200" repeat_interval="0" interval="0" >
+        <ActionParameter name="producer_id">producer1_queue1</ActionParameter>
+        <ActionParameter name="message_id">prod_txt_msg5</ActionParameter>
+    </Action>   
+    
+    <Action name="SendBytesMessage_prod2_topic1_Admin_VeryLongSecs" type="SendMessage" repeat="200" repeat_interval="0" interval="0" thread="11">
+   		<dependsOn name="Update_to_VeryLong" interval="0"/>
+        <ActionParameter name="producer_id">producer2_queue2</ActionParameter>
+        <ActionParameter name="message_id">prod2_txt_msg5</ActionParameter>
+    </Action>             
+    
+    <Action name="statsBeforeClose" type="RestAPI">
+		<ActionParameter name="structureID">statsBeforeClose</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueueD*</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+
+    <Action name="CloseConnection_cf1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+    </Action>
+
+	<Action name="stats2" type="RestAPI">
+		<dependsOn name="CloseConnection_cf1" interval="65000"/>
+		<ActionParameter name="structureID">stats2</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueueDyn</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	
+	<Action name="CompareStats2" type="CompareREST">
+	    <ActionParameter name="structureID">stats2</ActionParameter>
+	    <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">expiryqueueDyn</ActionParameter>
+	    <ObjectProperty name="ExpiredMsgs" value="600"/>
+	    <ObjectProperty name="BufferedMsgs" value="400"/>
+	    <ObjectProperty name="ProducedMsgs" value="1000"/>
+	</Action>
+	
+	<Action name="stats3" type="RestAPI">
+		<ActionParameter name="structureID">stats3</ActionParameter>
+	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	    <ActionParameter name="path">/ima/v1/monitor/Queue?Name=expiryqueueDyn2</ActionParameter>
+		<ActionParameter name="action">GET</ActionParameter>
+	    <ActionParameter name="payload"></ActionParameter>
+	   	<ActionParameter name="printResult">true</ActionParameter>
+	    <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+	</Action>
+	
+	<Action name="CompareStats3" type="CompareREST">
+	    <ActionParameter name="structureID">stats3</ActionParameter>
+	    <ActionParameter name="topLevelKey">Queue</ActionParameter>
+		<ActionParameter name="subObjectKey">Name</ActionParameter>
+	    <ActionParameter name="subObjectName">expiryqueueDyn2</ActionParameter>
+	    <ObjectProperty name="ExpiredMsgs" value="600"/>
+	    <ObjectProperty name="BufferedMsgs" value="400"/>
+	    <ObjectProperty name="ProducedMsgs" value="1000"/>
+	</Action>
+
+</ImaJmsTest>

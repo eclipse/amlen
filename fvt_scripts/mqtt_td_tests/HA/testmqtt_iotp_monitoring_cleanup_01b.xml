@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  -->
+
+
+<IsmWSTest name="testmqtt_iotp_monitoring_cleanup_01b" >
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_iotp_monitoring_cleanup_01b</solution>
+    </SyncClient>
+
+    <Action name="test" type="CompositeAction">
+
+        <Action name="CreateConnectionPublisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConP</ActionParameter>
+            <ActionParameter name="connection_id">CFP</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="clientId">iotp_monitoring_publisher</ApiParameter>
+            <ApiParameter name="port">20020</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        </Action>
+
+        <Action name="CreateConnectionSubscriber" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="clientId">iotp_monitoring_client1</ApiParameter>
+            <ApiParameter name="port">20020</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        </Action>        
+
+        <Action name="DeleteAllRetainedStart" type="DeleteAllRetainedMessages">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage_device" type="CreateMessage">
+            <ActionParameter name="structure_id">msg_device</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"Action":"Connect","Time":"2017-06-13T15:01:24.124Z","ClientAddr":"169.53.249.242","ClientID":"d:2m2g5i:dt0:good_riskmgmt_wl1_d320920","Port":8883,"Secure":true,"Protocol":"mqtt4","ConnectTime":"2017-06-13T14:59:57.789Z","ReadBytes":3228,"ReadMsg":28,"WriteBytes":16,"WriteMsg":0 }</ApiParameter>
+        </Action>
+
+
+        <Action name="PublishMonitoringMessages" type="PublishTopicTree">
+            <ActionParameter name="connection_id">CFP</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10000</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="retained">true</ActionParameter>
+            <ActionParameter name="counterID">PQ1</ActionParameter>
+            <ActionParameter name="customTopic">iot-2/(rc)(rc)(rc)(rc)(rc)(rc)/type/dt0/id/device-(rc)(rc)(rc)(rc)(rc)(rc)(i)/mon</ActionParameter>
+            <ActionParameter name="customMessage">{"Action":"Connect","Time":"2017-06-13T15:01:24.124Z","ClientAddr":"169.53.249.242","ClientID":"d:(rc)(rc)(rc)(rc)(rc)(rc):dt0:good_riskmgmt_wl1_d-(rc)(rc)(rc)(rc)(rc)(rc)(rl)(rl)(rl)","Port":8883,"Secure":true,"Protocol":"mqtt4","ConnectTime":"2017-06-13T14:59:57.789Z","ReadBytes":32(rn)(rn)(rn),"ReadMsg":28,"WriteBytes":16,"WriteMsg":0 }</ActionParameter>
+        </Action>
+
+
+        <Action name="Subscribe" type="Subscribe">
+            <dependsOn action_id="PublishMonitoringMessages" interval="2000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/#</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="ReceiveMessages1" type="CompositeAction" repeat="10000" atleast="5" repeat_interval="0">
+            <dependsOn action_id="Subscribe" interval="1000"/>
+            <Action name="ReceiveMessage1" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+                <ActionParameter name="printNumberReceived">true</ActionParameter>
+            </Action>
+            <Action name="VerifyConnectMessage" type="CompareMessage">
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="compareTo">msg_device</ActionParameter>
+                <ActionParameter name="compareQoS">false</ActionParameter>
+                <ActionParameter name="compareType">false</ActionParameter>
+                <ActionParameter name="compareBody">false</ActionParameter>
+                <ActionParameter name="compareBodyContains">Connect</ActionParameter>
+            </Action>
+        </Action>
+
+        <!-- verify message says connect -->
+
+
+
+
+        <Action name="CloseConnectionSub" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+
+
+        <!-- failover -->
+
+
+        <Action name="CrashServer" type="ShellAction">
+            <dependsOn action_id="CloseConnectionSub" interval="3000"/>
+            <ActionParameter name="command">python ../scripts/haFunctions.py -a stopPrimary -f cleanup01b_stopPrimary.log</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+
+        <Action name="CreateConnectionSubscriberAfterFailover" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_servers2.xml</include>
+            <ApiParameter name="clientId">iotp_monitoring_client1</ApiParameter>
+            <ApiParameter name="port">20020</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        </Action>      
+
+        <Action name="SubscribeAfterFailover" type="Subscribe">
+            <dependsOn action_id="CreateConnectionSubscriberAfterFailover" interval="1000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">iot-2/#</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+        <Action name="ReceiveMessages2" type="CompositeAction" repeat="10000" atleast="9000" repeat_interval="0">
+            <dependsOn action_id="SubscribeAfterFailover" interval="1000"/>
+            <Action name="ReceiveMessage2" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+                <ActionParameter name="printNumberReceived">true</ActionParameter>
+            </Action>
+            <Action name="VerifyDisconnectMessage" type="CompareMessage">
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="compareTo">msg_device</ActionParameter>
+                <ActionParameter name="compareQoS">false</ActionParameter>
+                <ActionParameter name="compareType">false</ActionParameter>
+                <ActionParameter name="compareBody">false</ActionParameter>
+                <ActionParameter name="compareBodyContains">Disconnect</ActionParameter>
+            </Action>
+        </Action>
+
+        <!-- verify message says disconnect -->
+
+
+
+
+
+        <Action name="CloseConnectionSubEnd" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="CloseConnectionPubEnd" type="CloseConnection">
+            <ActionParameter name="connection_id">CFP</ActionParameter>
+        </Action>
+
+
+
+        <!-- need to start a1 again after test -->
+
+
+	</Action>
+		
+   
+</IsmWSTest>
+                

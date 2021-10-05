@@ -1,0 +1,96 @@
+###################################################################
+# 10/1/13 - Redesign of wildcards (*) in messaging policies.
+# These 3 endpoints will have their messaging policies updated
+# throughout various tests for different numbers of * in different
+# types of messaging policies.
+#
+#
+# Converted to use all restapis January 2019
+#
+# (Completed, all items migrated)
+#
+#
+####################################################
+#
+#
+###################################################################
+
+######setup 0 create MessageHub Name=JMSWildcardHub Description=JMSWildcardHub
+setup 0 POST configuration {"MessageHub":{"JMSWildcardHub":{"Description":"JMSWildcardHub"}}}
+######setup 0 create ConnectionPolicy Name=JMSWildcardCP Protocol=JMS
+setup 0 POST configuration {"ConnectionPolicy":{"JMSWildcardCP":{"Protocol":"JMS"}}}
+
+# Endpoint for tests without variable replacement
+######setup 0 create MessagingPolicy Name=JMSWildcardTopicMP1 ClientID=* DestinationType=Topic Destination=* ActionList=Publish,Subscribe
+setup 0 POST configuration {"TopicPolicy":{"JMSWildcardTopicMP1":{"ClientID":"*","Topic":"*","ActionList":"Publish,Subscribe"}}}
+######setup 0 create MessagingPolicy Name=JMSWildcardQueueMP1 ClientID=* DestinationType=Queue Destination=* ActionList=Send,Receive
+setup 0 POST configuration {"QueuePolicy":{"JMSWildcardQueueMP1":{"ClientID":"*","Queue":"*","ActionList":"Send,Receive","Protocol":"JMS"}}}
+######setup 0 create MessagingPolicy Name=JMSWildcardSubMP1 Protocol=JMS DestinationType=Subscription Destination=* ActionList=Control,Receive
+setup 0 POST configuration {"SubscriptionPolicy":{"JMSWildcardSubMP1":{"Subscription":"*","ActionList":"Control,Receive","Protocol":"JMS"}}}
+######setup 0 create Endpoint Name=JMSWildcardEP1 Port=18400 ConnectionPolicies=JMSWildcardCP MessagingPolicies=JMSWildcardTopicMP1,JMSWildcardQueueMP1,JMSWildcardSubMP1 MaxMessageSize=4MB MessageHub=JMSWildcardHub
+setup 0 POST configuration {"Endpoint":{"JMSWildcardEP1":{"Enabled":true,"Port":18400,"ConnectionPolicies":"JMSWildcardCP","TopicPolicies":"JMSWildcardTopicMP1","QueuePolicies":"JMSWildcardQueueMP1","SubscriptionPolicies":"JMSWildcardSubMP1","MaxMessageSize":"4MB","MessageHub":"JMSWildcardHub"}}}
+
+
+# Endpoint for tests with variable replacement
+######setup 0 create MessagingPolicy Name=JMSWildcardTopicMP2 ClientID=* DestinationType=Topic Destination=\${*} ActionList=Publish,Subscribe
+setup 0 POST configuration {"TopicPolicy":{"JMSWildcardTopicMP2":{"ClientID":"*","Topic":"\$\{*\}","ActionList":"Publish,Subscribe"}}}
+
+######setup 0 create MessagingPolicy Name=JMSWildcardQueueMP2 ClientID=* DestinationType=Queue Destination=\${*} ActionList=Send,Receive
+setup 0 POST configuration {"QueuePolicy":{"JMSWildcardQueueMP2":{"ClientID":"*","Queue":"\$\{*\}","ActionList":"Send,Receive"}}}
+
+######setup 0 create MessagingPolicy Name=JMSWildcardSubMP2 Protocol=JMS DestinationType=Subscription Destination=\${*} ActionList=Control,Receive
+setup 0 POST configuration {"SubscriptionPolicy":{"JMSWildcardSubMP2":{"Subscription":"\$\{*\}","ActionList":"Control,Receive","Protocol":"JMS"}}}
+
+######setup 0 create Endpoint Name=JMSWildcardEP2 Port=18401 ConnectionPolicies=JMSWildcardCP MessagingPolicies=JMSWildcardTopicMP2,JMSWildcardQueueMP2,JMSWildcardSubMP2 MaxMessageSize=4MB MessageHub=JMSWildcardHub
+setup 0 POST configuration {"Endpoint":{"JMSWildcardEP2":{"Enabled":true,"Port":18401,"ConnectionPolicies":"JMSWildcardCP","TopicPolicies":"JMSWildcardTopicMP2","QueuePolicies":"JMSWildcardQueueMP2","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSWildcardHub"}}}
+
+
+# Endpoint for tests with other stuff? $SYS?
+######setup 0 create MessagingPolicy Name=JMSWildcardTopicMP3 ClientID=* DestinationType=Topic Destination=* ActionList=Publish,Subscribe
+setup 0 POST configuration {"TopicPolicy":{"JMSWildcardTopicMP3":{"ClientID":"*","Topic":"*","ActionList":"Publish,Subscribe"}}}
+######setup 0 create MessagingPolicy Name=JMSWildcardSubMP3 Protocol=JMS DestinationType=Subscription Destination=* ActionList=Control,Receive
+setup 0 POST configuration {"SubscriptionPolicy":{"JMSWildcardSubMP3":{"Subscription":"*","ActionList":"Control,Receive","Protocol":"JMS"}}}
+######setup 0 create Endpoint Name=JMSWildcardEP3 Port=18402 ConnectionPolicies=JMSWildcardCP MessagingPolicies=JMSWildcardTopicMP3,JMSWildcardSubMP3 MaxMessageSize=4MB MessageHub=JMSWildcardHub
+setup 0 POST configuration {"Endpoint":{"JMSWildcardEP3":{"Enabled":true,"Port":18402,"ConnectionPolicies":"JMSWildcardCP","TopicPolicies":"JMSWildcardTopicMP3","QueuePolicies":"","SubscriptionPolicies":"JMSWildcardSubMP3","MaxMessageSize":"4MB","MessageHub":"JMSWildcardHub"}}}
+
+
+######update1 0 update MessagingPolicy Name=JMSWildcardTopicMP2 Destination=\${*}*
+update1 0 POST configuration {"TopicPolicy":{"JMSWildcardTopicMP2":{"Topic":"\$\{*\}*"}}}
+######update2 0 update MessagingPolicy Name=JMSWildcardTopicMP2 Destination=\${\$}
+update2 0 POST configuration {"TopicPolicy":{"JMSWildcardTopicMP2":{"Topic":"\$\{\$\}"}}}
+######update3 0 update MessagingPolicy Name=JMSWildcardTopicMP2 Destination=*\${*}
+update3 0 POST configuration {"TopicPolicy":{"JMSWildcardTopicMP2":{"Topic":"\$\{*\}"}}}
+######update4 0 update MessagingPolicy Name=JMSWildcardTopicMP2 Destination=\${\$}\${*}
+update4 0 POST configuration {"TopicPolicy":{"JMSWildcardTopicMP2":{"Topic":"\$\{\$\}\$\{*\}"}}}
+
+#########
+# Cleanup
+#########
+
+######cleanup 0 delete Endpoint Name=JMSWildcardEP1
+cleanup 0 DELETE configuration/Endpoint/JMSWildcardEP1
+######cleanup 0 delete Endpoint Name=JMSWildcardEP2
+cleanup 0 DELETE configuration/Endpoint/JMSWildcardEP2
+######cleanup 0 delete Endpoint Name=JMSWildcardEP3
+cleanup 0 DELETE configuration/Endpoint/JMSWildcardEP3
+
+######cleanup 0 delete MessagingPolicy Name=JMSWildcardTopicMP1
+cleanup 0 DELETE configuration/TopicPolicy/JMSWildcardTopicMP1
+######cleanup 0 delete MessagingPolicy Name=JMSWildcardQueueMP1
+cleanup 0 DELETE configuration/QueuePolicy/JMSWildcardQueueMP1
+######cleanup 0 delete MessagingPolicy Name=JMSWildcardSubMP1
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSWildcardSubMP1
+######cleanup 0 delete MessagingPolicy Name=JMSWildcardTopicMP2
+cleanup 0 DELETE configuration/TopicPolicy/JMSWildcardTopicMP2
+######cleanup 0 delete MessagingPolicy Name=JMSWildcardQueueMP2
+cleanup 0 DELETE configuration/QueuePolicy/JMSWildcardQueueMP2
+######cleanup 0 delete MessagingPolicy Name=JMSWildcardSubMP2
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSWildcardSubMP2
+######cleanup 0 delete MessagingPolicy Name=JMSWildcardTopicMP3
+cleanup 0 DELETE configuration/TopicPolicy/JMSWildcardTopicMP3
+######cleanup 0 delete MessagingPolicy Name=JMSWildcardSubMP3
+cleanup 0 DELETE configuration/SubscriptionPolicy/JMSWildcardSubMP3
+######cleanup 0 delete ConnectionPolicy Name=JMSWildcardCP
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSWildcardCP
+######cleanup 0 delete MessageHub Name=JMSWildcardHub
+cleanup 0 DELETE configuration/MessageHub/JMSWildcardHub

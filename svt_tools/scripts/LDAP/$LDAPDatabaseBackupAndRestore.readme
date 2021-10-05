@@ -1,0 +1,52 @@
+This is the LDAP database backup and restore process for openldap only.
+
+We have a backup image (1GB) of openldap.  Check out /gsacache/defects/ldap/ima345/backup directory on fileserver.test.example.com
+   
+   Create a new backup image:
+       - Mount the fileserver NFS drive:
+           mkdir /mnt/fileserver
+           mount fileserver.test.example.com:/defects /mnt/fileserver
+       - Run slapcat command to create a new backup image:
+           curDateTime=$(date +%y%m%d-%H%M)
+	   backupLDIF="/mnt/fileserver/ldap/ima345/backup/openldap-$curDateTime.ldif"
+	   /usr/sbin/slapcat -b "o=IBM,c=US" -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d -l $backupLDIF
+    
+    Restore from backup image on the target machine from scatch:
+        - Mount the fileserver NFS drive:
+           mkdir /mnt/fileserver
+           mount fileserver.test.example.com:/defects /mnt/fileserver
+        - Create a new database directory
+            **Note: You can specify your own database directory here, but remember to update slapd.conf accordingly!!!
+            mkdir /etc/openldap/openldap-data
+	- Copy slapd.conf from fileserver:
+	    cp /mnt/fileserver/ldap/ima345/backup/slapd.conf /etc/openldap/
+	    **Note: If you intend to have a different database directory, change 'directory /etc/openldap/openldap-data' accordingly
+	- Ensure that ldap is the owner of the database directory (e.g. chmod ldap -R /etc/openldap/openldap-data)
+	- Start slapd:
+	    slapd -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d
+	- Stop slapd (find the process ID, then kill it):
+	    ps awx |grep slapd
+	    kill -INT <process ID>
+	- Delete all files in the database directory:
+	    cd /etc/openldap/openldap-data
+	    rm -rf *
+	- Run slapadd to restore from backup LDIF file (this will take approximately 75 minutes):
+	    /usr/sbin/slapadd -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d -l /mnt/fileserver/ldap/ima345/backup/openldap-XXXX.ldif
+	- Start slapd:
+	    slapd -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d
+	
+    Verify the newly restored openldap environment
+        **Note: This number is based on the backup image when this document is written.
+	
+	- Verify that there are 1000001 cars
+	    ldapsearch -h ima080.test.example.com -p 389 -b "ou=users,ou=SVT,o=IBM,c=US" -D "cn=root,o=IBM,c=US" -x -w ima4test "uid=c*" ldapentrycount | grep numEntries
+	    # numEntries: 1000001
+	- Verify that there are 1000001 users
+            ldapsearch -h ima080.test.example.com -p 389 -b "ou=users,ou=SVT,o=IBM,c=US" -D "cn=root,o=IBM,c=US" -x -w ima4test "uid=u*" ldapentrycount | grep numEntries
+	    # numEntries: 1000001
+	- Verify that the svtCarsInternet group has 1000002 members (1000001 cars + 1 dummy member):
+	     ldapsearch -h ima080.test.example.com -p 389 -b "ou=groups,ou=SVT,o=IBM,c=US" -D "cn=root,o=IBM,c=US" -x -w ima4test "cn=svtCarsInternet" |grep -c "member"
+	     1000002
+        - Verify that the svtUsersInternet has 1000002 members (1000001 cars + 1 dummy member):
+	     ldapsearch -h ima080.test.example.com -p 389 -b "ou=groups,ou=SVT,o=IBM,c=US" -D "cn=root,o=IBM,c=US" -x -w ima4test "cn=svtUsersInternet" |grep -c "member"
+	     1000002	     

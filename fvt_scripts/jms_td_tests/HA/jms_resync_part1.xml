@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name:  jms_resync_part1
+
+  Test Category:  JMS High Availability
+  
+  Test Description:
+  	Test persistent messaging with a durable subscription using high
+  	availability. All sending occurs before the primary dies. Receiving 
+  	occurs before and after the primary dies.
+  
+*****************************************************************************/
+-->
+<LlmJmsTest name="jms_resync_part1" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_resync_part1</solution>
+	</SyncClient>
+	
+	<Action name="rmdr" type="CompositeAction">
+
+		<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+		<Action name="syncReset" type="SyncAction">
+			<ActionParameter name="request">reset</ActionParameter>
+		</Action>
+
+                <!-- Set up the connection for the first time -->
+		<Action name="CreateFactory" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="CarSubscriber" type="STRING"/>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<!--ImaProperty name="ClientMessageCache" value="30000" type="INT"/-->
+			<include>../common/JMS_serverHA.xml</include>
+			<ImaProperty name="Port" value="18476" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession1" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession2" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses2</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession3" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses3</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession4" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses4</ActionParameter>
+		</Action>
+
+		<Action name="CreateDest1" type="CreateDestination">
+			<ApiParameter name="name">/app/car/1</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX1</ActionParameter>
+		</Action>
+
+		<Action name="CreateDest2" type="CreateDestination">
+			<ApiParameter name="name">/app/car/2</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX2</ActionParameter>
+		</Action>
+
+		<Action name="CreateDest3" type="CreateDestination">
+			<ApiParameter name="name">/app/car/3</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX3</ActionParameter>
+		</Action>
+
+		<Action name="CreateDest4" type="CreateDestination">
+			<ApiParameter name="name">/app/car/+</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX4</ActionParameter>
+		</Action>
+
+                <!-- Create durable subscription resync_sub1 and start the connection -->
+		<Action name="CreateConsumer1" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX1</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName">resync_sub1</ApiParameter>
+		</Action>
+
+                <!-- Create durable subscription resync_sub2 and start the connection -->
+		<Action name="CreateConsumer2" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">destRX2</ActionParameter>
+			<ActionParameter name="session_id">Ses2</ActionParameter>
+			<ApiParameter name="durableName">resync_sub2</ApiParameter>
+		</Action>
+
+                <!-- Create durable subscription resync_sub3 and start the connection -->
+		<Action name="CreateConsumer3" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer3</ActionParameter>
+			<ActionParameter name="dest_id">destRX3</ActionParameter>
+			<ActionParameter name="session_id">Ses3</ActionParameter>
+			<ApiParameter name="durableName">resync_sub3</ApiParameter>
+		</Action>
+
+                <!-- Create durable subscription resync_sub4 and start the connection -->
+		<Action name="CreateConsumer4" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer4</ActionParameter>
+			<ActionParameter name="dest_id">destRX4</ActionParameter>
+			<ActionParameter name="session_id">Ses4</ActionParameter>
+			<ApiParameter name="durableName">resync_sub4</ApiParameter>
+		</Action>
+
+		<!-- Sync point before sending/receiving -->
+		<Action name="sync_components1" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">180000</ActionParameter>
+		</Action>
+
+		<!--Action name="sync_components2" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx1a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+			<ActionParameter name="timeout">180000</ActionParameter>
+		</Action-->
+
+		<Action name="StartConnectionRX" type="StartConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+<!-- Change after this point -->
+
+		<Action name="RecvCons1" type="CompositeAction" repeat="200" repeat_interval="0" thread="2">
+			<dependsOn name="StartConnectionRX"/>
+			<Action name="ReceiveMessage1-1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes" type="GetMessageText">
+				<dependsOn name="ReceiveMessage1-1" interval="0"/>
+				<ActionParameter name="message_id">rxmsg1</ActionParameter>
+				<ActionParameter name="verifyValue">This is the first message sent during the resynchronisation test for JMS HA sent to /app/car/1</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="RecvCons2" type="CompositeAction" repeat="150" repeat_interval="0" thread="3">
+			<dependsOn name="StartConnectionRX"/>
+			<Action name="ReceiveMessage2-1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer2</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes" type="GetMessageText">
+				<dependsOn name="ReceiveMessage2-1" interval="0"/>
+				<ActionParameter name="message_id">rxmsg1</ActionParameter>
+				<ActionParameter name="verifyValue">This is the second message sent during the resynchronisation test for JMS HA sent to /app/car/2</ActionParameter>
+			</Action>
+		</Action>
+	
+		<Action name="RecvCons3" type="CompositeAction" repeat="100" repeat_interval="0" thread="4">
+			<dependsOn name="StartConnectionRX"/>
+			<Action name="ReceiveMessage3-1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes" type="GetMessageText">
+				<dependsOn name="ReceiveMessage3-1" interval="0"/>
+				<ActionParameter name="message_id">rxmsg1</ActionParameter>
+				<ActionParameter name="verifyValue">This is the third message sent during the resynchronisation test for JMS HA sent to /app/car/3</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="ReceiveMessage4-1" type="ReceiveMessage" repeat="800" repeat_interval="0" thread="5">
+			<dependsOn name="StartConnectionRX"/>
+			<ActionParameter name="consumer_id">consumer4</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>
+
+		<Action Name="CloseConnection" type="CloseConnection">
+			<dependsOn name="RecvCons1" interval="0"/>
+			<dependsOn name="RecvCons2" interval="0"/>
+			<dependsOn name="RecvCons3" interval="0"/>
+			<dependsOn name="ReceiveMessage4-1" interval="0"/>
+			<ActionParameter name="conn_id">Con1</ActionParameter>		
+		</Action>
+	</Action>  
+
+	<Action name="rmdt" type="CompositeAction">
+		<Action name="CreateFactory_TX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener_TX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_TX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="CarPublisher" type="STRING"/>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<include>../common/JMS_serverHA.xml</include>
+			<ImaProperty name="Port" value="18475" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_TX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+			<ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+			<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_TX1" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+			<ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession_TX2" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+			<ActionParameter name="structure_id">Ses2_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession_TX3" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+			<ActionParameter name="structure_id">Ses3_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateDest1" type="CreateDestination">
+			<ApiParameter name="name">/app/car/1</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX1</ActionParameter>
+		</Action>
+
+		<Action name="CreateDest2" type="CreateDestination">
+			<ApiParameter name="name">/app/car/2</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX2</ActionParameter>
+		</Action>
+
+		<Action name="CreateDest3" type="CreateDestination">
+			<ApiParameter name="name">/app/car/3</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX3</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer1" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="dest_id">destTX1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer2" type="CreateProducer">
+			<ActionParameter name="structure_id">producer2</ActionParameter>
+			<ActionParameter name="dest_id">destTX2</ActionParameter>
+			<ActionParameter name="session_id">Ses2_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer3" type="CreateProducer">
+			<ActionParameter name="structure_id">producer3</ActionParameter>
+			<ActionParameter name="dest_id">destTX3</ActionParameter>
+			<ActionParameter name="session_id">Ses3_Tx</ActionParameter>
+		</Action>
+
+		<Action name="StartConnection_TX" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+
+<!-- Change after this -->
+
+		<Action name="CreateMessage1" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">This is the first message sent during the resynchronisation test for JMS HA sent to /app/car/1</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage2" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg2</ActionParameter>
+			<ActionParameter name="session_id">Ses3_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage2Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+			<ApiParameter name="value">This is the second message sent during the resynchronisation test for JMS HA sent to /app/car/2</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage3" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg3</ActionParameter>
+			<ActionParameter name="session_id">Ses3_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage3Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+			<ApiParameter name="value">This is the third message sent during the resynchronisation test for JMS HA sent to /app/car/3</ApiParameter>
+		</Action>
+	
+		<Action name="sync_components1" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action>
+
+		<Action name="SendMessage1" type="SendMessage" repeat="700" repeat_interval="0" thread="2">
+			<dependsOn name="sync_components1" interval="0"/>
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+		</Action>
+
+		<Action name="SendMessage2" type="SendMessage" repeat="600" repeat_interval="0" thread="3">
+			<dependsOn name="sync_components1" interval="0"/>
+			<ActionParameter name="producer_id">producer2</ActionParameter>
+			<ActionParameter name="message_id">txmsg2</ActionParameter>
+		</Action>
+
+		<Action name="SendMessage3" type="SendMessage" repeat="500" repeat_interval="0" thread="4">
+			<dependsOn name="sync_components1" interval="0"/>
+			<ActionParameter name="producer_id">producer3</ActionParameter>
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+		</Action>
+
+		<!--Action name="sync_components2" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx1a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+			<ActionParameter name="timeout">120000</ActionParameter>
+		</Action-->
+
+		<Action Name="CloseConnection" type="CloseConnection">
+			<dependsOn name="SendMessage1" interval="0"/>
+			<dependsOn name="SendMessage2" interval="0"/>
+			<dependsOn name="SendMessage3" interval="0"/>
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>		
+		</Action>
+	</Action>
+</LlmJmsTest>

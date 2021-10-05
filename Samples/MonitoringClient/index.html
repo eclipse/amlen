@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>IBM MessageSight - Monitoring Client</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="description" content="">
+		<meta name="author" content="">
+
+		<link href="css/bootstrap.css" rel="stylesheet">
+		<link href="css/boot_ipad.css" rel="stylesheet">
+		<style type="text/css">
+			#outerContainer {
+				height: 100%;
+				padding: 5px;
+			}
+			#outerContainer hr {
+				margin: 8px 0;
+			}
+			.accordion-group {
+				background-color: white;
+				border-color: black;
+				box-shadow: 2px 2px 2px #888;
+			}
+			.accordion-toggle {
+				font-size: 1.2em;
+				line-height: 30px;
+				font-weight: bold;
+			}
+			.accordion-heading {
+				text-align: center;
+			}
+			#connect { text-align: center; }
+			th {
+				border-top: none !important;
+			}
+			#header {
+				height: 33px;
+				color: white;
+				font-size: 1.2em;
+				padding-top: 11px;
+				text-align: center;
+			}
+			#productName {
+				font-size: 0.7em;
+				margin: -1px 0 0 10px;
+			}
+			#title {
+				margin-right: 291px;
+				font-size: 1.4em;
+			}
+			.scale {
+				font-size: 0.8em;
+				padding-right: 5px;
+				font-weight: bold;
+				color: #444;
+			}
+			body {
+				background-image: url(css/images/wide_blue_thatch.png);
+				background-repeat: repeat;
+				overflow-y: hidden
+				width: 100%;
+			}
+			.body {
+				width: 768px;
+				margin: auto auto;
+			}
+			.alert {
+				display: none;
+				margin-bottom: 4px;
+				box-shadow: 2px 2px 2px #888;
+				border: solid 1px black
+			}
+			.topbar {
+				position: absolute;
+				rackground-color: #333;
+				background-image: -webkit-linear-gradient(#3E3E3E, #131313);
+				height: 33px;
+				width: 100%;
+				color: white;
+				font-size: 1.2em;
+				padding-top: 11px;
+				z-index: -1;
+			}
+		</style>
+		<script src="js/utils/jquery.min.js"></script>
+		<script src="js/utils/jquery-ui.min.js"></script>
+		<script src="js/utils/bootstrap.min.js"></script>
+		<script src="js/utils/mqttws31.js"></script>
+		<script src="js/MonitoringClient.js"></script>
+	</head>
+	<body>
+		<div class="topbar">
+			<span id="productName" class="pull-left">IBM<sup>®</sup> MessageSight&trade;</span>
+		</div>
+		<div class="body">
+			<div id="header">
+				<span id="title" class="pull-right">Monitoring Client</span>
+			</div>
+
+			<div id="outerContainer">
+
+			<div id="connectedAlert" class="alert alert-success">
+				Connected to <span id="connectedAlertServer"></span><span id="connectedAlertPort"></span>
+			</div>
+
+			<div id="errorAlert" class="alert alert-error">
+				<span id="errorAlertText"></span>
+			</div>
+
+			<div class="accordion" id="accordion">
+				<div class="accordion-group">
+					<div class="accordion-heading">
+						<a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#connect">
+							Connect
+						</a>
+					</div>
+					<div id="connect" class="accordion-body collapse in">
+						<div class="accordion-inner">
+							<div class="input-prepend">
+								<span class="add-on" style="width: 50px;">Server</span>
+								<input class="requiresDisconnect" id="connectServer" style="width: 200px;" type="text" value="messagesight2.demos.ibm.com" disabled>
+							</div>
+							<div class="input-prepend">
+								<span class="add-on" style="width: 50px;">Port</span>
+								<input class="requiresDisconnect" id="connectPort" style="width: 200px;" type="text" value="1883" disabled>
+							</div>
+							<button style="margin-top: 5px;" id="connectButton" class="requiresDisconnect btn btn-success btn-small" disabled>Connect</button>
+							<button style="margin-top: 5px;" id="disconnectButton" class="requiresConnect btn btn-danger btn-small" disabled>Disconnect</button>
+						</div>
+					</div>
+				</div>
+				<div class="accordion-group">
+					<div class="accordion-heading">
+						<a id="applianceMonitoringToggle" class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#applianceMonitoring">
+							Appliance Monitoring
+						</a>
+					</div>
+					<div id="applianceMonitoring" class="accordion-body collapse">
+						<div class="accordion-inner">
+							<table class="table table-condensed">
+								<caption>Server</caption>
+								<tr><th>Statistic</th><th style='width: 170px;'>Value</th></tr>
+								<tr><td>Connections (Active / Bad / Total)</td><td style='font-weight: bold; width: 170px;'>
+										<span id="ActiveConnections">0</span>&nbsp;&nbsp;/&nbsp;
+										<span id="BadConnCount">0</span>&nbsp;&nbsp;/&nbsp;
+										<span id="TotalConnections">0</span>
+								</td></tr>
+								<tr><td>Bytes (Read / Write)</td><td style='font-weight: bold; width: 170px;'>
+										<span id="BytesRead">0</span>&nbsp;&nbsp;/&nbsp;
+										<span id="BytesWrite">0</span>&nbsp;
+								</td></tr>
+								<tr><td>Messages (Read / Write)</td><td style='font-weight: bold; width: 170px;'>
+										<span id="MsgRead">0</span>&nbsp;&nbsp;/&nbsp;
+										<span id="MsgWrite">0</span>
+								</td></tr>
+							</table>
+
+							<div style="padding-bottom: 30px;">
+								<div class="row">
+									<div class="span3 offset1">
+										<b>Active Connections</b>
+									</div>
+									<div class="span5">
+										<div class="progress progress-info progress-striped">
+											<div id="liveConnectionsBar" class="bar" style="width: 0%"></div>
+											<span id="liveConnectionsScale" class="pull-right scale" >10</span>
+											<span id="liveConnectionsMidScale" class="pull-right scale" style="margin-right: 115px;" >5</span>
+										</div>
+									</div>
+									<div class="span3">
+										<span id="liveConnectionsVal">0</span>
+									</div>
+								</div>
+								<div class="row">
+									<div class="span3 offset1">
+										<b>Current Throughput</b>
+									</div>
+									<div class="span5">
+										<div class="progress progress-success progress-striped">
+											<div id="liveThroughputBar" class="bar" style="width: 0%"></div>
+											<span id="liveThroughputScale" class="pull-right scale" >10</span>
+											<span id="liveThroughputMidScale" class="pull-right scale" style="margin-right: 115px;" >5</span>
+										</div>
+									</div>
+									<div class="span3">
+										<span id="liveThroughputVal"></span> msgs/sec
+									</div>
+								</div>
+							</div>
+
+							<table class="table table-condensed">
+								<caption>Persistent Store</caption>
+								<tr><th>Statistic</th><th style='width: 170px;'>Value</th></tr>
+								<tr><td>Memory Used (%)</td><td style='font-weight: bold; width: 170px;'><span id="MemoryUsedPercent">0</span>&nbsp;%</td></tr>
+								<tr><td>Disk Used (%)</td><td style='font-weight: bold; width: 170px;'><span id="DiskUsedPercent">0</span>&nbsp;%</td></tr>
+								<tr><td>Disk Free (GB)</td><td style='font-weight: bold; width: 170px;'><span id="DiskFreeBytes">0</span>&nbsp;GB</td></tr>
+							</table>
+							<table class="table table-condensed">
+								<caption>Memory</caption>
+								<tr><th>Statistic</th><th style='width: 170px;'>Value</th></tr>
+								<tr><td>Total Memory (GB)</td><td style='font-weight: bold; width: 170px;'><span id="MemoryTotalBytes">0</span>&nbsp;GB</td></tr>
+								<tr><td>Free Memory (GB)</td><td style='font-weight: bold; width: 170px;'><span id="MemoryFreeBytes">0</span>&nbsp;GB</td></tr>
+								<tr><td>Free Memory (%)</td><td style='font-weight: bold; width: 170px;'><span id="MemoryFreePercent">0</span>&nbsp;%</td></tr>
+								<tr><td>Virtual Memory (GB)</td><td style='font-weight: bold; width: 170px;'><span id="ServerVirtualMemoryBytes">0</span>&nbsp;GB</td></tr>
+								<tr><td>Resident Set (GB)</td><td style='font-weight: bold; width: 170px;'><span id="ServerResidentSetBytes">0</span>&nbsp;GB</td></tr>
+								<tr><td>Message Payloads (GB)</td><td style='font-weight: bold; width: 170px;'><span id="MessagePayloads">0</span>&nbsp;GB</td></tr>
+								<tr><td>Publish Subscribe (GB)</td><td style='font-weight: bold; width: 170px;'><span id="PublishSubscribe">0</span>&nbsp;GB</td></tr>
+								<tr><td>Destinations (GB)</td><td style='font-weight: bold; width: 170px;'><span id="Destinations">0</span>&nbsp;GB</td></tr>
+								<tr><td>Current Activity (GB)</td><td style='font-weight: bold; width: 170px;'><span id="CurrentActivity">0</span>&nbsp;GB</td></tr>
+							</table>
+							<p style="padding-top: 10px;" class="pull-right"><i id="applianceInfo" class="icon-question-sign"></i>&nbsp;<small>data is refreshed every 2 seconds</small></p>
+						</div>
+					</div>
+				</div>
+				<div class="accordion-group">
+					<div class="accordion-heading">
+						<a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#endpointMonitoring">
+							Endpoint Monitoring
+						</a>
+					</div>
+					<div id="endpointMonitoring" class="accordion-body collapse">
+						<div class="accordion-inner">
+							<div id="endpointMonitoringTable">
+								<center>(no data)</center>
+							</div>
+							<p style="padding-top: 10px;" class="pull-right"><i id="endpointInfo" class="icon-question-sign"></i>&nbsp;<small>data is refreshed every 2 seconds</small></p>
+						</div>
+					</div>
+				</div>
+				<div class="accordion-group">
+					<div class="accordion-heading">
+						<a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#topicMonitoring">
+							Topic Monitoring
+						</a>
+					</div>
+					<div id="topicMonitoring" class="accordion-body collapse">
+						<div class="accordion-inner">
+							<div id="topicMonitoringTable">
+								<center>(no data)</center>
+							</div>
+							<p style="padding-top: 10px;" class="pull-right"><i id="topicInfo" class="icon-question-sign"></i>&nbsp;<small>data is refreshed every 2 seconds</small></p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div id="infoModal" class="modal hide fade">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal">x</button>
+					<h3 id="infoModalTitle"></h3>
+				</div>
+				<div class="modal-body" id="infoModalBody">
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
+

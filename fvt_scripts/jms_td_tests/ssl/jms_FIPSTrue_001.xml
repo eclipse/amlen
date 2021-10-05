@@ -1,0 +1,657 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_FIPSTrue_001
+
+  Test Category:  JMS SSL
+  
+  Test Description: 
+    Test with FIPS=True, and JVM's that support TLSv1.2 
+
+    Connection Policies:
+    JMSSSLConnectionPolicy1 - Allows ClientID jms* to connect.
+    
+    Messaging Policies:
+    JMSSSLMessagingPolicy01  - Allows publish and subscribe to dest1 using JMS
+    JMSSSLMessagingPolicy02  - Allows publish to dest2
+    JMSSSLMessagingPolicy03  - Allows subscribe to dest3
+    JMSSSLMessagingPolicy04  - Allows publish and subscribe to dest4 using MQTT
+    JMSSSLMessagingPolicy05  - Allows UserID=JMSUser2 GroupID=JMSGroup1 to 
+                               publish and subscribe to dest5.
+                               (NOTE: UserID, GroupID are an AND condition.
+                                JMSUser2 must be a member of JMSGroup1.) 
+
+	
+
+    Endpoints:
+    JMSSSLEndpoint1              - Port 18466 - MinProt=SSLv3   - Ciphers=Fast
+    JMSSSLSecureProfForFipsTrue1 - Port 18483 - MinProt=TLSv1.2 - Ciphers=Best
+    JMSSSLSecureProfForFipsTrue2 - Port 18484 - MinProt=TLSv1.2 - Ciphers=Fast
+    JMSSSLSecureProfForFipsTrue3 - Port 18485 - MinProt=TLSv1.2 - Ciphers=Medium
+    JMSSSLSecureProfForFipsTrue4 - Port 18486 - MinProt=TLSv1.1 - Ciphers=Medium
+    
+    ConnectionPolicies: 
+    
+    cf1 port 18466 Verifies that with all the client defaults, and FIPS=True, with older protocols we still work.
+    cf2 port 18483 Verifies that with all the client defaults, and FIPS=True, with TLSv1.2 can connect, with Best.
+    cf3 port 18484 Verifies that with all the client defaults, and FIPS=True, with TLSv1.2, can connect with Fast.
+    cf4 port 18485 Verifies that with all the client defaults, and FIPS=True, with TLSv1.2, can connect with Medium.
+    cf5 port 18486 Verifies that with all the client defaults, and FIPS=True, with TLSv1.1, can connect with Medium.
+    cf6 port 18483 Verifies a client using TLSv1 cannot connect on an Endpoint that specifies minimum TLSv1.2.
+    cf7 port 18466 Verifies a client using SSLv1,TLSv1 can connect to a protocol with FIPS=True 
+    cf8 port 18483 Verifies that TLSv1.2 SHA1 ciphers cannot be used when FIPS=True,cipher=Best which gives us FIPS/NIST 2014 compliance.
+    cf9 port 18486 Verifies that a non-FIPS compliant cipher cannot be used when FIPS=True
+    cf10 port 18484 Verifies that TLSv1.2 SHA1 ciphers can be used when FIPS=True,cipher=Fast which gives us FIPS/NIST 2014 compliance.
+    cf11 port 18485 Verifies that TLSv1.2 SHA1 ciphers can be used when FIPS=True,cipher=Medium does not give us FIPS/NIST 2014 compliance.    
+    
+    Note: This is only run with Java 1.7.0, or IBM Java 1.6.0, which support TLSv1.2. cf1 an cf7 differ in which ciphers 
+    will be available. In cf1, both server and client will recognize TLSv1.2.  in cf7, we force the client to SSLv3,TLSv1.
+    
+
+-->
+<ImaJmsTest name="jms_FIPSTrue_001">
+
+		<Action name="ShowFIPSMode" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration/FIPS</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+       	<!--Action name="ShowFIPSMode" type="ShellAction">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver get FIPS</ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action-->		
+
+		<Action name="Create_cf1" type="CreateConnectionFactory" thread="1">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf1" type="FillIsmProps" thread="1">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="Port" value="18466"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf1"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>
+		
+		<Action name="Create_cf2" type="CreateConnectionFactory" thread="2">
+			<ActionParameter name="structure_id">cf2</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf2" type="FillIsmProps" thread="2">
+			<ActionParameter name="structure_id">cf2</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="Port" value="18483"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf2"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>		
+		
+		<Action name="Create_cf3" type="CreateConnectionFactory" thread="3">
+			<ActionParameter name="structure_id">cf3</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf3" type="FillIsmProps" thread="3">
+			<ActionParameter name="structure_id">cf3</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="Port" value="18484"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf3"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>		
+		
+		<Action name="Create_cf4" type="CreateConnectionFactory" thread="4">
+			<ActionParameter name="structure_id">cf4</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf4" type="FillIsmProps" thread="4">
+			<ActionParameter name="structure_id">cf4</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="Port" value="18485"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf4"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>	
+		
+		<Action name="Create_cf5" type="CreateConnectionFactory" thread="5">
+			<ActionParameter name="structure_id">cf5</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf5" type="FillIsmProps" thread="5">
+			<ActionParameter name="structure_id">cf5</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="Port" value="18486"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf5"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>	
+		
+		<Action name="Create_cf6" type="CreateConnectionFactory" thread="6">
+			<ActionParameter name="structure_id">cf6</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf6" type="FillIsmProps" thread="6">
+			<ActionParameter name="structure_id">cf6</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="SecurityProtocols" value="SSLv3,TLSv1"/>
+			<ImaProperty name="Port" value="18483"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf6"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>					
+		
+		<Action name="Create_cf7" type="CreateConnectionFactory" thread="7">
+			<ActionParameter name="structure_id">cf7</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf7" type="FillIsmProps" thread="7">
+			<ActionParameter name="structure_id">cf7</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="SecurityProtocols" value="SSLv3,TLSv1"/>
+			<ImaProperty name="Port" value="18466"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf7"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>
+		
+		<Action name="Create_cf8" type="CreateConnectionFactory" thread="8">
+			<ActionParameter name="structure_id">cf8</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf8" type="FillIsmProps" thread="8">
+			<ActionParameter name="structure_id">cf8</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<!-- ImaProperty name="CipherSuites" value="SSL_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,SSL_RSA_WITH_AES_128_CBC_SHA"/ -->
+			<ImaProperty name="CipherSuites" value="TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA,TLS_RSA_WITH_CAMELLIA_256_CBC_SHA,TLS_RSA_WITH_CAMELLIA_128_CBC_SHA"/>
+			<ImaProperty name="Port" value="18483"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf8"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>	
+		
+		<Action name="Create_cf9" type="CreateConnectionFactory" thread="9">
+			<ActionParameter name="structure_id">cf9</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf9" type="FillIsmProps" thread="9">
+			<ActionParameter name="structure_id">cf9</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="CipherSuites" value="SSL_RSA_WITH_RC4_128_MD5"/>
+			<ImaProperty name="Port" value="18486"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf9"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>	
+		
+		<Action name="Create_cf10" type="CreateConnectionFactory" thread="10">
+			<ActionParameter name="structure_id">cf10</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf10" type="FillIsmProps" thread="10">
+			<ActionParameter name="structure_id">cf10</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="CipherSuites" value="SSL_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,SSL_RSA_WITH_AES_128_CBC_SHA"/>
+			<ImaProperty name="Port" value="18484"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf10"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>		
+		
+		<Action name="Create_cf11" type="CreateConnectionFactory" thread="11">
+			<ActionParameter name="structure_id">cf11</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf11" type="FillIsmProps" thread="11">
+			<ActionParameter name="structure_id">cf11</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="CipherSuites" value="SSL_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,SSL_RSA_WITH_AES_128_CBC_SHA"/>
+			<ImaProperty name="Port" value="18485"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf11"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>		
+		
+		<Action name="Create_cf12" type="CreateConnectionFactory" thread="12">
+			<ActionParameter name="structure_id">cf12</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf12" type="FillIsmProps" thread="12">
+			<ActionParameter name="structure_id">cf12</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="CipherSuites" value="SSL_RSA_WITH_RC4_128_MD5"/>
+			<ImaProperty name="Port" value="18483"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf12"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>					
+								
+		<Action name="Create_cf13" type="CreateConnectionFactory" thread="13">
+			<ActionParameter name="structure_id">cf13</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf13" type="FillIsmProps" thread="13">
+			<ActionParameter name="structure_id">cf13</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="CipherSuites" value="SSL_RSA_WITH_RC4_128_MD5"/>
+			<ImaProperty name="Port" value="18484"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf13"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>	
+		
+		<Action name="Create_cf14" type="CreateConnectionFactory" thread="14">
+			<ActionParameter name="structure_id">cf14</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf14" type="FillIsmProps" thread="14">
+			<ActionParameter name="structure_id">cf14</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="CipherSuites" value="SSL_RSA_WITH_RC4_128_MD5"/>
+			<ImaProperty name="Port" value="18485"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf14"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>											
+							
+		<Action name="Create_cf15" type="CreateConnectionFactory" thread="15">
+			<ActionParameter name="structure_id">cf15</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+			<ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+			<ActionParameter name="keyStorePassword">password</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf15" type="FillIsmProps" thread="15">
+			<ActionParameter name="structure_id">cf15</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="Protocol" value="tcps"/>
+			<ImaProperty name="CipherSuites" value="TLS_RSA_WITH_AES_128_CBC_SHA256"/>
+			<ImaProperty name="Port" value="18483"/>
+			<ImaProperty name="ClientID" value="jmsFIPSClient_cf15"/>
+			<include>../common/JMS_server.xml</include>
+		</Action>																		
+
+		<!-- Create a connection with valid username and password -->
+		<!-- pass  -->
+		<Action name="CreateConnection_cf1" type="CreateConnection" thread="1">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a connection with valid username and password -->
+		<!-- pass -->
+		<Action name="CreateConnection_cf2" type="CreateConnection"  thread="2">
+			<ActionParameter name="structure_id">connection_cf2</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf2</ActionParameter>
+		</Action>		
+		
+		<!-- Create a connection with valid username and password -->
+		<!-- pass -->		
+		<Action name="CreateConnection_cf3" type="CreateConnection"  thread="3">
+			<ActionParameter name="structure_id">connection_cf3</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf3</ActionParameter>
+		</Action>		
+		
+		<!-- Create a connection with valid username and password -->
+		<!-- pass -->		
+		<Action name="CreateConnection_cf4" type="CreateConnection"  thread="4">
+			<ActionParameter name="structure_id">connection_cf4</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf4</ActionParameter>
+		</Action>	
+		
+		<!-- Create a connection with valid username and password -->
+		<!-- pass -->		
+		<Action name="CreateConnection_cf5" type="CreateConnection"  thread="5">
+			<ActionParameter name="structure_id">connection_cf5</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf5</ActionParameter>
+		</Action>		
+		
+		<!-- Create a connection with valid username and password -->
+		<!-- fail -->		
+		<Action name="CreateConnection_cf6" type="CreateConnection"  thread="6" rc="1" reason="CWLNC0022">
+			<ActionParameter name="structure_id">connection_cf6</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf6</ActionParameter>
+		</Action>	
+		
+		<!-- Create a connection with valid username and password -->
+		<!-- pass -->		
+		<Action name="CreateConnection_cf7" type="CreateConnection"  thread="7">
+			<ActionParameter name="structure_id">connection_cf7</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf7</ActionParameter>
+		</Action>		
+		
+		<!-- fails with non-IBM Java 1.6 (no TLSv1.2)  --> 
+		<!-- fails with FIPS=True --> 
+		<!-- fails with FIPS=False-->
+		<Action name="CreateConnection_cf8" type="CreateConnection"  thread="8" rc="1" reason="CWLNC0022">
+			<ActionParameter name="structure_id">connection_cf8</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf8</ActionParameter>
+		</Action>	
+		
+		<!--  with non-IBM Java 1.6  --> 
+		<!--  fails (this is TLSv1.1 with FIPS=True --> 
+		<!--  passes FIPS=False-->		
+		
+		<Action name="CreateConnection_cf9" type="CreateConnection"  thread="9" rc="1" reason="CWLNC0022" >
+			<ActionParameter name="structure_id">connection_cf9</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf9</ActionParameter>
+		</Action>	
+		
+		<!-- fails with non-IBM Java 1.6 (no TLSv1.2)  --> 
+		<!-- passes with FIPS=True --> 
+		<!-- passes with FIPS=False-->
+		<Action name="CreateConnection_cf10" type="CreateConnection"  thread="10">
+			<ActionParameter name="structure_id">connection_cf10</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf10</ActionParameter>
+		</Action>	
+
+		<!-- fails with non-IBM Java 1.6 (no TLSv1.2)  --> 
+		<!-- passes with FIPS=True (Cipher=Medium --> 
+		<!-- passes with FIPS=False-->
+		<Action name="CreateConnection_cf11" type="CreateConnection"  thread="11">
+			<ActionParameter name="structure_id">connection_cf11</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf11</ActionParameter>
+		</Action>
+		
+		<Action name="CreateConnection_cf12" type="CreateConnection"  thread="12" rc="1" reason="CWLNC0022">
+			<ActionParameter name="structure_id">connection_cf12</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf12</ActionParameter>
+		</Action>			
+
+		<Action name="CreateConnection_cf13" type="CreateConnection"  thread="13" rc="1" reason="CWLNC0022" >
+			<ActionParameter name="structure_id">connection_cf13</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf13</ActionParameter>
+		</Action>			
+
+		<Action name="CreateConnection_cf14" type="CreateConnection"  thread="14" rc="1" reason="CWLNC0022">
+			<ActionParameter name="structure_id">connection_cf14</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf14</ActionParameter>
+		</Action>		
+		
+		<Action name="CreateConnection_cf15" type="CreateConnection"  thread="15" >
+			<ActionParameter name="structure_id">connection_cf15</ActionParameter>
+			<ApiParameter name="user">JMSUser2</ApiParameter>
+			<ApiParameter name="passwd">test</ApiParameter>
+		 	<ActionParameter name="factory_id">cf15</ActionParameter>
+		</Action>					
+					
+
+		<Action name="CreateSession1_conn_cf1" type="CreateSession" thread="1">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession2_conn_cf1" type="CreateSession" thread="1" > 
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session2_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession3_conn_cf1" type="CreateSession" thread="1">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session3_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession4_conn_cf1" type="CreateSession" thread="1">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session4_cf1</ActionParameter>
+		</Action>
+
+		<Action name="Create_destFail" type="CreateDestination" thread="1">
+			<ActionParameter name="structure_id">destFail</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">destFail</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest2" type="CreateDestination" thread="1">
+			<ActionParameter name="structure_id">dest2</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest2</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest3" type="CreateDestination" thread="1">
+			<ActionParameter name="structure_id">dest3</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest3</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest4" type="CreateDestination" thread="1">
+			<ActionParameter name="structure_id">dest4</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest4</ApiParameter>
+		</Action>
+
+		<Action name="Create_dest5" type="CreateDestination" thread="1">
+			<ActionParameter name="structure_id">dest5</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">dest5</ApiParameter>
+		</Action>
+		
+		<!-- Create a producer on dest2.
+		     This is allowed by JMSSSLMessagingPolicy2. -->
+		<Action name="CreateProducer1_dest2" type="CreateProducer"  thread="1">
+			<ActionParameter name="structure_id">producer1_dest2</ActionParameter>
+			<ActionParameter name="dest_id">dest2</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Create a consumer on dest3.
+		     This is allowed by JMSSSLMessagingPolicy3 -->
+		<Action name="CreateConsumer1_dest3" type="CreateConsumer" thread="1">
+			<ActionParameter name="structure_id">consumer1_dest3</ActionParameter>
+			<ActionParameter name="dest_id">dest3</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+		</Action>
+
+		<!-- Create a consumer on dest5.
+		     This is allowed by JMSSSLMessagingPolicy5 for JMSUser2 -->
+		<Action name="CreateConsumer1_dest5" type="CreateConsumer" thread="1">
+			<ActionParameter name="structure_id">consumer1_dest5</ActionParameter>
+			<ActionParameter name="dest_id">dest5</ActionParameter>
+			<ActionParameter name="session_id">session4_cf1</ActionParameter>
+		</Action>
+
+		<!-- Create a producer on dest5.
+		     This is allowed by JMSSSLMessagingPolicy5 for JMSUser2 -->
+		<Action name="CreateProducer1_dest5" type="CreateProducer" thread="1">
+			<ActionParameter name="structure_id">producer1_dest5</ActionParameter>
+			<ActionParameter name="dest_id">dest5</ActionParameter>
+			<ActionParameter name="session_id">session3_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnection_cf1" type="StartConnection" thread="1">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CreateSession1_conn_cf2" type="CreateSession" thread="2">
+			<ActionParameter name="conn_id">connection_cf2</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf2</ActionParameter>
+		</Action>	
+		
+		<Action name="CreateSession1_conn_cf3" type="CreateSession" thread="3">
+			<ActionParameter name="conn_id">connection_cf3</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf3</ActionParameter>
+		</Action>	
+		
+		<Action name="CreateSession1_conn_cf4" type="CreateSession" thread="4">
+			<ActionParameter name="conn_id">connection_cf4</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf4</ActionParameter>
+		</Action>	
+		
+		<Action name="CreateSession1_conn_cf5" type="CreateSession" thread="5">
+			<ActionParameter name="conn_id">connection_cf5</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf5</ActionParameter>
+		</Action>		
+		
+		<Action name="CreateSession1_conn_cf7" type="CreateSession" thread="7">
+			<ActionParameter name="conn_id">connection_cf7</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf7</ActionParameter>
+		</Action>				
+
+		<Action name="CreateSession1_conn_cf11" type="CreateSession" thread="11">
+			<ActionParameter name="conn_id">connection_cf11</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf11</ActionParameter>
+		</Action>	
+		
+		<Action name="CreateSession1_conn_cf15" type="CreateSession" thread="15">
+			<ActionParameter name="conn_id">connection_cf15</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf15</ActionParameter>
+		</Action>					
+		
+		<Action name="CloseConnection_cf1" type="CloseConnection" thread="1" >
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_cf2" type="CloseConnection" thread="2" >
+			<ActionParameter name="conn_id">connection_cf2</ActionParameter>
+		</Action>
+		
+		<!-- Just closing it twice since it should work fine.  --> 
+		<Action name="CloseConnection_cf2a" type="CloseConnection" thread="2" >
+			<ActionParameter name="conn_id">connection_cf2</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection_cf3" type="CloseConnection" thread="3" >
+			<ActionParameter name="conn_id">connection_cf3</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection_cf4" type="CloseConnection" thread="4" >
+			<ActionParameter name="conn_id">connection_cf4</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection_cf5" type="CloseConnection" thread="5" >
+			<ActionParameter name="conn_id">connection_cf5</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection_cf7" type="CloseConnection" thread="7" >
+			<ActionParameter name="conn_id">connection_cf7</ActionParameter>
+		</Action>		
+
+	<Action name="CloseConnection_cf10" type="CloseConnection" thread="10" >
+			<ActionParameter name="conn_id">connection_cf10</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection_cf11" type="CloseConnection" thread="11" >
+			<ActionParameter name="conn_id">connection_cf11</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection_cf15" type="CloseConnection" thread="15" >
+			<ActionParameter name="conn_id">connection_cf15</ActionParameter>
+		</Action>						
+				
+
+</ImaJmsTest>

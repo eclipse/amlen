@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN"
+ "concept.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<concept id="ov40000" xml:lang="en-us">
+<title>High availability</title>
+<shortdesc><ph conref="../TextEntities.dita#TextEntities/ISM"></ph> might
+experience outages both planned and unplanned. High availability (HA)
+pertains to the ability of messaging services to withstand outages
+and continue providing processing capability. </shortdesc>
+<!--To optimize PDF retrievability, add prolog and indexing tags that help crystalize why users should be looking up this topic (purpose, task, and what they will learn)-->
+<!--<prolog><metadata><keywords><indexterm></indexterm></keywords></metadata></prolog>-->
+<conbody>
+<p>The HA nature of <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> is
+its ability to withstand software or hardware outages so that it is
+available as much of the time as possible. These outages might be
+planned events, such as maintenance and backups, and unplanned events,
+such as software failures, hardware failures, power failures, and
+disasters.</p>
+<p>For <ph conref="../TextEntities.dita#TextEntities/ISM"/>, a pair of servers is identified as:<dl>
+    <dlentry>
+     <dt>Primary</dt>
+     <dd>The server that is processing messages.</dd>
+    </dlentry>
+    <dlentry>
+     <dt>Standby</dt>
+     <dd>The server to which the primary server is replicated.</dd>
+    </dlentry>
+   </dl></p>
+<p>The store of the primary server is replicated to the standby server. The standby server uses the
+   replicated data to construct a store that is identical to the store of the active server. The
+   standby server monitors the health of the active server. On failure of the active server, the
+   standby server activates itself by constructing the <ph
+    conref="../TextEntities.dita#TextEntities/ISM"/> server state from the data in the store. </p>
+<section><title>The primary node fails and the standby node becomes
+the new primary node</title><p>In this scenario, the primary node experiences a failure. The standby node takes over as the new
+                primary node. When the old primary restarts, it becomes the new standby node. </p><p>The expectation is that the content of the store and configuration of Server A is preserved and
+                that Server B is restarted. No user response is required as failure is detected by
+                exceeding the heartbeat timeout. After the heartbeat timeout is exceeded, Server B
+                initiates the recovery and then becomes the primary. If  Server A is restarted,
+                there is a discovery timeout for Server A to wait for Server B to finish the
+                recovery process. It is assumed that Server A was not configured with StartupMode =
+                StandAlone. If so, when Server A restarts, it goes into maintenance mode as there is
+                already a primary server (Server B) running.</p></section>
+<section><title>Replication</title><p>After the primary and standby nodes are connected and configured, the primary node continually
+                replicates both the message store and server configuration information to the
+                standby node. If the primary node fails, the standby node has the latest data that
+                is needed for applications to continue messaging services. The standby node does not
+                accept connections from application clients or provide messaging services until a
+                failover operation occurs, which is described in the next section.</p></section>
+<section><title>Failover</title><p>If the standby node detects that
+the primary node failed or is unreachable, it performs failover processing
+by using information that was replicated from the primary node.  Then,
+the standby acts as the primary node to continue messaging services.
+ Applications that were connected to the original primary node, can
+then connect to the standby node.</p></section>
+<section><title>Synchronization</title><p>When a failed primary node is restarted, it is reconnected as a standby node. The running primary
+    node performs a synchronization operation to replicate message store and server configuration
+    information from the primary to ensure that the new standby has the latest information to resume
+    messaging services. After synchronization, the primary node continues to provide messaging
+    services, and the standby is ready to take over in case the primary fails.</p><note><ul>
+<li>During synchronization, do not make any configuration changes on the node that is restarting and
+      becoming the primary. </li>
+<li>There is a period in the synchronization operation during which messaging services are suspended
+      on both the primary and standby nodes. This suspension can affect applications that are
+      connected or trying to connect to the server. Therefore you must ensure that you carefully
+      schedule any planned outages of the primary or standby node to minimize the impact of
+      synchronization. For example, you might want to start the standby node when the number of
+      incoming messages on the primary node is low. Starting the standby node when the load on the
+      primary node is low means that messaging on the primary node is paused for just a few seconds.
+      This pause is typically less than 5 seconds. If you synchronize the standby node while the
+      load on the primary node is high, messaging on the primary node might be paused for a longer
+      period. This period is typically 15 - 30 seconds.</li>
+<li>During synchronization, configuration change requests are blocked
+to ensure that configuration is consistent between the primary and
+standby node. Only the following configuration changes are allowed
+during synchronization: <ul>
+<li><cmdname>HighAvailability</cmdname> requests. </li>
+<li>Log commands and <cmdname>TraceLevel</cmdname> requests. </li>
+<li><cmdname>LDAP</cmdname> requests.</li>
+</ul>If the standby note is stopped and started again while the primary
+node is running, any other configuration change requests fail. The
+following error message is displayed: <codeblock>HighAvalibility node synchronization process is in progress. Configuration changes are not allowed at this time.</codeblock>After
+the HA nodes are synchronized, the configuration change request can
+complete. </li>
+</ul><?Pub Caret -1?></note></section>
+<section><title>Split brain</title><p>In an HA pair, there can be
+only one primary node providing messaging operations.  If the member
+acting as a primary detects that the other server is acting as a primary,
+it results in a <term>split brain</term> condition.</p><p>When the HA pair detects it is in a split brain situation, both nodes are put into maintenance mode, and the administrator must select which member to operate as the primary and the standby nodes. There are situations in which only one node will go down: <ul>
+                <li>While the standby is in the process of becoming a primary, the original primary is able to reconnect to the standby. The standby detects that the primary is still active and goes into maintenance mode. It must be restarted in order to resynchronize and become a standby again. </li>
+                <li>When cluster membership is enabled,  the cluster component might detect that there are two servers with the same ServerUID in the cluster. Both nodes of an HA pair use the same ServerUID. In such cases the cluster component terminates the original primary. </li>
+                </ul></p>
+            <p>Split brain situations are infrequent. You might see a split brain situation after simultaneous outages of both the primary and standby when they are both restarted. </p></section>
+<section><title>Application development for high availability</title><p>Applications that are developed to use with an HA pair of servers can connect to the standby node
+    if failover occurs because of an outage of the primary node. Applications must be aware of both
+    the primary and standby nodes to take advantage of this.</p><p>For information about
+developing JMS applications for HA, see <xref format="dita"
+href="../Developing/devjms_hasamples.dita" scope="local" type="reference"></xref>.</p></section>
+</conbody>
+<related-links>
+<link format="dita" href="../Administering/ad00400_.dita" scope="local"
+type="concept"></link>
+</related-links>
+</concept>
+<?Pub *0000008311?>

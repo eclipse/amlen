@@ -1,0 +1,2309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_ssl_022
+
+   Test Category:  JMS SSL
+   
+   Test Description:
+   TopicPolicy updates
+
+   This test does not actually use SSL.
+   *****************************************************************************/
+  -->
+
+<ImaJmsTest name="jms_ssl_022" >
+  <SyncClient>
+	<server>
+	  <include>../common/JMS_syncip.xml</include>
+      <include>../common/JMS_syncport.xml</include>
+	</server>
+	<solution>jms_ssl_022</solution>
+  </SyncClient>
+
+
+  <Action name="su" type="CompositeAction">
+
+    <Action name="syncReset" type="SyncAction">
+      <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+
+	<Action name="create_MP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"JMS"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="create_QP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"QueuePolicy":{"Q_MP":{"Queue":"*","ActionList":"Send,Receive,Browse","Protocol":"JMS"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="create_CP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"M_CP":{"ClientID":"CART","Protocol":"JMS"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="create_EP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"M_EP":{"Port":20001,"ConnectionPolicies":"M_CP","TopicPolicies":"M_MP","QueuePolicies":"Q_MP","MaxMessageSize":"1KB","MessageHub":"DemoHub"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- ready for use -->
+    <Action name="SyncForUse" type="SyncComponentAction">
+      <ActionParameter name="component_name">su</ActionParameter>
+      <ActionParameter name="component_list">su;td;x</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- ready for teardown -->
+    <Action name="SyncForTearDown" type="SyncComponentAction">
+      <ActionParameter name="component_name">su2</ActionParameter>
+      <ActionParameter name="component_list">su2;td2;x2</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+  </Action>
+
+  <Action name="x" type="CompositeAction">
+
+    <Action name="SyncForUse" type="SyncComponentAction">
+      <ActionParameter name="component_name">x</ActionParameter>
+      <ActionParameter name="component_list">su;td;x</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+
+    <Action name="CreateFactory_x" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF_x</ActionParameter>
+      <!-- <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter> -->
+      <!-- <ActionParameter name="keyStorePassword">password</ActionParameter> -->
+      <ActionParameter name="loglevel">9</ActionParameter>
+      <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps_x" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF_x</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="ClientID" value="CART" type="STRING"/>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="20001" type="STRING"/>
+    </Action>
+
+    <Action name="CreateDestination_x" type="CreateDestination">
+	  <ActionParameter name="structure_id">dest_x</ActionParameter>
+	  <ActionParameter name="type">topic</ActionParameter>
+	  <ApiParameter name="name">dest_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateDestination_x2" type="CreateDestination">
+	  <ActionParameter name="structure_id">dest_x2</ActionParameter>
+	  <ActionParameter name="type">topic</ActionParameter>
+	  <ApiParameter name="name">dest_x2</ApiParameter>
+    </Action>
+
+    <Action name="CreateExcListener_x" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exc_x</ActionParameter>
+    </Action>    
+
+
+    <!-- with the created arguments on TopicPolicy:
+         Destination=*
+         ActionList=Publish,Subscribe
+         Protocol=JMS
+      -->
+    <Action name="CreateConnection_a" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_a</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_a" type="CreateSession">
+      <ActionParameter name="conn_id">conn_a</ActionParameter>
+      <ActionParameter name="structure_id">sess_a</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_a" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_a</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_a</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_a" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_a</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_a</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_a" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_a</ActionParameter>
+      <ActionParameter name="session_id">sess_a</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_a" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_a</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_a</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_a" type="StartConnection">
+      <ActionParameter name="conn_id">conn_a</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_a" type="SendMessage">
+      <ActionParameter name="producer_id">prod_a</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_a</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_a" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_a</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_a</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_a" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_a</ActionParameter>
+    </Action>
+
+
+    <!-- restrict to mqtt, should not be able to send message -->
+    <Action name="Enable_MQTT_only" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"Protocol":"MQTT"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- restrict to mqtt, should not be able to send message -->
+    <Action name="Show_MQTT_only" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/M_MP</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>    
+
+    <Action name="CreateConnection_b" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_b</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_b" type="CreateSession">
+      <ActionParameter name="conn_id">conn_b</ActionParameter>
+      <ActionParameter name="structure_id">sess_b</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_b" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_b</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_b</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_b" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_b</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_b</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_b" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_b</ActionParameter>
+    </Action>
+
+
+
+
+
+
+
+
+    <!-- open to mqtt,jms, should be able to send message -->
+    <Action name="Enable_MQTTandJMS" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"Protocol":"MQTT,JMS"}}}</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <Action name="CreateConnection_c" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_c</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_c" type="CreateSession">
+      <ActionParameter name="conn_id">conn_c</ActionParameter>
+      <ActionParameter name="structure_id">sess_c</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_c" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_c</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_c</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_c" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_c</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_c</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_c" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_c</ActionParameter>
+      <ActionParameter name="session_id">sess_c</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_c" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_c</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_c" type="StartConnection">
+      <ActionParameter name="conn_id">conn_c</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_c" type="SendMessage">
+      <ActionParameter name="producer_id">prod_c</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_c" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_c</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_c" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_c</ActionParameter>
+    </Action>
+
+
+
+
+
+    <!-- Protocl=* (not an allowed config option) -->
+    <Action name="Enable_ASTR" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"Protocol":"*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">400</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+  
+    <!-- the failed update should not have any effect on our ability to connect -->
+    <Action name="CreateConnection_d" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_d</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_d" type="CreateSession">
+      <ActionParameter name="conn_id">conn_d</ActionParameter>
+      <ActionParameter name="structure_id">sess_d</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_d" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_d</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_d</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_d" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_d</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_d</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_d" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_d</ActionParameter>
+      <ActionParameter name="session_id">sess_d</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_d" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_d</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_d</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_d" type="StartConnection">
+      <ActionParameter name="conn_id">conn_d</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_d" type="SendMessage">
+      <ActionParameter name="producer_id">prod_d</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_d</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_d" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_d</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_d</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_d" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_d</ActionParameter>
+    </Action>
+
+	<Action name="Enable_ClientAddress_exact" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"``M1_IPv4_1``"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_e" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_e</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_e" type="CreateSession">
+      <ActionParameter name="conn_id">conn_e</ActionParameter>
+      <ActionParameter name="structure_id">sess_e</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_e" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_e</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_e</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_e" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_e</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_e</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_e" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_e</ActionParameter>
+      <ActionParameter name="session_id">sess_e</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_e" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_e</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_e</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_e" type="StartConnection">
+      <ActionParameter name="conn_id">conn_e</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_e" type="SendMessage">
+      <ActionParameter name="producer_id">prod_e</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_e</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_e" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_e</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_e</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CloseConnection_e" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_e</ActionParameter>
+    </Action>
+
+	<Action name="Enable_ClientAddress_wrong_low" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"1.1.1.1"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+   
+    <Action name="CreateConnection_f" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_f</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_f" type="CreateSession">
+      <ActionParameter name="conn_id">conn_f</ActionParameter>
+      <ActionParameter name="structure_id">sess_f</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_f" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_f</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_f</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_f" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_f</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_f</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_f" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_f</ActionParameter>
+    </Action>
+
+	<Action name="Enable_ClientAddress_wrong_high" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"126.126.126.126"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="CreateConnection_g" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_g</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_g" type="CreateSession">
+      <ActionParameter name="conn_id">conn_g</ActionParameter>
+      <ActionParameter name="structure_id">sess_g</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_g" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_g</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_g</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_g" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_g</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_g</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_g" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_g</ActionParameter>
+    </Action>
+
+
+
+	<Action name="Enable_ClientAddress_range_valid" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"4.4.4.4-198.198.198.198"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+  
+    <Action name="CreateConnection_h" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_h</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_h" type="CreateSession">
+      <ActionParameter name="conn_id">conn_h</ActionParameter>
+      <ActionParameter name="structure_id">sess_h</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_h" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_h</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_h</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_h" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_h</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_h</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_h" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_h</ActionParameter>
+      <ActionParameter name="session_id">sess_h</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_h" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_h</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_h</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_h" type="StartConnection">
+      <ActionParameter name="conn_id">conn_h</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_h" type="SendMessage">
+      <ActionParameter name="producer_id">prod_h</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_h</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_h" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_h</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_h</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_h" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_h</ActionParameter>
+    </Action>
+
+
+
+
+	<Action name="Enable_ClientAddress_range_low" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"4.4.4.4-5.5.5.5"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_i" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_i</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_i" type="CreateSession">
+      <ActionParameter name="conn_id">conn_i</ActionParameter>
+      <ActionParameter name="structure_id">sess_i</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_i" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_i</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_i</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_i" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_i</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_i</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_i" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_i</ActionParameter>
+    </Action>
+
+
+	<Action name="Enable_ClientAddress_range_high" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"125.1.1.1-126.1.1.1"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+  
+    <Action name="CreateConnection_j" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_j</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_j" type="CreateSession">
+      <ActionParameter name="conn_id">conn_j</ActionParameter>
+      <ActionParameter name="structure_id">sess_j</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_j" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_j</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_j</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_j" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_j</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_j</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_j" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_j</ActionParameter>
+    </Action>
+
+	<Action name="Enable_ClientID_ASTR" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"``M1_IPv4_1``","ClientID":"*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_k" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_k</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_k" type="CreateSession">
+      <ActionParameter name="conn_id">conn_k</ActionParameter>
+      <ActionParameter name="structure_id">sess_k</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_k" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_k</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_k</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_k" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_k</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_k</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_k" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_k</ActionParameter>
+      <ActionParameter name="session_id">sess_k</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_k" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_k</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_k</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_k" type="StartConnection">
+      <ActionParameter name="conn_id">conn_k</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_k" type="SendMessage">
+      <ActionParameter name="producer_id">prod_k</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_k</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_k" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_k</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_k</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_k" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_k</ActionParameter>
+    </Action>
+
+
+	<Action name="Enable_ClientID_invalid" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientID":"invalid"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_m" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_m</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_m" type="CreateSession">
+      <ActionParameter name="conn_id">conn_m</ActionParameter>
+      <ActionParameter name="structure_id">sess_m</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_m" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_m</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_m</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_m" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_m</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_m</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_m" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_m</ActionParameter>
+    </Action>
+
+
+	<Action name="Enable_unset_ClientID" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientID":""}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_n" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_n</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_n" type="CreateSession">
+      <ActionParameter name="conn_id">conn_n</ActionParameter>
+      <ActionParameter name="structure_id">sess_n</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_n" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_n</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_n</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_n" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_n</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_n</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_n" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_n</ActionParameter>
+      <ActionParameter name="session_id">sess_n</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_n" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_n</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_n</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_n" type="StartConnection">
+      <ActionParameter name="conn_id">conn_n</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_n" type="SendMessage">
+      <ActionParameter name="producer_id">prod_n</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_n</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_n" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_n</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_n</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_n" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_n</ActionParameter>
+    </Action>
+
+
+	<Action name="Enable_UserID_notme" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"UserID":"JMSUser1"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_o" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_o</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_o" type="CreateSession">
+      <ActionParameter name="conn_id">conn_o</ActionParameter>
+      <ActionParameter name="structure_id">sess_o</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_o" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_o</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_o</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_o" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_o</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_o</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_o" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_o</ActionParameter>
+    </Action>
+
+    <!-- create prod/cons with JMSUser1 -->
+    <Action name="CreateConnection_p" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_p</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser1</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_p" type="CreateSession">
+      <ActionParameter name="conn_id">conn_p</ActionParameter>
+      <ActionParameter name="structure_id">sess_p</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_p" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_p</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_p</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_p" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_p</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_p</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_p" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_p</ActionParameter>
+      <ActionParameter name="session_id">sess_p</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_p" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_p</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_p</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_p" type="StartConnection">
+      <ActionParameter name="conn_id">conn_p</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_p" type="SendMessage">
+      <ActionParameter name="producer_id">prod_p</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_p</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_p" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_p</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_p</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_p" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_p</ActionParameter>
+    </Action>
+
+
+    <!-- cannot create prod/cons with JMSUser6 -->
+    <Action name="CreateConnection_q" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_q</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser6</ApiParameter>
+      <ApiParameter name="passwd">original</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_q" type="CreateSession">
+      <ActionParameter name="conn_id">conn_q</ActionParameter>
+      <ActionParameter name="structure_id">sess_q</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_q" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_q</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_q</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_q" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_q</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_q</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_q" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_q</ActionParameter>
+    </Action>
+
+
+    <!-- cannot create prod/cons with JMSUser1 and bad passwd
+         test is invalid; we cannot create a connection with a userid and bad password anyway
+      -->
+    <!-- <Action name="CreateConnection_r" type="CreateConnection"> -->
+    <!--   <ActionParameter name="structure_id">conn_r</ActionParameter> -->
+    <!--   <ActionParameter name="factory_id">CF_x</ActionParameter> -->
+    <!--   <ApiParameter name="user">JMSUser1</ApiParameter> -->
+    <!--   <ApiParameter name="passwd">oops</ApiParameter> -->
+    <!--   <ApiParameter name="exceptionListener">exc_x</ApiParameter> -->
+    <!-- </Action> -->
+
+    <!-- <Action name="CreateSession_r" type="CreateSession"> -->
+    <!--   <ActionParameter name="conn_id">conn_r</ActionParameter> -->
+    <!--   <ActionParameter name="structure_id">sess_r</ActionParameter> -->
+    <!-- </Action> -->
+
+    <!-- <Action name="CreateProducer_r" type="CreateProducer" rc="1" reason="CWLNC0207"> -->
+    <!--   <ActionParameter name="structure_id">prod_r</ActionParameter> -->
+    <!--   <ActionParameter name="dest_id">dest_x</ActionParameter> -->
+    <!--   <ActionParameter name="session_id">sess_r</ActionParameter> -->
+    <!-- </Action> -->
+
+    <!-- <Action name="CreateConsumer_r" type="CreateConsumer" rc="1" reason="CWLNC0207"> -->
+    <!--   <ActionParameter name="structure_id">cons_r</ActionParameter> -->
+    <!--   <ActionParameter name="dest_id">dest_x</ActionParameter> -->
+    <!--   <ActionParameter name="session_id">sess_r</ActionParameter> -->
+    <!-- </Action> -->
+
+    <!-- <Action name="CoseConnection_r" type="CloseConnection"> -->
+    <!--   <ActionParameter name="conn_id">conn_r</ActionParameter> -->
+    <!-- </Action> -->
+
+    
+
+	<Action name="Enable_GroupID_JMSGroup1" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"UserID":"*","GroupID":"JMSGroup1"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <Action name="CreateConnection_s" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_s</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_s" type="CreateSession">
+      <ActionParameter name="conn_id">conn_s</ActionParameter>
+      <ActionParameter name="structure_id">sess_s</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_s" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_s</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_s</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_s" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_s</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_s</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_s" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_s</ActionParameter>
+      <ActionParameter name="session_id">sess_s</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_s" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_s</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_s</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_s" type="StartConnection">
+      <ActionParameter name="conn_id">conn_s</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_s" type="SendMessage">
+      <ActionParameter name="producer_id">prod_s</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_s</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_s" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_s</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_s</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_s" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_s</ActionParameter>
+    </Action>    
+
+	<Action name="Enable_GroupID_JMSGroup2" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"UserID":"*","GroupID":"JMSGroup2"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_t" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_t</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_t" type="CreateSession">
+      <ActionParameter name="conn_id">conn_t</ActionParameter>
+      <ActionParameter name="structure_id">sess_t</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_t" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_t</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_t</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_t" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_t</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_t</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_t" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_t</ActionParameter>
+    </Action>
+
+	<Action name="Enable_GroupID_JMSGroupASTR" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"UserID":"*","GroupID":"*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_u" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_u</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_u" type="CreateSession">
+      <ActionParameter name="conn_id">conn_u</ActionParameter>
+      <ActionParameter name="structure_id">sess_u</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_u" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_u</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_u</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_u" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_u</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_u</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_u" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_u</ActionParameter>
+      <ActionParameter name="session_id">sess_u</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_u" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_u</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_u</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_u" type="StartConnection">
+      <ActionParameter name="conn_id">conn_u</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_u" type="SendMessage">
+      <ActionParameter name="producer_id">prod_u</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_u</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_u" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_u</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_u</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_u" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_u</ActionParameter>
+    </Action>    
+
+	<Action name="Enable_GroupID_empty" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"UserID":"","GroupID":""}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <Action name="CreateConnection_v" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_v</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_v" type="CreateSession">
+      <ActionParameter name="conn_id">conn_v</ActionParameter>
+      <ActionParameter name="structure_id">sess_v</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_v" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_v</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_v</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_v" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_v</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_v</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_v" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_v</ActionParameter>
+      <ActionParameter name="session_id">sess_v</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_v" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_v</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_v</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_v" type="StartConnection">
+      <ActionParameter name="conn_id">conn_v</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_v" type="SendMessage">
+      <ActionParameter name="producer_id">prod_v</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_v</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_v" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_v</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_v</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_v" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_v</ActionParameter>
+    </Action>
+
+	<Action name="Enable_Destination_dest_x" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"Topic":"dest_x"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_w" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_w</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_w" type="CreateSession">
+      <ActionParameter name="conn_id">conn_w</ActionParameter>
+      <ActionParameter name="structure_id">sess_w</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_w" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_w</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_w</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_w" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_w</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_w</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_w" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_w</ActionParameter>
+      <ActionParameter name="session_id">sess_w</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_w" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_w</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_w</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_w" type="StartConnection">
+      <ActionParameter name="conn_id">conn_w</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_w" type="SendMessage">
+      <ActionParameter name="producer_id">prod_w</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_w</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_w" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_w</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_w</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_w" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_w</ActionParameter>
+    </Action>
+
+	<Action name="Enable_Destination_dest_x2" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"Topic":"dest_x2"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_aa" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_aa</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_aa" type="CreateSession">
+      <ActionParameter name="conn_id">conn_aa</ActionParameter>
+      <ActionParameter name="structure_id">sess_aa</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_aa" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_aa</ActionParameter>
+      <ActionParameter name="dest_id">dest_x2</ActionParameter>
+      <ActionParameter name="session_id">sess_aa</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_aa" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_aa</ActionParameter>
+      <ActionParameter name="dest_id">dest_x2</ActionParameter>
+      <ActionParameter name="session_id">sess_aa</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_aa" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_aa</ActionParameter>
+      <ActionParameter name="session_id">sess_aa</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_aa" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_aa</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_aa</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_aa" type="StartConnection">
+      <ActionParameter name="conn_id">conn_aa</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_aa" type="SendMessage">
+      <ActionParameter name="producer_id">prod_aa</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_aa</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_aa" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_aa</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_aa</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_aa" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_aa</ActionParameter>
+    </Action>
+
+	<Action name="DisallowChange_ActionList_Browse" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ActionList":"Browse"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">400</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="CreateQueue_dest_qu" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Queue":{"M_Q":{}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_ab" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ab</ActionParameter>
+      <ActionParameter name="factory_id">CF_x</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_ab" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ab</ActionParameter>
+      <ActionParameter name="structure_id">sess_ab</ActionParameter>
+    </Action>
+
+    <Action name="CreateDestination_qu" type="CreateDestination">
+	  <ActionParameter name="structure_id">dest_qu</ActionParameter>
+	  <ActionParameter name="type">queue</ActionParameter>
+	  <ApiParameter name="name">M_Q</ApiParameter>
+    </Action>
+
+    <Action name="CreateProducer_ab" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_ab</ActionParameter>
+      <ActionParameter name="dest_id">dest_qu</ActionParameter>
+      <ActionParameter name="session_id">sess_ab</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ab" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_ab</ActionParameter>
+      <ActionParameter name="dest_id">dest_qu</ActionParameter>
+      <ActionParameter name="session_id">sess_ab</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_ab" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_ab</ActionParameter>
+      <ActionParameter name="session_id">sess_ab</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_ab" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_ab</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_ab</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_ab" type="StartConnection">
+      <ActionParameter name="conn_id">conn_ab</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_ab" type="SendMessage">
+      <ActionParameter name="producer_id">prod_ab</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_ab</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_ab" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_ab</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_ab</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_ab" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ab</ActionParameter>
+    </Action>
+
+	<Action name="Enable_reset_to_topic" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ActionList":"Publish,Subscribe","Topic":"*","Protocol":"JMS","ClientAddress":"*"}}}</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateFactory_six" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF_six</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+      <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="CreateExcListener_six" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exc_six</ActionParameter>
+    </Action>    
+
+    <Action name="SetFactoryProps_six" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF_six</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="ClientID" value="CART" type="STRING"/>
+      <include>../common/JMS_serverIPv6.xml</include>
+      <ImaProperty name="Port" value="20001" type="STRING"/>
+    </Action>
+
+    <!-- ClientAddress=* -->
+    <Action name="CreateConnection_six_ac" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ac</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_ac" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ac</ActionParameter>
+      <ActionParameter name="structure_id">sess_ac</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ac" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_ac</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ac</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ac" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_ac</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ac</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_ac" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_ac</ActionParameter>
+      <ActionParameter name="session_id">sess_ac</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_ac" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_ac</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_ac</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_ac" type="StartConnection">
+      <ActionParameter name="conn_id">conn_ac</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_ac" type="SendMessage">
+      <ActionParameter name="producer_id">prod_ac</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_ac</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_ac" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_ac</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_ac</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_ac" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ac</ActionParameter>
+    </Action>
+
+    <!-- ClientAddress = exact ip address -->
+    <Action name="Enable_ClientAddress_exact_six" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"``M1_IPv6_1``"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_six_ad" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ad</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_ad" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ad</ActionParameter>
+      <ActionParameter name="structure_id">sess_ad</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ad" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_ad</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ad</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ad" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_ad</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ad</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_ad" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_ad</ActionParameter>
+      <ActionParameter name="session_id">sess_ad</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_ad" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_ad</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_ad</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_ad" type="StartConnection">
+      <ActionParameter name="conn_id">conn_ad</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_ad" type="SendMessage">
+      <ActionParameter name="producer_id">prod_ad</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_ad</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_ad" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_ad</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_ad</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_ad" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ad</ActionParameter>
+    </Action>
+
+    <!-- ClientAddress = too low -->
+    <Action name="Enable_ClientAddress_low_six" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[1111:1111:1111:1111:1111:1111:1111:1111]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_six_ae" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ae</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_ae" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ae</ActionParameter>
+      <ActionParameter name="structure_id">sess_ae</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ae" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_ae</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ae</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ae" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_ae</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ae</ActionParameter>
+    </Action>
+
+
+    <Action name="CoseConnection_ae" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ae</ActionParameter>
+    </Action>
+
+    <!-- ClientAddress = too high -->
+    <Action name="Enable_ClientAddress_high_six" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[FFFF::1111:1111]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <Action name="CreateConnection_six_af" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_af</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_af" type="CreateSession">
+      <ActionParameter name="conn_id">conn_af</ActionParameter>
+      <ActionParameter name="structure_id">sess_af</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_af" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_af</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_af</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_af" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_af</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_af</ActionParameter>
+    </Action>
+
+
+    <Action name="CoseConnection_af" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_af</ActionParameter>
+    </Action>
+
+    <!-- ClientAddress = valid six range (uppercase letters)-->
+	<Action name="Enable_ClientAddress_valid_six_range" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[1111::FFFF:FFFF:FFFF:FFFF]-[FFFF::1]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_six_ag" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ag</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_ag" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ag</ActionParameter>
+      <ActionParameter name="structure_id">sess_ag</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ag" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_ag</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ag</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ag" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_ag</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ag</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_ag" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_ag</ActionParameter>
+      <ActionParameter name="session_id">sess_ag</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_ag" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_ag</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_ag</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_ag" type="StartConnection">
+      <ActionParameter name="conn_id">conn_ag</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_ag" type="SendMessage">
+      <ActionParameter name="producer_id">prod_ag</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_ag</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_ag" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_ag</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_ag</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_ag" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ag</ActionParameter>
+    </Action>
+
+    <!-- ClientAddress = range too low -->
+    <Action name="Enable_ClientAddress_low_range_six" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[1111::1111]-[2222::2222]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_six_ah" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ah</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_ah" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ah</ActionParameter>
+      <ActionParameter name="structure_id">sess_ah</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ah" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_ah</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ah</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ah" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_ah</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ah</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_ah" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ah</ActionParameter>
+    </Action>
+
+    <!-- ClientAddress = range too high -->
+    <Action name="Enable_ClientAddress_high_range_six" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[FFFF::1111]-[FFFF::2222]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="CreateConnection_six_ai" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ai</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_ai" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ai</ActionParameter>
+      <ActionParameter name="structure_id">sess_ai</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ai" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_ai</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ai</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ai" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_ai</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ai</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_ai" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ai</ActionParameter>
+    </Action>
+
+	<!-- ClientAddress = six several invalid -->
+    <Action name="Enable_ClientAddress_six_several_invalid" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[FFFF::1111],[22::2],[2::22]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_six_aj" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_aj</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_aj" type="CreateSession">
+      <ActionParameter name="conn_id">conn_aj</ActionParameter>
+      <ActionParameter name="structure_id">sess_aj</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_aj" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_aj</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_aj</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_aj" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_aj</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_aj</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_aj" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_aj</ActionParameter>
+    </Action>
+
+    <!-- ClientAddress = six several invalid mixed with invalid ranges-->
+    <Action name="Enable_ClientAddress_six_several_invalid_with_invalid_ranges" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[FFFF::1111],[1::1]-[2::2],[22::2],[2::22],[FF00::F]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <Action name="CreateConnection_six_ak" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ak</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_ak" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ak</ActionParameter>
+      <ActionParameter name="structure_id">sess_ak</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ak" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_ak</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ak</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ak" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_ak</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ak</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_ak" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ak</ActionParameter>
+    </Action>
+
+
+
+
+    <!-- mix of bad stuff and a valid ip -->
+    <Action name="Enable_ClientAddress_six_bad_mix_with_valid_ip" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[FFFF::1111],[1::1]-[2::2],[22::2],[``M1_IPv6_1``],[2::22],[FF00::F]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_six_am" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_am</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+    <Action name="CreateSession_am" type="CreateSession">
+      <ActionParameter name="conn_id">conn_am</ActionParameter>
+      <ActionParameter name="structure_id">sess_am</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_am" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_am</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_am</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_am" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_am</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_am</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_am" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_am</ActionParameter>
+      <ActionParameter name="session_id">sess_am</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_am" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_am</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_am</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_am" type="StartConnection">
+      <ActionParameter name="conn_id">conn_am</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_am" type="SendMessage">
+      <ActionParameter name="producer_id">prod_am</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_am</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_am" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_am</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_am</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_am" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_am</ActionParameter>
+    </Action>
+
+    <!-- mix of bad stuff and a valid range -->
+    <Action name="Enable_ClientAddress_six_bad_mix_with_valid_range" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[FFFF::1111],[1::1]-[2::2],[22::2],[``M1_IPv6_1``]-[FFFF:FF::FF],[2::22],[FF00::F]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_six_an" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_an</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_an" type="CreateSession">
+      <ActionParameter name="conn_id">conn_an</ActionParameter>
+      <ActionParameter name="structure_id">sess_an</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_an" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_an</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_an</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_an" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_an</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_an</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_an" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_an</ActionParameter>
+      <ActionParameter name="session_id">sess_an</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_an" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_an</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_an</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_an" type="StartConnection">
+      <ActionParameter name="conn_id">conn_an</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_an" type="SendMessage">
+      <ActionParameter name="producer_id">prod_an</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_an</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_an" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_an</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_an</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_an" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_an</ActionParameter>
+    </Action>
+
+    <!-- mix of bad stuff and a valid range other side-->
+    <Action name="Enable_ClientAddress_six_bad_mix_with_valid_range_os" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[FFFF::1111],[1::1]-[2::2],[22::2],[FF:FF::FF]-[``M1_IPv6_1``],[2::22],[FF00::F]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <Action name="CreateConnection_six_ao" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ao</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_ao" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ao</ActionParameter>
+      <ActionParameter name="structure_id">sess_ao</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ao" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_ao</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ao</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ao" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_ao</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ao</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_ao" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_ao</ActionParameter>
+      <ActionParameter name="session_id">sess_ao</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_ao" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_ao</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_ao</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_ao" type="StartConnection">
+      <ActionParameter name="conn_id">conn_ao</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_ao" type="SendMessage">
+      <ActionParameter name="producer_id">prod_ao</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_ao</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_ao" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_ao</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_ao</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_ao" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ao</ActionParameter>
+    </Action>
+
+    <!-- stuff with overlapping -->
+    <Action name="Enable_ClientAddress_six_bad_mix_with_overlapping_range_os" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[FFFF::1111],[FFFF::1]-[FFFF::2222],[1::1]-[2::2],[22::2],[FF:FF::FF]-[``M1_IPv6_1``],[2::22],[FF00::F],[FFF::F]-[FFFF:FFFF:FFFF::FFFF]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+  
+    <Action name="CreateConnection_six_ap" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ap</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_ap" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ap</ActionParameter>
+      <ActionParameter name="structure_id">sess_ap</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ap" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_ap</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ap</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ap" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_ap</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ap</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_ap" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_ap</ActionParameter>
+      <ActionParameter name="session_id">sess_ap</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_ap" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_ap</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_ap</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_ap" type="StartConnection">
+      <ActionParameter name="conn_id">conn_ap</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_ap" type="SendMessage">
+      <ActionParameter name="producer_id">prod_ap</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_ap</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_ap" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_ap</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_ap</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_ap" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ap</ActionParameter>
+    </Action>
+
+    <!-- [::F] syntax -->
+    <Action name="Enable_ClientAddress_six_colon" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[::1],[::2]-[3::],[2607::]-[2608::]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_six_aq" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_aq</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_aq" type="CreateSession">
+      <ActionParameter name="conn_id">conn_aq</ActionParameter>
+      <ActionParameter name="structure_id">sess_aq</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_aq" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_aq</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_aq</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_aq" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_aq</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_aq</ActionParameter>
+    </Action>
+
+    <Action name="CreateTxtMessage_aq" type="CreateMessage">
+      <ActionParameter name="structure_id">txtmsg_aq</ActionParameter>
+      <ActionParameter name="session_id">sess_aq</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetText_aq" type="SetMessageText">
+      <ActionParameter name="message_id">txtmsg_aq</ActionParameter>
+      <ApiParameter name="value">text of txtmsg_aq</ApiParameter>
+    </Action>
+
+    <Action name="StartConnection_aq" type="StartConnection">
+      <ActionParameter name="conn_id">conn_aq</ActionParameter>
+    </Action>
+
+    <Action name="SendTxtMessage_aq" type="SendMessage">
+      <ActionParameter name="producer_id">prod_aq</ActionParameter>
+      <ActionParameter name="message_id">txtmsg_aq</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveTxtMessage_aq" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_aq</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_aq</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CoseConnection_aq" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_aq</ActionParameter>
+    </Action>
+
+    <!-- [::F] syntax reject -->
+    <Action name="Enable_ClientAddress_six_colon_bad" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"M_MP":{"ClientAddress":"[::1],[::2]-[3::],[::bb]-[bb::]"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <Action name="CreateConnection_six_ar" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_ar</ActionParameter>
+      <ActionParameter name="factory_id">CF_six</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_six</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_ar" type="CreateSession">
+      <ActionParameter name="conn_id">conn_ar</ActionParameter>
+      <ActionParameter name="structure_id">sess_ar</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_ar" type="CreateProducer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">prod_ar</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ar</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_ar" type="CreateConsumer" rc="1" reason="CWLNC0207">
+      <ActionParameter name="structure_id">cons_ar</ActionParameter>
+      <ActionParameter name="dest_id">dest_x</ActionParameter>
+      <ActionParameter name="session_id">sess_ar</ActionParameter>
+    </Action>
+
+    <Action name="CoseConnection_ar" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_ar</ActionParameter>
+    </Action>
+
+    <!-- tear down -->
+
+    <Action Name="SyncForTearDown" type="SyncComponentAction">
+      <ActionParameter name="component_name">x2</ActionParameter>
+      <ActionParameter name="component_list">su2;td2;x2</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+  </Action>
+
+
+  <Action name="td" type="CompositeAction">
+
+    <Action name="SyncForUse" type="SyncComponentAction">
+      <ActionParameter name="component_name">td</ActionParameter>
+      <ActionParameter name="component_list">su;td;x</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+
+    <!-- all other top level CompositeActions ready for teardown -->
+    <Action name="SyncForTearDown" type="SyncComponentAction">
+      <ActionParameter name="component_name">td2</ActionParameter>
+      <ActionParameter name="component_list">su2;td2;x2</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	<Action name="delete_EP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/Endpoint/M_EP</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="delete_CP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/M_CP</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="delete_M_MP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/M_MP</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="delete_Q_MP" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/QueuePolicy/Q_MP</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="delete_Q" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/Queue/M_Q</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+  </Action>
+
+
+</ImaJmsTest>
+

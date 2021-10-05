@@ -1,0 +1,714 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_setup_001.xml
+
+   Test Category:  JCA Setup
+
+   Test Description:
+   Storage, retrieval, and configuration of JCA administered objects
+   in JNDI with LDAP.
+
+  -->
+<ImaJcaTest name="jca_setup_001">
+  <include>../common/jms_jndi_ldap.xml</include>
+
+  <Action name="CreateJndiObjects" type="CompositeAction">
+
+    <!-- Topic Connection Factory - Port 42000 -->
+    <Action name="Create_JCA_TCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">JCA_TCF</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_JCA_TCF" type="FillIsmProps">
+      <ActionParameter name="structure_id">JCA_TCF</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18492" type="INT"/>
+    </Action>
+
+    <!-- Queue Connection Factory - Port 42001 -->
+    <Action name="Create_JCA_QCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">JCA_QCF</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_JCA_QCF" type="FillIsmProps">
+      <ActionParameter name="structure_id">JCA_QCF</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18493" type="INT"/>
+    </Action>
+
+    <Action name="Create_JCA_Q" type="CreateDestination">
+      <ActionParameter name="structure_id">JCA_Q</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">JCA_Q</ApiParameter>
+    </Action>
+
+    <!-- This queue will be used to receive a message full of log statements
+         created by the MDB and EJBs -->
+    <Action name="Create_log_T" type="CreateDestination">
+      <ActionParameter name="structure_id">JCA_LOG_T</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/log/Topic</ApiParameter>
+    </Action>
+
+
+
+    <!-- Create objects used by testTools_JCAtests.ear -->
+
+    <Action name="Create_JMS_BASE_CF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">JMS_BASE_CF</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_JMS_BASE_CF" type="FillIsmProps">
+      <ActionParameter name="structure_id">JMS_BASE_CF</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18490" type="INT"/>
+    </Action>
+
+    <Action name="Create_JMS_SECURE_CF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">JMS_SECURE_CF</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_JMS_SECURE_CF" type="FillIsmProps">
+      <ActionParameter name="structure_id">JMS_SECURE_CF</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Protocol" value="tcps"/>
+      <ImaProperty name="Port" value="18491" type="INT"/>
+    </Action>
+
+    <!-- Default topics -->
+
+    <Action name="Create_sendTopic" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopic</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopic" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopic</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicSsl" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicSsl</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/ssl/Topic</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicSsl" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicSsl</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/ssl/Topic</ApiParameter>
+    </Action>
+
+    <!-- Default queues -->
+
+    <Action name="Create_sendQueue" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueue</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueue" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueue</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendQueueSsl" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueueSsl</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.ssl.Queue</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueueSsl" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueueSsl</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.ssl.Queue</ApiParameter>
+    </Action>
+
+    <!-- Bean managed transaction topics -->
+
+    <Action name="Create_sendTopic_BMT" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopic_BMT</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/BMT</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopic_BMT" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopic_BMT</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/BMT</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopic_BMTUT" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopic_BMTUT</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/BMTUT</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopic_BMTUT" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopic_BMTUT</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/BMTUT</ApiParameter>
+    </Action>
+    
+    <Action name="Create_sendTopic_DurableBMTUT" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopic_DurableBMTUT</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/DurableBMTUT</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopic_DurableBMTUT" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopic_DurableBMTUT</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/DurableBMTUT</ApiParameter>
+    </Action>
+
+    <!-- Bean managed transaction queues -->
+
+    <Action name="Create_sendQueue_BMT" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueue_BMT</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue.BMT</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueue_BMT" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueue_BMT</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue.BMT</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendQueue_BMTUT" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueue_BMTUT</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue.BMTUT</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueue_BMTUT" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueue_BMTUT</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue.BMTUT</ApiParameter>
+    </Action>
+
+    <!-- Container managed transaction topics -->
+
+    <Action name="Create_sendTopic_ContainerNS" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopic_ContainerNS</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/CMTNS</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopic_ContainerNS" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopic_ContainerNS</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/CMTNS</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopic_ContainerR" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopic_ContainerR</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/CMTR</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopic_ContainerR" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopic_ContainerR</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/CMTR</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopic_Container" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopic_Container</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/CMT</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopic_Container" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopic_Container</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/CMT</ApiParameter>
+    </Action>
+    
+    <Action name="Create_sendTopic_DurableCMTR" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopic_DurableCMTR</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/DurableCMTR</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopic_DurableCMTR" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopic_DurableCMTR</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/DurableCMTR</ApiParameter>
+    </Action>
+
+    <!-- Container managed transaction queues -->
+
+    <Action name="Create_sendQueue_ContainerNS" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueue_ContainerNS</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue.CMTNS</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueue_ContainerNS" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueue_ContainerNS</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue.CMTNS</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendQueue_ContainerR" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueue_ContainerR</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue.CMTR</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueue_ContainerR" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueue_ContainerR</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue.CMTR</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendQueue_Container" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueue_Container</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue.CMT</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueue_Container" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueue_Container</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue.CMT</ApiParameter>
+    </Action>
+
+    <!-- Shared subscription and durable topics -->
+    <Action name="Create_sendSharedNonDurable" type="CreateDestination">
+      <ActionParameter name="structure_id">sendSharedNonDurable</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/shared/nondurable</ApiParameter>
+    </Action>
+
+    <Action name="Create_replySharedNonDurable" type="CreateDestination">
+      <ActionParameter name="structure_id">replySharedNonDurable</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/shared/nondurable</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendSharedNonDurableGlobal" type="CreateDestination">
+      <ActionParameter name="structure_id">sendSharedNonDurableGlobal</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/shared/nondurableGlobal</ApiParameter>
+    </Action>
+
+    <Action name="Create_replySharedNonDurableGlobal" type="CreateDestination">
+      <ActionParameter name="structure_id">replySharedNonDurableGlobal</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/shared/nondurableGlobal</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendSharedDurable" type="CreateDestination">
+      <ActionParameter name="structure_id">sendSharedDurable</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/shared/durable</ApiParameter>
+    </Action>
+
+    <Action name="Create_replySharedDurable" type="CreateDestination">
+      <ActionParameter name="structure_id">replySharedDurable</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/shared/durable</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendSharedDurableGlobal" type="CreateDestination">
+      <ActionParameter name="structure_id">sendSharedDurableGlobal</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/shared/durableGlobal</ApiParameter>
+    </Action>
+
+    <Action name="Create_replySharedDurableGlobal" type="CreateDestination">
+      <ActionParameter name="structure_id">replySharedDurableGlobal</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/shared/durableGlobal</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicJndi" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicJndi</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/jndi</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicJndi" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicJndi</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/jndi</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendQueueJndi" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueueJndi</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue.jndi</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueueJndi" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueueJndi</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue.jndi</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicDurable" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicDurable</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/durable</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicDurable" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicDurable</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/durable</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicClientid" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicClientid</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/clientid</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicClientid" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicClientid</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/clientid</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendQueueClientid" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueueClientid</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue.clientid</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueueClientid" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueueClientid</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue.clientid</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicUserAuth" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicUserAuth</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/userauth/Topic</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicUserAuth" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicUserAuth</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/userauth/Topic</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendQueueUserAuth" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueueUserAuth</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.userauth.Queue</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueueUserAuth" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueueUserAuth</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.userauth.Queue</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicSelector" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicSelector</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/selector</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicSelector" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicSelector</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/selector</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendQueueSelector" type="CreateDestination">
+      <ActionParameter name="structure_id">sendQueueSelector</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">send.Queue.selector</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyQueueSelector" type="CreateDestination">
+      <ActionParameter name="structure_id">replyQueueSelector</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">reply.Queue.selector</ApiParameter>
+    </Action>
+    
+    <Action name="Create_replyMaxMsg" type="CreateDestination">
+      <ActionParameter name="structure_id">replyMaxMsg</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/maxmsg</ApiParameter>
+    </Action>
+    
+    <Action name="Create_sendTopicEnableRB" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicEnableRB</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/enableRB</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicEnableRB" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicEnableRB</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/enableRB</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicCMTNSEnableRB" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicCMTNSEnableRB</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/CMTNSenableRB</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicCMTNSEnableRB" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicCMTNSEnableRB</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/CMTNSenableRB</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicPause" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicPause</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/Pause</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicPause" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicPause</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/Pause</ApiParameter>
+    </Action>
+
+    <Action name="Create_sendTopicClientIDConflict" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicClientIDConflict</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/clientidconflict</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicClientIDConflict" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicClientIDConflict</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/clientidconflict</ApiParameter>
+    </Action>
+    
+    <Action name="Create_sendTopicWildcard" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicWildcard</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/#</ApiParameter>
+    </Action>
+    
+    <Action name="Create_sendTopicWildcardPublish" type="CreateDestination">
+      <ActionParameter name="structure_id">sendTopicWildcardPublish</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/send/Topic/wildcard</ApiParameter>
+    </Action>
+
+    <Action name="Create_replyTopicWildcard" type="CreateDestination">
+      <ActionParameter name="structure_id">replyTopicWildcard</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/reply/Topic/wildcard</ApiParameter>
+    </Action>
+    
+    <Action name="Create_JMSAPIServletTopic" type="CreateDestination">
+      <ActionParameter name="structure_id">JMSAPIServletTopic</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/jmsapi/servlet/topic</ApiParameter>
+    </Action>
+    
+    <Action name="Create_JMSAPIServletQueue" type="CreateDestination">
+      <ActionParameter name="structure_id">JMSAPIServletQueue</ActionParameter>
+      <ActionParameter name="type">queue</ActionParameter>
+      <ApiParameter name="name">jmsapi.servlet.queue</ApiParameter>
+    </Action>
+    
+    <Action name="Create_JMSAPIServletDest" type="CreateDestination">
+      <ActionParameter name="structure_id">JMSAPIServletDest</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">/jmsapi/servlet/dest</ApiParameter>
+    </Action>
+
+    <!-- Store everything in JNDI -->
+
+    <Action name="StoreObjects" type="StoreInJndi">
+      <AdminObject structure_id="JCA_TCF" name="jndi_JCA_TCF"/>
+      <AdminObject structure_id="JCA_QCF" name="jndi_JCA_QCF"/>
+      <AdminObject structure_id="JCA_Q" name="jndi_JCA_Q"/>
+      <AdminObject structure_id="JCA_LOG_T" name="jndi_JCA_LOG_T"/>
+      <AdminObject structure_id="JMS_BASE_CF" name="jndi_JMS_BASE_CF"/>
+      <AdminObject structure_id="JMS_SECURE_CF" name="jndi_JMS_SECURE_CF"/>
+
+      <!-- Default Bean topics -->
+
+      <AdminObject structure_id="sendTopic" name="sendTopic"/>
+      <AdminObject structure_id="replyTopic" name="replyTopic"/>
+      <AdminObject structure_id="sendTopicSsl" name="sendTopicSsl"/>
+      <AdminObject structure_id="replyTopicSsl" name="replyTopicSsl"/>
+
+      <!-- Default Bean queues -->
+
+      <AdminObject structure_id="sendQueue" name="sendQueue"/>
+      <AdminObject structure_id="replyQueue" name="replyQueue"/>
+      <AdminObject structure_id="sendQueueSsl" name="sendQueueSsl"/>
+      <AdminObject structure_id="replyQueueSsl" name="replyQueueSsl"/>
+
+      <!-- Bean Managed transaction bean topics -->
+
+      <AdminObject structure_id="sendTopic_BMT" name="sendTopic_BMT"/>
+      <AdminObject structure_id="replyTopic_BMT" name="replyTopic_BMT"/>
+      <AdminObject structure_id="sendTopic_BMTUT" name="sendTopic_BMTUT"/>
+      <AdminObject structure_id="replyTopic_BMTUT" name="replyTopic_BMTUT"/>
+      <AdminObject structure_id="sendTopic_DurableBMTUT" name="sendTopic_DurableBMTUT"/>
+      <AdminObject structure_id="replyTopic_DurableBMTUT" name="replyTopic_DurableBMTUT"/>
+
+      <!-- Bean Managed Transaction bean queues -->
+
+      <AdminObject structure_id="sendQueue_BMT" name="sendQueue_BMT"/>
+      <AdminObject structure_id="replyQueue_BMT" name="replyQueue_BMT"/>
+      <AdminObject structure_id="sendQueue_BMTUT" name="sendQueue_BMTUT"/>
+      <AdminObject structure_id="replyQueue_BMTUT" name="replyQueue_BMTUT"/>
+
+      <!-- Container managed transaction bean topics -->
+
+      <AdminObject structure_id="sendTopic_ContainerNS" name="sendTopic_ContainerNS"/>
+      <AdminObject structure_id="replyTopic_ContainerNS" name="replyTopic_ContainerNS"/>
+      <AdminObject structure_id="sendTopic_ContainerR" name="sendTopic_ContainerR"/>
+      <AdminObject structure_id="replyTopic_ContainerR" name="replyTopic_ContainerR"/>
+      <AdminObject structure_id="sendTopic_Container" name="sendTopic_Container"/>
+      <AdminObject structure_id="replyTopic_Container" name="replyTopic_Container"/>
+      <AdminObject structure_id="sendTopic_DurableCMTR" name="sendTopic_DurableCMTR"/>
+      <AdminObject structure_id="replyTopic_DurableCMTR" name="replyTopic_DurableCMTR"/>
+
+      <!-- Container managed transaction bean queues -->
+
+      <AdminObject structure_id="sendQueue_ContainerNS" name="sendQueue_ContainerNS"/>
+      <AdminObject structure_id="replyQueue_ContainerNS" name="replyQueue_ContainerNS"/>
+      <AdminObject structure_id="sendQueue_ContainerR" name="sendQueue_ContainerR"/>
+      <AdminObject structure_id="replyQueue_ContainerR" name="replyQueue_ContainerR"/>
+      <AdminObject structure_id="sendQueue_Container" name="sendQueue_Container"/>
+      <AdminObject structure_id="replyQueue_Container" name="replyQueue_Container"/>
+
+      <!-- Shared and durable topics -->
+
+      <AdminObject structure_id="sendSharedNonDurable" name="sendSharedNonDurable"/>
+      <AdminObject structure_id="sendSharedNonDurableGlobal" name="sendSharedNonDurableGlobal"/>
+      <AdminObject structure_id="sendSharedDurable" name="sendSharedDurable"/>
+      <AdminObject structure_id="sendSharedDurableGlobal" name="sendSharedDurableGlobal"/>
+      <AdminObject structure_id="replySharedNonDurable" name="replySharedNonDurable"/>
+      <AdminObject structure_id="replySharedNonDurableGlobal" name="replySharedNonDurableGlobal"/>
+      <AdminObject structure_id="replySharedDurable" name="replySharedDurable"/>
+      <AdminObject structure_id="replySharedDurableGlobal" name="replySharedDurableGlobal"/>
+
+      <AdminObject structure_id="sendTopicDurable" name="sendTopicDurable"/>
+      <AdminObject structure_id="replyTopicDurable" name="replyTopicDurable"/>
+
+      <AdminObject structure_id="sendTopicJndi" name="sendTopicJndi"/>
+      <AdminObject structure_id="replyTopicJndi" name="replyTopicJndi"/>
+
+      <AdminObject structure_id="sendQueueJndi" name="sendQueueJndi"/>
+      <AdminObject structure_id="replyQueueJndi" name="replyQueueJndi"/>
+
+      <AdminObject structure_id="sendTopicSelector" name="sendTopicSelector"/>
+      <AdminObject structure_id="replyTopicSelector" name="replyTopicSelector"/>
+
+      <AdminObject structure_id="sendQueueSelector" name="sendQueueSelector"/>
+      <AdminObject structure_id="replyQueueSelector" name="replyQueueSelector"/>
+
+      <AdminObject structure_id="sendTopicClientid" name="sendTopicClientid"/>
+      <AdminObject structure_id="replyTopicClientid" name="replyTopicClientid"/>
+
+      <AdminObject structure_id="sendQueueClientid" name="sendQueueClientid"/>
+      <AdminObject structure_id="replyQueueClientid" name="replyQueueClientid"/>
+
+      <AdminObject structure_id="sendTopicUserAuth" name="sendTopicUserAuth"/>
+      <AdminObject structure_id="replyTopicUserAuth" name="replyTopicUserAuth"/>
+
+      <AdminObject structure_id="sendQueueUserAuth" name="sendQueueUserAuth"/>
+      <AdminObject structure_id="replyQueueUserAuth" name="replyQueueUserAuth"/>
+      
+      <AdminObject structure_id="replyMaxMsg" name="replyMaxMsg"/>
+      
+      <AdminObject structure_id="sendTopicEnableRB" name="sendTopicEnableRB"/>
+      <AdminObject structure_id="replyTopicEnableRB" name="replyTopicEnableRB"/>
+      
+      <AdminObject structure_id="sendTopicCMTNSEnableRB" name="sendTopicCMTNSEnableRB"/>
+      <AdminObject structure_id="replyTopicCMTNSEnableRB" name="replyTopicCMTNSEnableRB"/>
+
+      <AdminObject structure_id="sendTopicPause" name="sendTopicPause"/>
+      <AdminObject structure_id="replyTopicPause" name="replyTopicPause"/>
+      
+      <AdminObject structure_id="sendTopicClientIDConflict" name="sendTopicClientIDConflict"/>
+      <AdminObject structure_id="replyTopicClientIDConflict" name="replyTopicClientIDConflict"/>
+      <AdminObject structure_id="sendTopicWildcard" name="sendTopicWildcard"/>
+      <AdminObject structure_id="sendTopicWildcardPublish" name="sendTopicWildcardPublish"/>
+      <AdminObject structure_id="replyTopicWildcard" name="replyTopicWildcard"/>
+      
+      <AdminObject structure_id="JMSAPIServletTopic" name="JMSAPIServletTopic"/>
+      <AdminObject structure_id="JMSAPIServletQueue" name="JMSAPIServletQueue"/>
+      <AdminObject structure_id="JMSAPIServletDest" name="JMSAPIServletDest"/>
+      
+    </Action>
+  </Action> <!-- create jndi objects for jca -->
+
+  <!-- now pull the jndi objects from the jdni -->
+  <Action name="Pull_JCA_TCF" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">JCA_TCF</ActionParameter>
+    <ActionParameter name="jndiName">jndi_JCA_TCF</ActionParameter>
+  </Action>
+
+  <Action name="CheckProps_JCA_TCF" type="CheckIsmProps">
+    <ActionParameter name="structure_id">JCA_TCF</ActionParameter>
+    <ChkImaProperty name="Port" value="18492" method="getString"/>
+  </Action>
+
+  <Action name="Pull_JCA_QCF" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">JCA_QCF</ActionParameter>
+    <ActionParameter name="jndiName">jndi_JCA_QCF</ActionParameter>
+  </Action>
+
+  <Action name="CheckProps_JCA_QCF" type="CheckIsmProps">
+    <ActionParameter name="structure_id">JCA_QCF</ActionParameter>
+    <ChkImaProperty name="Port" value="18493" method="getString"/>
+  </Action>
+
+  <Action name="Pull_JCA_Q" type="CreateDestination">
+    <ActionParameter name="structure_id">JCA_Q</ActionParameter>
+    <ActionParameter name="jndiName">jndi_JCA_Q</ActionParameter>
+  </Action>
+
+  <Action name="CheckProps_JCA_Q" type="CheckIsmProps">
+    <ActionParameter name="structure_id">JCA_Q</ActionParameter>
+    <ChkImaProperty name="name" value="JCA_Q" method="getString"/>
+  </Action>
+
+  <Action name="Pull_JCA_LOG_T" type="CreateDestination">
+    <ActionParameter name="structure_id">JCA_LOG_T</ActionParameter>
+    <ActionParameter name="jndiName">jndi_JCA_LOG_T</ActionParameter>
+  </Action>
+
+  <!-- <Action name="CheckProps_JCA_Q" type="CheckIsmProps"> -->
+  <!--   <ActionParameter name="structure_id">JCA_Q</ActionParameter> -->
+  <!--   <ChkImaProperty name="name" value="JCA_Q" method="getString"/> -->
+  <!-- </Action> -->
+</ImaJcaTest>

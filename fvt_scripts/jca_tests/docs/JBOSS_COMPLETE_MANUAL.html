@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>
+			JBOSS 7.1.1 Installation
+		</title>
+	</head>
+	<body>
+		<h1>JBOSS 7.1.1</h1>
+		<ul>
+			<li><a href="#install">Installation</a></li>
+			<li><a href="#conf_db2">Configure DB2</a></li>
+			<li><a href="#conf_ima">Configure IBM MessageSight Resource Adapter</a></li>
+			<li><a href="#conf_obound">Configure JMS Outbound</a></li>
+			<li><a href="#conf_ibound">Configure JMS Inbound (Message Driven Beans)</a></li>
+			<li><a href="#fvt_notes">IMA FVT with JBOSS setup</a></li>
+		</ul>
+		<br/>
+		<h2 id="install">Installation</h2>
+		<ul>
+			<li>
+				Configure your machine to use OpenJDK (JBOSS + JCA modules does NOT work with IBM Java 9).
+				<ol>
+					<li>
+						 Run command: <code>update-alternatives --config java</code>
+					</li>
+					<li>
+						Select the number for <code>/usr/lib/jvm/jre-1.6.0-openjdk.x86_64/bin/java</code>
+					</li>
+				</ol>
+			</li>
+			<li>
+				Download JBOSS 7.1.1 from <code>mar145:/gsacache/tools/jboss-as-7.1.1.Final.zip</code>
+			</li>
+			
+			<li>
+				Unzip into <code>/opt/JBOSS</code>
+			</li>
+			
+			<li>
+				Run <code>chmod +x /opt/JBOSS/bin/*.sh</code>
+			</li>
+			
+			<li>
+				Test JBOSS by starting it by running <code>/opt/JBOSS/bin/standalone.sh</code>
+			</li>
+		</ul>
+		<br/>
+		<h2 id="conf_db2">Configure DB2</h2>
+		<ul>
+			<li>
+				Install DB2 as normal. You will need to copy these jar files to the same machine as JBOSS.
+				<ul>
+					<li><code>db2jcc.jar</code></li>
+					<li><code>db2jcc4.jar</code> (for XA support)</li>
+					<li><code>db2jcc_license_cu.jar</code></li>
+					<li><code>db2jcc_license_cisuz.jar</code> (for Power Linux)</li>
+				</ul>
+			</li>
+			<li>
+				Create a Module for DB2
+				<ol>
+					<li>Create new directory at <code>/opt/JBOSS/modules/com/ibm/db2/main</code></li>
+					<li>Copy the .jar files into that directory</li>
+					<li>Create file in that directory called <code>module.xml</code></li>
+					<li>Fill in <code>module.xml</code> with the module information:
+						<br/>
+						<code><pre>
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;module xmlns="urn:jboss:module:1.1" name="com.ibm.db2"&gt;
+  &lt;resources&gt;
+    &lt;resource-root path="db2jcc4.jar"/&gt;
+    &lt;resource-root path="db2jcc_license_cu.jar"/&gt;
+  &lt;/resources&gt;
+  &lt;dependencies&gt;
+    &lt;module name="javax.api"/&gt;
+    &lt;module name="javax.transaction.api"/&gt;
+  &lt;/dependencies&gt;
+&lt;/module&gt;
+						</pre></code></li>
+					<li>List whichever jar files in the resources that you need</li>
+				</ol>
+			</li>
+			<li>
+				Edit JBOSS Configuration
+				<ol>
+					<li>Open <code>/opt/JBOSS/standalone/configuration/standalone.xml</code></li>
+					<li>Add the following <code>xa-datasource</code> inside of the <code>&lt;datasources&gt;</code> tags:
+					<br/>
+					<code><pre>
+&lt;xa-datasource jndi-name="java:jboss/datasources/YOUR_DB2_JNDI_NAME" pool-name="YOUR_DB2_POOL_JNDI_NAME" enabled="true" use-java-context="true"&gt;
+    &lt;xa-datasource-property name="DriverType"&gt;
+        4
+    &lt;/xa-datasource-property&gt;
+    &lt;xa-datasource-property name="DatabaseName"&gt;
+        YOUR_DB2_DB_NAME
+    &lt;/xa-datasource-property&gt;
+    &lt;xa-datasource-property name="ServerName"&gt;
+        SERVER_ADDRESS
+    &lt;/xa-datasource-property&gt;
+    &lt;xa-datasource-property name="PortNumber"&gt;
+        SERVER_PORT
+    &lt;/xa-datasource-property&gt;
+    &lt;driver&gt;db2jcc4&lt;/driver&gt;
+    &lt;xa-pool&gt;
+        &lt;min-pool-size&gt;1&lt;/min-pool-size&gt;
+        &lt;max-pool-size&gt;50&lt;/max-pool-size&gt;
+        &lt;prefill&gt;true&lt;/prefill&gt;
+    &lt;/xa-pool&gt;
+    &lt;security&gt;
+        &lt;user-name&gt;YOUR_DB2_USERNAME&lt;/user-name&gt;
+        &lt;password&gt;YOUR_DB2_PASSWORD&lt;/password&gt;
+    &lt;/security&gt;
+    &lt;validation&gt;
+        &lt;valid-connection-checker class-name="org.jboss.jca.adapters.jdbc.extensions.db2.DB2ValidConnectionChecker"/&gt;
+        &lt;stale-connection-checker class-name="org.jboss.jca.adapters.jdbc.extensions.db2.DB2StaleConnectionChecker"/&gt;
+        &lt;exception-sorter class-name="org.jboss.jca.adapters.jdbc.extensions.db2.DB2ExceptionSorter"/&gt;
+    &lt;/validation&gt;
+&lt;/xa-datasource&gt;
+					</pre></code>
+					</li>
+					<li>Replace <code>YOUR_DB2_JNDI_NAME</code>,
+					            <code>YOUR_DB2_POOL_JNDI_NAME</code>,
+					            <code>YOUR_DB2_DB_NAME</code>,
+					            <code>SERVER_ADDRESS</code>,
+					            <code>SERVER_PORT</code>,
+					            <code>YOUR_DB2_USERNAME</code>,
+					            <code>YOUR_DB2_PASSWORD</code> with the appropriate information.
+					</li>
+					<li>Add the following driver inside of the <code>&lt;drivers&gt;</code> tags:
+					<br/>
+						<code><pre>
+&lt;driver name="db2jcc4" module="com.ibm.db2"&gt;
+    &lt;driver-class&gt;com.ibm.db2.jcc.DB2Driver&lt;/driver-class&gt;
+    &lt;xa-datasource-class&gt;com.ibm.db2.jcc.DB2XADataSource&lt;/xa-datasource-class&gt;
+&lt;/driver&gt;
+						</pre></code>
+					</li>
+				</ol>
+			</li>
+			<li>Start JBOSS. If everything is configured correctly, you will see this line in the startup log:
+				<br/>
+				<code>13:57:55,509 INFO  [org.jboss.as.connector.subsystems.datasources] (MSC service thread 1-7) JBAS010400: Bound data source [java:jboss/datasources/TheDB2DB]</code>
+			</li>
+		</ul>
+		<br/>
+		<h2 id="conf_ima">Configure IBM MessageSight Resource Adapter</h2>
+		<ul>
+			<li>
+				Create a module for the Resource Adapter
+				<ol>
+					<li>Create directory <code>/opt/JBOSS/modules/com/ibm/ima/main</code></li>
+					<li>Create a file called <code>module.xml</code> in that directory</li>
+					<li>Put the following definition in that file:
+					<br/>
+					<code><pre>
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;module xmlns="urn:jboss:module:1.1" name="com.ibm.ima"&gt;
+  &lt;resources&gt;
+  &lt;/resources&gt;
+  &lt;dependencies&gt;
+    &lt;module name="javax.api"/&gt;
+    &lt;module name="javax.transaction.api"/&gt;
+    &lt;module name="javax.jms"/&gt;
+  &lt;/dependencies&gt;
+&lt;/module&gt;
+					</pre></code>
+					</li>
+				</ol>
+			</li>
+			<li>
+				Edit JBOSS configuration
+				<ol>
+					<li>Open <code>/opt/JBOSS/standalone/standalone.xml</code></li>
+					<li>Delete the line <code>&lt;subsystem xmlns="urn:jboss:domain:resource-adapters:1.0"/&gt;</code></li>
+					<li>In its place, put the following resource adapter subsystem:
+					<br/>
+						<code><pre>
+&lt;subsystem xmlns="urn:jboss:domain:resource-adapters:1.0"&gt;
+	&lt;resource-adapters&gt;
+		&lt;resource-adapter&gt;
+			&lt;archive&gt;
+				ima.jmsra.rar
+			&lt;/archive&gt;
+			&lt;transaction-support&gt;XATransaction&lt;/transaction-support&gt;
+			&lt;connection-definitions&gt;
+				<i>(see next steps to configure connection factories)</i>
+			&lt;/connection-definitions&gt;
+		&lt;/resource-adapter&gt;
+	&lt;/resource-adapters&gt;
+&lt;/subsystem&gt;						
+						</pre></code>
+					</li>
+					<li>Replace <code>YOUR_CONNECTION_FACTORY_JNDI_NAME</code>,
+							    <code>YOUR_CONNECTION_FACTORY_POOL_JNDI_NAME</code> with your own information.
+					</li>
+			 	</ol>
+			</li>
+			<li>Deploy <code>ima.jmsra.rar</code>
+				<ol>
+					<li>Copy <code>ima.jmsra.rar</code> into <code>/opt/JBOSS/standalone/deployments</code>
+					<li>Touch (create) a file called <code>ima.jmsra.rar.dodeploy</code> in <code>/opt/JBOSS/standalone/deployments</code>
+					<li>Start JBOSS. If everything is configured correctly, you should see this in the startup log:
+						<br/>
+						<code>16:06:15,705 INFO  [org.jboss.as.server] (DeploymentScanner-threads - 2) JBAS018559: Deployed "ima.jmsra.rar"</code>
+					</li>
+				</ol>
+			</li>
+		</ul>
+		<br/>
+		<h2 id="conf_obound">Configure JMS Outbound</h2>
+		<ul>
+			<li>
+				Edit JBOSS configuration
+				<ol>
+					<li>Open <code>/opt/JBOSS/standalone/standalone.xml</code></li>
+					<li id="add_cf">Add your connection definitions to the <code>ima.jmsra.rar</code> resource adapter definition (inside of the <code>&lt;connection-definitions&gt;</code> tag)</li>
+					<li>For example,
+						<br/>
+						<code><pre>
+&lt;connection-definition class-name="com.ibm.ima.ra.outbound.ImaManagedConnectionFactory" jndi-name="java:/eis/YOUR_CF" pool-name="YOUR_CF_POOL"&gt;
+	&lt;config-property name="port"&gt;
+		YOUR_SERVER_PORT
+	&lt;/config-property&gt;
+	&lt;config-property name="server"&gt;
+		YOUR_SERVER_ADDRESS
+	&lt;/config-property&gt;
+	&lt;config-property name="protocol"&gt;
+		tcp
+	&lt;/config-property&gt;
+&lt;/connection-definition&gt;					
+						</pre></code>
+					</li>
+					<li>Replace <code>YOUR_CF</code>,
+					            <code>YOUR_CF_POOL</code>,
+					            <code>YOUR_SERVER_PORT</code>,
+					            <code>YOUR_SERVER_ADDRESS</code> with your own information.
+					</li>
+				</ol>
+			</li>
+			<li>Use your connection in an outbound scenario. For example, this could be in a WebServlet:
+				<br/>
+				<code><pre>
+try {
+	ConnectionFactory CF = (ConnectionFactory) lookupCF("java:/eis/YOUR_CF");
+	Connection c = CF.createConnection();
+	Session s = c.createSession(false, Session.AUTO_ACKNOWLEDGE);
+	Topic t = s.createTopic("/whatever/topic/you/want");
+	MessageProducer p = s.createProducer(t);
+	Message m = s.createTextMessage("Hello World");
+	p.send(m);
+	c.close();
+} catch(JMSException e) {
+	e.printStackTrace();
+	return;
+} catch(NamingException e) {
+	e.printStackTrace();
+	return;
+}				
+				</pre></code>
+			</li>
+		</ul>
+		<br/>
+		<h2 id="conf_ibound">Configure JMS Inbound (Message Driven Beans)</h2>
+		<ul>
+			<li>Configure your ConnectionFactory(s) as shown <a href="#add_cf">above</a></li>
+			<li>Create a Message Driven Bean (MDB)
+				<br/>
+				For example, this MDB will receive a text message and print it out:
+				<code><pre>
+package com.ibm.ima.test.jboss;
+
+import javax.ejb.ActivationConfigProperty;
+import javax.ejb.MessageDriven;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.TextMessage;
+
+import org.jboss.ejb3.annotation.ResourceAdapter;
+
+@MessageDriven(
+		activationConfig = {
+				@ActivationConfigProperty(propertyName = "destinationType", propertyValue = "javax.jms.Topic"), 
+				@ActivationConfigProperty(propertyName = "destination", propertyValue = "/fun/mdb"),
+				@ActivationConfigProperty(propertyName = "subscriptionDurablility", propertyValue="NonDurable"),
+				@ActivationConfigProperty(propertyName = "subscriptionShared", propertyValue="NonShared"),
+				@ActivationConfigProperty(propertyName = "server", propertyValue = "10.10.4.70"),
+				@ActivationConfigProperty(propertyName = "port", propertyValue= "16102"),
+				@ActivationConfigProperty(propertyName = "traceLevel", propertyValue= "5"),
+				@ActivationConfigProperty(propertyName = "clientMessageCache", propertyValue="1"),
+				@ActivationConfigProperty(propertyName = "concurrentConsumers", propertyValue="1")
+		}, 
+		mappedName = "/fun/mdb")
+@ResourceAdapter(value="ima.jmsra.rar")
+public class FunMDB implements MessageListener {
+    public FunMDB() {}
+
+    public void onMessage(Message message) {
+    	log("&gt;&gt; onMessage()");
+    	if (!(message instanceof TextMessage)) {
+    		log("Error, message is not a TextMessage");
+    		return;
+    	}
+    	TextMessage tm = (TextMessage) message;
+    	try {
+			log("message: " + tm.getText());
+		} catch (JMSException e) {
+			log("" + e);
+		}
+    	log("&lt;&lt; onMessage()");
+    }
+    
+    private static void log(String s) {
+    	System.out.println(s);
+    }
+}				
+				</pre></code>
+			</li>
+			<li>Deploy your MDB onto jboss
+				<ul>
+					<li>Copy your <code>[mdbfilename].ear</code> to <code>/opt/JBOSS/standalone/deployments</code>
+					<li>Touch (create) the file <code>/opt/JBOSS/standalone/deployments/[mdbfilename].ear.dodeploy</code>
+					<li>Start JBOSS using the command: <code>/opt/JBOSS/bin/standalone.sh -c standalone-full.xml</code>
+				</ul>
+			</li>
+		</ul>
+		<br/>
+		<h2 id="fvt_notes">IMA FVT with JBOSS setup</h2>
+		<ul>
+			<li>
+				Hello FVT
+			</li>
+		</ul>
+	</body>
+</html>

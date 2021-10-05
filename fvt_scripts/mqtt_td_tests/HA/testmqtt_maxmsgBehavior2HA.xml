@@ -1,0 +1,1137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: testmqtt_maxmsgBehavior2HA
+
+   Test Category: MQTT HA MaxMessageBehavior
+
+   Test Description:
+   See what happens with slow subscribers and MaxMessage/DiscardMessage settings
+   in HA at QoS=2.
+
+   A few odd things about this test.  The goal is to fill the engine's internal 
+   queue, and get things going into a mode where the engine is discarding the 
+   oldest messages in the queue, and then replacing with newer messages. 
+    
+   This test has three publishers and three subscibers as follows: 
+   
+   All three subscribers become active (cleanSession=0, durable, shared).
+   
+   Sub1 - is slow. It has a delay of 1 second every 30 messages. MaxMessages is 100
+   Sub2 - is slow. It has a delay of 1 second every 30 messages. MaxMessages is 100
+   Sub3 - is slow. It has a delay of 1 second every 30 messages.  MaxMessages is 100 
+   
+   The three publishers start sending 1,200 messages each and Pub4 sends 900 messages.
+   
+   The slow consumers run until they have received expected messages. 
+   
+   They then disconnect. And at that point, the engine queue MAY OR MAY NOT
+   discard any queued messages. Usually it does, maybe because of timing 
+   in the disconnect between the transport layer and the engine.  
+   
+   The PubSub1/PubSub2/Pub3 then send another 1000 messages.  This will cause a 
+   constant discarding of oldest messages to make room for newer messages. At the
+   time the test was written, the engine was discard 5% of the MaxMessage size when
+   it found that the queue full.  
+   
+   Then PubSub1 sends 3000 messages with a specific content. This should result in 
+   a queue of messages that is between 95% of the MaxMessage size, and the MaxMessage
+   size plus about 39. At this time, In-flight messages are still in the queue ready for
+   delivering. The exact number of In-flight messages depend on when the subscribers got 
+   disconnected. The In-flight default setting for a Pub client is 10 and transport out-bound 
+   buffer is 128 per connection. 
+   
+   Once three subscribers reconnect, the number of In-flight messages each sub can get are really
+   depends on the mqtt fairness algorithm and not controlled by the subscribers. To verify the messages
+   received by subs has the specific content type, Pub3 will continue to send up to 1000 messages
+   till all subscribers verify they get the messages with expected content. 
+   
+   Requires policy_config.cli setupMM (Endpoint MQTTMMEndpoint17 Port=29317)
+   
+   The searchLogs for this test allows the subscriptions to go somewhat above max messages.
+   	 buffered msg HWM = [1-2][0-9][0-9] (originally allowed 16[0-9] (between 160 and 169) but it was 
+   	   possible to get all the way above 200 on slower systems.
+   	 buffered msg HWM % = 1[0-5][0-9].[0-9] (originally allowed 10[0-2] (between 100 and 102%))
+   
+  -->
+  
+<IsmWSTest name="testmqtt_maxmsgBehavior2HA">
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_maxmsgBehavior2HA</solution>
+    </SyncClient>
+  
+    <Action name="PubSub1" type="CompositeAction">
+
+	    <Action name="CreatePubConnection1" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server.xml</include>
+	        <include>../common/MQTT_servers.xml</include>
+	        <ApiParameter name="clientId">mqttslow_Pub1_clientid</ApiParameter>
+	        <ApiParameter name="port">29317</ApiParameter>
+	        <ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	
+	    <Action name="CreateSubConnection1" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con2</ActionParameter>
+	        <ActionParameter name="connection_id">CF2</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_servers.xml</include>
+	        <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">mqttslow01_clientid</ApiParameter>
+	        <ApiParameter name="port">29317</ApiParameter>
+	        <ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+	        <ApiParameter name="cleanSession">false</ApiParameter>
+	        <ActionParameter name="messageDelayMS">1000</ActionParameter>
+	        <ActionParameter name="msgNodelayCount">30</ActionParameter>
+	        <ApiParameter name="QoS">2</ApiParameter>
+	    </Action>	  
+	
+	    <Action name="CreateMessage" type="CreateMessage">
+	        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <ApiParameter name="msgType">TEXT</ApiParameter>
+	        <ApiParameter name="payload">TEXT: MQTTMAXMSG test content 1 make it BIIIIIIIIIIIIIIIIIGGGGGGGGGGGGGGGGGGEEEEEEEEEEEEEEEEERRRRRRRRRRRRRRRR:  </ApiParameter>
+	        <ActionParameter name="incrementing">true</ActionParameter>
+	    </Action>
+	
+	    <Action name="Subscribe" type="Subscribe">
+	        <ActionParameter name="connection_id">CF2</ActionParameter>
+	        <ApiParameter name="topic">$SharedSubscription/MQTTMM_Sub02//MM/Max02</ApiParameter>
+	        <ApiParameter name="QoS">2</ApiParameter>
+	    </Action>
+	
+	    <!-- Action name="CheckSubCreated_1a" type="ShellAction">
+	        <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=MQTTMM_Sub02 ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="print_result">true</ActionParameter>
+	    </Action -->
+
+		<Action name="CheckSubCreated_1a" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>       	
+	
+	    <Action name="sync_components_1a" type="SyncComponentAction">
+	        <ActionParameter name="component_name">ps1a</ActionParameter>
+	        <ActionParameter name="component_list">ps1a;ps2a;s2a;ps3a</ActionParameter>
+	        <ActionParameter name="timeout">90000</ActionParameter>
+	    </Action>
+	
+	    <Action name="CompositeReceive" type="CompositeAction" repeat="100" atleast="50">
+	        <Action name="ReceiveMessage" type="ReceiveMessage">
+	            <ActionParameter name="connection_id">CF2</ActionParameter>
+	            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+	            <ActionParameter name="waitTime">10000</ActionParameter>
+	        </Action>
+	    </Action>
+	
+	    <!-- Action name="ShowSubAfterSlowconsumer" type="ShellAction">
+	        <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription</ActionParameter>
+	        <ActionParameter name="print_result">true</ActionParameter>
+	    </Action -->	
+	    
+	    <Action name="ShowSubAfterSlowconsumer" type="RestAPI">
+			<ActionParameter name="structureID">stat_output_SC</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	
+	    <Action name="compareSubAfterSlowconsumer" type="CompareREST">
+	        <ActionParameter name="structureID">stat_output_SC</ActionParameter>
+	        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+	        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+	        <ActionParameter name="subObjectName">MQTTMM_Sub02</ActionParameter>
+	        <ObjectProperty name="IsDurable" value="true"/>
+	        <ObjectProperty name="IsShared" value="true"/>
+	    </Action>					
+	
+	    <Action name="CompositePublish" type="CompositeAction" thread="3" repeat="1200" repeat_interval="0">
+	    <dependsOn action_id="sync_components_1a" interval="0"/>
+	        <Action name="SendMessage_a" type="SendMessage" thread="3">
+	            <ActionParameter name="connection_id">CF1</ActionParameter>
+	            <ActionParameter name="message_id">txmsg1</ActionParameter>
+	            <ActionParameter name="topic">/MM/Max02</ActionParameter>
+	            <ActionParameter name="QoS">2</ActionParameter>
+	        </Action>
+	    </Action>
+	
+	    <Action name="ShowSubAfterPublish" type="RestAPI" thread="3">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>       	
+	
+	    <Action name="sync_components_beforeRestart" type="SyncComponentAction" thread="3">
+	        <dependsOn action_id="ShowSubAfterSlowconsumer" interval="0"/>
+	        <ActionParameter name="component_name">ps1bRestart</ActionParameter>
+	        <ActionParameter name="component_list">ps1bRestart;ps2bRestart;ps3bRestart</ActionParameter>
+	        <ActionParameter name="timeout">90000</ActionParameter>
+	    </Action>
+	
+	    <!--  Crash imaserver immediately after PubSub1 finishes sending. -->
+	    <Action name="CrashServer" type="ShellAction" thread="3">
+	        <dependsOn action_id="ShowSubAfterSlowconsumer" interval="0"/>
+	        <ActionParameter name="command">python ../scripts/haFunctions.py -a stopPrimary -f stopPrimaryMMBHA02.log</ActionParameter>
+	        <ActionParameter name="print_result">true</ActionParameter>
+	    </Action>
+	
+	    <Action name="sync_components_restartComplete" type="SyncComponentAction" thread="3">
+	        <ActionParameter name="component_name">ps1Restart</ActionParameter>
+	        <ActionParameter name="component_list">ps1Restart;ps2Restart;s2Restart;ps3Restart</ActionParameter>
+	        <ActionParameter name="timeout">90000</ActionParameter>
+	    </Action>
+	
+	    <Action name="CloseConnectionAfterCrash" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF2</ActionParameter>
+	    </Action>
+
+	    <Action name="ShowSubAfterDisconnect1" type="RestAPI">
+	        <dependsOn action_id="sync_components_restartComplete" />
+	        <dependsOn action_id="ShowSubAfterSlowconsumer"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>       
+	
+	    <Action name="sync_components_1b" type="SyncComponentAction">
+	        <ActionParameter name="component_name">ps1b</ActionParameter>
+	        <ActionParameter name="component_list">ps1b;ps2b;s2b;ps3b</ActionParameter>
+	        <ActionParameter name="timeout">90000</ActionParameter>
+	    </Action>		  
+	
+	    <Action name="WaitForReconnect" type="WaitForReconnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <ActionParameter name="waitTime">120</ActionParameter>
+	    </Action>
+	
+	    <Action name="CreateMessage_3a" type="CreateMessage">
+	        <ActionParameter name="structure_id">txmsg3</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <ApiParameter name="msgType">TEXT</ApiParameter>
+	        <ApiParameter name="payload">TEXT: MQTTslow02 test content 3 - these are the NEW messages:  </ApiParameter>
+	        <ActionParameter name="incrementing">true</ActionParameter>
+	    </Action>
+	
+	    <Action name="CreateMessage_3b" type="CreateMessage">
+	        <ActionParameter name="structure_id">txmsg3b</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <ApiParameter name="msgType">TEXT</ApiParameter>
+	        <ApiParameter name="payload">TEXT: MQTTslow02 test content 3b - these are the NEWEST messages:  </ApiParameter>
+	        <ActionParameter name="incrementing">true</ActionParameter>
+	    </Action>
+	
+	    <!-- These messages should cause continual replacement on the queue because the
+	    subscriber is disconnected while they are sent. Each time the publish 
+	    finds that there are MaxMessages number (a full queue) it should 
+	    delete the oldest, and then publish the newest.  -->
+	    <Action name="CompositePublish_3" type="CompositeAction" repeat="1000" repeat_interval="0">
+	        <Action name="SendMessage_a" type="SendMessage">
+	            <ActionParameter name="connection_id">CF1</ActionParameter>
+	            <ActionParameter name="message_id">txmsg3</ActionParameter>
+	            <ActionParameter name="topic">/MM/Max02</ActionParameter>
+	            <ActionParameter name="QoS">2</ActionParameter>
+	        </Action>
+	    </Action>
+	
+	    <Action name="ShowSubAfterPublishtoDisconnectedClient" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>     
+	
+	    <!-- Make sure the other publisher is done sending to the topic, so we 
+	    can add some messages of a known content at the back of the queue. -->   
+	    <Action name="sync_components_2cSortOf" type="SyncComponentAction">
+	        <ActionParameter name="component_name">ps1cA</ActionParameter>
+	        <ActionParameter name="component_list">ps1cA;ps2c;ps3c</ActionParameter>
+	        <ActionParameter name="timeout">90000</ActionParameter>
+	    </Action>	  	  
+	
+	    <!-- These are the messages will also cause continual replacement on 
+	    the queue, but they are that last to be sent and should be the 
+	    ones in the queue when the subscribers reconnect -->
+	    <Action name="CompositePublish_3b" type="CompositeAction" repeat="1500" repeat_interval="0">
+	        <Action name="SendMessage_3b" type="SendMessage">
+	            <ActionParameter name="connection_id">CF1</ActionParameter>
+	            <ActionParameter name="message_id">txmsg3b</ActionParameter>
+	            <ActionParameter name="topic">/MM/Max02</ActionParameter>
+	            <ActionParameter name="QoS">2</ActionParameter>
+	        </Action>
+	    </Action> 
+	
+	    <Action name="ShowSubAfterPublishtoDisconnectedClient2" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   	   
+	
+	    <Action name="CloseConnection_3" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+	
+	    <Action name="sync_components_2c" type="SyncComponentAction">
+	        <ActionParameter name="component_name">ps1c</ActionParameter>
+	        <ActionParameter name="component_list">ps1c;ps2c;s2c;ps3c</ActionParameter>
+	        <ActionParameter name="timeout">60000</ActionParameter>
+	    </Action>	  
+	
+            <Action name="CreateSubConnection2" type="CreateConnection">
+                <ActionParameter name="structure_id">Con2</ActionParameter>
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <include>../common/ConnectionType.xml</include>
+                <include>../common/MQTT_servers.xml</include>
+                <include>../common/MQTT_server.xml</include>
+                <ApiParameter name="clientId">mqttslow01_clientid</ApiParameter>
+                <ApiParameter name="port">29317</ApiParameter>
+                <ApiParameter name="protocol">mqtt</ApiParameter>
+                <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+                <ApiParameter name="cleanSession">false</ApiParameter>
+                <ActionParameter name="messageDelayMS">1000</ActionParameter>
+                <ActionParameter name="msgNodelayCount">30</ActionParameter>
+                <ApiParameter name="QoS">2</ApiParameter>
+            </Action>	  
+
+	    <Action name="ShowSubAfterLastConnect" type="RestAPI" thread="7">
+                <dependsOn action_id="CreateSubConnection2"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>  
+	
+	    <!-- there should be about 130 messages waiting + InFlight messages 
+	    (the outbound msg buffer is 128 per connection). 
+	    The number is indeterminate  because exactly what happens with an overfull queue is a bit
+	    mushy. It might delete 5% immediately, it might fail to get a lock and store the message until
+	    it can get the lock to delete 5%.  get 32 in case all the InFlight messages received by one sub--> 
+	    <!-- The first 8 to 12 messages are likely from In-flight messages -->
+	    <Action name="CompositeReceive_1b" type="CompositeAction" repeat="128" repeat_interval="0"> 
+                <dependsOn action_id="CreateSubConnection2"/>
+	        <Action name="ReceiveMessage_1b" type="ReceiveMessage">
+	            <ActionParameter name="connection_id">CF2</ActionParameter>
+	            <ActionParameter name="structure_id">rxmsg3b</ActionParameter>
+	            <ActionParameter name="waitTime">10000</ActionParameter>
+	        </Action>
+	    </Action>
+	
+	    <!-- check the messages in the queue are the newest -->
+	    <Action name="CompositeReceive_1c" type="CompositeAction" repeat="5" atleast="1" repeat_interval="0">
+	        <dependsOn action_id="CompositeReceive_1b" interval="0"/> 
+	        <Action name="ReceiveMessage_1c" type="ReceiveMessage">
+	            <ActionParameter name="connection_id">CF2</ActionParameter>
+	            <ActionParameter name="structure_id">rxmsg3b</ActionParameter>
+	            <ActionParameter name="waitTime">10000</ActionParameter>
+	        </Action>
+	
+            <Action name="CheckMessagea1b" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg3b</ActionParameter>
+                <ActionParameter name="compareBodyStart">TEXT: MQTTslow02 test content 3b - these are the NEWEST messages</ActionParameter>
+            </Action>
+	    </Action>
+	
+	    <Action name="ShowSubAfterlastReceive" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   	  
+	
+	    <Action name="sync_components_done" type="SyncComponentAction">
+	        <ActionParameter name="component_name">ps1d</ActionParameter>
+	        <ActionParameter name="component_list">ps1d</ActionParameter>
+	        <ActionParameter name="timeout">90000</ActionParameter>
+	    </Action>	
+
+	    <Action name="CloseConnectionSub_1b" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF2</ActionParameter>
+	    </Action>
+	
+	    <!--  This CreateConnection will clear out any old client info -->
+	    <Action name="CreateConnectionClean" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con2clear</ActionParameter>
+	        <ActionParameter name="connection_id">CF2clear</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_servers.xml</include>
+	        <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">mqttslow04_clientid</ApiParameter>
+	        <ApiParameter name="port">29317</ApiParameter>
+	        <ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionClean" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF2clear</ActionParameter>
+	    </Action>  
+
+        <!-- Action name="Start1" type="ShellAction" delay="1000">
+            <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver start</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action -->
+	
+    </Action>
+
+    <!-- Process number 2. A subscriber with queue size 11,111 --> 
+    <Action name="Sub2" type="CompositeAction">
+
+        <Action name="CreateSub2aConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">ConSub2</ActionParameter>
+            <ActionParameter name="connection_id">CF1_ConSub2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow02_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="keepAlive">10</ApiParameter>
+            <ActionParameter name="messageDelayMS">1000</ActionParameter>
+            <ActionParameter name="msgNodelayCount">30</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>	  
+
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CF1_ConSub2</ActionParameter>
+            <ApiParameter name="topic">$SharedSubscription/MQTTMM_Sub02//MM/Max02</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="CheckSubCreated_2a" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   
+
+        <Action name="sync_components_2a" type="SyncComponentAction">
+            <ActionParameter name="component_name">s2a</ActionParameter>
+            <ActionParameter name="component_list">ps1a;ps2a;s2a;ps3a</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>	  
+
+        <Action name="ReceiveMessageSub2" type="ReceiveMessage" repeat="100" atleast="50" repeat_interval="0">
+        <ActionParameter name="connection_id">CF1_ConSub2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">10000</ActionParameter>
+        </Action>
+
+        <!--  Somewhere around here the server connection will die -->
+        <Action name="sync_components_restartComplete" type="SyncComponentAction">
+            <ActionParameter name="component_name">s2Restart</ActionParameter>
+            <ActionParameter name="component_list">ps1Restart;ps2Restart;s2Restart;ps3Restart</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnectionAfterCrash" type="CloseConnection">
+        	<dependsOn action_id="sync_components_restartComplete" interval="10000"/>
+            <ActionParameter name="connection_id">CF1_ConSub2</ActionParameter>
+        </Action>
+
+        <Action name="ShowSub2Afterconsumer" type="RestAPI">
+            <dependsOn action_id="ReceiveMessageSub2"/>
+			<ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   	
+
+        <Action name="sync_components_2b" type="SyncComponentAction">
+            <ActionParameter name="component_name">s2b</ActionParameter>
+            <ActionParameter name="component_list">ps1b;ps2b;s2b;ps3b</ActionParameter>
+            <ActionParameter name="timeout">180000</ActionParameter>
+        </Action>
+
+        <Action name="ShowSub2AfterDisconnect1" type="RestAPI" >
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   	
+
+        <!-- In mar454,mar393 fvt env, it may take 7 minutes for Sub2 to wait -->
+        <Action name="sync_components_2c" type="SyncComponentAction">
+            <ActionParameter name="component_name">s2c</ActionParameter>
+            <ActionParameter name="component_list">ps1c;ps2c;s2c;ps3c</ActionParameter>
+            <ActionParameter name="timeout">180000</ActionParameter>
+        </Action>	  
+
+        <Action name="CreateSub2aConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">ConSub2</ActionParameter>
+            <ActionParameter name="connection_id">CF1_ConSub2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow02_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="keepAlive">10</ApiParameter>
+            <ActionParameter name="messageDelayMS">1000</ActionParameter>
+            <ActionParameter name="msgNodelayCount">30</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="ShowSubAfterLastConnect" type="RestAPI" thread="8">
+            <dependsOn action_id="CreateSub2aConnection2" interval="0"/>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>     
+
+        <!-- there should be about 130 messages waiting + InFlight messages
+        (the outbound msg buffer is 128 per connection). The number is
+        indeterminate  because exactly what happens with an overfull queue is a bit
+        mushy. It might delete 5% immediately, it might fail to get a lock and store the message until
+        it can get the lock to delete 5%. get 32 in case all the InFlight messages received by one sub-->
+
+        <!-- The first 8 to 12 messages are likely from In-flight messages -->
+        <Action name="CompositeReceive_2" type="CompositeAction" repeat="128" repeat_interval="0"> 
+            <dependsOn action_id="CreateSub2aConnection2" interval="0"/>
+            <Action name="ReceiveMessage_2" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1_ConSub2</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg3b</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+        </Action>
+
+        <!-- check the messages in the queue are the newest one-->
+        <Action name="CompositeReceive_3" type="CompositeAction" repeat="5" atleast="1" repeat_interval="0">
+            <dependsOn action_id="CompositeReceive_2" interval="0"/> 
+            <Action name="ReceiveMessage_3" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1_ConSub2</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg2b</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+
+            <Action name="CheckMessage2" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg2b</ActionParameter>
+                <ActionParameter name="compareBodyStart">TEXT: MQTTslow02 test content 3b - these are the NEWEST messages</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="ShowSubAfterlastReceive" type="RestAPI">
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   	  
+
+        <Action name="sync_components_done" type="SyncComponentAction">
+            <ActionParameter name="component_name">s2d</ActionParameter>
+            <ActionParameter name="component_list">s2d</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>	
+
+        <Action name="CloseConnection_2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1_ConSub2</ActionParameter>
+        </Action>
+
+        <!--  This CreateConnection will clear out any old client info -->
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2clear</ActionParameter>
+            <ActionParameter name="connection_id">CF2clear</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow02_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="keepAlive">10</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2clear</ActionParameter>
+        </Action>  
+
+    </Action>
+
+
+    <Action name="PubSub2" type="CompositeAction">
+        <Action name="CreatePub2Connection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow_Pub2_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CreateSub2Connection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow03_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ActionParameter name="messageDelayMS">1000</ActionParameter>
+            <ActionParameter name="msgNodelayCount">30</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>	  
+
+        <!-- This publisher is going to send some larger messages. --> 
+        <Action name="CreateRandomMessage" type="CreateRandomMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="length">129</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+
+        <!-- This publisher is going to send some larger messages. --> 
+        <Action name="CreateRandomMessage2" type="CreateRandomMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="length">85</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>    
+
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ApiParameter name="topic">$SharedSubscription/MQTTMM_Sub02//MM/Max02</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="CheckSubCreated_2a" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   
+        <Action name="sync_components_2a" type="SyncComponentAction">
+            <ActionParameter name="component_name">ps2a</ActionParameter>
+            <ActionParameter name="component_list">ps1a;ps2a;s2a;ps3a</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeReceive" type="CompositeAction" repeat="100" atleast="50" >
+            <Action name="ReceiveMessage" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="ShowSubAfterSlowconsumer" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   		
+
+        <Action name="CompositePublish" type="CompositeAction" thread="3" repeat="1200"  repeat_interval="0">
+            <dependsOn action_id="sync_components_2a"/>
+            <Action name="SendMessage_a" type="SendMessage" thread="3"  interval="0">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/MM/Max02</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="sync_components_beforeRestart" type="SyncComponentAction" thread="3">
+            <ActionParameter name="component_name">ps2bRestart</ActionParameter>
+            <ActionParameter name="component_list">ps1bRestart;ps2bRestart;ps3bRestart</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>
+	
+        <Action name="sync_components_restartComplete" type="SyncComponentAction" thread="3">
+            <ActionParameter name="component_name">ps2Restart</ActionParameter>
+            <ActionParameter name="component_list">ps1Restart;ps2Restart;s2Restart;ps3Restart</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnectionAfterCrash" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+
+        <Action name="ShowSubAfterPublish" type="RestAPI" thread="3">
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   
+
+        <!--  Somewhere around here the server connection will die -->
+
+        <Action name="ShowSubAfterDisconnect1" type="RestAPI">
+            <dependsOn action_id="sync_components_restartComplete"/>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   
+
+        <Action name="sync_components_1b" type="SyncComponentAction">
+            <ActionParameter name="component_name">ps2b</ActionParameter>
+            <ActionParameter name="component_list">ps1b;ps2b;s2b;ps3b</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>		  
+
+        <Action name="WaitForReconnect" type="WaitForReconnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="waitTime">120</ActionParameter>
+        </Action>
+
+        <!-- These messages should cause continual replacement on the queue because the
+        subscriber is disconnected while they are sent. Each time the publish 
+        finds that there are MaxMessages number (a full queue) it should 
+        delete the oldest, and then publish the newest.  -->
+        <Action name="CompositePublish_3" type="CompositeAction" repeat="1000" repeat_interval="0">
+            <Action name="SendMessage_a" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg2</ActionParameter>
+                <ActionParameter name="topic">/MM/Max02</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="ShowSubAfterPublishtoDisconnectedClient" type="RestAPI">
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   
+
+        <Action name="CloseConnection_3" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_2c" type="SyncComponentAction">
+            <ActionParameter name="component_name">ps2c</ActionParameter>
+            <ActionParameter name="component_list">ps1c;ps2c;s2c;ps3c</ActionParameter>
+            <ActionParameter name="timeout">180000</ActionParameter>
+        </Action>	  
+
+        <Action name="CreateSub2Connection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow03_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ActionParameter name="messageDelayMS">1000</ActionParameter>
+            <ActionParameter name="msgNodelayCount">30</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="ShowSubAfterLastConnect" type="RestAPI" thread="9">
+            <dependsOn action_id="CreateSub2Connection2"/>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   	  
+
+        <!-- there should be about 130 messages + InFlight messages waiting
+        (the outbound msg buffer is 128 per connection). The number is 
+        indeterminate  because exactly what happens with an overfull queue is a bit
+        mushy. It might delete 5% immediately, it might fail to get a lock and store the message until
+        it can get the lock to delete 5%.  get 32 sn case all the InFlight messages received by one sub--> 
+
+        <!-- The first 8 to 12 messages are likely from In-flight messages -->
+        <Action name="CompositeReceive_1b" type="CompositeAction" repeat="128" repeat_interval="0" > 
+            <dependsOn action_id="CreateSub2Connection2"/>
+            <Action name="ReceiveMessage_1b" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg3b</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+        </Action>
+
+        <!--  check the messages are the newest in the queue -->
+        <Action name="CompositeReceive_1c" type="CompositeAction" repeat="5" atleast="1" repeat_interval="0" > 
+            <dependsOn action_id="CompositeReceive_1b" interval="0"/>
+            <Action name="ReceiveMessage_1c" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg3b</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+
+            <Action name="CheckMessage1c" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg3b</ActionParameter>
+                <ActionParameter name="compareBodyStart">TEXT: MQTTslow02 test content 3b - these are the NEWEST messages</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="ShowSubAfterlastReceive" type="RestAPI">
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   
+
+        <Action name="sync_components_done" type="SyncComponentAction">
+            <ActionParameter name="component_name">ps2d</ActionParameter>
+            <ActionParameter name="component_list">ps2d</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>	
+
+        <Action name="CloseConnectionSub_1b" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+
+        <!--  This CreateConnection will clear out any old client info -->
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2clear</ActionParameter>
+            <ActionParameter name="connection_id">CF2clear</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow03_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2clear</ActionParameter>
+        </Action>  
+    </Action>
+
+    <Action name="Pub3" type="CompositeAction">
+        <Action name="CreatePub3Connection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow_Pub3_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CreatePub3Connection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow_Pub3a_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <!-- This publisher is going to send some larger messages. --> 
+        <Action name="CreateRandomMessage" type="CreateRandomMessage">
+            <ActionParameter name="structure_id">txmsg31</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="length">131</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+
+        <!-- This publisher is going to send some larger messages. --> 
+        <Action name="CreateRandomMessage2" type="CreateRandomMessage">
+            <ActionParameter name="structure_id">txmsg32</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="length">87</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>    
+
+        <!-- This publisher is going to send some larger messages. --> 
+        <Action name="CreateRandomMessage3" type="CreateRandomMessage">
+            <ActionParameter name="structure_id">txmsg33</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ActionParameter name="length">67</ActionParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>    
+
+        <Action name="sync_components_3a" type="SyncComponentAction">
+            <ActionParameter name="component_name">ps3a</ActionParameter>
+            <ActionParameter name="component_list">ps1a;ps2a;s2a;ps3a</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>
+
+        <!-- Have 2 pub threads to push more messages to be rejeceted -->
+        <Action name="CompositePublish3b" type="CompositeAction" thread="3" repeat="1200"  repeat_interval="0">
+            <dependsOn action_id="sync_components_3a"/>
+            <Action name="SendMessage_a" type="SendMessage" thread="3"  interval="0">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg31</ActionParameter>
+                <ActionParameter name="topic">/MM/Max02</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="ShowSubAfterPublish3b" type="RestAPI" thread="3">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   >	
+
+        <!-- Main thread also send messages -->
+        <Action name="CompositePublish3a" type="CompositeAction" repeat="900"  repeat_interval="0">
+            <Action name="SendMessage_a" type="SendMessage" interval="0">
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="message_id">txmsg33</ActionParameter>
+                <ActionParameter name="topic">/MM/Max02</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="ShowSubAfterPublish3a" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   
+
+        <Action name="sync_components_beforeRestart" type="SyncComponentAction" thread="3">
+            <dependsOn action_id="ShowSubAfterPublish3a"/>
+            <ActionParameter name="component_name">ps3bRestart</ActionParameter>
+            <ActionParameter name="component_list">ps1bRestart;ps2bRestart;ps3bRestart</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>
+	
+        <!--  server dies around here -->
+        <Action name="sync_components_restartComplete" type="SyncComponentAction" thread="3">
+<!--            <dependsOn action_id="ShowSubAfterPublish3a"/>-->
+            <ActionParameter name="component_name">ps3Restart</ActionParameter>
+            <ActionParameter name="component_list">ps1Restart;ps2Restart;s2Restart;ps3Restart</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>
+
+
+        <Action name="ShowSubAfterDisconnect31" type="RestAPI">
+            <dependsOn action_id="sync_components_restartComplete"/>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   
+
+        <Action name="sync_components_1b" type="SyncComponentAction">
+            <ActionParameter name="component_name">ps3b</ActionParameter>
+            <ActionParameter name="component_list">ps1b;ps2b;s2b;ps3b</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>		  
+
+        <Action name="WaitForReconnect" type="WaitForReconnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="waitTime">120</ActionParameter>
+        </Action>
+
+        <!-- These messages should cause continual replacement on the queue because the
+        subscriber is disconnected while they are sent. Each time the publish 
+        finds that there are MaxMessages number (a full queue) it should 
+        delete the oldest, and then publish the newest.  -->
+        <Action name="CompositePublish_31b" type="CompositeAction" repeat="1000" repeat_interval="0">
+            <Action name="SendMessage_a" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg32</ActionParameter>
+                <ActionParameter name="topic">/MM/Max02</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="ShowSubAfterPublishtoDisconnectedClient" type="RestAPI">
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTMM_Sub02&amp;ClientID=__Shared</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>   	  
+
+        <Action name="CloseConnection_3b" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_2c" type="SyncComponentAction">
+            <ActionParameter name="component_name">ps3c</ActionParameter>
+            <ActionParameter name="component_list">ps1c;ps2c;s2c;ps3c</ActionParameter>
+            <ActionParameter name="timeout">180000</ActionParameter>
+        </Action>	  
+
+        <Action name="CreateConnectionPub_3d" type="CreateConnection">
+            <dependsOn action_id="CloseConnection_3b"/>
+            <ActionParameter name="structure_id">Con3d</ActionParameter>
+            <ActionParameter name="connection_id">CF3d</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow_Pub3_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage3d" type="CreateMessage">
+            <dependsOn action_id="CreateConnectionPub_3d"/>
+            <ActionParameter name="structure_id">txmsg3New</ActionParameter>
+            <ActionParameter name="connection_id">CF3d</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: MQTTslow02 test content 3b - these are the NEWEST messages:  </ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+
+        <!-- These messages keep feeding PubSub1/PubSub2/Sub2 Subscribers till they all get fair share new messages -->
+        <Action name="CompositePublish_3d" type="CompositeAction" repeat="1000" repeat_interval="0" atleast="1">
+            <Action name="SendMessage_3d" type="SendMessage">
+                <ActionParameter name="connection_id">CF3d</ActionParameter>
+                <ActionParameter name="message_id">txmsg3New</ActionParameter>
+                <ActionParameter name="topic">/MM/Max02</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="CheckConnectionCF3dGood" type="CheckConnection" >
+                <ActionParameter name="connection_id">CF3d</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="sync_components_done" type="SyncComponentAction" thread="24">
+            <dependsOn action_id="CreateMessage3d"/>
+            <ActionParameter name="component_name">ps3d</ActionParameter>
+            <ActionParameter name="component_list">ps1d;ps2d;s2d;ps3d</ActionParameter>
+            <ActionParameter name="timeout">90000</ActionParameter>
+        </Action>	
+
+        <Action name="CloseConnectionPub_3d" type="CloseConnection">
+            <ActionParameter name="connection_id">CF3d</ActionParameter>
+        </Action>
+
+        <!--  This CreateConnection will clear out any old client info -->
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2clear</ActionParameter>
+            <ActionParameter name="connection_id">CF2clear</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttslow04_clientid</ApiParameter>
+            <ApiParameter name="port">29317</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2clear</ActionParameter>
+        </Action>  
+
+    </Action>
+
+</IsmWSTest>
+
+

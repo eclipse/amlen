@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<!--    
+# Copyright (c) 2011-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+<html lang="en">
+
+<title>WebSphere MQ Web client</title>
+<link rel="stylesheet" href="../style.css" type="text/css" />
+<style type="text/css">
+      ul#tabs { list-style-type: none; margin: 30px 0 0 0; padding: 0 0 0.3em 0; }
+      ul#tabs li { display: inline; }
+      ul#tabs li a { color: #660066; background-color: #ded0de; border: 1px solid #c9c3ba; border-bottom: none; padding: 0.3em; text-decoration: none; }
+      ul#tabs li a:hover, a:active { background-color: #f1f0f1; }
+      ul#tabs li a.alert { color: #660066; background-color: #f100f1; }
+      ul#tabs li a.choice { color: #660066; background-color: #f1f0ee; font-weight: bold; padding: 0.7em 0.3em 0.38em 0.3em; }
+     
+      form.tabContent { border: 1px solid #c9c3ba; padding: 0.5em; background-color: #f1f0ee; }
+      form.tabContent.hide { display: none; }      
+</style>
+<script type="text/javascript" src="mqttws31.js"></script> 
+<script type="text/javascript">
+
+/** The currently selected tab. */
+var currentTab;
+
+/** Websocket API. */
+var client;
+var connectOptions;
+
+/** The last message received. */
+var receivedMessage;
+
+function connect(form) {   
+    try {
+        client = new Messaging.Client(form.host.value, Number(form.port.value), form.clientId.value);
+    } catch (error) {
+        alert("Error:"+error);
+    }
+    client.startTrace();
+    client.onMessageArrived = onMessageArrived;
+    client.onConnectionLost = onConnectionLost;
+    
+    // Set values from the connect form.
+    var connectForm = document.getElementById('connect');
+    var connectOptions = new Object();
+    connectOptions.timeout=5;
+    if (connectForm.userName.value) 
+      connectOptions.userName = connectForm.userName.value;
+    if (connectForm.password.value) 
+      connectOptions.password = connectForm.password.value;
+    connectOptions.cleanSession = connectForm.cleanSession.checked;
+
+    if (connectForm.keepAlive.value !== "60") 
+      connectOptions.keepAliveInterval = parseInt(connectForm.keepAlive.value);
+    if (connectForm.connectLWTDestinationType[1].checked) {
+      willMessage = new Messaging.Message(connectForm.connectLWTMessage.value);  
+      willMessage.destinationName = connectForm.connectLWTTopicName.value; 
+      willMessage.qos = parseInt(connectForm.connectLWTQos.value);        
+      if (connectForm.connectLWTRetained.checked) 
+        willMessage.retained = true;
+      connectOptions.willMessage = willMessage;
+    }  
+    connectOptions.useSSL = connectForm.ssl.checked;
+    connectOptions.onSuccess = function (invocationContext) {
+      connectForms();
+      logger();
+    };
+    connectOptions.onFailure = function (invocationContext, code, text) { alert(text);};
+    
+    
+    
+    client.connect(connectOptions);
+} 
+
+function disconnect() {
+    client.disconnect();
+    // The conectonLost callback is driven when the connection closes.
+}
+
+/** 
+ * On change registerType
+ */
+function setRegisterType(form) { 
+    var registerTopic = document.getElementById("registerTopic");
+    if (form.registerDestinationType[0].checked) {
+        if (registerTopic)
+            registerTopic.style.visibility = "hidden";
+        form.register.value = "StartListening";
+        form.unRegister.value = "StopListening";
+    } else {
+        if (registerTopic)
+            registerTopic.style.visibility = "visible";
+        form.register.value = "Subscribe";
+        form.unRegister.value = "Unsubscribe";
+    }
+}
+      
+function subscribe(form) {
+    var options = {qos:Number(form.registerQos.value), 
+                   onFailure: function(invocationContext, code, text) {alert(text + form.subscribeTopicName.value);}};
+    client.subscribe(form.subscribeTopicName.value, options);
+    logger();
+}
+
+function unsubscribe(form) { 
+    var options =  {onFailure: function(invocationContext, code, text) {alert(text + form.subscribeTopicName.value);}};
+    client.unsubscribe(form.subscribeTopicName.value, options);
+    logger();
+}
+
+// On change connect LWT sendType
+function setConnectLWTSendType(form) { 
+    if (form.connectLWTDestinationType[0].checked) {
+        document.getElementById("connectLWTSendTopic").style.display = "none"; 
+        document.getElementById("connectLWTSendMessage").style.display = "none";       
+    } else  {   
+        document.getElementById("connectLWTSendTopic").style.display = "";
+        document.getElementById("connectLWTSendMessage").style.display = "";
+    }
+}
+/** 
+ * On change message displayType.
+ */
+function setReceivedMessageDisplayType(form) {
+    if (receivedMessage)
+      displayMessage(receivedMessage);
+}
+
+/** 
+ * On change messageType.
+ */
+function setMessageType(form) {  
+    if (form.messageType.value === "STRING") {
+      form.textMessage.onkeypress="";
+    } else {
+      form.textMessage.onkeypress="return checkForHex(this, event);";     
+    }
+}
+
+function checkForHex(textbox, e) {
+    if (!e) 
+    var e = window.event;
+
+    if (e.keyCode)
+        code = e.keyCode;
+
+    else if (e.which) 
+        code = e.which;
+
+    var character = String.fromCharCode(code);
+
+    if (!e.ctrlKey && code!=9 && code!=8) {
+        if (character.match(/[abcdefABCDEF1234567890]/g)) {
+            return true;
+        } else {
+            return false;
+        } 
+    }
+}
+
+function doSend(form) {
+    if (form.textMessage.value == "") {
+        message = new Messaging.Message("");
+    
+    } else if (form.messageType && form.messageType.value === "BINARY") {
+        var hex = form.textMessage.value;        
+        var buffer = new ArrayBuffer((hex.length)/2);
+    	var byteStream = new Uint8Array(buffer); 
+    	var i = 0;
+    	while (hex.length >= 2) { 
+          var x = parseInt(hex.substring(0, 2), 16);
+          hex = hex.substring(2, hex.length);
+          byteStream[i++] = x;
+        }
+        message = new Messaging.Message(buffer);
+    
+    } else {
+        message = new Messaging.Message(form.textMessage.value);
+    }
+   
+    message.destinationName = form.topicName.value;
+    message.qos = parseInt(form.sendQos.value);  
+    if (form.retained.checked) 
+      message.retained = true;
+    client.send(message);
+    logger();
+}
+
+/**
+ * Websockets API callbacks.
+ */
+
+function onConnectionLost(code,reason) {
+    var form = document.getElementById('connect');
+    disconnectForms();
+    logger();
+    if (reason !== undefined)
+      alert(client.clientId+" disconnected code="+code+" reason="+reason);
+}
+
+function onMessageArrived(message) {
+    logger();
+    this.receivedMessage = message;
+    displayMessage(message);
+}
+
+function displayMessage(message) {
+    logger();
+    this.receivedMessage = message;
+    var form = document.getElementById("basic");
+    form.receivedTopicName.value = message.destinationName;
+    form.receivedQos.value = message.qos;
+    form.receivedMessage.value = message.payloadString;
+    
+    var form = document.getElementById("receive");
+    form.receivedTopicName.value = message.destinationName;
+    form.receivedQos.value = message.qos;
+    form.receivedRetainedCheckbox.checked = message.retained;
+    form.receivedDuplicateCheckbox.checked = message.duplicate;
+    
+    if(form.displayFormat.value === "STRING") {
+      form.receivedMessage.value = message.payloadString;
+    } else {       
+      var text = "";
+      var textAscii = "";
+      var messageBytes = message.payloadBytes;
+      for (i=0;i<messageBytes.length;i++) {
+        if (messageBytes[i] <= 0xF)
+          text = text+"0"+messageBytes[i].toString(16);
+        else 
+          text = text+messageBytes[i].toString(16);
+    	if (messageBytes[i] >= 0x20 && messageBytes[i] <= 0x7E)
+    	  textAscii = textAscii + String.fromCharCode(messageBytes[i]);
+    	else 
+    	  textAscii = textAscii + ".";	
+
+        if (i%16 == 15) {
+          text = text+" *"+textAscii+"*\n";
+          textAscii = "";
+        } else {
+          text = text+" ";
+        }
+      }
+      
+      var padding = messageBytes.length%16;
+      if (padding != 0) {
+        var paddingString = "                ".substring(0,16-padding);
+        text = text+paddingString+paddingString+paddingString;  
+        text = text+"*"+textAscii+paddingString+"*";
+      }
+      form.receivedMessage.value = text;
+
+    }
+    
+    // Highlight the receive tab if we are not looking at it or at the basic tab.
+    if (currentTab !== "basic" && currentTab !== "receive") {
+      var receiveTab = document.getElementById('receiveTab');
+      receiveTab.className = "alert";
+    } 
+}
+
+/**
+ * HTML Application logic.
+ */
+function onLoad() {
+    disconnectForms();
+    logClose();
+    var form = document.getElementById("basic");    
+    form.clientId.value = form.clientId.value || "Client"+new Date().getSeconds()+new Date().getMilliseconds();
+    form.host.value = location.hostname || "127.0.0.1";
+    form.port.value = location.port || 8080;
+    //if (location.protocol == "https:")
+    	//document.getElementById('connect').ssl.checked = true;
+    expose("basic");   
+    
+
+    /*Set LTPA Token*/
+    var ltpaToken=getCookie("LtpaToken2");
+    //alert("LTPA Token: "+ ltpaToken);
+    //if ("null" != ltpaToken)
+    	document.cookie = "LtpaToken2=" + ltpaToken +'; domain=austin.ibm.com; path=/';
+    alert(document.cookie); 
+}
+
+// On connection
+function connectForms() {  
+    var form = document.getElementById('basic');
+    form.host.disabled = "true"; 
+    form.port.disabled = "true";  
+    form.clientId.disabled = "true";
+    form.conn.disabled = "true";
+    form.disc.disabled = "";
+    
+    form.subscribeTopicName.disabled = "";
+    form.register.disabled = "";
+    form.unRegister.disabled = "";
+    
+    form.topicName.disabled = "";
+    form.textMessage.disabled = "";
+    form.sendButton.disabled = "";
+    
+    form = document.getElementById('connect');
+    form.host.disabled = "true";
+    form.port.disabled = "true"; 
+    form.clientId.disabled = "true";
+    form.userName.disabled = "true";
+    form.password.disabled = "true";
+    form.cleanSession.disabled = "true";
+    form.ssl.disabled = "true";
+    form.keepAlive.disabled = "true";
+     //TODO make the LWT fields disable/enabled on connect/disconnect
+  //  form.connectLWTDestinationType.disabled = "true";
+  //  document.getElementById("connectLWTSendMessage").disabled = "true";
+    form.conn.disabled = "true";
+    form.disc.disabled = "";
+    
+    form = document.getElementById('receive');
+    form.subscribeTopicName.disabled = "";
+    form.register.disabled = "";
+    form.unRegister.disabled = "";
+    
+    form = document.getElementById('send');
+    form.topicName.disabled = "";
+    form.textMessage.disabled = "";
+    form.sendButton.disabled = "";
+}
+
+// On disconnection and on page load
+function disconnectForms(histclose) {  
+    var form = document.getElementById("basic"); 
+    form.host.disabled = ""; 
+    form.port.disabled = "";  
+    form.clientId.disabled = "";
+    form.conn.disabled = "";
+    form.disc.disabled = "true";
+
+    form.subscribeTopicName.disabled = "true";
+    form.register.disabled = "true";
+    form.unRegister.disabled = "true";
+    
+    form.topicName.disabled = "true";
+    form.textMessage.disabled = "true";
+    form.sendButton.disabled = "true";
+   
+    form = document.getElementById("connect");    
+    form.host.disabled = ""; 
+    form.port.disabled = "";  
+    form.clientId.disabled = "";
+    form.userName.disabled = "";
+    form.password.disabled = "";
+    form.cleanSession.disabled = "";
+    form.ssl.disabled = "";
+    form.keepAlive.disabled = "";
+    //TODO make the LWT fields disable/enabled on connect/disconnect
+//    form.connectLWTDestinationType.disabled = "";
+//    document.getElementById("connectLWTSendMessage").disabled = "";
+    form.conn.disabled = "";
+    form.disc.disabled = "true";
+
+    form = document.getElementById('receive');
+    form.subscribeTopicName.disabled = "true";
+    form.register.disabled = "true";
+    form.unRegister.disabled = "true";
+    
+    form = document.getElementById('send');
+    form.topicName.disabled = "true";
+    form.textMessage.disabled = "true";
+    form.sendButton.disabled = "true";
+}
+
+function logger() {   
+    var form = document.getElementById('connect')    
+    if (form.hist.style.display != "none") {  
+        var log = client.getTraceLog();
+        form.hist.value = log.join("\n");
+        form.hist.scrollTop = form.hist.scrollHeight;
+    }
+}
+
+function logDump(form) {            
+    var log;
+    if (client == null) 
+        log = "";
+    else 
+        log = client.getTraceLog().join("\n");
+    form.hist.value = log;
+    form.hist.style.display = "";
+    form.histopen.style.display = "none";
+    form.histclear.style.display = ""
+    form.histclose.style.display = ""
+    form.hist.scrollTop = form.hist.scrollHeight;
+}
+
+function logClear(form) {
+    if (client !== undefined) {
+        client.stopTrace();
+        client.startTrace();
+        form.hist.value = client.getTraceLog().join("\n");
+    }
+}
+
+function logClose() {
+    var form = document.getElementById("connect");     
+    form.hist.style.display = "none";
+    form.histopen.style.display = "";
+    form.histclear.style.display = "none"
+    form.histclose.style.display = "none"
+}
+
+function expose(tabName) {
+    if (currentTab === "basic") {
+       var basicForm = document.getElementById('basic');
+       var connectForm = document.getElementById('connect');
+       connectForm.host.value = basicForm.host.value;
+       connectForm.port.value = basicForm.port.value;
+       connectForm.clientId.value = basicForm.clientId.value;       
+    } else if (currentTab === "connect") {
+       var basicForm = document.getElementById('basic');
+       var connectForm = document.getElementById('connect');
+       basicForm.host.value = connectForm.host.value;
+       basicForm.port.value = connectForm.port.value;
+       basicForm.clientId.value = connectForm.clientId.value;
+    }
+
+    var tabs = document.getElementById('tabs').childNodes;
+    for ( var i = 0; i < tabs.length; i++ ) {
+        if ( tabs[i].nodeName == "LI" ) {
+            for ( var ii = 0; ii < tabs[i].childNodes.length; ii++ ) {
+                if ( tabs[i].childNodes[ii].nodeName == "A" ) {
+                    href = tabs[i].childNodes[ii].href;
+                    hrefName = href.substring(href.lastIndexOf ( '#' )+1);
+                    if (tabName === hrefName) {
+                        tabs[i].childNodes[ii].className = "choice";
+                    } else if (tabs[i].childNodes[ii].className !== "alert") {
+                        tabs[i].childNodes[ii].className = "";
+                    }
+                }
+             } // for...
+         }
+    }
+    
+    for (var i = 0; i<document.forms.length; i++) {
+        //alert (document.forms[i]);
+        var form = document.forms[i];
+        if (form.id === tabName) {
+            form.className = "tabContent";
+        } else {
+            form.className = "tabContent hide";
+        }
+    } 
+    currentTab = tabName;  
+}
+
+function onUnload() {
+   // Do not do a normal disconnection of the client if the browser window is closed, 
+   // just let the connection fail, abnormally, any LastWill and Testament processing 
+   // will then take place. 
+   // if (client && client.isConnected)
+   //   client.disconnect();
+   logClose();
+}
+
+function getCookie(c_name)
+{
+	var c_value = document.cookie;
+	var c_start = c_value.indexOf(" " + c_name + "=");
+	if (c_start == -1)
+  	{
+  		c_start = c_value.indexOf(c_name + "=");
+  	}
+	if (c_start == -1)
+  	{
+  		c_value = null;
+  	}
+	else
+  	{
+  		c_start = c_value.indexOf("=", c_start) + 1;
+  		var c_end = c_value.indexOf(";", c_start);
+  		if (c_end == -1)
+  		{
+			c_end = c_value.length;
+		}
+		c_value = unescape(c_value.substring(c_start,c_end));
+	}
+	return c_value;
+}
+</script>
+</head>
+
+<body onload="onLoad()" onunload="onUnload()">
+<h1><img src="../mqtticon.svg" />WebSphere MQ Web client - v3.1</h1>
+
+<ul id="tabs">
+  <li><a href="#basic" onclick="expose('basic')">Basic</a></li>
+  <li><a href="#connect" onclick="expose('connect')">Session</a></li>
+  <li><a href="#receive" id="receiveTab" onclick="expose('receive')">Receive</a> </li>
+  <li><a href="#send" onclick="expose('send')">Send</a></li>
+  <li><a href="#help" onclick="expose('help')">Help</a></li>
+</ul>
+
+<form id="basic" class="tabContent">
+<fieldset>
+<legend>Session</legend>
+Server <input type="text" name="host" size="30"/>
+Port <input type="text" name="port" size="5" maxlength="5"/> 
+Client Identifier <input type="text" name="clientId"  size="23" maxlength="23"/>
+<br/> 
+<input type="button" value="Connect" onclick="connect(this.form)" name="conn"/> 
+<input type="button" value="Disconnect" onclick="disconnect()" name="disc"/>
+</fieldset>
+
+<fieldset>
+<legend>Receive</legend>
+Topic Name<input type="text" name="subscribeTopicName" size="40"/>
+Request QoS <select name="registerQos">
+  <option>0</option>
+  <option>1</option>
+  <option>2</option>
+</select>
+<br/>
+<input type="button" value="Subscribe" onclick="subscribe(this.form)" name="register"/>
+<input type="button" value="Unsubscribe" onclick="unsubscribe(this.form)" name="unRegister"/> 
+<br/> 
+<br/>
+Received
+<br/>
+<input type="text" name="receivedTopicName" size="40" disabled="disabled" />
+QoS <input type="text" name="receivedQos" size="1" disabled="disabled"/>
+<br/>
+Message 
+<br/>
+<textarea name="receivedMessage" rows="3" cols="80" disabled="disabled" >
+</textarea>
+</fieldset>
+
+<fieldset>
+<legend>Publish</legend>
+<div id="basicSendTopic">
+Topic
+<input type="text" name="topicName" size="40"/>
+QoS <select name="sendQos">
+  <option>0</option>
+  <option>1</option>
+  <option>2</option>
+</select>
+Retained <input type="checkbox" name="retained" size="6" />
+</div>
+<br/>
+Message 
+<br/>
+<textarea name="textMessage" rows="3" cols="80" >
+</textarea> 
+<br/>
+<input type="button" value="Publish" onClick="doSend(this.form)" name="sendButton"/>
+</fieldset>
+</form>
+
+<form id="connect" class="tabContent hide">
+<fieldset>
+Server <input type="text" name="host" size="30"/>
+Port <input type="text" name="port" size="5" maxlength="5"/> 
+<br/>
+Client Identifier <input type="text" name="clientId" size="23" maxlength="23"/>
+User name <input type="text" name="userName" size="23" />
+Password <input type="password" name="password" size="23" />
+<br/> 
+Clean Session <input type="checkbox" name="cleanSession" checked="checked"/> 
+SSL <input type="checkbox" name="ssl"/> 
+KeepAlive seconds <input type="number" name="keepAlive" value=60 size="4" accept=""/>
+<br>
+<br>
+Last Will and Testament
+<input type="radio" name="connectLWTDestinationType" onChange="setConnectLWTSendType(this.form)" value="Publish" checked> None
+<input type="radio" name="connectLWTDestinationType" onChange="setConnectLWTSendType(this.form)" value="Publish"> Publish
+<br>
+<div id="connectLWTSendTopic" style="display:none">
+Topic Name<input type="text" name="connectLWTTopicName" size="40"/>
+QoS <select name="connectLWTQos">
+  <option>0</option>
+  <option>1</option>
+  <option>2</option>
+</select>
+Retained <input type="checkbox" name="connectLWTRetained" size="6" />
+</div>
+<br/>
+<div id="connectLWTSendMessage" style="display:none">
+Message <br/>
+<textarea name="connectLWTMessage" rows="3" cols="80" >
+</textarea> 
+</div>
+<br/>
+<input type="button" name="conn" value="Connect" onclick="connect(this.form)"/> 
+<input type="button" name="disc" value="Disconnect" onclick="disconnect()"/>
+<br/>
+<input type="button" name="histopen" value="History" onclick="logDump(this.form)"/>
+<input type="button" name="histclose" value="Close History" onclick="logClose()"/>
+<input type="button" name="histclear" value="Clear History" onclick="logClear(this.form)"/>
+<br/>
+<textarea name="hist" rows="10" cols="82" readonly="readonly" >
+</textarea> 
+</fieldset>
+</form>
+
+<form id="receive" class="tabContent hide">
+<fieldset>
+<legend>Subscribe</legend>
+Topic Name<input type="text" name="subscribeTopicName" size="40" />
+Request QoS <select name="registerQos">
+  <option>0</option>
+  <option>1</option>
+  <option>2</option>
+</select>
+<br/>
+<input type="button" value="Subscribe" onclick="subscribe(this.form)" name="register"/>
+<input type="button" value="Unsubscribe" onclick="unsubscribe(this.form)" name="unRegister"/>
+<br/>
+</fieldset>
+<fieldset>
+<br/>
+<legend>Received</legend>
+Topic<input type="text" name="receivedTopicName" size="40" disabled="disabled" />
+QoS <input type="text" name="receivedQos" size="1" disabled="disabled"/>
+Retained <input type="checkbox" name="receivedRetainedCheckbox" disabled="disabled"/> 
+Duplicate <input type="checkbox" name="receivedDuplicateCheckbox" disabled="disabled"/> 
+<br>
+<br>
+Message 
+<i>Display format </i><select name="displayFormat" onChange="setReceivedMessageDisplayType(this.form)">
+  <option>STRING</option>
+  <option>BINARY</option>
+</select>
+
+<br>
+<textarea name="receivedMessage" rows="3" cols="80" disabled="disabled" >
+</textarea>
+</fieldset>
+</form>
+
+<form id="send" class="tabContent hide">
+<fieldset>
+<div id="sendTopic">
+Topic Name<input type="text" name="topicName" size="40" />
+QoS <select name="sendQos">
+  <option>0</option>
+  <option>1</option>
+  <option>2</option>
+</select>
+Retained <input type="checkbox" name="retained" size="6" />
+</div>
+<br>
+Message
+<i>Display format</i> <select name="messageType" onChange="setMessageType(this.form)">
+  <option>STRING</option>
+  <option>BINARY</option>
+</select>
+<br>
+<textarea name="textMessage" rows="3" cols="80" >
+</textarea> 
+<br>
+<input type="button" value="Publish" onClick="doSend(this.form)" name="sendButton"/>
+</fieldset>
+</form>
+
+<form id="help" class="tabContent hide">
+<fieldset>
+<br/>
+This is an email link:
+<a href="mailto:someone@example.com?Subject=Hello%20again">
+Send Mail</a>
+</fieldset>
+</form>
+</body>
+
+</html>

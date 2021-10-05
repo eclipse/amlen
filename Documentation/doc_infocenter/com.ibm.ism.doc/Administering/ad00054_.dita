@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN"
+ "concept.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<concept id="ad00054_" xml:lang="en-us">
+<title><ph conref="../TextEntities.dita#TextEntities/mqBridge"></ph> scenario
+5: Fan in per device request-reply</title><?Pub Caret -2?>
+<shortdesc>In this scenario, an <ph conref="../TextEntities.dita#TextEntities/ISM"/> topic subtree
+is mapped to a <ph conref="../TextEntities.dita#TextEntities/wmq"/> topic subtree for requests. The
+messages that are put on topics in the <ph conref="../TextEntities.dita#TextEntities/ISM"/> topic
+subtree are forwarded to the equivalent <ph conref="../TextEntities.dita#TextEntities/wmq"/> topic
+subtree for requests. A different <ph conref="../TextEntities.dita#TextEntities/wmq"/> topic subtree
+is mapped to a <ph conref="../TextEntities.dita#TextEntities/ISM"/> topic subtree for responses.
+Messages that are put on topics in the <ph conref="../TextEntities.dita#TextEntities/wmq"/> topic
+subtree are forwarded to the equivalent <ph conref="../TextEntities.dita#TextEntities/ISM"/> topic
+subtree for responses.</shortdesc>
+<conbody>
+<section><title>Background to this scenario</title><p>This <ph
+conref="../TextEntities.dita#TextEntities/mqBridge"></ph> scenario
+extends the basic <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> fan-in
+per device request-reply end-to-end scenario.</p><p>In this scenario,
+the intranet store system is replaced by <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph>. Request messages
+are sent from the internet applications in the same way as the basic
+scenario. <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> forwards
+the messages on to <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> topics. <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> sends response
+messages to <ph conref="../TextEntities.dita#TextEntities/ISM"></ph>,
+which are forwarded to the appropriate internet applications.</p><p>You
+must complete the steps in <xref format="dita"
+href="../Scenarios/sc00005_.dita" scope="local"></xref> to set up
+the basic scenario before you implement the <ph
+conref="../TextEntities.dita#TextEntities/mqBridge"></ph> extension.</p></section>
+<section><title>Planning and implementing the solution</title><dl>
+<dlentry>
+<dt>Plan your solution</dt>
+<dd>In this scenario, consider the following key points:<ul>
+<li><p>What type of destination mapping rule do you need?</p><p>Destination
+mapping rules identify the source and destination of a message. The
+source is either an <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> topic,
+topic subtree, or queue, or a <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> topic, topic
+subtree, or queue. Similarly, the destination is either an <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> topic, topic
+subtree, or queue, or a <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> topic, topic
+subtree, or queue. For more information about the different rule types,
+see <xref href="ad00110_.dita"></xref>.</p><p>In this scenario, request
+messages are sent from many internet applications to many topics in
+a subtree. This subtree must be preserved when messages are forwarded.
+Therefore, the following rule is required: <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> topic subtree
+to <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> topic
+subtree.</p><p>Response messages are sent from many <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> topics in a subtree.
+This subtree must be preserved when the messages are forwarded to <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph>. Therefore, the
+following rule is also required: <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> topic subtree
+to <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> topic
+subtree.</p></li>
+<li><p>Is the order of messages important?</p><p>If the order that
+messages arrive in is important to your solution, you must set up
+your solution in a particular way. If you use multiple queue managers
+to send messages, messages can be sent out of order. If you use multiple
+queue managers to receive messages, messages can be received out of
+order.</p><p>However, <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> cannot
+handle the same volume of messages as <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph>. Therefore, in
+solutions that involve a high volume of messages, you can use multiple
+queue managers to ensure that a backlog of messages does not build
+up on <ph conref="../TextEntities.dita#TextEntities/ISM"></ph>. If
+the message backlog reaches the maximum message count that is set
+on the destination mapping rule, messages cannot be sent until the
+backlog reduces.</p><p>When messages are moved from <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> to <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph>, <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> forwards persistent
+messages within transactions, and forwards nonpersistent messages
+immediately. Therefore, nonpersistent messages can be forwarded before
+earlier persistent messages are forwarded within a transaction. In
+this case, message order is not preserved.</p><p>When MQTT messages
+are moved from <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> to <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph>, <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> forwards QoS
+1 and QoS 2 messages within transactions, and forwards QoS 0 messages
+immediately. Therefore, QoS 0 messages can be forwarded before earlier
+QoS 1 and QoS 2 messages are forwarded within a transaction. In this
+case, message order is not preserved.</p><p>When JMS messages are
+moved from <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> to <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph>, <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> forwards both
+JMS persistent and nonpersistent messages within transactions. If
+a nonpersistent message has the ConnectionFactory property DisableACK
+set, the message is forwarded immediately. Therefore, nonpersistent
+JMS messages with DisableACK set can be forwarded before earlier JMS
+messages are forwarded within a transaction. In this case, message
+order is not preserved.</p><p>In this scenario, the order in which
+request messages are received is not important, as each message is
+published to a separate topic. Therefore, multiple queue managers
+can be used to handle the volume of messages.</p></li>
+</ul></dd>
+</dlentry><dlentry>
+<dt>Write your applications</dt>
+<dd>Continuing from the basic scenario, the internet applications
+are set up, and publish to the topic string <codeph>Reservation/Request/<varname>clientID</varname></codeph>,
+where <varname>clientID</varname> specifies the client ID of the internet
+application. The internet applications are also set up to subscribe
+to the topic string <codeph>Reservation/Response/<varname>clientID</varname></codeph>,
+ where <varname>clientID</varname> specifies the client ID of the
+internet application.</dd>
+<dd>For the <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> applications,
+use the sample <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> applications <codeph>amqspub</codeph> and <codeph>amqssub</codeph>.</dd>
+<dd>Alternatively, you can write your own <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> application.
+For more information about writing <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> publish/subscribe
+applications, see <xref
+href="http://www-01.ibm.com/support/knowledgecenter/SSFKSJ_7.5.0/com.ibm.mq.dev.doc/q026550_.htm"
+scope="external">Writing publish/subscribe applications</xref> in
+the <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> documentation.
+For more information about writing <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> queuing applications,
+see <xref
+href="http://www-01.ibm.com/support/knowledgecenter/SSFKSJ_7.5.0/com.ibm.mq.dev.doc/q025700_.htm"
+scope="external">Writing a queuing application</xref> in the <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> documentation.</dd>
+</dlentry><dlentry>
+<dt>Set up your infrastructure</dt>
+<dd><ol>
+<li>Set up <ph conref="../TextEntities.dita#TextEntities/wmq"></ph>:<ol>
+<li>Create two queue manager to handle the messages. In this scenario,
+the queue managers are called <codeph>ReserveQM1</codeph> and <codeph>ReserveQM2</codeph>.
+From the command line of the <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> system, enter
+the following commands:<p><codeph>crtmqm ReserveQM1</codeph></p><p><codeph>strmqm
+ReserveQM1</codeph></p><p><codeph>crtmqm ReserveQM2</codeph></p><p><codeph>strmqm
+ReserveQM2</codeph></p></li>
+<li>Make a note of the IP address or host name of the <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> system. These
+details are used when you create a queue manager connection.</li>
+<li id="TheFollowingStepsUseMQSCCommandsWhi">The following steps use
+MQSC commands, which must be run from an MQSC command prompt. From
+the command line, enter the following command to start MQSC for <codeph>ReserveQM1</codeph>:<p><codeph>runmqsc
+ReserveQM1</codeph></p></li>
+<li>Create a server-connection channel for the queue manager. In this
+scenario, the server-connection channel is called <codeph>MQ.MSG.SVRCONN</codeph>.
+From the MQSC prompt, enter the following command:<p><codeph>DEFINE
+CHANNEL(MQ.MSG.SVRCONN) CHLTYPE(SVRCONN) TRPTYPE(TCP)</codeph></p></li>
+<li>Start a listener for the queue manager. In this scenario, the
+listener is called <codeph>ReserveQL</codeph>, and listens on port
+1414. From the MQSC prompt, enter the following commands:<p><codeph>DEFINE
+LISTENER ('ReserveQL') TRPTYPE(TCP) CONTROL(QMGR) PORT(1414)</codeph></p><p><codeph>START
+LISTENER ('ReserveQL')</codeph></p></li>
+<li>Authorize <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> to
+connect to the queue manager:<ol>
+<li>Create a user ID on the <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> system. In this
+scenario, the user ID is called <codeph>MSGUSER</codeph>.</li>
+<li>Create a channel authentication record that allows only the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> IP address to
+use the server-connection channel that you created in step 1d. From
+the MQSC prompt, enter the following command:<p><codeph>SET CHLAUTH(MQ.MSG.SVRCONN)
+TYPE(ADDRESSMAP) ADDRESS(<varname>IPAddress</varname>) MCAUSER('MSGUSER')</codeph></p>Where:<dl>
+<dlentry>
+<dt><varname>IPAddress</varname></dt>
+<dd>Specifies the IP address of the <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+               server.</dd>
+</dlentry></dl></li>
+<li>Grant general <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> access
+to <codeph>MSGUSER</codeph>. From the MQSC prompt, enter the following
+commands:<p><codeph>SET AUTHREC OBJTYPE(QMGR) PRINCIPAL('MSGUSER')
+AUTHADD(CONNECT, INQ, DSP)</codeph></p></li>
+<li>Grant authority for the user <codeph>MSGUSER</codeph> to issue
+requests to <ph conref="../TextEntities.dita#TextEntities/wmq"></ph>:<p><codeph>SET
+AUTHREC PROFILE('SYSTEM.DEFAULT.MODEL.QUEUE') OBJTYPE(QUEUE) PRINCIPAL('MSGUSER')
+AUTHADD(DSP, GET)</codeph></p><p><codeph>SET AUTHREC PROFILE('SYSTEM.ADMIN.COMMAND.QUEUE')
+OBJTYPE(QUEUE) PRINCIPAL('MSGUSER') AUTHADD(DSP, PUT)</codeph></p></li>
+<li>Grant authority for the user <codeph>MSGUSER</codeph> to create
+a queue for <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> synchronization
+records:<p><codeph>SET AUTHREC PROFILE('SYSTEM.IMA.*') OBJTYPE(QUEUE)
+PRINCIPAL('MSGUSER') AUTHADD(CRT, PUT, GET, BROWSE)</codeph></p><p><codeph>SET
+AUTHREC PROFILE('SYSTEM.DEFAULT.LOCAL.QUEUE') OBJTYPE(QUEUE) PRINCIPAL('MSGUSER')
+AUTHADD(DSP)</codeph></p></li>
+</ol></li>
+<li id="g">Create the <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> topic
+objects, and grant specific authorities to allow <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> to access the
+topics. In this scenario, the request topic object is called <codeph>ReserveRequest</codeph> and
+requires <codeph>SUB, CTRL</codeph> authority. The response topic
+object is called <codeph>ReserveResponse</codeph> and requires <codeph>PUB,
+DSP</codeph> authority. From the MQSC prompt, enter the following
+commands:<p><codeph>DEFINE TOPIC('ReserveRequest') TOPICSTR('Reserve/Request')</codeph></p><p><codeph>SET
+AUTHREC PROFILE('ReserveRequest') OBJTYPE(TOPIC) PRINCIPAL('MSGUSER')
+AUTHADD(SUB, CTRL)</codeph></p><p><codeph>DEFINE TOPIC('ReserveResponse')
+TOPICSTR('Reserve/Response')</codeph></p><p><codeph>SET AUTHREC PROFILE('ReserveResponse')
+OBJTYPE(TOPIC) PRINCIPAL('MSGUSER') AUTHADD(PUB, DSP)</codeph></p></li>
+<li>Repeat steps <xref format="dita"
+href="ad00054_.dita#ad00054_/TheFollowingStepsUseMQSCCommandsWhi"
+scope="local" type="li">c</xref> to <xref format="dita"
+href="ad00054_.dita#ad00054_/g" scope="local" type="li">g</xref> for <codeph>ReserveQM2</codeph>.
+You must use a different port number in step e.</li>
+</ol></li>
+<li>Set up <ph conref="../TextEntities.dita#TextEntities/ISM"></ph>:<ol>
+<li>Create queue manager connections so that <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> can connect to
+the queue managers. In this scenario, <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> must connect
+to the <codeph>ReserveQM1</codeph> and <codeph>ReserveQM2</codeph> queue
+managers. From the <ph conref="../TextEntities.dita#TextEntities/ISMgui"></ph>:<ol>
+<li>Go to the <ph conref="../TextEntities.dita#TextEntities/mqBridge"></ph> page
+by clicking <uicontrol>Messaging > MQ Connectivity</uicontrol>. </li>
+<li>Under the <uicontrol>Queue Manager Connection Properties</uicontrol> pane,
+click the <uicontrol>Add</uicontrol> icon.</li>
+<li>Enter the details for a queue manager connection, and click <uicontrol>Save</uicontrol>.
+In this scenario, the following values are used:<ul>
+<li>Name: <codeph>ReserveQMC1</codeph></li>
+<li>Queue Manager: <codeph>ReserveQM1</codeph></li>
+<li>Connection Name: The IP address or host name of the <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> system on which
+the queue manager was configured.</li>
+<li>Channel Name: <codeph>MQ.MSG.SVRCONN</codeph></li>
+</ul></li>
+<li>Create a second queue manager connection in the same way. In this
+scenario, the following values are used:<ul>
+<li>Name: <codeph>ReserveQMC2</codeph></li>
+<li>Queue Manager: <codeph>ReserveQM2</codeph></li>
+<li>Connection Name: The IP address or host name of the <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> system on which
+the queue manager was configured.</li>
+<li>Channel Name: <codeph>MQ.MSG.SVRCONN</codeph></li>
+</ul></li>
+</ol></li>
+<li>Create destination mapping rules to map from the message sources
+to the message destinations. In this scenario, the first destination
+mapping rule must map from the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> topic subtree <codeph>Reserve/Request</codeph> to
+the <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> topic
+subtree <codeph>Reserve/Request</codeph>. With this rule, a message
+that is published on the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> topic <codeph>Reserve/Request/123</codeph> is
+forwarded to the <ph conref="../TextEntities.dita#TextEntities/wmq"></ph> topic <codeph>Reserve/Request/123</codeph>.
+The second destination mapping rule must map from the <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph> topic subtree <codeph>Reserve/Response</codeph> to
+the <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> topic
+subtree <codeph>Reserve/Response</codeph>. From the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph>:<ol>
+<li>Go to the <ph conref="../TextEntities.dita#TextEntities/mqBridge"></ph> page
+by clicking <uicontrol>Messaging > MQ Connectivity</uicontrol>. </li>
+<li>Under the <uicontrol>Destination Mapping Rules</uicontrol> pane,
+click the <uicontrol>Add</uicontrol> icon.</li>
+<li>Enter the details for the first destination mapping rule, and
+click <uicontrol>Save</uicontrol>. In this scenario, the following
+values are used:<ul>
+<li>Name: <codeph>RequestDMR</codeph></li>
+<li>Rule Type: <codeph><ph conref="../TextEntities.dita#TextEntities/MessageSight"></ph> topic subtree to MQ topic subtree</codeph></li>
+<li>Source: <codeph>Reserve/Request</codeph></li>
+<li>Destination: <codeph>Reserve/Request</codeph></li>
+<li>Maximum Messages: 10000</li>
+<li>Associated queue manager connections: <codeph>ReserveQMC1</codeph>, <codeph>ReserveQMC2</codeph></li>
+<li>Enabled: True</li>
+</ul></li>
+<li>Create the second destination mapping rule in the same way. In
+this scenario, the following values are used:<ul>
+<li>Name: <codeph>ResponseDMR</codeph></li>
+<li>Rule Type: <codeph>MQ topic subtree to <ph conref="../TextEntities.dita#TextEntities/MessageSight"></ph> topic subtree</codeph></li>
+<li>Source: <codeph>Reserve/Response</codeph></li>
+<li>Destination: <codeph>Reserve/Reseponse</codeph></li>
+<li>Maximum Messages: 10000</li>
+<li>Associated queue manager connections: <codeph>ReserveQMC1</codeph>, <codeph>ReserveQMC2</codeph></li>
+<li>Enabled: True</li>
+</ul></li>
+</ol></li>
+</ol></li>
+<li>Optionally, delete the connection and messaging policies <codeph>Stock
+Reservation Internal ConPol</codeph>, <codeph>Stock Reservation Request
+Internal MsgPol</codeph>, and <codeph>Stock Reservation Response Internal
+MsgPol</codeph>. The<ph
+conref="../TextEntities.dita#TextEntities/mqBridge"></ph> process
+does not need a connection policy to connect to <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph>. The<ph
+conref="../TextEntities.dita#TextEntities/mqBridge"></ph> process
+uses the information that is contained in the destination mapping
+rules to restrict messaging activities, and therefore does not need
+messaging policies.</li>
+</ol></dd>
+</dlentry><dlentry>
+<dt>Test your solution</dt>
+<dd>Use your applications to send test messages through the system
+and check that the solution works. Use the <xref format="dita"
+href="../Troubleshooting/tr10000_.dita" scope="local" type="concept"></xref> section
+to help you resolve any problems that you encounter.</dd>
+</dlentry><dlentry>
+<dt>Monitor your solution</dt>
+<dd>Use the monitoring tools from the basic scenario to monitor the
+solution.</dd>
+</dlentry><dlentry>
+<dt>Strengthen your security</dt>
+<dd>Beyond the security enhancements that can be completed in the
+basic scenario, you can use SSL to secure the connection between <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> and <ph
+conref="../TextEntities.dita#TextEntities/wmq"></ph>. To use SSL to
+secure the connection, you must configure key repository databases
+and password stash files. For more information, see <xref
+href="ad00109_.dita"></xref> and <xref href="ad00108_.dita"></xref>.</dd>
+</dlentry></dl></section>
+</conbody>
+<?tm 1413224006 0?>
+</concept>
+<?Pub *0000018895?>

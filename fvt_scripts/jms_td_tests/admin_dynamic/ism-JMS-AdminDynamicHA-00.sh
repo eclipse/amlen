@@ -1,0 +1,119 @@
+#! /bin/bash
+
+#----------------------------------------------------
+#  This script defines the scenarios for the ism Test Automation Framework.
+#  It can be used as an example for defining other testcases.
+#----------------------------------------------------
+
+# TODO!:  MODIFY scenario_set_name to a short description appropriate for your testcase
+# Set the name of this set of scenarios
+
+scenario_set_name="JMS Admin Objects Dynamic Updates - 00"
+
+typeset -i n=0
+
+# Set up the components for the test in the order they should start
+# What is configured here is different for each component and the options are used in run-scenarios.sh:
+#   Tool SubController:
+#		component[x]=<subControllerName>,<machineNumber_ismSetup>,<config_file>
+# or	component[x]=<subControllerName>,<machineNumber_ismSetup>,"-o \"-x <param> -y <params>\" "
+#	where:
+#   <SubControllerName>
+#		SubController controls and monitors the test case runningon the target machine.
+#   <machineNumber_ismSetup>
+#		m1 is the machine 1 in ismSetup.sh, m2 is the machine 2 and so on...
+#		
+# Optional, but either a config_file or other_opts must be specified
+#   <config_file> for the subController 
+#		The configuration file to drive the test case using this controller.
+#	<OTHER_OPTS>	is used when configuration file may be over kill,
+#			parameters are passed as is and are processed by the subController.
+#			However, Notice the spaces are replaced with a delimiter - it is necessary.
+#           The syntax is '-o',  <delimiter_char>, -<option_letter>, <delimiter_char>, <optionValue>, ...
+#       ex: -o_-x_paramXvalue_-y_paramYvalue   or  -o|-x|paramXvalue|-y|paramYvalue
+#
+#   DriverSync:
+#	component[x]=sync,<machineNumber_ismSetup>,
+#	where:
+#		<m1>			is the machine 1
+#		<m2>			is the machine 2
+#
+#   Sleep:
+#	component[x]=sleep,<seconds>
+#	where:
+#		<seconds>	is the number of additional seconds to wait before the next component is started.
+#
+
+if [[ "${A1_TYPE}" == "ESX" ]] || [[ "${A1_TYPE}" =~ "KVM" ]] ||  [[ "${A1_TYPE}" =~ "VMWARE" ]]  ||  [[ "${A1_TYPE}" =~ "Bare" ]] ; then
+    export TIMEOUTMULTIPLIER=1.4
+fi
+
+#----------------------------------------------------
+# Setup Scenario  - jms message expiration setup
+#----------------------------------------------------
+xml[${n}]="jms_AdminDynamic_config_setup"
+timeouts[${n}]=30
+scenario[${n}]="${xml[${n}]} - Test 1 - Creation of policies, endpoints, etc for JMS AdminPolicys testing"
+component[1]=cAppDriverLogWait,m1,"-e|HA/run-cli-primary.sh","-o|admin_dynamic/AdminDynamic_config.cli|setup"
+components[${n}]="${component[1]} "
+((n+=1))
+
+#----------------------------------------------------
+# Scenario  -
+#----------------------------------------------------
+
+xml[${n}]="jms_admin_dynamicHA_001"
+scenario[${n}]="${xml[${n}]} - Testing various dynamic changes to MessagingPolicies.. with an active non-durable subscriber. "
+timeouts[${n}]=200
+component[1]=jmsDriver,m1,admin_dynamic/jms_admin_dynamicHA_001.xml,ALL
+component[2]=searchLogsEnd,m1,admin_dynamic/jms_admin_dynamicHA_001.comparetest
+components[${n}]="${component[1]} ${component[2]}"
+((n+=1))
+
+#----------------------------------------------------
+# Scenario  -
+#----------------------------------------------------
+
+xml[${n}]="jms_admin_dynamicHA_002"
+scenario[${n}]="${xml[${n}]} - Testing various dynamic changes to MessagingPolicies.. with an active non-durable subscriber. "
+timeouts[${n}]=200
+component[1]=jmsDriver,m1,admin_dynamic/jms_admin_dynamicHA_002.xml,ALL
+component[2]=searchLogsEnd,m1,admin_dynamic/jms_admin_dynamicHA_002.comparetest
+components[${n}]="${component[1]} ${component[2]}"
+((n+=1))
+
+#----------------------------------------------------
+# Scenario  -
+#----------------------------------------------------
+
+xml[${n}]="jms_admin_dynamicHA_003"
+scenario[${n}]="${xml[${n}]} - Testing various dynamic changes to MessagingPolicies.. with an active non-durable subscriber. "
+timeouts[${n}]=200
+component[1]=jmsDriver,m1,admin_dynamic/jms_admin_dynamicHA_003.xml,ALL
+component[2]=searchLogsEnd,m1,admin_dynamic/jms_admin_dynamicHA_003.comparetest
+components[${n}]="${component[1]} ${component[2]}"
+((n+=1))
+
+
+#----------------------------------------------------
+# Scenario  -
+#----------------------------------------------------
+
+#xml[${n}]="jms_admin_dynamicHA_004"
+#scenario[${n}]="${xml[${n}]} - Testing various dynamic changes to MessagingPolicies.. with an active global shared durable subscription. "
+#timeouts[${n}]=150
+#component[1]=jmsDriver,m1,admin_dynamic/jms_admin_dynamicHA_004.xml,ALL
+#component[2]=searchLogsEnd,m1,admin_dynamic/jms_admin_dynamicHA_004.comparetest
+#components[${n}]="${component[1]} ${component[2]}"
+#((n+=1))
+
+#----------------------------------------------------
+# Cleanup Scenario  - jms message expiration cleanup
+#----------------------------------------------------
+xml[${n}]="jms_AdminDynamic_config_cleanup"
+timeouts[${n}]=30
+scenario[${n}]="${xml[${n}]} - Test 1 - Cleanup of policies, endpoints, etc for JMS Admin Policy testing"
+component[1]=cAppDriverLogWait,m1,"-e|HA/run-cli-primary.sh","-o|admin_dynamic/AdminDynamic_config.cli|cleanup"
+components[${n}]="${component[1]} "
+((n+=1))
+

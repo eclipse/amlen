@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: testMP_03
+
+   Test Category: SharedSubscription MQTT/JMS 
+
+   Test Description:
+   See what happens with NonDurable shared subscribers for MQTT and JMS sharing a 
+   Subscription. 
+  
+  -->
+<IsmWSTest name="testMP_03">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>MP_03</solution>
+	</SyncClient>
+   
+	<Action name="JMSSub1" type="CompositeAction">
+
+        <Action name="CreateFactory_Cons1" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF1</ActionParameter>
+          <ActionParameter name="loglevel">9</ActionParameter>
+          <ActionParameter name="logfile">stdout</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_Cons1" type="CreateExceptionListener">
+          <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_Cons1" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF1</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <include>../common/JMS_server.xml</include>
+          <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_Con1" type="CreateConnection">
+          <ActionParameter name="structure_id">Con1_Cons1</ActionParameter>
+          <ActionParameter name="factory_id">CF1</ActionParameter>
+          <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+     <Action name="CreateDestination_Sub1" type="CreateDestination">
+          <ApiParameter name="name">/SS_MP/MP_03_QOSM</ApiParameter>
+          <ActionParameter name="type">topic</ActionParameter>
+          <ActionParameter name="structure_id">destSub1</ActionParameter>
+        </Action>        
+          
+       <!-- Send all received messages to the collector to verify we got all messages --> 
+        <Action name="CreateDestination_Pub1" type="CreateDestination" >
+          <ApiParameter name="name">/SS_MP/MP_03_QOSM/JMS/JMSSub1</ApiParameter>
+          <ActionParameter name="type">topic</ActionParameter>
+          <ActionParameter name="structure_id">destPub1</ActionParameter>
+        </Action>
+        
+          <Action name="CreateSession_Cons1" type="CreateSession">
+			<dependsOn name="CreateConnection_Con1" interval="0"/>          
+            <ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+            <ActionParameter name="structure_id">Ses1_Cons1</ActionParameter>
+          </Action>
+          
+          <Action name="CreateSession_Pub1" type="CreateSession">
+            <ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+            <ActionParameter name="structure_id">Ses1_Pub1</ActionParameter>
+          </Action>		  
+		  
+          <Action name="CreateSharedConsumer1" type="CreateSharedConsumer">
+            <ActionParameter name="structure_id">consumer1</ActionParameter>
+            <ActionParameter name="dest_id">destSub1</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Cons1</ActionParameter>
+            <ApiParameter name="durableName">SubMP_03_QOSM</ApiParameter>
+          </Action>
+          
+        <Action name="CreateMsgListener_Cons1" type="CreateMessageListener">
+            <ActionParameter name="structure_id">msg_listener_Cons1</ActionParameter>
+        </Action> 
+          
+        <Action name="SetMsgListener_Cons1" type="SetMessageListener">
+            <ActionParameter name="listener_id">msg_listener_Cons1</ActionParameter>
+            <ActionParameter name="consumer_id">consumer1</ActionParameter>
+        </Action>     
+
+         <Action name="CreateProducer1" type="CreateProducer">
+    		<ActionParameter name="structure_id">producer1</ActionParameter>
+	    	<ActionParameter name="dest_id">destPub1</ActionParameter>
+	    	<ActionParameter name="session_id">Ses1_Pub1</ActionParameter>
+	     </Action>
+     
+        <Action name="StartConnection_Cons1" type="StartConnection" >
+          <ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+        </Action>
+        
+	<!-- Signal to the Publisher the subscribers subscriptions are ready for messages to be sent. -->
+		<Action name="sync_components_Cons1" type="SyncComponentAction">
+			<ActionParameter name="component_name">JMSSub1</ActionParameter>
+			<ActionParameter name="component_list">Subs1;JMSSub1;JMSSub2;Collector1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>					        
+        		
+		 <Action name="ReceiveMessages_Busy1_a" type="CompositeAction" repeat="1500" atleast="0" repeat_interval="0"> 
+           <dependsOn name="sync_components_Cons1" interval="0"/>
+          <Action name="ReceiveMessageWithJMSBusy1" type="ReceiveMessage">
+                <ActionParameter name="listener_id">msg_listener_Cons1</ActionParameter>
+                <ActionParameter name="structure_id">Cons1msg1</ActionParameter>
+                <ApiParameter name="timeout">10000</ApiParameter>
+          </Action>
+          
+          <Action name="SendMessagestoCollectorBusy1" type="SendMessage">
+        	<dependsOn name="ReceiveMessageWithJMSBusy1" interval="0"/>
+        	<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">Cons1msg1</ActionParameter>
+		  </Action>	  
+        </Action>
+        
+     <Action name="CloseSession_Sub2" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Cons1</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession_Pub1" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Pub1</ActionParameter>
+        </Action>		        
+        
+
+		<Action name="CloseConnectionBusy1_a" type="CloseConnection">
+			<dependsOn name="CloseSession_Pub1" interval="0"/>
+			<ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+		</Action>
+	    
+	</Action>
+  	 
+	<Action name="JMSSub2" type="CompositeAction">
+
+        <Action name="CreateFactory_Cons2" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF2</ActionParameter>
+          <ActionParameter name="loglevel">9</ActionParameter>
+          <ActionParameter name="logfile">stdout</ActionParameter>
+        </Action>
+
+        <Action name="CreateListener_Cons2" type="CreateExceptionListener">
+          <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_Cons2" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF2</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <include>../common/JMS_server.xml</include>
+          <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_Con2" type="CreateConnection">
+          <ActionParameter name="structure_id">Con2_Cons2</ActionParameter>
+          <ActionParameter name="factory_id">CF2</ActionParameter>
+          <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+     <Action name="CreateDestination_Sub2" type="CreateDestination">
+          <ApiParameter name="name">/SS_MP/MP_03_QOSM</ApiParameter>
+          <ActionParameter name="type">topic</ActionParameter>
+          <ActionParameter name="structure_id">destSub2</ActionParameter>
+        </Action>        
+          
+       <!-- Send all received messages to the collector to verify we got all messages --> 
+        <Action name="CreateDestination_Pub2" type="CreateDestination" >
+          <ApiParameter name="name">/SS_MP/MP_03_QOSM/JMS/JMSSub2</ApiParameter>
+          <ActionParameter name="type">topic</ActionParameter>
+          <ActionParameter name="structure_id">destPub2</ActionParameter>
+        </Action>
+        
+          <Action name="CreateSession_Cons2" type="CreateSession">
+			<dependsOn name="CreateConnection_Con2" interval="0"/>          
+            <ActionParameter name="conn_id">Con2_Cons2</ActionParameter>
+            <ActionParameter name="structure_id">Ses1_Cons2</ActionParameter>
+          </Action>
+          
+          <Action name="CreateSession_Pub2" type="CreateSession">
+            <ActionParameter name="conn_id">Con2_Cons2</ActionParameter>
+            <ActionParameter name="structure_id">Ses1_Pub2</ActionParameter>
+          </Action>		  
+		  
+          <Action name="CreateSharedConsumer1" type="CreateSharedConsumer">
+            <ActionParameter name="structure_id">consumer1</ActionParameter>
+            <ActionParameter name="dest_id">destSub2</ActionParameter>
+            <ActionParameter name="session_id">Ses1_Cons2</ActionParameter>
+            <ApiParameter name="durableName">SubMP_03_QOSM</ApiParameter>
+          </Action>
+          
+        <Action name="CreateMsgListener_Cons2" type="CreateMessageListener">
+            <ActionParameter name="structure_id">msg_listener_Cons2</ActionParameter>
+        </Action> 
+          
+        <Action name="SetMsgListener_Cons2" type="SetMessageListener">
+            <ActionParameter name="listener_id">msg_listener_Cons2</ActionParameter>
+            <ActionParameter name="consumer_id">consumer1</ActionParameter>
+        </Action>     
+
+         <Action name="CreateProducer1" type="CreateProducer">
+    		<ActionParameter name="structure_id">producer1</ActionParameter>
+	    	<ActionParameter name="dest_id">destPub2</ActionParameter>
+	    	<ActionParameter name="session_id">Ses1_Pub2</ActionParameter>
+	     </Action>
+     
+        <Action name="StartConnection_Cons2" type="StartConnection" >
+          <ActionParameter name="conn_id">Con2_Cons2</ActionParameter>
+        </Action>
+        
+	<!-- Wait for to start  -->
+		<Action name="sync_components_Cons2" type="SyncComponentAction">
+			<ActionParameter name="component_name">JMSSub2</ActionParameter>
+			<ActionParameter name="component_list">Subs1;JMSSub1;JMSSub2;Collector1</ActionParameter>
+			<!--ActionParameter name="component_list">Subs1;JMSSub1;JMSSub2;JMSSub3;Collector1</ActionParameter-->
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>					        
+        		
+		 <Action name="ReceiveMessages_Busy1_a" type="CompositeAction" repeat="1500" atleast="0" repeat_interval="0"> 
+           <dependsOn name="sync_components_Cons2" interval="0"/>
+          <Action name="ReceiveMessageWithJMSBusy1" type="ReceiveMessage">
+                <ActionParameter name="listener_id">msg_listener_Cons2</ActionParameter>
+                <ActionParameter name="structure_id">Cons2msg1</ActionParameter>
+                <ApiParameter name="timeout">10000</ApiParameter>
+          </Action>
+          
+          <Action name="SendMessagestoCollectorBusy1" type="SendMessage">
+        	<dependsOn name="ReceiveMessageWithJMSBusy1" interval="0"/>
+        	<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">Cons2msg1</ActionParameter>
+		  </Action>	  
+        </Action>
+        
+     <Action name="CloseSession_Sub2" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Cons2</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession_Pub2" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Pub2</ActionParameter>
+        </Action>		        
+        
+
+		<Action name="CloseConnectionBusy1_a" type="CloseConnection">
+			<dependsOn name="CloseSession_Pub2" interval="0"/>
+			<ActionParameter name="conn_id">Con2_Cons2</ActionParameter>
+		</Action>
+	    
+	</Action>
+  	 	 
+</IsmWSTest>
+

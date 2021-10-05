@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_pause_001
+
+   Test Category:  JCA MDB Pause Tests
+   
+   Test Description:
+   MDBTopicBean_pause is a regular MDB, non-durable and non-transacted.
+   
+   1 'Bad' message is sent to the MDB, to cause errorCount to increment to 1.
+   
+   We then wait for 30 seconds and send a 'Good' message to cause errorCount to
+   decrement back to 0.
+   
+   5 more 'bad' messages are then sent to the MDB.
+   
+   If this test is successful, then errorCount was reset properly and these 5 'bad'
+   messages do not cause the MDB to become paused.
+   
+   If this test fails, and errorCount wasn't reset by sending a 'good' message
+   30 seconds after the 'bad' message, then the next 5 'bad' messages will cause the
+   MDB to become paused.
+   
+   We then send more 'good' messages to verify that the MDB isn't paused.
+   We wait another 30 seconds during sending these messages to ensure that errorCount
+   is reset to 0 before the end of the test.
+   
+   TestProps #0500 / #0501
+
+  -->
+<ImaJcaTest name="jca_pause_001">
+
+    <Action name="Cluster" type="CompositeAction">
+        <include>../common/jms_jndi_ldap.xml</include>
+        
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+        </Action>
+        
+        <Action name="SetFactoryProps" type="FillIsmProps">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session2</ActionParameter>
+        </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyTopicPause</ActionParameter>
+        </Action>
+
+        <Action name="Create_dest2" type="CreateDestination">
+            <ActionParameter name="structure_id">dest2</ActionParameter>
+            <ActionParameter name="jndiName">sendTopicPause</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+            <ActionParameter name="structure_id">producer</ActionParameter>
+            <ActionParameter name="dest_id">dest2</ActionParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <!-- log topic -->
+        <Action name="Create_log_dest500" type="CreateDestination">
+	      <ActionParameter name="structure_id">logDest500</ActionParameter>
+	      <ApiParameter name="name">/log/Topic/500</ApiParameter>
+	      <ActionParameter name="type">topic</ActionParameter>
+	    </Action>
+	    <Action name="Create_log_dest501" type="CreateDestination">
+	      <ActionParameter name="structure_id">logDest501</ActionParameter>
+	      <ApiParameter name="name">/log/Topic/501</ApiParameter>
+	      <ActionParameter name="type">topic</ActionParameter>
+	    </Action>
+
+        <!-- log consumer -->
+        <Action name="CreateConsumerLog500" type="CreateConsumer">
+            <ActionParameter name="structure_id">logConsumer500</ActionParameter>
+            <ActionParameter name="dest_id">logDest500</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+        <Action name="CreateConsumerLog501" type="CreateConsumer">
+            <ActionParameter name="structure_id">logConsumer501</ActionParameter>
+            <ActionParameter name="dest_id">logDest501</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CreateTestPropsMessageGood" type="CreateTestPropsMessage">
+            <ActionParameter name="structure_id">goodmessage</ActionParameter>
+            <ApiParameter name="msgParam">0501</ApiParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="CreateTestPropsMessageBad" type="CreateTestPropsMessage">
+            <ActionParameter name="structure_id">badmessage</ActionParameter>
+            <ApiParameter name="msgParam">0500</ApiParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="SetReplyToPropertyGood" type="SetMessageProperty">
+            <ActionParameter name="message_id">goodmessage</ActionParameter>
+            <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+            <ApiParameter name="value">dest</ApiParameter>
+        </Action>
+
+        <Action name="SetReplyToPropertyBad" type="SetMessageProperty">
+            <ActionParameter name="message_id">badmessage</ActionParameter>
+            <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+            <ApiParameter name="value">dest</ApiParameter>
+        </Action>
+
+        <!-- Send a message that will cause errorCount to increment -->
+
+        <Action name="SendMessageBad" type="SendMessage">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">badmessage</ActionParameter>
+        </Action>
+
+        <!-- Wait 30 seconds -->
+        
+        <!-- error count of MDB is incremented when the exception occurs,
+        which in extremely slow cases, can be several seconds after the test driver
+        sent the message. So we need to wait more than 30 seconds here to allow
+        for that. -->
+        <Action name="SendMessageGood" type="SendMessage">
+            <dependsOn name="SendMessageBad" interval="38000" />
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">goodmessage</ActionParameter>
+        </Action>
+
+        <Action name="SendMessageBadAgain" type="SendMessage" repeat="5">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">badmessage</ActionParameter>
+        </Action>
+
+        <Action name="SendMessageGoodAgain" type="SendMessage" repeat="5">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">goodmessage</ActionParameter>
+        </Action>
+
+		<!-- Wait for 30 seconds to make sure errorCount is reset to 0
+		for the next test. -->
+
+        <Action name="SendMessageGoodLast" type="SendMessage" repeat="4">
+            <dependsOn name="SendMessageGoodAgain" interval="38000" />
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">goodmessage</ActionParameter>
+        </Action>
+
+        <Action name="Recv" type="CompositeAction" repeat="30">
+            <Action name="RcvObjMessage" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps0501" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+                <ActionParameter name="verifyValue">0501</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="RcvObjMessageDone" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+        <!-- add recv log msgs here -->
+        <Action name="RX_and_Check_Log_Msgs501" type="CompositeAction" repeat="30">
+            <Action name="RX_Log" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">logConsumer501</ActionParameter>
+                <ActionParameter name="structure_id">log_msg</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="ShowLogs" type="GetMessageText">
+                <ActionParameter name="message_id">log_msg</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="RX_and_Check_Log_Msgs500" type="CompositeAction" repeat="18">
+            <Action name="RX_Log" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">logConsumer500</ActionParameter>
+                <ActionParameter name="structure_id">log_msg</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="ShowLogs" type="GetMessageText">
+                <ActionParameter name="message_id">log_msg</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="RX_Log_done500" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">logConsumer500</ActionParameter>
+            <ActionParameter name="structure_id">log_msg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+        <Action name="RX_Log_done501" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">logConsumer501</ActionParameter>
+            <ActionParameter name="structure_id">log_msg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+        <Action name="CloseConsumer" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+
+    <Action name="Single" type="CompositeAction">
+        <include>../common/jms_jndi_ldap.xml</include>
+        
+        <!-- Retrieve the foreign connection factory from JNDI -->
+        <Action name="GetCF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+        </Action>
+        
+        <Action name="SetFactoryProps" type="FillIsmProps">
+            <ActionParameter name="structure_id">cf</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">connection</ActionParameter>
+            <ActionParameter name="factory_id">cf</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2" type="CreateSession">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+             <ActionParameter name="structure_id">session2</ActionParameter>
+        </Action>
+        
+        <!--  Retrieve the replyTo topic from jndi.
+              Messages received by the MDB will be forwarded to this topic. -->
+        <Action name="Create_dest" type="CreateDestination">
+            <ActionParameter name="structure_id">dest</ActionParameter>
+            <ActionParameter name="jndiName">replyTopicPause</ActionParameter>
+        </Action>
+
+        <Action name="Create_dest2" type="CreateDestination">
+            <ActionParameter name="structure_id">dest2</ActionParameter>
+            <ActionParameter name="jndiName">sendTopicPause</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer" type="CreateProducer">
+            <ActionParameter name="structure_id">producer</ActionParameter>
+            <ActionParameter name="dest_id">dest2</ActionParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateConsumer">
+            <ActionParameter name="structure_id">consumer</ActionParameter>
+            <ActionParameter name="dest_id">dest</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <!-- log topic -->
+        <Action name="Create_log_dest500" type="CreateDestination">
+	      <ActionParameter name="structure_id">logDest500</ActionParameter>
+	      <ApiParameter name="name">/log/Topic/500</ApiParameter>
+	      <ActionParameter name="type">topic</ActionParameter>
+	    </Action>
+	    <Action name="Create_log_dest501" type="CreateDestination">
+	      <ActionParameter name="structure_id">logDest501</ActionParameter>
+	      <ApiParameter name="name">/log/Topic/501</ApiParameter>
+	      <ActionParameter name="type">topic</ActionParameter>
+	    </Action>
+
+        <!-- log consumer -->
+        <Action name="CreateConsumerLog500" type="CreateConsumer">
+            <ActionParameter name="structure_id">logConsumer500</ActionParameter>
+            <ActionParameter name="dest_id">logDest500</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+        <Action name="CreateConsumerLog501" type="CreateConsumer">
+            <ActionParameter name="structure_id">logConsumer501</ActionParameter>
+            <ActionParameter name="dest_id">logDest501</ActionParameter>
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CreateTestPropsMessageGood" type="CreateTestPropsMessage">
+            <ActionParameter name="structure_id">goodmessage</ActionParameter>
+            <ApiParameter name="msgParam">0501</ApiParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="CreateTestPropsMessageBad" type="CreateTestPropsMessage">
+            <ActionParameter name="structure_id">badmessage</ActionParameter>
+            <ApiParameter name="msgParam">0500</ApiParameter>
+            <ActionParameter name="session_id">session1</ActionParameter>
+        </Action>
+
+        <Action name="SetReplyToPropertyGood" type="SetMessageProperty">
+            <ActionParameter name="message_id">goodmessage</ActionParameter>
+            <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+            <ApiParameter name="value">dest</ApiParameter>
+        </Action>
+
+        <Action name="SetReplyToPropertyBad" type="SetMessageProperty">
+            <ActionParameter name="message_id">badmessage</ActionParameter>
+            <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+            <ApiParameter name="value">dest</ApiParameter>
+        </Action>
+
+        <!-- Send a message that will cause errorCount to increment -->
+
+        <Action name="SendMessageBad" type="SendMessage">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">badmessage</ActionParameter>
+        </Action>
+
+        <!-- Wait 30 seconds -->
+
+        <Action name="SendMessageGood" type="SendMessage">
+            <dependsOn name="SendMessageBad" interval="32000" />
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">goodmessage</ActionParameter>
+        </Action>
+
+        <Action name="SendMessageBadAgain" type="SendMessage" repeat="5">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">badmessage</ActionParameter>
+        </Action>
+
+        <Action name="SendMessageGoodAgain" type="SendMessage" repeat="5">
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">goodmessage</ActionParameter>
+        </Action>
+
+        <Action name="SendMessageGoodLast" type="SendMessage" repeat="4">
+            <dependsOn name="SendMessageGoodAgain" interval="32000" />
+            <ActionParameter name="producer_id">producer</ActionParameter>
+            <ActionParameter name="message_id">goodmessage</ActionParameter>
+        </Action>
+
+        <Action name="Recv" type="CompositeAction" repeat="10">
+            <Action name="RcvObjMessage" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer</ActionParameter>
+                <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+                <ApiParameter name="timeout">60000</ApiParameter>
+            </Action>
+
+            <Action name="GetTestProps0501" type="GetTestPropsMsg">
+                <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+                <ActionParameter name="verifyValue">0501</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="RcvObjMessageDone" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+        <!-- add recv log msgs here -->
+        <Action name="RX_and_Check_Log_Msgs501" type="CompositeAction" repeat="10">
+            <Action name="RX_Log" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">logConsumer501</ActionParameter>
+                <ActionParameter name="structure_id">log_msg</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="ShowLogs" type="GetMessageText">
+                <ActionParameter name="message_id">log_msg</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="RX_and_Check_Log_Msgs500" type="CompositeAction" repeat="6">
+            <Action name="RX_Log" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">logConsumer500</ActionParameter>
+                <ActionParameter name="structure_id">log_msg</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>
+
+            <Action name="ShowLogs" type="GetMessageText">
+                <ActionParameter name="message_id">log_msg</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="RX_Log_done500" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">logConsumer500</ActionParameter>
+            <ActionParameter name="structure_id">log_msg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+        <Action name="RX_Log_done501" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">logConsumer501</ActionParameter>
+            <ActionParameter name="structure_id">log_msg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+
+        <Action name="CloseConsumer" type="CloseConsumer">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession" type="CloseSession">
+            <ActionParameter name="session_id">session</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection" type="StopConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="conn_id">connection</ActionParameter>
+        </Action>
+    </Action>
+</ImaJcaTest>

@@ -1,0 +1,178 @@
+when RULE_INIT {
+	set static::DEBUG 2 
+	array set static::SERVERS_MAP {}
+	set static::SERVERS_MAP(10.10.0.206) 10.10.0.162
+	set static::SERVERS_MAP(10.10.0.162) 10.10.0.206
+        set static::SERVERS_MAP(10.10.0.87)  10.10.0.97
+	set static::SERVERS_MAP(10.10.0.97)  10.10.0.87
+}
+
+when CLIENT_ACCEPTED {
+	if {$static::DEBUG > 0} {log local0. "[IP::client_addr]:[TCP::client_port]: TCP Client connected"}
+	set retryCounter 0
+	set SEPARATOR "@"
+	set PRIMARY_POOL "MSCLUS1_PRIMARY"
+	set BACKUP_POOL  "MSCLUS1_STANDBY"
+	set oldKey ""
+#   We got tcp connection - start collecting data	
+	TCP::collect 12	
+}
+
+when CLIENT_DATA {
+	set bufLen [TCP::payload length]
+	if { $bufLen < 12 } {
+		#This should never happen
+		if {$static::DEBUG > 0} {log local0. "!!! Less than 12 bytes received from [IP::client_addr]:[TCP::client_port]: $bufLen "}  
+		TCP::collect 12
+		return
+	}
+	set payload [TCP::payload]
+	if {$static::DEBUG > 1} {log local0. "$bufLen bytes of data received from [IP::client_addr]:[TCP::client_port]"}
+	#Ensure that the first message is the CONNECT request
+	binary scan $payload c cmd
+	set cmd [expr { $cmd >> 4 } ]
+	set cmd [expr { $cmd & 0xf  } ]  
+	if {$cmd != 1} {
+		if {$static::DEBUG > 0} {log local0. "Data received from [IP::client_addr]:[TCP::client_port]. The first message is not CONNECT: $cmd "}  
+		reject
+		return
+	}
+	#Get the variable length
+	set multiplier 1
+	set varlen 0
+	set offset 1
+	while true {
+		binary scan $payload @${offset}c len
+		set len [ expr { $len & 0x7f } ]
+		set len [ expr { $len * $multiplier } ]
+		set varlen [expr {$varlen + $len} ]
+        incr offset 
+		if { [expr { $len & 0x80 }] == 0 } {
+			break
+		}
+		if { $offset > 5 } {
+			if {$static::DEBUG > 0} {log local0. "Data received from [IP::client_addr]:[TCP::client_port] is not valid."}  
+			reject
+			return
+		}
+	} 
+    #Ensure that we've read entire request	
+	set reqLen [expr { $offset + $varlen }]
+	if { $bufLen < $reqLen } {
+		if {$static::DEBUG > 1} {log local0. "Not enough data received from [IP::client_addr]:[TCP::client_port]: $bufLen < $reqLen"}  
+		TCP::collect $reqLen
+		return
+	}
+	if {$static::DEBUG > 2} {log local0. "Enough data received from [IP::client_addr]:[TCP::client_port] - continue processing"}  
+    #We have read entire message - parse it	
+	binary scan $payload @${offset}S len
+	incr offset 2
+	#skip protocol name
+	incr offset $len
+	set count [binary scan $payload @${offset}ccSS version flags keepAlive clientIDLen]
+	if { $count != 4 } {
+		if {$static::DEBUG > 0} { log local0. "Failed to parse the message: offset=$offset count=$count payload=[TCP::payload]" }
+		reject
+		return
+	}
+	set cleanSession [expr {$flags & 0x02}]
+	incr offset 6
+    set start $offset
+	set end [expr { $start + $clientIDLen - 1 } ]
+	#read client ID
+	set clientID [string range $payload $start $end]
+	incr offset $clientIDLen
+
+	if {$static::DEBUG > 1} {log local0. "Connect message received from [IP::client_addr]:[TCP::client_port]: clientID is $clientID"}  
+    # persist using client ID
+	set poolName $PRIMARY_POOL	
+	set serverName "" 
+	#Check if client was persisted into primary pool
+	set pData [table lookup -notouch $clientID]
+	log local0. "Persisted data for client $clientID: $pData"  
+	if { [llength $pData] == 2 } {
+		set poolName [lindex $pData 0]
+		set serverName [lindex $pData 1]
+	} else {
+		table delete $clientID
+		table add $clientID [list {}]
+	}
+	
+	if { $serverName != "" } {
+		log local0. "Invoke: pool $poolName member $serverName"  	
+		pool $poolName member $serverName
+	} else {
+		log local0. "Invoke: pool $poolName"  	
+		set poolName $PRIMARY_POOL
+		pool $poolName
+	}
+			
+	#Continue connection processing
+	TCP::release
+}
+
+when LB_FAILED {
+  set serverAddr [LB::server addr]
+  set serverPort [LB::server port]
+#  set serverName [lindex [LB::server name] 1]
+  if {$static::DEBUG > 0} {log local0. "LB failed. Server $serverAddr:$serverPort from the [LB::server pool] pool was selected."}  
+
+  incr retryCounter  
+  if { $retryCounter < 2 } {  
+	if { $cleanSession == 0 } {
+		if { $poolName == $PRIMARY_POOL } {
+			set poolName $BACKUP_POOL
+		} else {
+			set poolName $PRIMARY_POOL
+		}
+		if { $serverName != "" } {  
+			set serverName $static::SERVERS_MAP($serverName)	
+			log local0. "LB::reselect pool $BACKUP_POOL member $serverName"  
+			LB::reselect pool $poolName member $serverName  
+		} else {
+			log local0. "LB::reselect pool $BACKUP_POOL"  
+			LB::reselect pool $poolName
+		}		
+	} else {
+		if { [active_members $PRIMARY_POOL] > 0 } {
+			LB::reselect pool $PRIMARY_POOL
+		} else {
+			LB::reselect pool $BACKUP_POOL
+		}
+	}
+  }  
+}
+
+when LB_SELECTED {
+	set serverAddr [LB::server addr]
+	set serverPort [LB::server port]
+	set serverName [lindex [LB::server name] 1] 
+	if {$clientID  != "" }{
+		if {$static::DEBUG > 0} {log local0. "$clientID has been sent to $serverName ($serverAddr:$serverPort) from the [LB::server pool] pool."}
+		if { $cleanSession == 0 } {
+			set pData [list $poolName $serverName]
+			table replace $clientID $pData "indef" "indef"
+		} else {
+			table delete $clientID
+		}
+	}
+}
+
+when SERVER_CONNECTED {
+	if {$static::DEBUG > 0} {
+		set pData [table lookup -notouch $clientID]
+		log local0. "TCP connection from: [IP::client_addr]:[TCP::client_port]. Mapped to [serverside {IP::local_addr}]:[serverside {TCP::local_port}] -> [IP::server_addr]:[serverside {TCP::remote_port}]. Persist record: $pData"
+	}	
+	set retryCounter 10
+}
+
+when SERVER_CLOSED {
+}
+
+when CLIENT_CLOSED {
+	if {$static::DEBUG > 0} {
+		set pData [table lookup -notouch $clientID]
+		set timeout [table timeout -remaining $clientID]
+		log local0. "Connection was closed for client $clientID. Persist record: $pData  timeout=$timeout"
+	}	
+}

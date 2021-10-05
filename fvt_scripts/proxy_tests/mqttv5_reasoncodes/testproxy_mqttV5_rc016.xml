@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testproxyV5_rc016" >
+<!--
+    Test MQTT V5 Reason Codes
+    
+    16	0x10	No matching subscribers	 yes	PUBACK, PUBREC
+	
+	The TD is not exposing PUBACK or PUBREC ReasonCodes for RC=16 (0x10 in byte 3).   See Defect 205996
+	However the Proxy is returning the correct value from MS, if you look at trc.log and imatrace.log:
+PROXY:
+2018-04-30T18:49:54.733Z tcpiop.2 pxmqtt.c:1823: MQTT receive 40 PUBACK connect=21 inprogress=1: len=4 00011000  [....]
+2018-04-30T18:49:54.733Z tcpiop.2 pxframe.c:142: MQTT send 40 PUBACK connect=20: len=4 00011000  [....]
+
+2018-04-30T18:49:54.755Z tcpiop.2 pxmqtt.c:1823: MQTT receive 50 PUBREC connect=21 inprogress=1: len=4 00021000  [....]
+2018-04-30T18:49:54.755Z tcpiop.2 pxframe.c:142: MQTT send 50 PUBREC connect=20: len=4 00021000  [....]
+
+MS:
+2018-04-30T18:47:00.741Z tcpiop.0 frame.c:290: MQTT send 40 PUBACK connect=37: len=4 00011000  [....]
+2018-04-30T18:47:00.763Z tcpiop.0 frame.c:290: MQTT send 50 PUBREC connect=37: len=4 00021000  [....]
+-->
+
+
+<!--  ==========  rc016 (Device Topic) ==========  -->
+
+    <Action name="rc016" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:V5_puback:rc016</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:V5_puback:rc016</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 1:{ clientId:d:org4iot2:V5_puback:rc016, retain:false, QoS:1, topic:iot-2/evt/puback/fmt/nosubV5}</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 2:{ clientId:d:org4iot2:V5_puback:rc016, retain:false, QoS:2, topic:iot-2/evt/puback/fmt/nosubV5}</ApiParameter>
+        </Action>
+
+        <Action name="SendMessageQoS1" type="SendMessage"  >
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+               <ActionParameter name="message_id">txmsg1</ActionParameter>
+               <ActionParameter name="topic">iot-2/evt/puback/fmt/nosubV5</ActionParameter>
+               <ActionParameter name="QoS">1</ActionParameter>
+               <ActionParameter name="RETAIN">false</ActionParameter>
+
+               <ApiParameter name="expectedrc">166</ApiParameter>
+               <ApiParameter name="expectedrcv5">166</ApiParameter>
+        </Action>
+<!--  Defect 205996  NOTE LEAVING 166 above (and below in WS), should be 16, just want to be sure it is returned 16 in a form TD can check  -->
+
+        <Action name="SendMessageQoS2" type="SendMessage" >
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+               <ActionParameter name="message_id">txmsg2</ActionParameter>
+               <ActionParameter name="topic">iot-2/evt/puback/fmt/nosubV5</ActionParameter>
+               <ActionParameter name="QoS">2</ActionParameter>
+               <ActionParameter name="RETAIN">false</ActionParameter>
+
+               <ApiParameter name="expectedrc">16</ApiParameter>
+               <ApiParameter name="expectedrcv5">16</ApiParameter>
+        </Action>
+        
+        <Action name="CloseConnection" type="CloseConnection" >
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>
+        
+    </Action>
+    
+
+<!--  ==========  WSrc016 (GW Topic) ==========  -->
+
+    <Action name="WSrc016" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection">
+            <ActionParameter name="structure_id">ConWSV5</ActionParameter>
+            <ActionParameter name="connection_id">CFwsV5</ActionParameter>
+
+            <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+            <ActionParameter name="mqttVersion">5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">g:org4iot2:wsV5_puback:rc016</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">g:org4iot2:wsV5_puback:rc016</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFwsV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 1:{ clientId:g:org4iot2:wsV5_puback:rc016, retain:false, QoS:1, topic:iot-2/type/wsV5_puback/id/rc016/evt/puback/fmt/nosubwsV5}</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CFwsV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 2:{ clientId:g:org4iot2:wsV5_puback:rc016, retain:false, QoS:2, topic:iot-2/type/wsV5_puback/id/rc016/evt/puback/fmt/nosubwsV5}</ApiParameter>
+        </Action>
+
+        <Action name="SendMessageQoS1" type="SendMessage" >
+            <ActionParameter name="connection_id">CFwsV5</ActionParameter>
+               <ActionParameter name="message_id">txmsg1</ActionParameter>
+               <ActionParameter name="topic">iot-2/type/wsV5_puback/id/rc016/evt/puback/fmt/nosubwsV5</ActionParameter>
+               <ActionParameter name="QoS">1</ActionParameter>
+               <ActionParameter name="RETAIN">false</ActionParameter>
+
+               <ApiParameter name="expectedrc">166</ApiParameter>
+               <ApiParameter name="expectedrcv5">166</ApiParameter>
+        </Action>
+
+
+        <Action name="SendMessageQoS2" type="SendMessage" >
+            <ActionParameter name="connection_id">CFwsV5</ActionParameter>
+               <ActionParameter name="message_id">txmsg2</ActionParameter>
+               <ActionParameter name="topic">iot-2/evt/puback/fmt/nosubhwsV5</ActionParameter>
+               <ActionParameter name="QoS">2</ActionParameter>
+               <ActionParameter name="RETAIN">false</ActionParameter>
+
+               <ApiParameter name="expectedrc">16</ApiParameter>
+               <ApiParameter name="expectedrcv5">16</ApiParameter>
+        </Action>
+        
+        <Action name="CloseConnection" type="CloseConnection" >
+                <ActionParameter name="connection_id">CFwsV5</ActionParameter>
+        </Action>
+        
+    </Action>
+        
+</IsmWSTest>
+                

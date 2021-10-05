@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="svt" default="buildsvt" basedir=".">
+    <property name="build.dir" value="${basedir}"/>
+   	<property name="svt.build.dir" value="${basedir}"/>
+	<echo/>
+	<echo/>
+	<echo>==== invoking ant build for svt ====</echo>
+    <echo message="os.name = ${os.name}" />
+	<echo message="os.arch = ${os.arch}" />
+	<echo message="os.version = ${os.version}" />
+	
+	<!-- Properties already set by RTC jazz build include:
+	 - buildLabel
+	 - buildResultUUID
+	 -->
+	
+	<!-- load svt properties -->
+	<property file="${svt.build.dir}/svt_build.properties"/>
+
+	<property name="svt.workspace"  value="${svt.build.dir}/.."/> 
+	<property name="svt.ship.dir"   value="${svt.workspace}/svt_ship"/>
+
+	<property name="svt.ship.common_src.dir"   value="${svt.ship.dir}/common_src"/>
+	<property name="svt.ship.scripts.dir"      value="${svt.ship.dir}/scripts"/>
+	<property name="svt.ship.wsclient.dir"     value="${svt.ship.dir}/wsclient"/>
+	<property name="svt.ship.svt-shared.dir"   value="${svt.ship.dir}/svt-shared"/>
+	<property name="svt.ship.CSamples.dir"     value="${svt.ship.dir}/svt_cmqtt"/>
+	<property name="svt.ship.JavaSamples.dir"  value="${svt.ship.dir}/svt_jmqtt"/>
+	<property name="svt.ship.JMSSamples.dir"   value="${svt.ship.dir}/svt_jms"/>
+	<property name="svt.ship.MsgEx.dir"  value="${svt.ship.dir}/svt_msgex"/>
+	<property name="svt.ship.Cluster.dir"  value="${svt.ship.dir}/svt_cluster"/>
+	<property name="svt.ship.JSSamples.dir"    value="${svt.ship.dir}/svt_jsws"/>
+	<property name="svt.ship.MQConnectivity.dir"   value="${svt.ship.dir}/svt_MQConnectivity"/>
+	<property name="svt.ship.clientTests.dir"   value="${svt.ship.dir}/svt_client_tests"/>
+	<property name="svt.ship.rspecTests.dir"   value="${svt.ship.dir}/svt_rspec"/>
+	<property name="svt.ship.Misc.dir"         value="${svt.ship.dir}/svt_misc"/>
+	<property name="svt.ship.Automotive.dir"   value="${svt.ship.dir}/svt_atelm"/>
+	<property name="svt.ship.Automotive.web.dir"   value="${svt.ship.dir}/svt_atelm/web"/>
+	<property name="svt.ship.lib.dir"          value="${svt.ship.dir}/lib"/>
+	<property name="svt.ship.xlinux.dir"       value="${svt.ship.dir}/xlinux"/>
+	<property name="svt.ship.xlinux.bin64.dir" value="${svt.ship.dir}/xlinux/bin64"/>
+	<property name="svt.ship.xlinux.lib.dir" value="${svt.ship.dir}/xlinux/lib"/>
+	<property name="svt.java.dir" value="${basedir}/../svt_JavaSamples"/>
+	<property name="svt.jms.dir" value="${basedir}/../svt_JMSSamples"/>
+	<property name="svt.js.dir" value="${basedir}/../svt_JSSamples"/>
+	<!-- TODO: get imaclientjms.jar from an export tree so that test can be build seperate from client -->
+	<property name="client.ship.lib.dir" value="${basedir}/../client_ship/lib"/>
+	<!-- get jms.jar from client_jms tree so that test gets jar file from one place -->
+	<property name="client.jms.dir" value="${basedir}/../client_jms"/>
+
+	<!-- if we have a buildResultUUID, we are a jazz build -->
+	<condition property="is.jazz.build">
+	    <isset property="buildResultUUID" />
+	</condition>
+	<condition property="is.manual.build">
+		<not><isset property="is.jazz.build" /></not>
+	</condition>
+
+	
+	<!-- build entire svt project -->
+		<!--
+			The root target of svt build. 
+		-->
+	    <target name="buildsvt" depends="svt_clean, svt_init">
+	        <echo/>
+	        <echo>==== Start svt build ====</echo>
+			<antcall target="build-scripts"/>
+		    <antcall target="build-wsclient"/>
+		    <antcall target="build-svt-shared"/>
+	    	<antcall target="build-CSamples"/>
+	    	<antcall target="build-JavaSamples"/>
+	    	<antcall target="build-JMSSamples"/>
+	    	<antcall target="build-MsgEx"/>
+	    	<antcall target="build-Cluster"/>
+	    	<antcall target="build-JSSamples"/>
+		    <antcall target="build-MQConnectivity"/>
+	    	<!-- <antcall target="build-Misc"/> Commented out... nothing to build -->
+		    <antcall target="build-svt_client_tests"/>
+	    	<antcall target="build-AutomotiveTelematics"/>
+	    	<!-- <antcall target="build-MQBridgeTest"/> -->
+			<!-- add more projects here -->
+	    	<antcall target="build-svt_rspec"/>
+	    	<!-- copy svt .sh files svt_ship tree -->
+			<antcall target="svt_copy" />
+	    </target>
+		
+	
+	<target name="build-scripts" >
+		<build.activity label="Building svt_tools" activityIdProperty="buildingSvtToolsId" />
+		<ant dir="${svt.workspace}/svt_tools" inheritRefs="false"/> 
+	</target>
+
+	    <target name="build-wsclient" >		
+			<build.activity label="Building wsclient" activityIdProperty="buildingSvtWsclientId" />
+<!--  I commented this out as well, since there is nothing to compile...
+	        <ant dir="${svt.workspace}/svt_wsclient" inheritRefs="false"/> 
+-->	
+	    </target>
+		
+    <target name="build-svt-shared" >		
+		<build.activity label="Building svt-shared" activityIdProperty="buildingSvtShared" />
+<!--  I commented this out as well, since there is nothing to compile...
+        <ant dir="${svt.workspace}/svt_shared" inheritRefs="false"/> 
+-->	
+    </target>
+	
+			
+	<target name="build-CSamples" depends="svt_init" >
+		<build.activity label="Building build-CSamples" activityIdProperty="buildingSvtCSamples" />
+	  	<ant dir="${basedir}/../svt_CSamples" inheritRefs="true"/> 
+	</target>
+
+	<target name="build-JavaSamples" depends="svt_init" >
+		<build.activity label="Building build-JavaSamples" activityIdProperty="buildingSvtJavaSamples" />
+	  	<ant dir="${basedir}/../svt_JavaSamples" inheritRefs="true"/> 
+	</target>
+
+	<target name="build-JMSSamples" depends="svt_init" >
+		<build.activity label="Building build-JMSSamples" activityIdProperty="buildingSvtJMSSamples" />
+	  	<ant dir="${basedir}/../svt_JMSSamples" inheritRefs="true"/> 
+	</target>
+
+	<target name="build-MsgEx" depends="svt_init" >
+		<build.activity label="Building build-MsgEx" activityIdProperty="buildingSvtMsgEx" />
+	  	<ant dir="${basedir}/../svt_MsgEx" inheritRefs="true"/> 
+	</target>
+
+	<target name="build-Cluster" depends="svt_init" >
+		<build.activity label="Building build-Cluster" activityIdProperty="buildingSvtClusterEx" />
+	  	<ant dir="${basedir}/../svt_Cluster" inheritRefs="true"/> 
+	</target>
+
+	<target name="build-MQConnectivity" depends="svt_init" >
+		<build.activity label="Building build-MQConnectivity" activityIdProperty="buildingSvtMqConnectivity" />
+	  	<ant dir="${basedir}/../svt_MQConnectivity" inheritRefs="true"/> 
+	</target>
+	
+	<target name="build-svt_client_tests" depends="svt_init" >
+		<build.activity label="Building build-svt_client_tests" activityIdProperty="buildingSvt_client_tests" />
+	  	<ant dir="${basedir}/../svt_client_tests" inheritRefs="true"/> 
+	</target>
+	
+<!--  This will be the Selenium Files needed for automation -->
+	<target name="build-JSSamples" depends="svt_init" >
+		<build.activity label="Building build-JSSamples" activityIdProperty="buildingSvtJSSamples" />
+	  	<ant dir="${basedir}/../svt_JSSamples" inheritRefs="true"/> 
+	</target>
+
+	<target name="build-MQBridgeTest" depends="svt_init" >
+		<build.activity label="Building build-MQBridgeTest" activityIdProperty="buildingSvtMQBridgeTest" />
+	  	<ant dir="${basedir}/../svt_mqbridge_test" inheritRefs="true"/> 
+	</target>
+	  		
+	<target name="build-AutomotiveTelematics" depends="svt_init" >
+		<build.activity label="Building build-AutomotiveTelematics" activityIdProperty="buildingSvtAutomotiveTelematics" />
+	  	<ant dir="${basedir}/../svt_AutomotiveTelematics" inheritRefs="true"/> 
+	</target>
+
+	<target name="build-svt_rspec" depends="svt_init" >
+			<build.activity label="Building build-svt_rspec" activityIdProperty="buildingSvt_rspec" />
+		  	<ant dir="${basedir}/../svt_rspec" inheritRefs="true"/> 
+		</target>
+	
+	<!-- Commented out since there is nothing to build... will copy shell scripts below
+	<target name="build-Misc" depends="svt_init" >
+		<build.activity label="Building build-Misc" activityIdProperty="buildingSvtMisc" />
+	  	<ant dir="${basedir}/../svt_misc" inheritRefs="true"/> 
+	</target>
+	-->
+
+	<!-- Copy the svt files so they can be accessed from the publish script. -->
+	<target name="svt_copy">
+		<copy todir="${svt.ship.dir}">
+                   <fileset dir="${svt.workspace}/svt_tools">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.dir}" perm="777" includes="**/*.sh **/*.py"/>
+		<chmod dir="${svt.ship.svt-shared.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.svt-shared.dir}" includes="**/*"/>
+		
+		<!--  <chmod dir="${svt.ship.wsclient.dir}" perm="777" includes="**/*.sh"/> -->
+		
+		<!--  copy C Samples Automation Script Files -->
+		<copy todir="${svt.ship.CSamples.dir}">
+                  <fileset dir="${svt.workspace}/svt_CSamples/scripts">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+		<chmod dir="${svt.ship.CSamples.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.CSamples.dir}" includes="**/*"/>
+
+		<!--  copy Java Samples Automation Script Files -->
+		<copy todir="${svt.ship.JavaSamples.dir}">
+                  <fileset dir="${svt.workspace}/svt_JavaSamples/scripts">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.JavaSamples.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.JavaSamples.dir}" includes="**/*" excludes="**/*.jks **/*.pkcs12"/>
+		
+		<!--  copy JMS Samples Automation Script Files -->
+		<copy todir="${svt.ship.JMSSamples.dir}">
+                  <fileset dir="${svt.workspace}/svt_JMSSamples/scripts">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.JMSSamples.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.JMSSamples.dir}" includes="**/*"/>
+
+		<!--  copy Message Expiry Automation Script Files -->
+		<copy todir="${svt.ship.MsgEx.dir}">
+                  <fileset dir="${svt.workspace}/svt_MsgEx/scripts">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.MsgEx.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.MsgEx.dir}" includes="**/*" excludes="**/*.jks **/*.pkcs12"/>
+
+		<!--  copy Cluster Automation Script Files -->
+		<copy todir="${svt.ship.Cluster.dir}">
+                  <fileset dir="${svt.workspace}/svt_Cluster/scripts">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.Cluster.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.Cluster.dir}" includes="**/*" excludes="**/*.jks **/*.pkcs12"/>
+
+		<!--  copy SVT MQConnectivity Automation Script Files -->
+		<copy todir="${svt.ship.MQConnectivity.dir}">
+                  <fileset dir="${svt.workspace}/svt_MQConnectivity/scripts">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.MQConnectivity.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.MQConnectivity.dir}" includes="**/*"/>
+		
+		<!--  copy SVT MQConnectivity Automation Script Files -->
+				<copy todir="${svt.ship.clientTests.dir}">
+		                  <fileset dir="${svt.workspace}/svt_client_tests/scripts">
+				           <exclude name="**/.*"/>
+				           <exclude name="**/build.xml"/>
+				    </fileset>		
+				</copy>
+			    <chmod dir="${svt.ship.clientTests.dir}" perm="777" includes="**/*.sh"/>
+				<fixcrlf eol="unix" srcdir="${svt.ship.clientTests.dir}" includes="**/*"/>
+		
+		<!--  copy svt Rspec test Files -->
+				<copy todir="${svt.ship.rspecTests.dir}">
+		                  <fileset dir="${svt.workspace}/svt_rspec">			          
+				           <exclude name="**/build.xml"/>
+				    </fileset>		
+				</copy>
+			    <chmod dir="${svt.ship.rspecTests.dir}" perm="777" includes="**/*"/>
+				<fixcrlf eol="unix" srcdir="${svt.ship.rspecTests.dir}" includes="**/*"/>
+				
+		<!--  copy JavaScript Samples Automation Script Files -->
+		<copy todir="${svt.ship.JSSamples.dir}">
+                  <fileset dir="${svt.js.dir}/scripts">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.JSSamples.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.JSSamples.dir}" includes="**/*"/>
+		
+		<copy todir="${svt.ship.JSSamples.dir}/web">
+                  <fileset dir="${svt.js.dir}/web">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.JSSamples.dir}/web" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.JSSamples.dir}" includes="**/*"/>
+		
+		<!--  copy Automotive Telematics Automation Script Files -->
+		<copy todir="${svt.ship.Automotive.dir}">
+                  <fileset dir="${svt.workspace}/svt_AutomotiveTelematics/scripts">
+		           <exclude name="**/.*"/>
+		           <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+    	<copy todir="${svt.ship.Automotive.web.dir}">
+    		<fileset dir="${svt.workspace}/svt_AutomotiveTelematics/web">
+    				<exclude name="**/.*"/>
+    				<exclude name="**/build.xml"/>
+ 			</fileset>	
+    	</copy>
+		<chmod dir="${svt.ship.Automotive.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.Automotive.dir}" includes="**/*"/>
+
+		<!--  copy Misc Automation Script Files -->
+		<copy todir="${svt.ship.Misc.dir}">
+                  <fileset dir="${svt.workspace}/svt_Miscellaneous/scripts">
+		          <exclude name="**/.*"/>
+		          <exclude name="**/build.xml"/>
+		    </fileset>		
+		</copy>
+	    <chmod dir="${svt.ship.Misc.dir}" perm="777" includes="**/*.sh"/>
+		<fixcrlf eol="unix" srcdir="${svt.ship.Misc.dir}" includes="**/*"  excludes="**/*.zip" />
+
+		<!-- sort out line endings -->
+		<fixcrlf eol="unix" srcdir="${svt.build.dir}">
+			<include name="build_publish.sh"/>
+		</fixcrlf>
+
+		<copy file="${svt.workspace}/server_ship/bin/mqttbench" todir="${svt.ship.xlinux.bin64.dir}" preservelastmodified="yes"/>
+		<copy file="${svt.workspace}/server_ship/lib/libismutil.so" todir="${svt.ship.xlinux.lib.dir}" preservelastmodified="yes"/>
+		<chmod perm="755">
+			<fileset id="mqttbench_bin_outputs" dir="${svt.ship.xlinux.bin64.dir}">
+				<include name="*"/>
+			</fileset>
+		</chmod>
+		<chmod perm="755">
+			<fileset id="mqttbench_lib_outputs" dir="${svt.ship.xlinux.lib.dir}">
+				<include name="*"/>
+			</fileset>
+		</chmod>
+	</target>
+	
+	
+    <!-- Initialize the build environment -->
+	<target name="svt_init">
+		<build.activity label="Initializing SVT environment" activityIdProperty="initSvtEnvId" />
+		<mkdir dir="${svt.ship.dir}"/>
+		<mkdir dir="${svt.ship.scripts.dir}"/>	    
+		<mkdir dir="${svt.ship.common_src.dir}"/>
+		<mkdir dir="${svt.ship.lib.dir}"/>
+		<mkdir dir="${svt.ship.xlinux.dir}"/>
+		<mkdir dir="${svt.ship.xlinux.bin64.dir}"/>
+		<mkdir dir="${svt.ship.xlinux.lib.dir}"/>
+
+		<mkdir dir="${svt.ship.wsclient.dir}"/>
+		<mkdir dir="${svt.ship.svt-shared.dir}"/>
+		<mkdir dir="${svt.ship.CSamples.dir}"/>
+		<mkdir dir="${svt.ship.JavaSamples.dir}"/>
+		<mkdir dir="${svt.ship.JMSSamples.dir}"/>
+		<mkdir dir="${svt.ship.MsgEx.dir}"/>
+		<mkdir dir="${svt.ship.Cluster.dir}"/>
+		<mkdir dir="${svt.ship.JSSamples.dir}"/>
+		<mkdir dir="${svt.ship.MQConnectivity.dir}"/>
+		<mkdir dir="${svt.ship.clientTests.dir}"/>
+		<mkdir dir="${svt.ship.rspecTests.dir}"/>
+		<mkdir dir="${svt.ship.Automotive.dir}"/>
+		<mkdir dir="${svt.ship.Automotive.web.dir}"/>
+		<mkdir dir="${svt.ship.Misc.dir}"/>
+
+		<!-- sort out line endings -->
+		<fixcrlf eol="unix" srcdir="${svt.build.dir}">
+			<include name="build_publish.sh"/>
+		</fixcrlf>
+		
+		<!-- change file permissions of scripts -->
+		<chmod perm="755">
+			<fileset id="scripts" dir="${svt.build.dir}">
+				<include name="*.sh"/>
+			</fileset>
+		</chmod>
+		
+		
+        <!-- remove all build_logs then create new log dir -->
+        <!-- delete dir="${svt.workspace}/build_log" quiet="true"/-->
+        <mkdir dir="${svt.workspace}/build_log"/>
+		
+	</target>
+	
+	<target name="svt_clean">
+		<build.activity label="Cleaning SVT build" activityIdProperty="cleanSvtEnvId" />
+	  	<ant dir="${basedir}/../svt_JavaSamples" target="clean"/> 
+	  	<ant dir="${basedir}/../svt_JMSSamples" target="clean"/> 
+	  	<ant dir="${basedir}/../svt_JSSamples" target="clean"/> 
+		<delete dir="${svt.ship.lib.dir}"/>
+		<delete dir="${svt.ship.xlinux.dir}"/>
+		<delete dir="${svt.ship.xlinux.bin64.dir}"/>
+		<delete dir="${svt.ship.xlinux.lib.dir}"/>
+	    <delete dir="${svt.ship.scripts.dir}"/>
+		<delete dir="${svt.ship.common_src.dir}"/>
+		<delete dir="${svt.ship.wsclient.dir}"/>
+		<delete dir="${svt.ship.svt-shared.dir}"/>
+		<delete dir="${svt.ship.CSamples.dir}"/>
+		<delete dir="${svt.ship.JavaSamples.dir}"/>
+		<delete dir="${svt.ship.JMSSamples.dir}"/>
+		<delete dir="${svt.ship.JSSamples.dir}"/>
+		<delete dir="${svt.ship.MsgEx.dir}"/>
+		<delete dir="${svt.ship.Cluster.dir}"/>
+		<delete dir="${svt.ship.MQConnectivity.dir}"/>
+		<delete dir="${svt.ship.clientTests.dir}"/>
+		<delete dir="${svt.ship.rspecTests.dir}"/>
+		<delete dir="${svt.ship.Automotive.dir}"/>
+		<delete dir="${svt.ship.Automotive.web.dir}"/>
+		<delete dir="${svt.ship.Misc.dir}"/>
+	    <delete dir="${svt.ship.dir}"/>
+	</target>
+	
+	<!-- Macro for starting a build activity - starts a jazz activity if available -->
+	<macrodef name="build.activity">
+		<attribute name="label" />
+		<attribute name="activityIdProperty" />
+		<attribute name="autoComplete" default="true" />
+		<sequential>
+			<echo>==================================</echo>
+			<echo> @{label}</echo>
+			<echo>==================================</echo>
+			<antcall target="jazz.build.activity">
+				<param name="label" value="@{label}" />
+				<param name="activityIdProperty" value="@{activityIdProperty}" />
+				<param name="autoComplete" value="@{autoComplete}" />
+			</antcall>
+		</sequential>
+	</macrodef>
+	<target name="jazz.build.activity" if="is.jazz.build">
+		<startBuildActivity label="${label}"
+		    		activityIdProperty="${activityIdProperty}"
+		            buildResultUUID="${buildResultUUID}"
+		            repositoryAddress="${repositoryAddress}"
+		    		autoComplete="${autoComplete}" 
+		            userId="${jazzBuildUserId}"
+		            passwordFile="${jazzBuildUserEncryptedPasswdFile}"/>
+	</target>
+</project>

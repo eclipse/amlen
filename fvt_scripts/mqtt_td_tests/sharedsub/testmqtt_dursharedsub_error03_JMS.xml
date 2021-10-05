@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: testmqtt_dursharedsub_error03_JMS
+
+  Test Category: MQTT JMS  Durabe Shared Subscription
+  
+	NOTE: Most of the validation of this test is in compare logs.  
+
+-->    
+
+<ImaJmsTest name="testmqtt_sharedsub_error03_JMS.xml">
+
+	<Action name="Cons1" type="CompositeAction">
+	
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>mqttDurSharedSubserror03</solution>
+	</SyncClient>
+	
+   	<Action name="syncReset" type="SyncAction">
+		<ActionParameter name="request">reset</ActionParameter>
+	</Action>	
+
+		<!-- A connection factory without a clientID, used for shared namespaces -->
+	<Action name="Create_cf1" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">cf1</ActionParameter>
+		<!--ActionParameter name="loglevel">9</ActionParameter>
+		<ActionParameter name="logfile">stdout</ActionParameter-->
+	</Action>
+	
+	<Action name="SetProps_cf1" type="FillIsmProps">
+		<ActionParameter name="structure_id">cf1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<include>../common/JMS_server.xml</include>
+		<ImaProperty name="Port" value="16102"/>
+	</Action>
+	
+	<Action name="CreateConnection_cf1" type="CreateConnection">
+		<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="factory_id">cf1</ActionParameter>
+	</Action>
+	
+	<!-- Create a session on Connection 1 --> 
+	<Action name="CreateSession1_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+	</Action>	
+	
+	<!-- Create a 2nd session on Connection 1 --> 
+	<Action name="CreateSession1b_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session1b_cf1</ActionParameter>
+	</Action>		
+			                                                          
+	<Action name="CreateDestinationA" type="CreateDestination">
+		<ApiParameter name="name">durshared03/A</ApiParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ActionParameter name="structure_id">dest_TopicA</ActionParameter>
+	</Action>    
+	
+	<Action name="CreateDestinationB" type="CreateDestination">
+		<ApiParameter name="name">durshared03/B</ApiParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ActionParameter name="structure_id">dest_TopicB</ActionParameter>
+	</Action>    
+	
+	<Action name="CreateDestinationC" type="CreateDestination">
+		<ApiParameter name="name">durshared03/C</ApiParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ActionParameter name="structure_id">dest_TopicC</ActionParameter>
+	</Action>    				
+		<!-- Create Shared Durable subscription  -->
+	<Action name="CreateSharedconsumer1_DurShared" type="CreateSharedDurableConsumer" >
+		<ActionParameter name="structure_id">consumer1_DurShared</ActionParameter>
+		<ActionParameter name="dest_id">dest_TopicA</ActionParameter>
+		<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		<ApiParameter name="nolocal">true</ApiParameter>
+		<ApiParameter name="durableName">DurSubErrorTests03A</ApiParameter>
+	</Action>
+	
+	<!-- Shared durable with a selector. -->
+	<Action name="CreateSharedconsumer2_DurShared" type="CreateSharedDurableConsumer" >
+		<ActionParameter name="structure_id">consumer2_DurShared</ActionParameter>
+		<ActionParameter name="dest_id">dest_TopicB</ActionParameter>
+		<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		<ApiParameter name="durableName">DurSubErrorTests03B</ApiParameter>
+		<ApiParameter name="selector">a=b</ApiParameter>
+	</Action>	
+		
+	<!-- Shared Non Durable -->
+	<Action name="CreateSharedConsumer3_SharedDurable" type="CreateSharedConsumer" >
+		<ActionParameter name="structure_id">consumer3_Shared</ActionParameter>
+		<ActionParameter name="dest_id">dest_TopicC</ActionParameter>
+		<ActionParameter name="session_id">session1b_cf1</ActionParameter>
+		<ApiParameter name="durableName">DurSubErrorTests03C</ApiParameter>>
+	</Action>		
+	
+	<!-- Action name="ShowSubExists_a" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03A ClientID=__Shared</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->	
+	
+ <Action name="restSubExists_a" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03A&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_a" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03A</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="durshared03/A"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+		
+	<!-- Action name="ShowSubExists_b" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03B ClientID=__Shared</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->	
+	
+ <Action name="restSubExists_b" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03B&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_b" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03B</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="durshared03/B"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>		
+		
+	<!-- Action name="ShowSubExists_c" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03C ClientID=__SharedND</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+	
+ <Action name="restSubExists_c" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03C&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_c" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03C</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="durshared03/C"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="false"/>
+    </Action>											
+	
+	<!-- tell MQTT that subscriptions are ready -->
+	<Action name="sync_ReadyForMQTT" type="SyncAction"> 
+		<ActionParameter name="request">set</ActionParameter>
+		<ActionParameter name="condition">SubExists</ActionParameter>
+		<ActionParameter name="value">1</ActionParameter>
+	</Action>	
+	
+	<!-- wait until MQTT is done playing with these subscriptions --> 
+	<Action name="sync_MQTTTried" type="SyncAction"> 
+		<ActionParameter name="request">wait</ActionParameter>
+		<ActionParameter name="condition">MQTTTried</ActionParameter>
+		<ActionParameter name="value">1</ActionParameter>
+		<ActionParameter name="timeout">20000</ActionParameter>
+	</Action>	
+	
+	<!-- Action name="ShowSubStillExists_a" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03A ClientID=__Shared</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->	
+	
+ <Action name="restSubStillExists_a" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03A&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubStillExists_a" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03A</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="durshared03/A"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+	<!-- Action name="ShowSubStillExists_b" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03B ClientID=__Shared</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+	
+<Action name="restSubStillExists_b" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03B&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubStillExists_b" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03B</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="durshared03/B"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>		
+    
+	<!-- Action name="ShowSubStillExists_c" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03C ClientID=__SharedND</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action -->
+			
+	 <Action name="restSubStillExists_c" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03C&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareStillSubExists_c" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03C</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="durshared03/C"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="false"/>
+    </Action>	
+ 
+	<Action name="CloseDurableConsumer1" type="CloseConsumer">
+		<ActionParameter name="consumer_id">consumer1_DurShared</ActionParameter>
+	</Action>
+	
+	<Action name="CloseDurableConsumer2" type="CloseConsumer">
+		<ActionParameter name="consumer_id">consumer2_DurShared</ActionParameter>
+	</Action>	
+	
+	<Action name="UnsubscribeA" type="Unsubscribe">
+		<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		<ApiParameter name="durableName">DurSubErrorTests03A</ApiParameter>
+	</Action>	
+
+	<Action name="UnsubscribeB" type="Unsubscribe">
+		<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		<ApiParameter name="durableName">DurSubErrorTests03B</ApiParameter>
+	</Action>	
+	
+	<!-- Action name="ShowSubDoesntExist_A" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03A ClientID=__Shared</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+		<ActionParameter name="expected_rc">1</ActionParameter>
+	</Action -->	
+	
+	<Action name="restSubExists_aDSGone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03A&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_aDSGone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03A</ActionParameter>
+    </Action>						
+
+	<!-- Action name="ShowSubDoesntExist_B" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03B ClientID=__Shared</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+		<ActionParameter name="expected_rc">1</ActionParameter>
+	</Action -->	
+	
+	<Action name="restSubExists_bDSGone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03B&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_bDSGone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03B</ActionParameter>
+    </Action>					
+
+	<Action name="ClosenonDurableConsumer" type="CloseConsumer">
+		<ActionParameter name="consumer_id">consumer3_Shared</ActionParameter>
+	</Action>
+				
+	<Action name="CloseSession1_cf1" type="CloseSession">
+		<ActionParameter name="session_id">session1_cf1</ActionParameter>
+	</Action>		
+	
+	<Action name="CloseSession1b_cf1" type="CloseSession">
+		<ActionParameter name="session_id">session1b_cf1</ActionParameter>
+	</Action>				
+	
+	<Action name="CloseConnection_cf1" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+		
+	<!-- Action name="ShowSubDoesntExist_C" type="ShellAction" >
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=DurSubErrorTests03C ClientID=__SharedND</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+		<ActionParameter name="expected_rc">1</ActionParameter>
+	</Action -->	
+	
+	<Action name="restSubExists_cDSGone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=DurSubErrorTests03C&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_cDSGone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">DurSubErrorTests03C</ActionParameter>
+    </Action>			
+		
+
+	</Action>		
+
+</ImaJmsTest>

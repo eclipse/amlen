@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE project [
+]>
+<!-- ========================================================= -->
+<!--                                                           -->
+<!--       Basic Sample Build File for the                     -->
+<!--        Common Build Utilities                             -->
+<!--                                                           -->
+<!--  Before running this build file, check that the           -->
+<!--  properties set in the file build.properties -->
+<!--  are correct for your environment.                        -->
+<!--                                                           -->
+<!-- ========================================================= -->
+<project name="ism_build" default="all"> 
+
+<property name="BF_project" value="ism_5001"/> 
+
+<!-- Set the base directory from the build file location -->
+<dirname property="build.basedir" file="${ant.file.basic_sample_build}"/> 
+
+<!-- Import your properties from the file.         -->
+<!-- Review this file before running the sample.   -->
+<property file="${build.basedir}${file.separator}build.properties" />
+   
+<!-- Set the project root directory, prior to importing CBU files. -->
+<property name="projRoot" value="${build.basedir}${file.separator}${ant.project.name}"/>  
+   
+<!-- define the source directory -->
+<property name="docSource" value="${build.basedir}"/>
+
+<!-- Set plugin ID -->
+<property name="pluginID" value="com.ibm.ism.doc"/>
+<property name="pluginID2" value="com.ibm.ism.messages.doc"/>
+<property name="pluginID3" value="WelcomePage"/>
+   
+<!-- define output directory -->
+<property name="outputDir" value="${projRoot}${file.separator}dist${file.separator}en${file.separator}kc${file.separator}${pluginID}"/>
+<property name="outputDir3" value="${projRoot}${file.separator}dist${file.separator}en${file.separator}kc${file.separator}${pluginID3}"/>
+
+<!-- Define log plugin ID and ToC text-->
+<property name="log_plugin" value="com.ibm.logs.doc_ism_5001"/>
+<property name="summary_title" value="_ism_5001 Log Summary"/>  
+   
+<!-- Read in the environment variables  -->
+<!-- Environment property env *must* be set prior to the CBU import -->
+<property environment="env"/>
+   
+<!-- Set the packaging directory -->
+<property name="packDir" value="${build.basedir}${file.separator}pack" /> 
+
+<!-- Set CBU Home if necessary for local build -->
+<!-- <property name="cbuHome" value="C:${file.separator}CBU41GA" /> -->
+         
+<!-- Import CBU Targets and Properties  -->
+<!--   Check sampbuild.properties for the value      -->
+<import file="${cbuHome}${file.separator}utilities_istg${file.separator}common_build_utilities.xml"/>
+
+<!-- =============== All target =================== 
+check_graphics, 
+
+idwb_clean, delete_logs, 
+
+ , 
+--> 
+
+<target name="all" depends="build_xhtml, build_pdf, process_em, zipme">
+	</target>
+   
+<!-- =============== Individual targets ============ -->
+<!-- Clean IDWB temp directories -->
+<target name="idwb_clean" depends="init">
+         <exec dir="${build.basedir}" executable="cmd" failonerror="true">
+         <arg value="/c"/>
+         <arg value="idclean all"/>
+         </exec>
+ </target>
+
+<target name="delete_logs" depends="init">
+     <delete>
+     <fileset dir="${docSource}${file.separator}" includes="**/*.log"/>
+          
+     </delete>
+</target>
+ 
+<!-- check graphics translatability with CHKPII -->
+<target name="check_graphics" depends="init">
+	<exec dir="${docSource}${file.separator}.." executable="cmd" failonerror="false">
+		<arg value="/c"/>
+		<arg value="${docSource}${file.separator}..${file.separator}run_chkpii_graphics_check.bat"/>
+		</exec>  
+	</target> 
+ 
+<!-- ========== Build Dita Source ========= -->
+<!-- build Dita XHTML -->
+<target name="build_xhtml" depends="init">
+	<exec dir="${docSource}${file.separator}com.ibm.ism.doc" executable="cmd" failonerror="true">
+		<arg value="/c"/>
+		<arg value="build_xhtml.bat"/>
+		</exec> 
+<!--
+<copy  todir="${outputDir3}" overwrite="true">
+			<fileset dir="${docSource}${file.separator}WelcomePage"  includes="*.png ic-homepage.html *.css"/>                       
+	
+		</copy>
+		-->
+	 </target>
+	 
+<!-- Build PDF -->
+<target name="build_pdf" depends="init">
+	<exec dir="${docSource}${file.separator}com.ibm.ism.doc" executable="cmd" failonerror="true">
+		<arg value="/c"/>
+		<arg value="build_pdf.bat"/>
+		</exec>  
+	</target>
+ 
+<!-- Target to copy IDWB logs, generate a summary of  -->
+<!-- those logs and a plugin containing the logs --> 
+<target name="process_em" depends="init">
+    <copy  todir="${projRoot}${file.separator}idwb_logs" overwrite="true">
+		<fileset dir="${docSource}${file.separator}${pluginID}"  includes="*.log"/>                       
+
+		</copy>
+	<antcall target="process_logs">
+		<param name="summary_table_width" value="95" />
+		</antcall>
+	<copy  todir="${projRoot}${file.separator}idwb_logs" overwrite="true">
+	<fileset dir="${projRoot}${file.separator}idwb_logs${file.separator}${log_plugin}" includes="index.html"/>            
+</copy>
+ <concat destfile="${outputDir}${file.separator}index.html">
+					        &lt;html&gt;&lt;body&gt;&lt;h1&gt;${summary_title} IDWB Transform and CHKPII Graphics Translatability Log Summary&lt;/h1&gt;
+					       &lt;p&gt;View the ${summary_title} IDWB Transform Logs at&#58;&lt;/BR&gt;
+					        &lt;a href=&quot;http://rtpgsa.ibm.com/projects/i/id_build/build/${BF_project}/current/${ant.project.name}/idwb_logs/index.html&quot; target&#61;&quot;_blank&quot;
+					        &gt;http://rtpgsa.ibm.com/projects/i/id_build/build/${BF_project}/current/${ant.project.name}/idwb_logs/index.html&lt;/a&gt;
+					        &lt;/p&gt;
+							&lt;p&gt;Term Extract has been run on all .dita and .ditamap source files for the ${BF_project} build. &lt;a href=&quot;http://rtpgsa.ibm.com/projects/i/id_build/build/${BF_project}/current/TERMEXT_TERMEXT.ZIP&quot; target=&quot;_blank&quot; &gt;Download the Term Extract output .zip file&lt;/a&gt; which must be delivered to the Terminology Team, and which contains the Term Extract logs.
+							&lt;/p&gt; 
+							&lt;p&gt;View the CHKPII graphics translatability log file for the ${BF_project} build at&#58;&lt;/BR&gt;
+					        &lt;a href=&quot;http://rtpgsa.ibm.com/projects/i/id_build/build/${BF_project}/current/CHKPII_GRAPHICS_CHECK.LOG&quot; target&#61;&quot;_blank&quot;
+					        &gt;http://rtpgsa.ibm.com/projects/i/id_build/build/${BF_project}/current/CHKPII_GRAPHICS_CHECK.LOG&lt;/a&gt;
+					        &lt;/p&gt;
+					        &lt;p&gt;If the BuildForge job result is &lt;B&gt;Failed But Continued&lt;/B&gt;&#44; search for &quot;Build Fail&quot; in the 
+					        &lt;a href=&quot;http://rtpgsa.ibm.com/projects/i/id_build/build/${BF_project}/current/BUILD_LOGS/build.log.1&quot; target&#61;&quot;_blank&quot;
+					        &gt;http://rtpgsa.ibm.com/projects/i/id_build/build/${BF_project}/current/BUILD_LOGS/build.log.1&lt;/a&gt; log file to determine which IDWB transform is an issue.
+	        &lt;/body&gt;&lt;/html&gt;</concat>	
+<copy  todir="${projRoot}${file.separator}dist${file.separator}en${file.separator}kc${file.separator}${pluginID}" overwrite="true">
+	<fileset dir="${outputDir}${file.separator}" includes="index.html"/>            
+</copy> 
+   </target>
+   
+<!-- ======= Target to generate zip of plugin ======= --> 
+<target name="zipme" depends="init">
+	<unzip  src="${outputDir}${file.separator}doc.zip" dest="${outputDir}" >
+		</unzip>
+		<delete file="${outputDir}${file.separator}doc.zip" />
+		
+	<zip destfile="${projRoot}${file.separator}dist${file.separator}en${file.separator}Inforcenter${file.separator}plugins${file.separator}${pluginID}_5.0.0.1.zip" >
+		<zipfileset dir="${outputDir}" prefix="${pluginID}"/>
+		</zip>
+	
+    </target>
+
+</project>

@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_selector_00_HA" >
+    
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_selector_01HA</solution>
+    </SyncClient>
+
+    
+    <Action name="UpdatePolicy" type="CompositeAction">
+        <Action name="UpdateSelectorSplitQoS" type="RestAPI">
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"SubscriptionPolicy": {"IoTBusConnSSPolicyLow" :{"ActionList":"Control,Receive","Subscription":"*", "ClientID":"*", "DefaultSelectionRule":"Topic1 &lt;&gt; 'orgone' or Topic7 &lt;&gt; 'sensor-events'"}}}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+            <!-- <ActionParameter name="expectedMessageCode"></ActionParameter> -->
+        </Action>       
+
+        <Action name="ShowSubPolicy" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/configuration/SubscriptionPolicy</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+    </Action>
+
+
+
+    <!-- Create connection with cleansession true to clear -->
+    <Action name="CleanSession" type="CompositeAction">
+        <Action name="CreateConnectionClient1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <!-- <include>../common/MQTT_serversSame.xml</include> -->
+            <ApiParameter name="clientId">selectorclientid_1</ApiParameter>
+            <ApiParameter name="port">32000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+        <Action name="CreateConnectionClient2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <!-- <include>../common/MQTT_serversSame.xml</include> -->
+            <ApiParameter name="clientId">selectorclientid_2</ApiParameter>
+            <ApiParameter name="port">32000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+
+
+        <Action name="SubscriptionMonitor" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=__SharedM</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="RESTmonitorServer" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- Disconnect -->
+        <Action name="CloseConnectionDur1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>            
+        <Action name="CloseConnectionDur2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+    </Action>
+    
+
+
+    <!-- Receivers -->
+    <Action name="Subscribes" type="CompositeAction">
+        <Action name="CreateConnectionClient1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="clientId">selectorclientid_1</ApiParameter>
+            <ApiParameter name="port">32000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action> 
+        <Action name="CreateConnectionClient2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_servers.xml</include>
+            <ApiParameter name="clientId">selectorclientid_2</ApiParameter>
+            <ApiParameter name="port">32000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action> 
+
+        
+
+        <Action name="SubscribeClient1-QoS0" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">$select/QoS=0/$SharedSubscription/bus-connector-lo/iot-2/+/type/+/id/+/evt/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">0</ApiParameter>
+        </Action>
+
+        <Action name="SubscribeClient2-QoS12" type="Subscribe">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ApiParameter name="topic">$select/QoS>0/$SharedSubscription/bus-connector-hi/iot-2/+/type/+/id/+/evt/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+
+        <Action name="SubscriptionMonitorAfterSubs" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- sync -->
+        <Action name="sync_components_1" type="SyncComponentAction">
+            <dependsOn action_id="SubscriptionMonitorAfterSubs" interval="500"/>
+            <ActionParameter name="component_name">sub1</ActionParameter>
+            <ActionParameter name="component_list">pub1;sub1</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        <!-- publisher starts publishing now -->
+
+        <!-- should get 300 messages -->
+        <Action name="ReceiveMessages1" type="CompositeAction" repeat="400" repeat_interval="0" atleast="5" thread="2">
+            <dependsOn action_id="sync_components_1" interval="3000"/>
+            <Action name="ReceiveMessage1" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+                <ActionParameter name="printNumberReceived">true</ActionParameter>
+            </Action>
+        </Action>
+
+
+        <Action name="ReceiveMessages2" type="CompositeAction" repeat="400" repeat_interval="0" atleast="5" thread="3">
+            <dependsOn action_id="sync_components_1" interval="3000"/>
+            <Action name="ReceiveMessage2" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="structure_id">submsg2</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+                <ActionParameter name="printNumberReceived">true</ActionParameter>
+            </Action>
+        </Action>
+
+
+        <!-- verify did not receive any from unwanted org and topic -->
+         <Action name="CheckMessagesReceivedC1" type="CheckMessagesReceived">
+            <dependsOn action_id="ReceiveMessages1" interval="3000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="messageCount">300</ActionParameter>
+         </Action>
+         <Action name="CheckMessagesReceivedC2" type="CheckMessagesReceived">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ActionParameter name="messageCount">300</ActionParameter>
+         </Action>
+
+
+        <Action name="UnSubscribe_C1" type="Unsubscribe">
+            <dependsOn action_id="ReceiveMessages2" interval="3000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">$select/QoS=0/$SharedSubscription/bus-connector-lo/iot-2/+/type/+/id/+/evt/+/fmt/+</ApiParameter>
+        </Action>
+
+        <Action name="UnSubscribe_C22" type="Unsubscribe">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ApiParameter name="topic">$select/QoS>0/$SharedSubscription/bus-connector-hi/iot-2/+/type/+/id/+/evt/+/fmt/+</ApiParameter>
+        </Action>
+
+
+        <Action name="CloseConnectionClient1" type="CloseConnection">
+            
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action> 
+        <Action name="CloseConnectionClient2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action> 
+
+
+
+
+
+
+        <!-- failover -->
+        <Action name="RestartServer" type="ShellAction">
+            <dependsOn action_id="CloseConnectionClient2" interval="15000"/>
+            <ActionParameter name="command">../scripts/serverControl.sh -a restartServer -i 1</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>    
+
+        <Action name="sync_components_failover" type="SyncComponentAction">
+            <ActionParameter name="component_name">subf</ActionParameter>
+            <ActionParameter name="component_list">pubf;subf</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        
+
+        <Action name="ShowSubPolicy-after" type="RestAPI">
+            <dependsOn action_id="sync_components_failover" interval="7000"/>
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/configuration/SubscriptionPolicy</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- Key step: verify selector policy synced -->
+
+        <Action name="VerifyPolicy" type="CompareREST">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">SubscriptionPolicy</ActionParameter>
+            <ActionParameter name="subObjectName">IoTBusConnSSPolicyLow</ActionParameter>
+            <ObjectProperty name="DefaultSelectionRule" value="Topic1 &lt;&gt; 'orgone' or Topic7 &lt;&gt; 'sensor-events'"/>
+            <!-- <ObjectProperty name="MaxMessagesBehavior" value="DiscardOldMessages"/> -->
+        </Action>           
+
+
+
+        <Action name="CreateConnectionClient1-after" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_servers2.xml</include>
+            <ApiParameter name="clientId">selectorclientid_1</ApiParameter>
+            <ApiParameter name="port">32000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action> 
+        <Action name="CreateConnectionClient2-after" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_servers2.xml</include>
+            <ApiParameter name="clientId">selectorclientid_2</ApiParameter>
+            <ApiParameter name="port">32000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action> 
+
+        
+
+        <Action name="SubscribeClient1-QoS0-after" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">$select/QoS=0/$SharedSubscription/bus-connector-lo/iot-2/+/type/+/id/+/evt/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">0</ApiParameter>
+        </Action>
+        <Action name="SubscribeClient2-QoS12-after" type="Subscribe">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ApiParameter name="topic">$select/QoS>0/$SharedSubscription/bus-connector-hi/iot-2/+/type/+/id/+/evt/+/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">1</ApiParameter>
+        </Action>
+
+
+        <Action name="SubscriptionMonitorAfterSubs-after" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- sync -->
+        <Action name="sync_components_2" type="SyncComponentAction">
+            <dependsOn action_id="SubscriptionMonitorAfterSubs-after" interval="500"/>
+            <ActionParameter name="component_name">sub2</ActionParameter>
+            <ActionParameter name="component_list">pub2;sub2</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+        <!-- publisher starts publishing now -->
+
+        <!-- should get 300 messages -->
+        <Action name="ReceiveMessages1-after" type="CompositeAction" repeat="400" repeat_interval="0" atleast="5" thread="2">
+            <dependsOn action_id="sync_components_2" interval="3000"/>
+            <Action name="ReceiveMessage1" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+                <ActionParameter name="printNumberReceived">true</ActionParameter>
+            </Action>
+        </Action>
+
+
+        <Action name="ReceiveMessages2-after" type="CompositeAction" repeat="400" repeat_interval="0" atleast="5" thread="3">
+            <dependsOn action_id="sync_components_2" interval="3000"/>
+            <Action name="ReceiveMessage2" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF2</ActionParameter>
+                <ActionParameter name="structure_id">submsg2</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+                <ActionParameter name="printNumberReceived">true</ActionParameter>
+            </Action>
+        </Action>
+
+
+        <!-- verify did not receive any from unwanted org and topic -->
+         <Action name="CheckMessagesReceivedC1-after" type="CheckMessagesReceived">
+            <dependsOn action_id="ReceiveMessages1-after" interval="3000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="messageCount">300</ActionParameter>
+         </Action>
+         <Action name="CheckMessagesReceivedC2-after" type="CheckMessagesReceived">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ActionParameter name="messageCount">300</ActionParameter>
+         </Action>
+
+
+        <Action name="UnSubscribe_C1-after" type="Unsubscribe">
+            <dependsOn action_id="ReceiveMessages2-after" interval="3000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">$select/QoS=0/$SharedSubscription/bus-connector-lo/iot-2/+/type/+/id/+/evt/+/fmt/+</ApiParameter>
+        </Action>
+
+        <Action name="UnSubscribe_C22-after" type="Unsubscribe">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ApiParameter name="topic">$select/QoS>0/$SharedSubscription/bus-connector-hi/iot-2/+/type/+/id/+/evt/+/fmt/+</ApiParameter>
+        </Action>
+
+
+        <Action name="CloseConnectionClient1-after" type="CloseConnection">
+            
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action> 
+        <Action name="CloseConnectionClient2-after" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action> 
+
+
+
+        <Action name="SubscriptionMonitorAfterRcv-after" type="RestAPI">
+            <!-- <dependsOn action_id="ReceiveMessages3after" interval="500"/> -->
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+
+  
+
+    </Action>
+
+
+    <Action name="Publisher" type="CompositeAction">
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_serversSame.xml</include>
+            <ApiParameter name="clientId">selectorpub</ApiParameter>
+            <ApiParameter name="port">32000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+        <Action name="sync_components_1" type="SyncComponentAction">
+            <ActionParameter name="component_name">pub1</ActionParameter>
+            <ActionParameter name="component_list">pub1;sub1</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+
+        <!-- Publish set number of messages -->
+
+
+        <!-- Publish incrementing message -->
+        <Action name="CreateMessage-q0" type="CreateMessage">
+            <ActionParameter name="structure_id">publoopmsg0</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: QoS0publoop Message number: </ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage-q1" type="CreateMessage">
+            <ActionParameter name="structure_id">publoopmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: QoS1 publoop Message number: </ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+
+        <Action name="CreateMessage-bad" type="CreateMessage">
+            <ActionParameter name="structure_id">publoopmsg3</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">SHOULD NOT GET THIS Message number: </ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+
+        <Action name="PubLoop-o1e1q0" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c1 -->
+            <Action name="SendMessage-o1e1q0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg0</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgone/type/typeid1/id/deviceid1/evt/goodevent/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o1e1q1" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c2 -->
+            <Action name="SendMessage-o1e1q1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgone/type/typeid1/id/deviceid1/evt/goodevent/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o2e1q0" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">    
+            <!-- should receive on c1 -->
+            <Action name="SendMessage-o2e1q0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg0</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgtwo/type/typeid1/id/deviceid1/evt/goodevent/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o2e1q1" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c2 -->
+            <Action name="SendMessage-o2e1q1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgtwo/type/typeid1/id/deviceid1/evt/goodevent/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o1e2q0" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should not be received -->
+            <Action name="SendMessage-o1e2q0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg3</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgone/type/typeid1/id/deviceid1/evt/sensor-events/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o1e2q1" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should not be received -->
+            <Action name="SendMessage-o1e2q1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg3</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgone/type/typeid1/id/deviceid1/evt/sensor-events/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o2e2q0" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c1 -->
+            <Action name="SendMessage-o2e2q0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg0</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgtwo/type/typeid1/id/deviceid1/evt/sensor-events/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o2e2q1" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c2 -->
+            <Action name="SendMessage-o2e2q1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgtwo/type/typeid1/id/deviceid1/evt/sensor-events/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action> 
+
+
+
+
+        <Action name="sync_components_failover" type="SyncComponentAction">
+            <ActionParameter name="component_name">pubf</ActionParameter>
+            <ActionParameter name="component_list">pubf;subf</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+
+        <!-- after failover -->
+
+        <Action name="CreateConnection-after" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server2.xml</include>
+            <ApiParameter name="clientId">selectorpub</ApiParameter>
+            <ApiParameter name="port">32000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+        <Action name="sync_components_2" type="SyncComponentAction">
+            <ActionParameter name="component_name">pub2</ActionParameter>
+            <ActionParameter name="component_list">pub2;sub2</ActionParameter>
+            <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>
+
+
+        <!-- Publish set number of messages -->
+
+
+        <!-- Publish incrementing message -->
+
+
+        <Action name="PubLoop-o1e1q0-after" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c1 -->
+            <Action name="SendMessage-o1e1q0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg0</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgone/type/typeid1/id/deviceid1/evt/goodevent/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o1e1q1-after" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c2 -->
+            <Action name="SendMessage-o1e1q1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgone/type/typeid1/id/deviceid1/evt/goodevent/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o2e1q0-after" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">    
+            <!-- should receive on c1 -->
+            <Action name="SendMessage-o2e1q0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg0</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgtwo/type/typeid1/id/deviceid1/evt/goodevent/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o2e1q1-after" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c2 -->
+            <Action name="SendMessage-o2e1q1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgtwo/type/typeid1/id/deviceid1/evt/goodevent/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o1e2q0-after" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should not be received -->
+            <Action name="SendMessage-o1e2q0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg3</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgone/type/typeid1/id/deviceid1/evt/sensor-events/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o1e2q1-after" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should not be received -->
+            <Action name="SendMessage-o1e2q1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg3</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgone/type/typeid1/id/deviceid1/evt/sensor-events/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o2e2q0-after" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c1 -->
+            <Action name="SendMessage-o2e2q0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg0</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgtwo/type/typeid1/id/deviceid1/evt/sensor-events/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="PubLoop-o2e2q1-after" type="CompositeAction" repeat="100" atleast="50" repeat_interval="0">
+            <!-- should receive on c2 -->
+            <Action name="SendMessage-o2e2q1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">publoopmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/orgtwo/type/typeid1/id/deviceid1/evt/sensor-events/fmt/json</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+        </Action>
+
+
+    </Action>
+
+
+</IsmWSTest>
+                

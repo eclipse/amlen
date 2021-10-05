@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_policy03" >
+<!--
+	This test will check that a user that is allowed to publish to a policy
+	and one that is allow to subscribe to a policy can both succeed. It will
+	also ensure that subscribing to a policy it is not authorized for will fail
+	to deliver any messages. From another connection confirm that all messages 
+	sent can be received by an authorized client.
+-->
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>testmqtt_policy03</solution>
+	</SyncClient>
+    <Action name="publish" type="CompositeAction">
+		
+        <Action name="CreateSSLProps" type="CreateSSLProperties">
+            <ActionParameter name="props_id">SSLProps</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.keyStore">certs/A1/ibm.jks</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.trustStore">certs/A1/ibm.jks</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.keyStorePassword">password</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.trustStorePassword">password</ActionParameter>
+        </Action>
+	    <Action name="CreateConnection" type="CreateConnection">
+    	    <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">mqttPublish</ApiParameter>
+            <ApiParameter name="port">21456</ApiParameter>
+    	    <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ActionParameter name="SSL">true</ActionParameter>
+	    </Action>
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Just some random text in here</ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+		<Action name="sync_components_tx1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx11</ActionParameter>
+			<ActionParameter name="component_list">tx11;rx11;rx21</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+		</Action>
+		<Action name="SendMessages" type="CompositeAction" repeat="5">
+            <Action name="SendMessage_1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/topic8/dest1</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+       	    </Action>
+            <Action name="SendMessage_2" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/topic8/dest2</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="SendMessage_3" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/dest3</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+   	    </Action>
+	    <Action name="CloseConnection" type="CloseConnection">
+    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+	    </Action>
+    </Action>
+    <Action name="receive" type="CompositeAction">
+        <Action name="CreateSSLProps" type="CreateSSLProperties">
+            <ActionParameter name="props_id">SSLProps</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.keyStore">certs/A1/ibm.jks</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.trustStore">certs/A1/ibm.jks</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.keyStorePassword">password</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.trustStorePassword">password</ActionParameter>
+        </Action>
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttClient1</ApiParameter>
+            <ApiParameter name="port">21453</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ActionParameter name="SSL">true</ActionParameter>
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topics">/topic8/+:/dest3</ApiParameter>
+            <ApiParameter name="QoSlist">2:0</ApiParameter>
+        </Action>
+        <Action name="sync_components_tx1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rx11</ActionParameter>
+            <ActionParameter name="component_list">tx11;rx11;rx21</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+        <Action name="DoReceives" type="CompositeAction" repeat="5">
+            <Action name="ReceiveMessage" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <!--ActionParameter name="compareBody">Just some random text in here</ActionParameter-->
+                <ActionParameter name="compareTopic">/topic8/dest1</ActionParameter>
+                <ActionParameter name="compareQoS">1</ActionParameter>
+            </Action>
+            <Action name="ReceiveMessage2" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            <Action name="CheckMessage2" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <!--ActionParameter name="compareBody">Just some random text in here</ActionParameter-->
+                <ActionParameter name="compareTopic">/topic8/dest2</ActionParameter>
+                <ActionParameter name="compareQoS">1</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="FinalReceiveMessage" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+    <Action name="receive2" type="CompositeAction">
+        <Action name="CreateSSLProps" type="CreateSSLProperties">
+            <ActionParameter name="props_id">SSLProps</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.keyStore">certs/A1/ibm.jks</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.trustStore">certs/A1/ibm.jks</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.keyStorePassword">password</ActionParameter>
+            <ActionParameter name="com.ibm.ssl.trustStorePassword">password</ActionParameter>
+        </Action>
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">mqttClient5</ApiParameter>
+            <ApiParameter name="port">21460</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <!--ActionParameter name="SSL">true</ActionParameter-->
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/#</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        <Action name="sync_components_tx1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rx21</ActionParameter>
+            <ActionParameter name="component_list">tx11;rx11;rx21</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+        <Action name="DoReceives" type="CompositeAction" repeat="5">
+            <Action name="ReceiveMessage" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <!--ActionParameter name="compareBody">Just some random text in here</ActionParameter-->
+                <ActionParameter name="compareTopic">/topic8/dest1</ActionParameter>
+                <ActionParameter name="compareQoS">1</ActionParameter>
+            </Action>
+            <Action name="ReceiveMessage2" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            <Action name="CheckMessage2" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <!--ActionParameter name="compareBody">Just some random text in here</ActionParameter-->
+                <ActionParameter name="compareTopic">/topic8/dest2</ActionParameter>
+                <ActionParameter name="compareQoS">1</ActionParameter>
+            </Action>
+            <Action name="ReceiveMessage3" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            <Action name="CheckMessage3" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <!--ActionParameter name="compareBody">Just some random text in here</ActionParameter-->
+                <ActionParameter name="compareTopic">/dest3</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        </Action>
+        <Action name="FinalReceiveMessage" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+</IsmWSTest>
+                

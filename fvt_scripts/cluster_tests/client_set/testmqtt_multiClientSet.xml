@@ -1,0 +1,684 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmClientSetTest name="testmqtt_multiClientSet" >
+<!--
+    A more complex common topic space. 
+-->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_multiClientSet</solution>
+    </SyncClient>
+
+<!-- *** Publish1    *** -->
+    <Action name="publish1" type="CompositeAction">
+
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">d:org:pub:cid1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">d:org:pub:cid1</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by testmqtt_multiClientSet test Producer 1</ApiParameter>
+        </Action>
+        
+
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">pub1</ActionParameter>
+            <ActionParameter name="component_list">sub1;sub2;sub3;sub4;sub5;pub1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToMany" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_components_1" interval="500" />
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="prefix">/CD/001/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">1</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+  
+        <!-- it was cleansession=false, so this will leave a publisher client to delete --> 
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        
+    </Action>
+
+<!-- *** Publish 2 *** -->
+    <Action name="publish2" type="CompositeAction">
+
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server2.xml</include>
+            <ApiParameter name="clientId">d:org:pub:cid2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+          <Action name="CloseConnectionClean" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server2.xml</include>
+            <ApiParameter name="clientId">d:org:pub:cid2</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by testmqtt_multiClientSet test Producer 2</ApiParameter>
+        </Action>
+        
+
+        <!-- there may need to be a delay here, while the control channel does its thing 
+        and the Bloomfilter is created to show that the subscriber on a different cluster
+        member exists -->
+        
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">pub2</ActionParameter>
+            <ActionParameter name="component_list">sub1;sub2;sub3;sub4;sub5;pub2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+            
+                
+        <Action name="PublishToMany" type="PublishTopicTree"  repeat="2">
+            <dependsOn action_id="sync_components_1" interval="500" />
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ActionParameter name="prefix">/CD/001/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+        </Action>
+
+  
+        <!-- it was cleansession=false, so this will leave a publisher client  to delete? (check with Marc C.  --> 
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+        
+    </Action>
+
+    
+<!-- *** Subscribe 1 *** -->
+    <Action name="subscribe1" type="CompositeAction">
+
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-org-uid11</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+               <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-org-uid11</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <Action name="SubscribeToMany" type="SubscribeTopicTree">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="prefix">/CD/001/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">5</ActionParameter>
+            <ActionParameter name="qos">1</ActionParameter>
+        </Action>        
+
+        <!-- Joel: tell publishers that subs are ready. In cluster world, the dependsOn is needed 
+             to allow time for BloomFilter to propogate --> 
+
+        <Action name="CloseConnection" type="CloseConnection">
+                   <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+          <dependsOn action_id="SubscribeToMany" interval="500" />
+            <ActionParameter name="component_name">sub1</ActionParameter>
+            <ActionParameter name="component_list">sub1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>        
+            
+    </Action>
+
+    
+<!-- *** Subscribe 2 *** -->
+    <Action name="subscribe2" type="CompositeAction">
+
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-org-uid12</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+           <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-org-uid12</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <Action name="SubscribeToMany" type="SubscribeTopicTree">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ActionParameter name="prefix">/CD/001/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">5</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+        </Action>        
+        <!-- Joel: tell publishers that subs are ready. In cluster world, the dependsOn is needed 
+             to allow time for BloomFilter to propogate --> 
+
+        <Action name="CloseConnection" type="CloseConnection">
+           <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+          <dependsOn action_id="SubscribeToMany" interval="500" />
+            <ActionParameter name="component_name">sub2</ActionParameter>
+            <ActionParameter name="component_list">sub2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>        
+            
+    </Action>
+
+
+<!-- *** Subscribe 3 *** -->
+    <Action name="subscribe3" type="CompositeAction">
+
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con3</ActionParameter>
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server2.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-org-uid21</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+           <ActionParameter name="connection_id">CF3</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con3</ActionParameter>
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server2.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-org-uid21</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <Action name="SubscribeToMany" type="SubscribeTopicTree">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <ActionParameter name="prefix">/CD/001/</ActionParameter>
+            <ActionParameter name="startIndex">3</ActionParameter>
+            <ActionParameter name="endIndex">7</ActionParameter>
+        </Action>        
+
+        <!-- Joel: tell publishers that subs are ready. In cluster world, the dependsOn is needed 
+             to allow time for BloomFilter to propogate --> 
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+          <dependsOn action_id="SubscribeToMany" interval="500" />
+            <ActionParameter name="component_name">sub3</ActionParameter>
+            <ActionParameter name="component_list">sub3</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>        
+            
+    </Action>
+
+
+<!-- *** Subscribe 4 *** -->
+    <Action name="subscribe4" type="CompositeAction">
+
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con4</ActionParameter>
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server2.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-org-uid22</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con4</ActionParameter>
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server2.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-org-uid22</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <Action name="SubscribeToMany" type="SubscribeTopicTree">
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+            <ActionParameter name="prefix">/CD/001/</ActionParameter>
+            <ActionParameter name="startIndex">4</ActionParameter>
+            <ActionParameter name="endIndex">8</ActionParameter>
+        </Action>        
+
+        <!-- Joel: tell publishers that subs are ready. In cluster world, the dependsOn is needed 
+             to allow time for BloomFilter to propogate --> 
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+          <dependsOn action_id="SubscribeToMany" interval="500" />
+            <ActionParameter name="component_name">sub4</ActionParameter>
+            <ActionParameter name="component_list">sub4</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>        
+            
+    </Action>
+
+
+<!-- *** Subscribe 5 *** -->
+    <Action name="subscribe5" type="CompositeAction">
+
+        <Action name="CreateConnectionClean" type="CreateConnection">
+            <ActionParameter name="structure_id">Con5</ActionParameter>
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-gro-uid11</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionClean" type="CloseConnection">
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con5</ActionParameter>
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!--  Joel: in cluster world, you'd subscribe on different server here. -->
+            <ApiParameter name="clientId">a-gro-uid11</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <Action name="SubscribeToMany" type="SubscribeTopicTree">
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+            <ActionParameter name="prefix">/CD/001/</ActionParameter>
+            <ActionParameter name="startIndex">8</ActionParameter>
+            <ActionParameter name="endIndex">11</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+        </Action>        
+
+        <!-- Joel: tell publishers that subs are ready. In cluster world, the dependsOn is needed 
+             to allow time for BloomFilter to propogate --> 
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_1" type="SyncComponentAction"> 
+            <dependsOn action_id="SubscribeToMany" interval="500" />
+            <ActionParameter name="component_name">sub5</ActionParameter>
+            <ActionParameter name="component_list">sub5</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>        
+            
+    </Action>
+
+
+
+<!-- delete the client sets before this action. -->
+
+<!-- Receive 1 -->
+    <Action name="receive1" type="CompositeAction">
+        
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rec1</ActionParameter>
+            <ActionParameter name="component_list">sub1;sub2;sub3;sub4;sub5;pub1;pub2;rec1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-org-uid11</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Joel: not sure what exactly will happen on the recieve. but you should not get any messages. -->
+
+        <Action name="ReceiveMessage" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">submsg1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        
+        <!--Joel: Now you should subscribe.. and maybe even send more messages and make sure a new subscription can work on the same server?  -->
+        
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>          
+
+        <!-- Definitely cleansession true here, to remove client state -->
+        <Action name="CreateCleanConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-org-uid11</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>     
+        </Action>
+
+        <Action name="CloseCleanConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+    </Action>
+
+<!-- Receive 2 -->
+    <Action name="receive2" type="CompositeAction">
+        
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rec2</ActionParameter>
+            <ActionParameter name="component_list">sub1;sub2;sub3;sub4;sub5;pub1;pub2;rec2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-org-uid12</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Joel: not sure what exactly will happen on the recieve. but you should not get any messages. -->
+
+        <Action name="ReceiveMessage" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <ActionParameter name="structure_id">submsg2</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        
+        <!--Joel: Now you should subscribe.. and maybe even send more messages and make sure a new subscription can work on the same server?  -->
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+          
+        <!-- Definitely cleansession true here, to remove the client state -->
+        <Action name="CreateCleanConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con2</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-org-uid12</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseCleanConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+
+    </Action>
+
+<!-- Receive 3 -->
+    <Action name="receive3" type="CompositeAction">
+        
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rec3</ActionParameter>
+            <ActionParameter name="component_list">sub1;sub2;sub3;sub4;sub5;pub1;pub2;rec3</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">Con3</ActionParameter>
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server2.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-org-uid21</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Joel: not sure what exactly will happen on the recieve. but you should not get any messages. -->
+
+        <Action name="ReceiveMessage" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <ActionParameter name="structure_id">submsg3</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        
+        <!--Joel: Now you should subscribe.. and maybe even send more messages and make sure a new subscription can work on the same server?  -->
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+        </Action>
+          
+        <!-- Definitely cleansession true here, to remove the client state -->
+        <Action name="CreateCleanConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con3</ActionParameter>
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server2.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-org-uid21</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter> 
+        </Action>
+
+        <Action name="CloseCleanConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+        </Action>
+
+    </Action>
+
+<!-- Receive 4 -->
+    <Action name="receive4" type="CompositeAction">
+        
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rec4</ActionParameter>
+            <ActionParameter name="component_list">sub1;sub2;sub3;sub4;sub5;pub1;pub2;rec4</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">Con4</ActionParameter>
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server2.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-org-uid22</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Joel: not sure what exactly will happen on the recieve. but you should not get any messages. -->
+
+        <Action name="ReceiveMessage" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+            <ActionParameter name="structure_id">submsg4</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        
+        <!--Joel: Now you should subscribe.. and maybe even send more messages and make sure a new subscription can work on the same server?  -->
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+        </Action>
+          
+        <!-- Definitely cleansession true here, to remove the client state -->
+        <Action name="CreateCleanConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con4</ActionParameter>
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server2.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-org-uid22</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseCleanConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF4</ActionParameter>
+        </Action>
+
+    </Action>
+
+<!-- Receive 5 -->
+    <Action name="receive5" type="CompositeAction">
+        
+        <Action name="sync_components_receive" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rec5</ActionParameter>
+            <ActionParameter name="component_list">sub1;sub2;sub3;sub4;sub5;pub1;pub2;rec5</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Definitely cleansession false here, to prove the delete clientset deleted! -->
+        <Action name="CreateConnectionDurable" type="CreateConnection">
+            <ActionParameter name="structure_id">Con5</ActionParameter>
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-gro-uid11</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">false</ApiParameter>      <!-- FALSE!!! -->
+        </Action>
+        
+        <!-- Joel: DO NOT SUBSCRIBE here.. just try to recieve to see if your client set and subs were deleted! -->  
+        <!-- Joel: not sure what exactly will happen on the recieve. but you should not get any messages. -->
+
+        <Action name="ReceiveMessage" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+            <ActionParameter name="structure_id">submsg5</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+        
+        <!--Joel: Now you should subscribe.. and maybe even send more messages and make sure a new subscription can work on the same server?  -->
+
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+        </Action>
+          
+        <!-- Definitely cleansession true here, to remove the client state -->
+        <Action name="CreateCleanConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con5</ActionParameter>
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+            <include>../common/ConnectionType.xml</include>  
+            <include>../common/MQTT_server.xml</include>  <!-- Joel: In cluster, use same server as subscribe for each clientID -->
+            <ApiParameter name="clientId">a-gro-uid11</ApiParameter>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="CloseCleanConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF5</ActionParameter>
+        </Action>
+
+    </Action>
+
+
+</IsmClientSetTest>
+                

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: testmqtt_NDS_02_JMS
+
+  Test Category: MQTT JMS Shared Subscription
+  
+	A JMS subscriber to join with MQTT subscribers using
+	a global shared non-durable subscription.  
+
+-->    
+
+<ImaJmsTest name="testmqtt_NDS_02_JMS.xml">
+
+	<Action name="JMSCons1" type="CompositeAction">
+	
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>mqttNDS_02</solution>
+	</SyncClient>
+
+        <Action name="CreateFactory_Cons1" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF1</ActionParameter>
+          <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+          <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+        </Action>
+
+        <Action name="CreateListener_Cons1" type="CreateExceptionListener">
+          <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_Cons1" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF1</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <!-- ImaProperty name="ClientID" value="MQTT_NDS_02_JMS_CID" type="STRING"/ -->
+          <include>../common/JMS_server.xml</include>
+          <ImaProperty name="Port" value="16102" type="STRING"/>
+          <ImaProperty name="DisableACK" value="true" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_Cons1" type="CreateConnection">
+          <ActionParameter name="structure_id">Con1_Cons1</ActionParameter>
+          <ActionParameter name="factory_id">CF1</ActionParameter>
+          <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+		<!-- Ackmode should be ignored since disable_ack is set --> 
+        <Action name="CreateSession_Cons1" type="CreateSession">
+          <ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+          <ActionParameter name="structure_id">Ses1_Cons1</ActionParameter>
+          <ApiParameter name="ack_mode">3</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_Pub1" type="CreateSession">
+          <ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+          <ActionParameter name="structure_id">Ses1_Pub1</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_Cons1" type="CreateDestination">
+          <ApiParameter name="name">/NDS/NDS_02</ApiParameter>
+          <ActionParameter name="type">topic</ActionParameter>
+          <ActionParameter name="structure_id">destCons1</ActionParameter>
+        </Action>
+
+        <Action name="SetProps_destCons1" type="FillIsmProps">
+                <ActionParameter name="structure_id">destCons1</ActionParameter>
+                <ActionParameter name="validateAll">true</ActionParameter>
+                <ActionParameter name="validateNoWarn">false</ActionParameter>                     
+                <ImaProperty name="ClientMessageCache" value="1" type="INT"/>
+        </Action>
+
+        
+       <!-- Send all received messages to the collector to verify we got all messages --> 
+        <Action name="CreateDestination_Pub1" type="CreateDestination">
+          <ApiParameter name="name">/NDS/NDS_02/JMS</ApiParameter>
+          <ActionParameter name="type">topic</ActionParameter>
+          <ActionParameter name="structure_id">destPub1</ActionParameter>
+        </Action>        
+
+        <Action name="CreateSharedConsumer1" type="CreateSharedConsumer">
+          <ActionParameter name="structure_id">consumer1</ActionParameter>
+          <ActionParameter name="dest_id">destCons1</ActionParameter>
+          <ActionParameter name="session_id">Ses1_Cons1</ActionParameter>
+          <ApiParameter name="durableName">SubNDS_02</ApiParameter>
+        </Action>
+
+       <Action name="CreateProducer1" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1</ActionParameter>
+		<ActionParameter name="dest_id">destPub1</ActionParameter>
+		<ActionParameter name="session_id">Ses1_Pub1</ActionParameter>
+	   </Action>
+
+        <Action name="StartConnection_Cons1" type="StartConnection">
+          <ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+        </Action>
+
+	<Action name="ShowSub" type="RestAPI" thread="4">
+		<dependsOn name="StartConnection_Cons1" interval="0"/>
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>		        
+
+        <Action name="sync_components_Cons1" type="SyncComponentAction">
+          <ActionParameter name="component_name">JMSCons1</ActionParameter>
+          <ActionParameter name="component_list">Subs1;Pubs1;JMSCons1;Collector1</ActionParameter>
+          <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+	<Action name="ShowSubagain" type="RestAPI" thread="4">
+		<dependsOn name="sync_components_Cons1" interval="1000"/>
+        <ActionParameter name="structureID">stat_output_1_again</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>		        		               
+
+        <Action name="CompositeRcv" type="CompositeAction" repeat="30000" atleast="10" interval="0" repeat_interval="0">
+          <dependsOn name="sync_components_Cons1" interval="0"/>
+          <Action name="ReceiveMessageWithJMS" type="ReceiveMessage">
+                <ActionParameter name="consumer_id">consumer1</ActionParameter>
+                <ActionParameter name="structure_id">Cons1msg1</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+          </Action>
+          
+          <Action name="SendMessagestoCollector" type="SendMessage">
+        	<dependsOn name="ReceiveMessageWithJMS" interval="0"/>
+        	<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">Cons1msg1</ActionParameter>
+		  </Action>
+		  
+        </Action>
+
+        <Action name="CloseSession_Cons1" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Cons1</ActionParameter>
+        </Action>
+
+        <Action name="CloseSession_Pub1" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Pub1</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection_Cons1" type="StopConnection">
+          <ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_Cons11" type="CloseConnection">
+          <ActionParameter name="conn_id">Con1_Cons1</ActionParameter>
+        </Action>
+
+	</Action>		
+
+</ImaJmsTest>

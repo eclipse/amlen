@@ -1,0 +1,23 @@
+This describes some of the tools for working with the build and publish machines.
+
+ima-prune-builds and slpublish-remove-builds:
+
+Currently, MessagesightPublish.softlayer.com is the main file server for MessageGateway build publishing.  If not monitored, the /gsacache file system can become full from the large number of builds we publish.
+
+I wrote the ima-prune-builds script to be run from cron once a day to remove builds that are over -t X days old (will probably run it with 40 or 45).  When it finds a build that is safe to remove, it calls /root/bin/slpublish-remove-build with the build number and the stream.  This script removes both the build dir and the test build dirs (if it passed all the checks).
+
+There are some checks these scripts make before removing a build:
+
+1) Is the main build dir (ie, /gsacache/release/IMA200-IFIX/centos_production/20190508-1954) a soft link?  If it is, it is probably because it's a link to a published fix.  So we don't remove files under this build.
+2) Is the build saved to /gsacache/release/iotf.
+3) Does the build dir name contain any of the strings that mark it as a special build (ie: "GM", "IF", "FP" etc.)
+4) Is the build newer than the cutoff day (determined by calculating "now" - "value in days of -t X")
+5) Checks if the build number is included in the $STREAM-fixes.txt file (currently, this is updated manually).
+
+If any of these things are true, the build is not removed.  If these things are not true, the build is added to list to be removed.  Only then do we check all the test build directories and remove them too.
+
+It's important to not remove the test build dirs (under 'centos_prod_test' and 'centos_test') manually.
+
+ima-prune-builds is currently running out of /etc/crontab on MessageSightPublish with the following line:
+
+0 1 * * * /root/bin/ima-prune-builds -t 45 >> /root/ima-prune-builds.log 2>&1

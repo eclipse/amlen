@@ -1,0 +1,1 @@
+See client_python project for python REST client for configuring MessageSight

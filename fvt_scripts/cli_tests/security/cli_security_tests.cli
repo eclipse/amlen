@@ -1,0 +1,166 @@
+####################################################
+#
+# Converted to use all restapis February 2019
+#
+# (Completed, all items migrated)
+#
+####################################################
+
+###########################################################
+# get the required certs and create profiles using defaults
+###########################################################
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem cli-security-1-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-crt.pem cli-security-1-crt.pem
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem cli-security-1-key.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-key.pem cli-security-1-key.pem
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/cli_tests/security/certAndKey.pem certAndKey.pem
+setup 0 PUT file ${M1_TESTROOT}/cli_tests/security/certAndKey.pem certAndKey.pem
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem cliRootCA-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/rootCA-crt.pem cliRootCA-crt.pem
+#####setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaCA-crt.pem cliImaCA-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaCA-crt.pem cliImaCA-crt.pem
+#####setup 0 apply Certificate CertFileName=cli-security-1-crt.pem KeyFileName=cli-security-1-key.pem "KeyFilePassword=" "CertFilePassword="
+#####setup 0 apply Certificate CertFileName=certAndKey.pem KeyFileName=certAndKey.pem "KeyFilePassword=" "CertFilePassword="
+#####setup 0 create CertificateProfile Name=CLITestCertProf Certificate=cli-security-1-crt.pem Key=cli-security-1-key.pem
+setup 0 POST configuration {"CertificateProfile":{"CLITestCertProf":{"Certificate":"cli-security-1-crt.pem","Key":"cli-security-1-key.pem"}}}
+#####setup 0 create CertificateProfile Name=CLICertAndKeyProf Certificate=certAndKey.pem Key=certAndKey.pem
+setup 0 POST configuration {"CertificateProfile":{"CLICertAndKeyProf":{"Certificate":"certAndKey.pem","Key":"certAndKey.pem"}}}
+#####setup 0 create SecurityProfile Name=CLITestSecProf CertificateProfile=CLITestCertProf
+setup 0 POST configuration {"SecurityProfile":{"CLITestSecProf":{"CertificateProfile":"CLITestCertProf"}}}
+#####setup 0 create SecurityProfile Name=CLICertAndKeySecProf CertificateProfile=CLICertAndKeyProf MinimumProtocolMethod=TLSv1
+setup 0 POST configuration {"SecurityProfile":{"CLICertAndKeySecProf":{"CertificateProfile":"CLICertAndKeyProf","MinimumProtocolMethod":"TLSv1"}}}
+
+###########################################
+# Create a user, hub, policies and endpoint
+###########################################
+setup 0 user add "UserID=clitestuser" "Password=imatest" "Type=messaging"
+#####setup 0 create MessageHub Name=CLISecurityTestHub Description=CLISecurityTestHub
+setup 0 POST configuration {"MessageHub":{"CLISecurityTestHub":{"Description":"CLISecurityTestHub"}}}
+#####setup 0 create ConnectionPolicy Name=CLISecurityConnectionPolicy1 "Protocol=JMS,MQTT"
+setup 0 POST configuration {"ConnectionPolicy":{"CLISecurityConnectionPolicy1":{"Protocol":"JMS,MQTT"}}}
+#####setup 0 create MessagingPolicy Name=CLISecurityMessagingPolicy01 Destination=* DestinationType=Topic "ActionList=Publish,Subscribe" "Protocol=JMS,MQTT"
+setup 0 POST configuration {"TopicPolicy":{"CLISecurityMessagingPolicy01":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"JMS,MQTT"}}}
+#####setup 0 create Endpoint Name=CLISecurityEndpoint Enabled=True SecurityProfile=CLITestSecProf Port=18414 ConnectionPolicies=CLISecurityConnectionPolicy1 "MessagingPolicies=CLISecurityMessagingPolicy01" MessageHub=CLISecurityTestHub
+setup 0 POST configuration {"Endpoint":{"CLISecurityEndpoint":{"Enabled":true,"SecurityProfile":"CLITestSecProf","Port":18414,"ConnectionPolicies":"CLISecurityConnectionPolicy1","TopicPolicies":"CLISecurityMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"CLISecurityTestHub"}}}
+
+####################################
+# commands to change secure protocol
+####################################
+# SSLv3 no longer supported so this should fail now
+#####protocol_sslv3 - update SecurityProfile Name=CLITestSecProf MinimumProtocolMethod=SSLv3
+protocol_sslv3 - POST configuration {"SecurityProfile":{"CLITestSecProf":{"MinimumProtocolMethod":"SSLv3"}}}
+#####protocol_tlsv1 0 update SecurityProfile Name=CLITestSecProf MinimumProtocolMethod=TLSv1
+protocol_tlsv1 0 POST configuration {"SecurityProfile":{"CLITestSecProf":{"MinimumProtocolMethod":"TLSv1"}}}
+#####protocol_tlsv1_1 0 update SecurityProfile Name=CLITestSecProf MinimumProtocolMethod=TLSv1.1
+protocol_tlsv1_1 0 POST configuration {"SecurityProfile":{"CLITestSecProf":{"MinimumProtocolMethod":"TLSv1.1"}}}
+#####protocol_tlsv1_2 0 update SecurityProfile Name=CLITestSecProf MinimumProtocolMethod=TLSv1.2
+protocol_tlsv1_2 0 POST configuration {"SecurityProfile":{"CLITestSecProf":{"MinimumProtocolMethod":"TLSv1.2"}}}
+
+##########################################
+# commands to enable client authentication
+##########################################
+#####enable_client_auth 0 apply Certificate TrustedCertificate=cliRootCA-crt.pem SecurityProfileName=CLITestSecProf
+enable_client_auth 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"cliRootCA-crt.pem","SecurityProfileName":"CLITestSecProf"}]}
+#####enable_client_auth 0 apply Certificate TrustedCertificate=cliImaCA-crt.pem SecurityProfileName=CLITestSecProf
+enable_client_auth 0 POST configuration {"TrustedCertificate":[{"TrustedCertificate":"cliImaCA-crt.pem","SecurityProfileName":"CLITestSecProf"}]}
+#####enable_client_auth 0 update SecurityProfile Name=CLITestSecProf UseClientCertificate=True
+enable_client_auth 0 POST configuration {"SecurityProfile":{"CLITestSecProf":{"UseClientCertificate":true}}}
+#####enable_client_auth 0 list TrustedCertificate
+enable_client_auth 0 GET configuration/TrustedCertificate
+
+
+###############################
+# disable client authentication
+###############################
+#####disable_client_auth_cert 0 delete TrustedCertificate SecurityProfileName=CLITestSecProf TrustedCertificate=cliImaCA-crt.pem
+disable_client_auth_cert 0 DELETE configuration/TrustedCertificate/CLITestSecProf/cliImaCA-crt.pem
+#####disable_client_auth_cert 0 delete TrustedCertificate SecurityProfileName=CLITestSecProf TrustedCertificate=cliRootCA-crt.pem
+disable_client_auth_cert 0 DELETE configuration/TrustedCertificate/CLITestSecProf/cliRootCA-crt.pem
+#####disable_client_auth_flag 0 update SecurityProfile Name=CLITestSecProf UseClientCertificate=False
+disable_client_auth_flag 0 POST configuration {"SecurityProfile":{"CLITestSecProf":{"UseClientCertificate":false}}}
+
+###################################################
+# update endpoint to use different security profile
+###################################################
+#####ep_update_sec_prof 0 update Endpoint Name=CLISecurityEndpoint "SecurityProfile="
+ep_update_sec_prof 0 POST configuration {"Endpoint":{"CLISecurityEndpoint":{"SecurityProfile":""}}}
+#####ep_update_sec_prof 0 update Endpoint Name=CLISecurityEndpoint SecurityProfile=CLICertAndKeySecProf
+ep_update_sec_prof 0 POST configuration {"Endpoint":{"CLISecurityEndpoint":{"SecurityProfile":"CLICertAndKeySecProf"}}}
+
+
+##########################################
+# GVT names for Security Profiles
+##########################################
+#####gvtcreate_good 0 create SecurityProfile "Name=CLIกโ" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"CLIกโ":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_good 0 create SecurityProfile "Name=CLIAZÀĀΩЯ" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"CLIAZÀĀΩЯ":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_good 0 create SecurityProfile "Name=CLIazàāωџ" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"CLIazàāωџ":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_good 0 create SecurityProfile "Name=CLI09٩९๙" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"CLI09٩९๙":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_good 0 create SecurityProfile "Name=CLI闭嘴" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"CLI闭嘴":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_good 0 create SecurityProfile "Name=рглсывызто" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"рглсывызто":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_good 0 create SecurityProfile "Name=žłíżńęøá" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"žłíżńęøá":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_good 0 create SecurityProfile "Name=ółńśłŕí" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"ółńśłŕí":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_good 0 create SecurityProfile "Name=βςανنيرحبالте" CertificateProfile=CLITestCertProf
+gvtcreate_good 0 POST configuration {"SecurityProfile":{"βςανنيرحبالте":{"CertificateProfile":"CLITestCertProf"}}}
+
+#####gvtcreate_bad - create SecurityProfile "Name=BAD_NAME" CertificateProfile=CLITestCertProf
+gvtcreate_bad - POST configuration {"SecurityProfile":{"BAD_NAME":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_bad - create SecurityProfile "Name=BAD+TOO" CertificateProfile=CLITestCertProf
+gvtcreate_bad - POST configuration {"SecurityProfile":{"BAD+TOO":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_bad - create SecurityProfile "Name=-ReallyBad" CertificateProfile=CLITestCertProf
+gvtcreate_bad - POST configuration {"SecurityProfile":{"-ReallyBad":{"CertificateProfile":"CLITestCertProf"}}}
+#####gvtcreate_bad - create SecurityProfile "Name=表噂ソ十豹竹敷～兎椄" CertificateProfile=CLITestCertProf
+gvtcreate_bad - POST configuration {"SecurityProfile":{"表噂ソ十豹竹敷～兎椄":{"CertificateProfile":"CLITestCertProf"}}}
+
+
+##########
+# cleanup!
+##########
+#####cleanup 0 delete Endpoint Name=CLISecurityEndpoint
+cleanup 0 DELETE configuration/Endpoint/CLISecurityEndpoint
+#####cleanup 0 delete ConnectionPolicy Name=CLISecurityConnectionPolicy1
+cleanup 0 DELETE configuration/ConnectionPolicy/CLISecurityConnectionPolicy1
+#####cleanup 0 delete MessagingPolicy Name=CLISecurityMessagingPolicy01
+cleanup 0 DELETE configuration/TopicPolicy/CLISecurityMessagingPolicy01
+#####cleanup 0 delete MessageHub Name=CLISecurityTestHub 
+cleanup 0 DELETE configuration/MessageHub/CLISecurityTestHub
+
+#####cleanup 0 delete SecurityProfile Name=CLITestSecProf
+cleanup 0 DELETE configuration/SecurityProfile/CLITestSecProf
+#####cleanup 0 delete SecurityProfile "Name=CLIกโ" CertificateProfile=CLITestCertProf
+cleanup 0 DELETE configuration/SecurityProfile/CLIกโ?CertificateProfile=CLITestCertProf
+#####cleanup 0 delete SecurityProfile "Name=CLIAZÀĀΩЯ" CertificateProfile=CLITestCertProf
+cleanup 0 DELETE configuration/SecurityProfile/CLIAZÀĀΩЯ?CertificateProfile=CLITestCertProf
+#####cleanup 0 delete SecurityProfile "Name=CLIazàāωџ" CertificateProfile=CLITestCertProf
+cleanup 0 DELETE configuration/SecurityProfile/CLIazàāωџ?CertificateProfile=CLITestCertProf
+#####cleanup 0 delete SecurityProfile "Name=CLI09٩९๙" CertificateProfile=CLITestCertProf
+cleanup 0 DELETE configuration/SecurityProfile/CLI09٩९๙?CertificateProfile=CLITestCertProf
+
+#####cleanup 0 delete SecurityProfile "Name=CLI闭嘴"
+cleanup 0 DELETE configuration/SecurityProfile/CLI闭嘴
+#####cleanup 0 delete SecurityProfile "Name=рглсывызто" CertificateProfile=CLITestCertProf
+cleanup 0 DELETE configuration/SecurityProfile/рглсывызто?CertificateProfile=CLITestCertProf
+#####cleanup 0 delete SecurityProfile "Name=žłíżńęøá" CertificateProfile=CLITestCertProf
+cleanup 0 DELETE configuration/SecurityProfile/žłíżńęøá?CertificateProfile=CLITestCertProf
+#####cleanup 0 delete SecurityProfile "Name=ółńśłŕí" CertificateProfile=CLITestCertProf
+cleanup 0 DELETE configuration/SecurityProfile/ółńśłŕí?CertificateProfile=CLITestCertProf
+#####cleanup 0 delete SecurityProfile "Name=βςανنيرحبالте" CertificateProfile=CLITestCertProf
+cleanup 0 DELETE configuration/SecurityProfile/βςανنيرحبالте?CertificateProfile=CLITestCertProf
+
+#####cleanup 0 delete CertificateProfile Name=CLITestCertProf
+cleanup 0 DELETE configuration/CertificateProfile/CLITestCertProf
+#####cleanup 0 delete SecurityProfile Name=CLICertAndKeySecProf
+cleanup 0 DELETE configuration/SecurityProfile/CLICertAndKeySecProf
+#####cleanup 0 delete CertificateProfile Name=CLICertAndKeyProf
+cleanup 0 DELETE configuration/CertificateProfile/CLICertAndKeyProf
+
+cleanup 0 user delete "UserID=clitestuser"  "Type=messaging"
+
+

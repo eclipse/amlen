@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="br00010.dita" xml:lang="en-us">
+<title>Configuring the Bridge</title>
+<shortdesc>The <ph conref="../TextEntities.dita#TextEntities/ISM_bridge"/> is configured
+by using a small set of objects that are stored in a JSON dynamic configuration file. The objects
+can be created and modified as files or specified by using the Bridge REST APIs. When the
+configuration objects are modified, the dynamic configuration file is updated with the current
+state.</shortdesc>
+<conbody>
+<section>
+<title>Overview</title>
+<p>Each JSON object that is processed in a configuration file is considered to be a modification from the
+previous instance of the same object. During the initial configuration, when there is no existing object,
+the whole object is specified. When a dynamic update is made, only the changed fields are modified.
+Items such as strings, numbers, boolean, or arrays of strings are replaced.</p>
+<p>To delete an object, you can either use the REST DELETE method or you can specify
+the object type and name in the configuration file and give the value as <codeph>null</codeph>. Removing an object from the configuration file
+might not delete the object. For example, if the configuration defines a durable MQTT session with a
+SessionExpiry > 0, the session continues to exist on the MQTT server after it is removed from a
+configuration file. If the configuration object is explicitly deleted, the object is removed from
+the MQTT server.</p>
+</section>
+<section>
+<title>Connecting to an MQTT server</title>
+<p>The following table shows the properties that are defined by a connection object, which are
+required to connect to an MQTT server: </p>
+<table id="datasimpletable_r2l_1mn_qfb">
+<title>A Connection object defines the following properties that are required to
+connect to an MQTT server.</title>
+<tgroup cols="3">
+<thead>
+<row>
+<entry>Name</entry>
+<entry>Type</entry>
+<entry>Description</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>MQTTServerList</entry>
+<entry>Array of String (max 16)</entry>
+<entry>A list of MQTT servers where each entry is in the format <codeph>host:port</codeph>. The host
+can be a resolvable name or an IP address. </entry>
+</row>
+<row>
+<entry>Ciphers</entry>
+<entry>String</entry>
+<entry>The cipher list to use when TLS is set to TLS version 1.1 or TLS version1.2. The default is
+to use ciphers that are selected based on the version of TLS that is used. The cipher list is in
+openssl cipher selection format. It is best practice to leave the default settings unless they do
+not work.</entry>
+</row>
+<row>
+<entry>ClientID</entry>
+<entry>String</entry>
+<entry>The initial part of the client identifier for this connection. The forwarder name and
+instance number are appended to the end of this name. The connection cannot start if the ClientID is not specified.</entry>
+</row>
+<row>
+<entry>MaxPacketSize</entry>
+<entry>Int 0 to 2147483647</entry>
+<entry>The maximum packet size in bytes for MQTT and the maximum batch size in bytes for <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/>. In MQTT, this value is sent to the server as the maximum size packet that the Bridge
+accepts. In <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/>, the value is used along with <codeph>MaxBatchTimeMS</codeph> to decide
+when a batch of messages are produced. A value of 0 indicates to use the default max packet size.  Small sizes might be rejected or ignored by the server.</entry>
+</row>
+<row>
+<entry>Password</entry>
+<entry>String</entry>
+<entry>A string to send as the password. The password can be an obfuscated password. </entry>
+</row>
+<row>
+<entry>ServerName</entry>
+<entry>String</entry>
+<entry>The server name to use for the SNI override. If not specified, the host from the
+<codeph>MQTTServerList</codeph> entry is used unless it is an IP address.</entry>
+</row>
+<row>
+<entry>SessionExpiry</entry>
+<entry>Int 0 to 2147483647</entry>
+<entry>The session expiry. In versions 3.1 or 3.1.1, setting the expiry to zero creates a
+CleanSession=true connection and any other value creates a CleanSession=false connection. For MQTT
+version 5, a value of 0 causes CleanStart=true to be set. The default value is 0.</entry>
+</row>
+<row>
+<entry>TLS</entry>
+<entry>Enum: None, TLSv1.2, TLSv1.1</entry>
+<entry>The version of TLS to use. If <codeph>None</codeph> is selected or this property is not
+set, a non-secure connection is used.</entry>
+</row>
+<row>
+<entry>UserName</entry>
+<entry>String</entry>
+<entry>A string to send as the username </entry>
+</row>
+<row>
+<entry>Version</entry>
+<entry>Enum: 3.1, 3.1.1, 5.0</entry>
+<entry>The MQTT version to use. Some features only work if MQTT version 5 is used. Version is not used
+for <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> connections. </entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+<p>The following section shows an example connection object:</p>
+<codeblock>
+{
+    "Connection": { 
+        "MyServer": 
+            "MQTTServerList”: [ mymqtt1.ibm.com:16104, mymqtt2.ibm.com:16104 ]
+            "ClientID": "MQTTBridge-",
+            “SessionExpiry”: 0,
+            "Version": "5.0",
+            "TLS": "TLSv1.2",
+            "Username": "msgUser2",
+            "Password": "!Fqun1VseY4Pmruz/Z5KjkmK/FhyZudVZVSdHYeXzx"
+        }
+    }
+}
+</codeblock>
+<p>For an <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> destination, the <codeph>MQTTServerList</codeph> is replaced with
+<codeph>EventStreamsBrokerList</codeph>. </p>
+<table id="datasimpletable_gfy_4ln_qfb">
+<title>For an <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> destination the <codeph>MQTTServerList</codeph> is replaced
+with <codeph>EventStreamsBrokerList</codeph>.</title>
+<tgroup cols="3">
+<thead>
+<row>
+<entry>Name</entry>
+<entry>Type</entry>
+<entry>Description</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>EventStreamsBrokerList</entry>
+<entry>Array of String (max 16)</entry>
+<entry>A list of <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> brokers where each entry is of the form <codeph>host:port</codeph>.
+The host can be a resolvable name or an IP address.  </entry>
+</row>
+<row>
+<entry>MaxBatchTimeMS</entry>
+<entry>Int 0 to 2147483647</entry>
+<entry>The maximum time to wait to complete a batch of messages. If the value is 0, the system
+default time is used. Otherwise, this is a time in milliseconds to wait to fill a batch. The batch
+of messages is sent to the broker when it exceeds either the <codeph>MaxPacketSize</codeph>, or the
+<codeph>MaxBatchTimeMS</codeph>.</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+<p>For <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> connections, the properties <codeph>ClientID</codeph>,
+<codeph>SessionExpiry</codeph> and <codeph>Version</codeph> are not used. For MQTT connections the
+<codeph>MaxBatchTimeMS</codeph> property is not used. </p><p>Most items in Connection can be set back to the default by setting the value to <varname>null</varname>.  This does not work for some values, which are required for the connection to work.</p>
+</section>
+<section>
+<title>Forwarder</title>
+<p>The following table shows the rules that are defined by the forwarder object. The rules are used
+to forward messages from a source MQTT server to a destination:</p>
+<table id="datasimpletable_jhp_zmn_qfb">
+<title>The forwarder object defines rules that  are used to forward messages from a
+source MQTT server to a destination.</title>
+<tgroup cols="3">
+<thead>
+<row>
+<entry>Name</entry>
+<entry>Type</entry>
+<entry>Description</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>Source</entry>
+<entry>String</entry>
+<entry>The name of the source connection object.</entry>
+</row>
+<row>
+<entry>Destination</entry>
+<entry>String</entry>
+<entry>The name of the destination connection object.</entry>
+</row>
+<row>
+<entry>Enabled</entry>
+<entry>Boolean</entry>
+<entry>If the value is false, then the forwarder is not enabled and is not started.</entry>
+</row>
+<row>
+<entry>Instances</entry>
+<entry>Int 0-100</entry>
+<entry>The number of instances. A value of 0 means that there no added instances. A value of 1 to
+100 means that this forwarder is used as a prototype to create the specified number of instances.
+</entry>
+</row>
+<row>
+<entry>Topic</entry>
+<entry>String or Array of String (max 16)</entry>
+<entry>The names of topics to subscribe to.</entry>
+</row>
+<row>
+<entry>Selector</entry>
+<entry>String</entry>
+<entry>A selector in extended SQL92 format. </entry>
+</row>
+<row>
+<entry>SourceQoS</entry>
+<entry>0, 1, 2</entry>
+<entry>The QoS for the subscription. This can be reduced if the source server does not support the
+requested QoS. If the destination is <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/>, this value is reduced from 2 to 1.</entry>
+</row>
+<row>
+<entry>TopicMap</entry>
+<entry>String</entry>
+<entry>The mapping from source topic to destination topic.</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+<p>The following section shows an example forwarder:</p>
+<codeblock>
+{ 
+    "Forwarder": {
+        "m2w": {
+            "Topic": ["wiotp/event/+/+/MyEvent/#"],
+            "Enabled": true,
+            "Source": "MyServer",
+            "Destination": "WIoTP",
+            "TopicMap": "iot-2/type/${Topic2}/id/${Topic3}/evt/${Topic4}/fmt/json'"
+        }
+    }
+}
+</codeblock>
+<p>The following table shows the name, type and description of the fields that are added for
+forwarders with an <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> destination:</p>
+<table id="datasimpletable_xn1_bln_qfb">
+<title>For forwarders with an <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> destination, the following fields are
+added:</title>
+<tgroup cols="3">
+<thead>
+<row>
+<entry>Name</entry>
+<entry>Type</entry>
+<entry>Description</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>KeyMap</entry>
+<entry>String</entry>
+<entry>The map that is used to create the key. The key is always created as a string. If no KeyMap
+is given, a null Keymap is used in the same format as TopicMap. </entry>
+</row>
+<row>
+<entry>KafkaAPIVersion</entry>
+<entry>0, 1, 2</entry>
+<entry>The <ph conref="../TextEntities.dita#TextEntities/prodname_kafka_long"/> LogMessageVersion. This is value is based on the version of the <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> brokers, but in some cases requires a manual override. Sending MQTT version 5 properties requires
+KafkaAPIVersion=2, but this in turn requires an <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> instance based on <ph conref="../TextEntities.dita#TextEntities/prodname_kafka_short"/> 0.11 or
+later.</entry>
+</row>
+<row>
+<entry>PartitionRule</entry>
+<entry>String</entry>
+<entry>The rule that is used to choose a partition when there are multiple partitions for a
+topic. This can be one of the built in rules, or a string with replacement values which is then
+hashed.</entry>
+</row>
+<row>
+<entry>RoutingRule</entry>
+<entry>Object containing a set of named strings.</entry>
+<entry>The name of the string item within the RoutingRule object is an <ph conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> topic, and
+the value of the item is a message selector. The name must be 1 to 100 characters in length and can only
+contain base alphanumerics and the special characters underscore, hyphen, and period. If a name is
+specified more than once, the latter name replaces the former.</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+    <p>Most items in Forwarder can be set back to the default by setting the value to <varname>null</varname>. This does not work for some values, which are required for the forwarder to work.</p></section>
+<section>
+<title>Endpoint</title>
+<p>An Endpoint object defines the properties needed to define an administrative REST interface for
+the Bridge. The following table shows the name, type and description of the properties that are used
+to define an administrative REST interface for the Bridge:</p>
+<table id="datasimpletable_m5x_m3n_qfb">
+<title>The following table shows the name,type and description of the properties that
+are used to define an administrative REST interface for the Bridge.</title>
+<tgroup cols="3">
+<thead>
+<row>
+<entry>Name</entry>
+<entry>Type</entry>
+<entry>Description</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>Port</entry>
+    <entry>Integer (1 to 65535)</entry>
+<entry>The port number to listen on. This must be unique.</entry>
+</row>
+<row>
+<entry>Interface</entry>
+<entry>String</entry>
+<entry>The interface to listen on. If this value is not specified or "*" is entered, then listen on all interfaces.
+</entry>
+</row>
+<row>
+<entry>Protocol</entry>
+<entry>enum: "admin"</entry>
+<entry>In the bridge, "admin" is the only supported protocol.</entry>
+</row>
+<row>
+<entry>Enabled</entry>
+<entry>Boolean</entry>
+<entry>If this value is false, the endpoint is not enabled.</entry>
+</row>
+<row>
+<entry>Authentication</entry>
+<entry>enum: "basic"</entry>
+<entry>If this value is set, an HTTP status of 401 is returned if the username is not
+specified. </entry>
+</row>
+<row>
+<entry>Certificate</entry>
+<entry>String</entry>
+<entry>The name of a file in the keystore that contains the certificate for this endpoint. This is
+needed to set the endpoint as secure.</entry>
+</row>
+<row>
+<entry>Ciphers</entry>
+<entry>enum: "fast" or "best"</entry>
+<entry>This value defines the ciphers to use. The default value "fast" gives faster ciphers and "best" gives better ciphers. Only high
+quality ciphers are used.</entry>
+</row>
+<row>
+<entry>KeyPassword</entry>
+<entry>String </entry>
+<entry>The password for the private key. The password can be in plain text or in a bidirectional
+password obfuscation starting with an exclamation point (!). When the dynamic configuration is written,
+the value is changed to an obfuscated password.</entry>
+</row>
+<row>
+<entry>Key</entry>
+<entry>String</entry>
+<entry>The name of a file in the keystore that contains the key for this endpoint. Any form of
+private key is allowed, but it must be the key that signed the certificate. This is needed to set the
+endpoint as secure. This key file can be password protected if the KeyPassword is
+specified.</entry>
+</row>
+<row>
+<entry>EnableAbout</entry>
+<entry>Boolean</entry>
+<entry>If true, the simple HTTP server is enabled showing the about page. Use to verify that the
+endpoint is correctly configured.</entry>
+</row>
+<row>
+<entry>Method</entry>
+<entry>enum: TLSv1.1 or TLSv1.2.</entry>
+<entry>The minimum TLS method to use. This value is ignored if Secure=false.</entry>
+</row>
+<row>
+<entry>Secure</entry>
+<entry>Boolean</entry>
+<entry>If this value is true, TLS security is used.</entry>
+</row>
+<row>
+<entry>UseClientCipher</entry>
+<entry>Boolean</entry>
+<entry>If this value is true, the client cipher order is used: otherwise, the server cipher order is used. The
+default value is server order.</entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+<p>The following section shows an example admin
+endpoint:<codeblock>
+{
+    "Endpoint": { 
+        "admin": { 
+            "Port": 9961,
+            "Enabled": true,
+            "Secure": true,
+            "Ciphers": "Fast", 
+            "Method": "TLSv1.2",
+            "Certificate": "mycert.pem",
+            "Key": "mykey.pem",
+            “KeyPassword”: “!HCuwKKpW2sUeQEUJIYkWpJp5HX/nBGDpMYQMhjRhE”
+        }
+    }
+}
+</codeblock>
+</p>
+</section>
+<section>
+<title>User</title>
+<p>A User object defines a user who can connect on the administrative endpoint.</p>
+<table id="datasimpletable_ttx_pjn_qfb">
+<title>The message types that define the type of content in JMS and
+MQTT.</title>
+<tgroup cols="3">
+<thead>
+<row>
+<entry>Name</entry>
+<entry>Type</entry>
+<entry>Description</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>Password</entry>
+<entry>String</entry>
+<entry>The password for the user. The password can be plain text or an obfuscated password. When
+the Bridge updates a configuration file, it writes an obfuscated password. </entry>
+</row>
+</tbody>
+</tgroup>
+</table>
+<p>The following section shows an example
+user:<codeblock>
+{
+    "User": { 
+        "user": { "Password": "=0hRDkZDpoF+e0sLJrgMpv7c2xeyApDR/6DWWzD8JfWI=" },
+        "fred": { "Password": "very_secret" }
+    }    
+}
+</codeblock></p>
+</section>
+</conbody>
+</concept>

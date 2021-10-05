@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="restapi_sessionexpiry_01" >
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>restapi_sessionexpiry_01</solution>
+    </SyncClient>
+    
+    <!-- Create 2 MQTT connections with cleansession=false, setup subscription, publish and receive messages, then disconnect both -->
+    <Action name="SetupMQTTSession" type="CompositeAction">
+
+<!-- Level set that you know what Server Stats for ClientSessions is BEFORE this is started  -->    
+        <Action name="GetA1ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirysub1</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action> 
+
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirysub2</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <Action name="Subscribe1" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/sexp01/topic1</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        
+        <Action name="CreateConnectionPub" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirypub1</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+        <Action name="Publoop1" type="PublishLoop">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <ActionParameter name="topic">/sexp01/topic1</ActionParameter>
+            <ActionParameter name="initializeCounter">true</ActionParameter>
+            <ActionParameter name="endIndex">100</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="counterID">PQ1</ActionParameter>
+        </Action> 
+
+        <Action name="ReceiveMessages1" type="CompositeAction" repeat="50">
+            <Action name="ReceiveMessage1-1" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+                <ActionParameter name="printNumberReceived">true</ActionParameter>
+            </Action>
+        </Action>
+        
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+                    
+        <Action name="CloseConnection2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>        
+    </Action>
+    
+    <!-- Create 1 MQTT connections with cleansession=false after session expiration, setup subscription, then disconnect -->
+    <Action name="SessionExpireMQTT" type="CompositeAction">
+    	<Action name="SleepMQTTClient" type="Sleep">
+    		<ActionParameter name="waitTime">90000</ActionParameter>
+    	</Action>
+    	
+        <Action name="CreateConnectionAfterExpire" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirysub1</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action> 
+        
+        <Action name="SubscribeBeforeSecondDisconnect" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/sexp01/topic1</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionAfterExpire" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>   
+
+    
+        <Action name="GetA1ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+    </Action>
+        
+</IsmWSTest>

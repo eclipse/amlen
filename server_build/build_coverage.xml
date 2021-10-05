@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+<project name="build_coverage" default="coverage" basedir=".">
+
+	<import file="build.xml" />
+    <taskdef resource="org/jacoco/ant/antlib.xml" classpath="${build.dir}/coverage/jacocoant.jar" />
+
+	<target name="coverage" depends="build-init">
+		<chmod perm="+x" dir="${build.dir}/coverage" includes="**/*" />
+
+		<serverCUnitAndCoverage project="server_utils" />
+		<serverCUnitAndCoverage project="server_admin" setupTarget="setup-cunit" />
+		
+		<!-- Task 220638: Build server_spidercast without coverage otherwise it blows the SonarQube LOC quota. We need to copy some libraries around to keep the build happy. -->
+		<copy file="${basedir}/../server_utils/coverage/lib/libismutil.so" todir="${basedir}/../server_ship/lib" />
+		<copy file="${basedir}/../server_admin/coverage/lib/libismadmin.so" todir="${basedir}/../server_ship/lib" />
+		<ant dir="${basedir}/../server_spidercast" inheritRefs="true" />
+		<copy file="${basedir}/../server_ship/lib/libSpiderCast.so" todir="${basedir}/../server_ship/coverage/lib" />
+		<copy file="${basedir}/../server_ship/lib/librum.so" todir="${basedir}/../server_ship/coverage/lib" />
+		
+		<serverCUnitAndCoverage project="server_cluster" />
+		<serverCUnitAndCoverage project="server_store" />
+		<serverCUnitAndCoverage project="server_transport" />
+		<serverCUnitAndCoverage project="server_engine" storeSuffix="_${buildType}_${DevBuildEngine}"/>
+		<serverCUnitAndCoverage project="server_monitoring" />
+		<serverCUnitAndCoverage project="server_protocol" />
+		<serverCUnitAndCoverage project="server_ismc" />
+		<serverCUnitAndCoverage project="server_snmp" />
+		<serverCUnitAndCoverage project="server_main" />
+		<serverCUnitAndCoverage project="server_mqcbridge" />
+		<ant dir="${basedir}/../server_tmsmsgtool" inheritRefs="true" />
+		<serverJUnitAndCoverage project="server_plugin" />
+		<serverJUnitAndCoverage project="server_gui" />
+		<serverCUnitAndCoverage project="server_proxy" />
+
+		<build.activity label="Running all client unit tests and publishing coverage to SonarQube" activityIdProperty="runningClientCoverageId" />
+		<ant dir="${workspace}/client_build" inheritRefs="false" target="coverage" />
+
+		<build.activity label="Checking build outcome" activityIdProperty="checkingBuildOutcomeId" />
+		<antcall target="check-build" />
+	</target>
+	
+	<macrodef name="serverCUnitAndCoverage">
+		<attribute name="project" />
+		<attribute name="setupTarget" default="" />
+		<attribute name="storeSuffix" default="" />
+		<sequential>
+			<build.activity label="Running @{project} CUnit tests and publishing coverage to SonarQube" activityIdProperty="running@{project}CoverageId" />
+	        <if>
+                <equals arg1="@{setupTarget}" arg2=""/>
+	            <else>
+	    			<ant dir="${basedir}/../@{project}" inheritRefs="true" target="@{setupTarget}" />
+	            </else>
+	        </if>
+			<local name="retcode" />
+	        <exec
+	        	dir="${basedir}/../@{project}"
+	            executable="${build.dir}/build.sh"
+	            resultproperty="retcode"
+	            resolveexecutable="true"
+	            failonerror="false">
+	            <arg value="coverage"/>
+	        	<env key="QUALIFY_SHARED" value="@{storeSuffix}" />
+	            <env key="BLD_TYPE" value="${buildType}" />
+	            <env key="BUILD_LABEL" value="${buildLabel}" />
+	            <env key="ISM_VERSION" value="${ISM_VERSION_ID}" />
+	        </exec>
+	        <if>
+                <equals arg1="${retcode}" arg2="0"/>
+	            <else>
+	                <echo>==== @{project} coverage failed ====</echo>
+	                <echo file="${workspace}/build_log/@{project}.errorcode"
+	                      message="@{project} coverage failed with exit code ${retcode} "/>
+	            </else>
+	        </if>
+			<if>
+				<equals arg1="${is.jazz.build}" arg2="true" />
+				<then>
+					<logPublisher
+						failOnError="false"
+						repositoryAddress="${repositoryAddress}"
+						userId="${jazzBuildUserId}"
+						passwordFile="${jazzBuildUserEncryptedPasswdFile}"
+						buildResultUUID="${buildResultUUID}"
+						filePath="${workspace}/build_log/@{project}_coverage.buildlog"
+						label="@{project} coverage log" />
+				</then>
+			</if>
+		</sequential>
+	</macrodef>
+
+	<macrodef name="serverJUnitAndCoverage">
+		<attribute name="project" />
+		<sequential>
+			<build.activity label="Running @{project} JUnit tests and publishing coverage to SonarQube" activityIdProperty="running@{project}CoverageId" />
+			<ant dir="${basedir}/../@{project}" inheritRefs="true">
+				<property name="generate_coverage" value="true" />
+			</ant>
+			<local name="retcode" />
+			<exec
+				dir="${basedir}/../@{project}"
+				executable="${build.dir}/coverage/run-sonar-scanner.sh"
+				resultproperty="retcode"
+				resolveexecutable="true"
+				failonerror="false">
+				<arg value="java" />
+				<arg value="@{project}" />
+				<arg value="${ISM_VERSION_ID}.${buildLabel}" />
+			</exec>
+        	<if>
+            	<equals arg1="${retcode}" arg2="0"/>
+	            <else>
+	                <echo>==== @{project} coverage failed ====</echo>
+	                <echo file="${workspace}/build_log/@{project}.errorcode"
+	                      message="@{project} coverage failed with exit code ${retcode} "/>
+        	    </else>
+	        </if>
+		</sequential>
+	</macrodef>
+</project>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ad01293" xml:lang="en-us">
+    <title>Store and forward syslog messages by using rsyslog </title>
+    <!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+    <!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+    <!--Put your short description next; used for first paragraph and abstract.-->
+    <shortdesc>Store <ph conref="../TextEntities.dita#TextEntities/ISM"/> messages that are received
+        by rsyslog server into files based on facility and forward those messages by using rsyslog.
+        To set up secure logging, you need to configure log forwarding by using a forwarder that
+        supports syslog over TLS. </shortdesc>
+    <!--To optimize PDF retrievability, add prolog and indexing tags that help crystalize why users should be looking up this topic (purpose, task, and what they will learn)-->
+    <!--<prolog><metadata><keywords><indexterm></indexterm></keywords></metadata></prolog>-->
+    <taskbody>
+        <context>
+            <p><ph conref="../TextEntities.dita#TextEntities/ISM"/> and Docker do not natively
+                support logging to syslog over TLS.  To set up secure logging, you need to configure
+                log forwarding by using a forwarder that supports syslog over TLS. For example,
+                rsyslog can be set up to use either <ph
+                    conref="../TextEntities.dita#TextEntities/ISM"/> log files or syslog messages as
+                input and forward them over TLS to a remote syslog server. Complete the following
+                steps to set up a sample syslog server configuration for rsyslog:</p>
+        </context>
+        <steps>
+            <step>
+                <cmd>Store <ph conref="../TextEntities.dita#TextEntities/ISM"/> log messages in
+                    files, using a format that is similar to the one that is used in <ph
+                        conref="../TextEntities.dita#TextEntities/ISM"/> file logs:</cmd>
+                <info>
+                    <codeblock>
+template(name="MessageGatewayLogFormat" type="list") 
+{    
+      property(name="timestamp" dateFormat="rfc3339")   
+      constant(value=" ")    
+      property(name="msgid")    
+      constant(value=" ")    
+      property(name="pri")    
+      constant(value=" ")   
+      property(name="structured-data" regex.expression="ˆ\\[ismsd.* cat=\"([A-Z][a-z]*)\".*\\]$" regex.type="ERE" regex.submatch="1" regex.nomatchmode="BLANK")    
+      constant(value=" ")   
+      property(name="hostname")    
+      constant(value=" ")   
+      property(name="app-name")    
+      constant(value=" ")   
+      property(name="procid")    
+      constant(value=": ")    
+      property(name="msg" droplastlf="on" )    
+      constant(value="\n")
+}
+
+if $app-name == "imaserver" then {    
+     if $syslogfacility == 1 then /var/log/messagesight-default.log;MessageGatewayLogFormat
+     else if $syslogfacility == 16 then /var/log/messagesight-connection.log;MessageGatewayLogFormat    
+     else if $syslogfacility == 10 then /var/log/messagesight-security.log;MessageGatewayLogFormat    
+     else if $syslogfacility == 15 then /var/log/messagesight-admin.log;MessageGatewayLogFormat    
+     else if $syslogfacility == 17 then /var/log/messagesight-mqconnectivity.log;MessageGatewayLogFormat
+}</codeblock>
+                    <note>
+                        <p>If you want to extract text from the structured data of a message, then
+                            the latest versions of rsyslog can use the structured data parsing
+                            module (mmpstrucdata) instead of regex parsing. For more information
+                            about rsyslog and mmpstrucdata, see <xref
+                                href="http://www.rsyslog.com/doc/mmpstrucdata.html" format="html"
+                                scope="external" id="_1447343275901">RFC5424 structured data parsing
+                                module </xref>.</p>
+                    </note>
+                </info>
+            </step>
+            <step>
+                <cmd>Forward files by using the following example. </cmd>
+                <info>
+                    <p>In this example, all <ph conref="../TextEntities.dita#TextEntities/ISM"/> log
+messages are stored in a single host-specific file before being forwarded to another syslog server.
+The following example uses the MessageGatewayLogFormat template that is defined in the previous
+example, and shows the alternative syntax that is required to complete the process:</p>
+                    <codeblock>
+# Log every host in its own directory
+$template
+      LocalFile,"/var/syslog/hosts/%HOSTNAME%/%$YEAR%/%$MONTH%/%$DAY%/messagesight.log"if
+      $app-name == "imaserver" then 
+     {    
+         action(type="omfile" dynaFile="LocalFile" template="MessageGatewayLogFormat");    
+         action(type="omfwd" Target="192.168.56.15" Port="514" Protocol="udp" )
+      }</codeblock>
+                </info>
+            </step>
+        </steps>
+    </taskbody>
+</task>

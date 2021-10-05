@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_cluster_RM_009" >
+
+	<!-- Setup retained messages on server 5 who is not a member of the cluster. 
+	  (server 2 will have been taken down at this point) -->
+	<Action name="setupRetained5" type="CompositeAction">
+	    
+	    <Action name="StatusServerA5" type="RestAPI">
+        	<ActionParameter name="structureID">status_server_A5</ActionParameter>
+        	<ActionParameter name="server">``A5_HOST``:``A5_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+    	 <Action name="compareRESTStatImaserver" type="CompareREST">
+        	<ActionParameter name="structureID">status_server_A5</ActionParameter>
+       	 	<ActionParameter name="topLevelKey">Cluster</ActionParameter>
+        	<ActionParameter name="topLevelType">JSONObject</ActionParameter>
+        	<ObjectProperty name="Status" value="Inactive"/>
+    	</Action>
+	    
+	    <!-- Step 1: establish a connection to server 5 -->
+	    <Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server5.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_009_pubA5</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+	    <!-- Step 2: publish retained messages to server 1 -->
+	    <Action name="PublishToMany" type="PublishTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>			
+			<ActionParameter name="prefix">/RM_009/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+			<ActionParameter name="qos">1</ActionParameter>
+			<ActionParameter name="retained">true</ActionParameter>			
+		</Action>	
+
+		<!-- Step 3: close the connection to server 5 -->
+	    <Action name="CloseConnection" type="CloseConnection">
+	    	    <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action>
+
+	</Action>
+	
+	<Action name="verifyRetainedOn5" type="CompositeAction">
+
+		<Action name="StatusServerA5" type="RestAPI">
+        	<ActionParameter name="structureID">status_server_A5</ActionParameter>
+        	<ActionParameter name="server">``A5_HOST``:``A5_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+		<!-- Step 1: Establish a connection to server 5 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server5.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_009_subA5</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/RM_009/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+		</Action>	  
+
+		<!-- Step 3: Receive the expected number of messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">3000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+		<!-- Step 4: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+
+		<!-- Step 5: close the connection to server 5 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+	</Action>
+
+	<!-- External to this test driver, server 5 joins the cluster before the following actions are performed -->
+	<Action name="verifyRetainedOn1" type="CompositeAction">
+
+		<Action name="StatusServerA5" type="RestAPI">
+        	<ActionParameter name="structureID">status_server_A5</ActionParameter>
+        	<ActionParameter name="server">``A5_HOST``:``A5_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+		<!-- Step 1: Establish a connection to server 1 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_009_subA1</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/RM_009/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+		</Action>	  
+
+		<!-- Step 3: Receive the expected number of messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">3000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+		<!-- Step 4: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+
+		<!-- Step 5: close the connection to server 1 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+	</Action>
+
+	<!-- Verify that the retained messages have propagated to server 3 -->
+	<Action name="verifyRetainedOn3" type="CompositeAction">
+
+		<Action name="StatusServerA5" type="RestAPI">
+        	<ActionParameter name="structureID">status_server_A5</ActionParameter>
+        	<ActionParameter name="server">``A5_HOST``:``A5_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+		<!-- Step 1: Establish a connection to server 3 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server3.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_009_subA3</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/RM_009/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+		</Action>	  
+
+	 	<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">3000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+		<!-- Step 4: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+
+		<!-- Step 5: close the connection to server 3 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+	</Action>
+	
+		<!-- Verify that the retained messages have propagated to server 4 -->
+	<Action name="verifyRetainedOn4" type="CompositeAction">
+
+		<Action name="StatusServerA5" type="RestAPI">
+        	<ActionParameter name="structureID">status_server_A5</ActionParameter>
+        	<ActionParameter name="server">``A5_HOST``:``A5_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+		<!-- Step 1: Establish a connection to server 4 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server4.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_009_subA4</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/RM_009/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+		</Action>	  
+	    
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="20" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">3000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+		<!-- Step 4: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+
+		<!-- Step 5: close the connection to server 4 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+	</Action>
+	
+		<!-- External to this test driver, server 2 restarts. This member was down when 
+		Member 5 joined the cluster, but should get the retained messages that originated
+		on Member 5.  -->
+	<Action name="verifyRetained_on_Restarted2" type="CompositeAction">
+
+		<Action name="StatusServerA5" type="RestAPI">
+        	<ActionParameter name="structureID">status_server_A5</ActionParameter>
+        	<ActionParameter name="server">``A5_HOST``:``A5_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+       		<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+		<!-- Step 1: Establish a connection to server 2 -->
+		<Action name="CreateConnection" type="CreateConnection">
+	        <ActionParameter name="structure_id">Con1</ActionParameter>
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <include>../common/ConnectionType.xml</include>
+	        <include>../common/MQTT_server2.xml</include>
+	        <ApiParameter name="clientId">CTT_RM_009_subA2</ApiParameter>
+	        <ApiParameter name="port">20004</ApiParameter>
+	    	<ApiParameter name="protocol">mqtt</ApiParameter>
+	        <ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+
+		<!-- Step 2: Subscribe to the 20 topics we published to -->
+		<Action name="SubscribeToMany" type="SubscribeTopicTree">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ActionParameter name="prefix">/RM_009/SubTopic/</ActionParameter>
+			<ActionParameter name="startIndex">1</ActionParameter>
+			<ActionParameter name="endIndex">20</ActionParameter>
+		</Action>	
+		
+		  	<!-- Step 3: Receive the first RM message. May take a bit longer since it has 
+		  	to sync the Retained tree when it comes up.  -->
+		<Action name="ReceiveFirstMessage" type="ReceiveMessage" >
+		    <ActionParameter name="connection_id">CF1</ActionParameter>
+	        <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        <ActionParameter name="waitTime">15000</ActionParameter>
+	    </Action>
+
+		<!-- Step 3: Receive the expected number of messages -->
+		<Action name="ReceiveRemoteRetained" type="CompositeAction" repeat="19" repeat_interval="0">
+	        <Action name="ReceiveMessage" type="ReceiveMessage" >
+		        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	    <ActionParameter name="structure_id">submsg1</ActionParameter>
+	        	<ActionParameter name="waitTime">3000</ActionParameter>
+	    	</Action>
+	    </Action>
+
+		<!-- Step 4: Check that we don't receive any more messages -->
+		<Action name="ReceiveNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+	    	<ActionParameter name="structure_id">submsg1</ActionParameter>
+		    <ActionParameter name="waitTime">2000</ActionParameter>
+		</Action>   
+
+		<!-- Step 5: close the connection to server 2 -->
+		<Action name="CloseConnection" type="CloseConnection">
+	        <ActionParameter name="connection_id">CF1</ActionParameter>
+		</Action> 
+	</Action>
+	
+</IsmWSTest>             

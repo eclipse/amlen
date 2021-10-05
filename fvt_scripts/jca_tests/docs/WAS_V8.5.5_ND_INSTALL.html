@@ -1,0 +1,188 @@
+<head>
+<title>Installation instructions for WAS V8.5.5 Network
+	Deployment</title>
+</head>
+
+<h1>WebSphere Application Server V8.5.5 Network Deployment
+	Installation Instructions</h1>
+
+<ul>
+	<li><a href="#plinux">Install WAS V8.5.5 ND on p-linux</a>
+	<li><a href="#linux">Install WAS V8.5.5 ND on linux</a>
+</ul>
+
+<body>
+	<a id="plinux"><h3>Install WAS V8.5.5 ND on p-linux</h3></a>
+
+	<h4>Setup</h4>
+	<p>Download the installation zip files from
+		mar145:/gsacache/tools/was/WebSphere-Application-Server-8.5.5 to
+		/installables/WAS855ND/</p>
+	<ul>
+		<li>InstalMgr1.6.2_LNX_PPC_WAS_8.5.5.zip</li>
+		<li>WAS_ND_V8.5.5_1_OF_3.zip</li>
+		<li>WAS_ND_V8.5.5_2_OF_3.zip</li>
+		<li>WAS_ND_V8.5.5_3_OF_4.zip</li>
+		<li>responsefile85.xml</li>
+	</ul>
+	<ol>
+		<li><code>cd /installables/WAS85ND</code></li>
+		<li><code>mkdir DISKS</code></li>
+		<li><code>mkdir IM</code></li>
+		<li><code>unzip InstalMgr1.6.2_LNX_PPC_WAS_8.5.5.zip -d
+				IM/</code></li>
+		<li><code>unzip WAS_ND_V8.5.5_*_OF_3.zip -d DISKS/</code></li>
+	</ol>
+
+	<h4>Installation Manager V1.6.2</h4>
+	<div>
+		<ol>
+			<li><code>/installables/WAS855ND/IM/consoleinst.sh</code></li>
+			<li>Follow the prompting to install Installation Manager v1.6.2</li>
+		</ol>
+
+		<b>NOTE:</b> Change the installation directory to
+		/opt/IBM/InstallationManager.1.6.2 to avoid conflicts with other
+		versions. It will also create /opt/IBM/IMShared and
+		/var/ibm/InstallationManager
+	</div>
+
+	<h4>WebSphere Application Server V8.5.5</h4>
+	<ol>
+		<li><code>cd /opt/IBM/InstallationManager.1.6.2/eclipse:</code></li>
+		<li><code>./IBMIM -showProgress -silent -input
+				/installables/WAS855ND/responsefile85.xml -acceptLicense</code></li>
+	</ol>
+
+	<h4>Post Installation</h4>
+	<div>
+		<ol>
+			<li>Once WAS V8.5.5 is installed, create the WAS profile by
+				running:<br /> Make sure to replace [m1_host] and [m1_address] in
+				the following commands.<br />
+			<br /> <code>/opt/IBM/WebSphere855ND/AppServer/bin/manageprofiles.sh
+					-create -profileName Dmgr01 -profilePath
+					/opt/IBM/WebSphere855ND/AppServer/profiles/Dmgr01 -templatePath
+					/opt/IBM/WebSphere855ND/AppServer/profileTemplates/dmgr/ -nodeName
+					[m1_host]Cell01 -nodeName [m1_host]CellManager01 -hostName
+					[m1_address] -serverType DEPLOYMENT_MANAGER -enableAdminSecurity
+					true -adminUserName admin -adminPassword admin</code><br />
+			<br />
+			</li>
+			<li>Start the server:<br />
+			<br /> <code>/opt/IBM/WebSphere855ND/AppServer/bin/startServer.sh
+					dmgr</code><br />
+			<br /></li>
+
+			<li>Create a managed node on machine 1<br />
+			<br /> <code>/opt/IBM/WebSphere855ND/AppServer/bin/manageprofiles.sh
+					-create -profileName AppSrv01 -nodeName [m1_host]Node01 -cellName
+					[m1_host]Cell01 -hostname [m1_address] -profilePath
+					/opt/IBM/WebSphere855ND/AppServer/profiles/AppSrv01 -dmgrHost
+					[m1_address] -dmgrPort 8879 -dmgrAdminUserName admin
+					-dmgrAdminPassword admin -templatePath
+					/opt/IBM/WebSphere855ND/AppServer/profileTemplates/managed/</code><br />
+			<br /></li>
+
+			<li>Restart the dmgr server<br />
+			<br /> <code>/opt/IBM/WebSphere855ND/AppServer/bin/stopServer.sh
+					dmgr</code><br /> <code>/opt/IBM/WebSphere855ND/AppServer/bin/startServer.sh
+					dmgr</code><br />
+			<br /></li>
+
+			<li>Log into the dmgr Admin Console at
+				https://[m1_address]:9043/ibm/console</li>
+
+			<li>Enable synchronization on save by going to System
+				Administration -> Console Preferences -> Synchronize changes with
+				nodes</li>
+
+			<li>Create a new server by going to Servers -> WebSphere
+				Application Server -> New</li>
+			<li>Name the new server "server1". This should be created on the
+				managed node, [m1_host]Node01</li>
+
+			<li>Create a new cluster by going to Servers -> Clusters ->
+				WebSphere Application Server Clusters</li>
+			<li>In the create cluster wizard:
+				<ol>
+					<li>On the first panel: Name the new cluster "cluster1"</li>
+					<li>On the second panel: Select the option to convert an
+						existing server to a cluster member and name it "server1"</li>
+					<li>On the third panel: Add another server, "server2" as a
+						cluster member</li>
+				</ol>
+			</li>
+
+			<li>Create a managed node on machine 2:<br />
+			<br /> <code>./manageprofiles.sh -create -profileName AppSrv02
+					-nodeName [m2_host]Node01 -cellName [m1_host]Cell01 -hostname
+					[m2_address] -profilePath
+					/opt/IBM/WebSphere855ND/AppServer/profiles/AppSrv02 -dmgrHost
+					[m1_address] -dmgrPort 8879 -dmgrAdminUserName admin
+					-dmgrAdminPassword admin -templatePath
+					/opt/IBM/WebSphere855ND/AppServer/profileTemplates/managed/</code><br />
+			<br /></li>
+
+			<li>In the dmgr Admin Console, go to Servers -> WebSphere
+				Application Server Clusters -> cluster1 -> cluster members</li>
+			<li>Add new server member, server3 on Node mar042Node01</li>
+
+			<li>Start the cluster!</li>
+		</ol>
+	</div>
+
+	<a id="linux"><h3>Install WAS V8.5 ND on linux (Based on
+			mar215)</h3></a>
+
+	<div>
+		<h4>Setup</h4>
+		<p>Download the installation zip files from
+			mar145:/gsacache/tools/was/WebSphere-Application-Server-8.5.5 to
+			/installables/WAS855ND/</p>
+		<ul>
+			<li>InstalMgr1.6.2_LNX_X86_64_WAS_8.5.5.zip</li>
+			<li>WAS_ND_V8.5.5_1_OF_3.zip</li>
+			<li>WAS_ND_V8.5.5_2_OF_3.zip</li>
+			<li>WAS_ND_V8.5.5_3_OF_4.zip</li>
+		</ul>
+		<ol>
+			<li><code>cd /installables/WAS855ND</code></li>
+			<li><code>mkdir DISKS</code></li>
+			<li><code>mkdir IM</code></li>
+			<li><code>unzip InstalMgr1.6.2_LNX_X86_64_WAS_8.5.5.zip
+					-d IM/</code></li>
+			<li><code>unzip WAS_ND_V8.5.5_*_OF_3.zip -d DISKS/</code></li>
+		</ol>
+
+		<h4>WebSphere Application Server V8.5.5 ND + Installation Manager
+			V1.6.2</h4>
+		<div>
+			<p>Installation is done through the Rational Software Architect
+				V8.5.1 Installation Manager repository. This will install both the
+				installation manager and WAS.</p>
+			<ol>
+				<li>Run: <code>/installables/WAS855ND/IM/install</code></li>
+				<li>Select Installation Manager 1.6.2 and WebSphere Application
+					Server V8.5.5 Network Deployment</li>
+			</ol>
+
+			<b>NOTE:</b> Change the installation directory to
+			/opt/IBM/InstallationManager.1.6.2 to avoid conflicts with other
+			versions. It will also create /opt/IBM/IMShared and
+			/var/ibm/InstallationManager<br /> <b>NOTE:</b> Change the
+			installation and eclipse directories to
+			/opt/IBM/WebSphere855ND/AppServer to avoid conflicts with other
+			versions.
+		</div>
+
+		<h4>Post Installation</h4>
+		<div>
+			<p>Once installation is complete, the installation manager will
+				launch the WAS Profile Management tool. Create a new Cell
+				(Deployment Manager + Federated Application Server) profile using
+				default settings, and admin/admin for username/password.</p>
+			<p>Once the profile is created, first steps should appear. Start
+				the deployment manager server.
+		</div>
+</body>

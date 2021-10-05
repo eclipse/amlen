@@ -1,0 +1,620 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: testmqtt_NDS_03
+
+   Test Category: SharedSubscription MQTT
+
+   Test Description:
+   See what happens with non-durable shared subscribers at QoS=1 and 2.
+   
+   Have Subscribers come and go from the subscription. Note the layers of nesting in 
+   		BusySubs composite action.
+   
+ 
+  -->
+<IsmWSTest name="testmqtt_NDS_03">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>mqttNDS_03</solution>
+	</SyncClient>
+  
+	<Action name="Pubs" type="CompositeAction">
+ 
+		<Action name="CreatePubConnection1" type="CreateConnection" thread="11">
+			<ActionParameter name="structure_id">ConPub1</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">mqttNDS_03Pub1</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+		</Action>
+		
+		<Action name="CreatePubConnection2" type="CreateConnection" thread="22">
+			<ActionParameter name="structure_id">ConPub2</ActionParameter>
+			<ActionParameter name="connection_id">CFPub2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">mqttNDS_03Pub2</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+		</Action>
+		
+		<Action name="CreatePubConnection3" type="CreateConnection" thread="33">
+			<ActionParameter name="structure_id">ConPub3</ActionParameter>
+			<ActionParameter name="connection_id">CFPub3</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">mqttNDS_03Pub3</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+		</Action>
+		
+		<Action name="CreateMessage1a" type="CreateMessage" thread="11">
+			<ActionParameter name="structure_id">txmsg1a</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: test content Publisher 1a Message number: </ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>
+		
+		<Action name="CreateMessage2a" type="CreateMessage" thread="22">
+			<ActionParameter name="structure_id">txmsg2a</ActionParameter>
+			<ActionParameter name="connection_id">CFPub2</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: test content Publisher 2a Message number: </ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>
+		
+		<Action name="CreateMessage3a" type="CreateMessage" thread="33">
+			<ActionParameter name="structure_id">txmsg3a</ActionParameter>
+			<ActionParameter name="connection_id">CFPub3</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: test content Publisher 3a Message number: </ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>	
+		
+
+		<!-- Signal from the subscribers subscriptions are ready for messages to be sent. -->
+		<Action name="sync_components_1" type="SyncComponentAction">
+			<dependsOn action_id="CreateMessage1a"/>
+			<dependsOn action_id="CreateMessage2a"/>
+			<dependsOn action_id="CreateMessage3a"/>
+			<ActionParameter name="component_name">Pubs1</ActionParameter>
+			<ActionParameter name="component_list">Subs1;Pubs1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>					
+  
+		<Action name="SendMessage_1a" type="SendMessage" interval="0" repeat="2000" atleast="100" thread="11" repeat_interval="10">
+	 	  	<dependsOn action_id="sync_components_1" interval="0"/>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1a</ActionParameter>
+			<ActionParameter name="topic">/NDS/NDS_03_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>
+		
+		<Action name="SendMessage_2a" type="SendMessage" interval="0" repeat="2000" atleast="100" thread="22" repeat_interval="10">
+	 	  	<dependsOn action_id="sync_components_1" interval="0"/>
+			<ActionParameter name="connection_id">CFPub2</ActionParameter>
+			<ActionParameter name="message_id">txmsg2a</ActionParameter>
+			<ActionParameter name="topic">/NDS/NDS_03_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>	
+		
+		<Action name="SendMessage_3a" type="SendMessage" interval="0" repeat="2000" atleast="100" thread="33" repeat_interval="10">
+	 	  	<dependsOn action_id="sync_components_1" interval="0"/>
+			<ActionParameter name="connection_id">CFPub3</ActionParameter>
+			<ActionParameter name="message_id">txmsg3a</ActionParameter>
+			<ActionParameter name="topic">/NDS/NDS_03_QOSM</ActionParameter>
+			<ActionParameter name="QoS">1</ActionParameter>
+		</Action>		
+		
+		<Action name="sync_SubsDone" type="SyncAction"> 
+			<ActionParameter name="request">wait</ActionParameter>
+			<ActionParameter name="condition">SubsDone</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+			<ActionParameter name="timeout">95000</ActionParameter>
+		</Action>	
+
+		<Action name="ClosePubConnection1" type="CloseConnection">
+			<dependsOn action_id="sync_SubsDone" interval="0"/>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+  		</Action>
+  		
+  		<Action name="ClosePubConnection2" type="CloseConnection">
+  			<dependsOn action_id="sync_SubsDone" interval="0"/>
+			<ActionParameter name="connection_id">CFPub2</ActionParameter>
+  		</Action>
+ 
+   		<Action name="ClosePubConnection3" type="CloseConnection">
+   			<dependsOn action_id="sync_SubsDone" interval="0"/>
+			<ActionParameter name="connection_id">CFPub3</ActionParameter>
+  		</Action>
+ 
+    </Action>
+    
+	<!-- BUSY SUBS join and leave the subscription. Note the nested loops. --> 
+	<Action name="BusySubs" type="CompositeAction">
+	<!--  These CreateConnections will clear out any old client info -->
+
+	    <Action name="CreateConnectionMQTT_NDS_03_Quietclear" type="CreateConnection" thread="10" >
+    	    <ActionParameter name="structure_id">ConMQTT_NDS_03_Quiet1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMQTT_NDS_03_Quiet1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MQTT_NDS_03_Quiet1_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionQuietclear" type="CloseConnection" thread="10">
+    	    <ActionParameter name="connection_id">CFMQTT_NDS_03_Quiet1</ActionParameter>
+	    </Action>
+	
+	    <Action name="CreateConnectionMQTT_NDS_03_Busy1clear" type="CreateConnection" thread="11" >
+    	    <ActionParameter name="structure_id">ConMQTT_NDS_03_Busy1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MQTT_NDS_03_Busy1_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy1clear" type="CloseConnection" thread="11">
+    	    <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy1</ActionParameter>
+	    </Action>
+
+	    <Action name="CreateConnectionMQTTNDS_03_Busy2clear" type="CreateConnection" thread="22" >
+    	    <ActionParameter name="structure_id">ConMQTTNDS_03_Busy2</ActionParameter>
+	        <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MQTT_NDS_03_Busy2_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy2clear" type="CloseConnection" thread="22">
+    	    <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy2</ActionParameter>
+	    </Action>
+	    
+	    <Action name="CreateConnectionMQTTNDS_03_Busy3clear" type="CreateConnection" thread="33" >
+    	    <ActionParameter name="structure_id">ConMQTTNDS_03_Busy3</ActionParameter>
+	        <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MQTT_NDS_03_Busy3_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+	    </Action>
+	    <Action name="CloseConnectionBusy3clear" type="CloseConnection" thread="33">
+    	    <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy3</ActionParameter>
+	    </Action>	
+  
+  		<!-- These connections are the ones we'll use for testing --> 
+  		
+	    <Action name="CreateConnectionQuiet1" type="CreateConnection" thread="10" >
+    	    <ActionParameter name="structure_id">ConMQTT_NDS_03_Quiet1</ActionParameter>
+	        <ActionParameter name="connection_id">CFMQTT_NDS_03_Quiet1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+    	    <include>../common/MQTT_server.xml</include>
+	        <ApiParameter name="clientId">MQTT_NDS_03_Quiet1_CID</ApiParameter>
+        	<ApiParameter name="port">16102</ApiParameter>
+        	<ApiParameter name="cleanSession">true</ApiParameter>
+        	<ApiParameter name="QoS">2</ApiParameter>
+	    </Action>
+	    
+		<Action name="SubscribeQuiet1_a" type="Subscribe" thread="10">
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Quiet1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubNDS_03_QOSM//NDS/NDS_03_QOSM</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+		</Action>	
+		
+		<!-- Signal to the Publisher the subscribers subscriptions are ready for messages to be sent. -->
+		<Action name="sync_components_1" type="SyncComponentAction">
+			<dependsOn action_id="SubscribeQuiet1_a"/>
+			<dependsOn action_id="CloseConnectionBusy1clear"/>
+			<dependsOn action_id="CloseConnectionBusy2clear"/>
+			<dependsOn action_id="CloseConnectionBusy3clear"/>
+			<ActionParameter name="component_name">Subs1</ActionParameter>
+			<ActionParameter name="component_list">Subs1;Pubs1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>					
+		
+		<!-- Receive messages, until we close the connection later in the test. --> 
+		<Action name="CompositeReceiveQuiet1" type="CompositeAction" repeat="6000" atleast="100" thread="10" repeat_interval="40">
+			<dependsOn action_id="sync_components_1"/>
+			<Action name="ReceiveMessageQuiet_a" type="ReceiveMessage" thread="10">
+				<ActionParameter name="connection_id">CFMQTT_NDS_03_Quiet1</ActionParameter>
+				<ActionParameter name="structure_id">Quiet1Receives</ActionParameter>
+				<ActionParameter name="waitTime">10000</ActionParameter>
+			</Action> 
+			
+			<Action name="CheckConnectionQuiet1Good" type="CheckConnection" >
+				<ActionParameter name="connection_id">CFMQTT_NDS_03_Quiet1</ActionParameter>
+				<ActionParameter name="isConnected">true</ActionParameter>
+			</Action>   
+		</Action>   
+	
+		<Action name="CreateSubConnectionBusy1" type="CreateConnection" thread="11">
+			<ActionParameter name="structure_id">ConMQTT_NDS_03_Busy1</ActionParameter>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MQTT_NDS_03_Busy1_CID</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+		<Action name="CreateSubConnectionBusy2" type="CreateConnection" thread="22">
+			<ActionParameter name="structure_id">ConMQTTNDS_03_Busy2</ActionParameter>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MQTT_NDS_03_Busy2_CID</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action>  
+
+		<Action name="CreateSubConnectionBusy3" type="CreateConnection" thread="33">
+			<ActionParameter name="structure_id">ConMQTTNDS_03_Busy3</ActionParameter>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy3</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MQTT_NDS_03_Busy3_CID</ApiParameter>
+			<ApiParameter name="port">16102</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+  		</Action> 
+  		
+		<Action name="GetBusy" type="CompositeAction" repeat="5" repeat_interval="0">
+		<dependsOn action_id="SubscribeQuiet1_a" interval="0"/>
+		<dependsOn action_id="CreateSubConnectionBusy1" interval="0"/>
+		<dependsOn action_id="CreateSubConnectionBusy2" interval="0"/>
+		<dependsOn action_id="CreateSubConnectionBusy3" interval="0"/>	 
+
+		<Action name="SubscribeBusy1_a" type="Subscribe" thread="11">
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubNDS_03_QOSM//NDS/NDS_03_QOSM</ApiParameter>
+			<ApiParameter name="QoS">1</ApiParameter>
+		</Action>
+
+		<!-- verify that we are getting some messages.. don't spend much time on that though. --> 
+		<Action name="ReceiveMessage_Busy1_a" type="ReceiveMessage"  repeat="5" interval="0" thread="22" >
+			<dependsOn action_id="SubscribeBusy1_a" interval="0"/>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy1</ActionParameter>
+			<ActionParameter name="structure_id">Busy1Message</ActionParameter>
+			<ActionParameter name="waitTime">5000</ActionParameter>
+		</Action>		
+		
+
+		<!-- Every time, we should have 2 consumers at this stage. --> 
+		<!-- Action name="ShowSubAfterBusy1Joins" type="ShellAction" thread="11">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription</ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->	
+		
+ 	<Action name="ShowSubAfterBusy1Joins" type="RestAPI" thread="11">
+        <ActionParameter name="structureID">stat_output_1J</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubNDS_03_QOSM&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubAfterBusy1Joins" type="CompareREST" thread="11">
+        <ActionParameter name="structureID">stat_output_1J</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">SubNDS_03_QOSM</ActionParameter>
+        <ObjectProperty name="Consumers" value="2"/>
+    </Action>			
+			
+		
+		<Action name="SubscribeBusy2_a" type="Subscribe" thread="22">
+			<dependsOn action_id="ShowSubAfterBusy1Joins"/>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy2</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubNDS_03_QOSM//NDS/NDS_03_QOSM</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+		</Action>	
+		
+		<!-- verify that we are getting some messages.. don't spend much time on that though. --> 
+		<Action name="ReceiveMessage_Busy2_a" type="ReceiveMessage"  repeat="5" interval="0" thread="22" >
+			<dependsOn action_id="SubscribeBusy2_a" interval="0"/>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy2</ActionParameter>
+			<ActionParameter name="structure_id">Busy2Message</ActionParameter>
+			<ActionParameter name="waitTime">5000</ActionParameter>
+		</Action>
+		
+		<!-- Every time, we should have 3 consumers at this stage. --> 
+		<!-- Action name="ShowSubAfterBusy2Joins" type="ShellAction" thread="22">
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription</ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowSubAfterBusy2Joins" type="RestAPI"  thread="22">
+        <ActionParameter name="structureID">stat_output_2J</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubNDS_03_QOSM&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubAfterBusy2Joins" type="CompareREST"  thread="22">
+        <ActionParameter name="structureID">stat_output_2J</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">SubNDS_03_QOSM</ActionParameter>
+        <ObjectProperty name="Consumers" value="3"/>
+    </Action>						
+				
+		<Action name="GetBusier" type="CompositeAction" repeat="5" repeat_interval="0">
+			<dependsOn action_id="ShowSubAfterBusy2Joins"/>
+			<Action name="SubscribeBusy3_a" type="Subscribe" thread="33">
+				<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy3</ActionParameter>
+				<ApiParameter name="topic">$SharedSubscription/SubNDS_03_QOSM//NDS/NDS_03_QOSM</ApiParameter>
+				<ApiParameter name="QoS">1</ApiParameter>
+			</Action>	
+			
+			<!-- Every time, we should have 4 consumers at this stage. --> 
+ 			<!-- Action name="ShowSubAfterBusy3Joins" type="ShellAction" thread="33">
+ 				<dependsOn action_id="SubscribeBusy3_a" interval="0"/>
+				<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription</ActionParameter>
+				<ActionParameter name="print_result">true</ActionParameter>
+			</Action -->	
+			
+	<Action name="ShowSubAfterBusy3Joins" type="RestAPI"  thread="33">
+		<dependsOn action_id="SubscribeBusy3_a" interval="0"/>
+        <ActionParameter name="structureID">stat_output_3J</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubNDS_03_QOSM&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubAfterBusy3Joins" type="CompareREST"  thread="33">
+        <ActionParameter name="structureID">stat_output_3J</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">SubNDS_03_QOSM</ActionParameter>
+        <ObjectProperty name="Consumers" value="4"/>
+    </Action>							
+			
+			<!-- verify that we are getting some messages.. don't spend much time on that though. --> 
+			<Action name="ReceiveMessage_Busy3" type="ReceiveMessage"  repeat="5" interval="0" thread="33" >
+			   <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy3</ActionParameter>
+			   <ActionParameter name="structure_id">Busy3Message</ActionParameter>
+			   <ActionParameter name="waitTime">5000</ActionParameter>
+			 </Action>
+			
+			<Action name="UnSubscribe_Busy3" type="Unsubscribe" thread="33">
+			<dependsOn action_id="ShowSubAfterBusy3Joins" interval="0"/>
+				<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy3</ActionParameter>
+				<ApiParameter name="topic">$SharedSubscription/SubNDS_03_QOSM//NDS/NDS_03_QOSM</ApiParameter>
+			</Action>
+			
+			<!-- a double unsubscribe might be interesting. --> 
+			<Action name="UnSubscribe_Busy3Twice" type="Unsubscribe" thread="33">
+			<dependsOn action_id="UnSubscribe_Busy3" interval="0"/>
+				<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy3</ActionParameter>
+				<ApiParameter name="topic">$SharedSubscription/SubNDS_03_QOSM//NDS/NDS_03_QOSM</ApiParameter>
+			</Action>
+			
+			<!-- Every time, we should have 3 consumers at this stage. --> 
+ 			<!-- Action name="ShowSubAfterBusy3Leaves" type="ShellAction" thread="33">
+ 				<dependsOn action_id="UnSubscribe_Busy3Twice" interval="0"/>
+				<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription</ActionParameter>
+				<ActionParameter name="print_result">true</ActionParameter>
+			</Action -->	
+			
+	<Action name="ShowSubAfterBusy3Leaves" type="RestAPI" thread="33">
+		<dependsOn action_id="UnSubscribe_Busy3Twice" interval="0"/>
+        <ActionParameter name="structureID">stat_output_3L</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubNDS_03_QOSM&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubAfterBusy3Leaves" type="CompareREST" thread="33">
+        <ActionParameter name="structureID">stat_output_3L</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">SubNDS_03_QOSM</ActionParameter>
+        <ObjectProperty name="Consumers" value="3"/>
+    </Action>							
+
+		</Action>
+
+		<!-- verify that we are getting some messages.. don't spend much time on that though. --> 
+		<Action name="ReceiveMessage_Busy2" type="ReceiveMessage"  repeat="5" interval="0" thread="22" >
+			<dependsOn action_id="GetBusier" interval="0"/>
+		   <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy2</ActionParameter>
+		   <ActionParameter name="structure_id">Busy2Message</ActionParameter>
+		   <ActionParameter name="waitTime">5000</ActionParameter>
+		 </Action>
+		 
+		 <!-- verify that we are getting some messages.. don't spend much time on that though. --> 
+		<Action name="ReceiveMessage_Busy1" type="ReceiveMessage"  repeat="5" interval="0" thread="11" >
+			<dependsOn action_id="GetBusier" interval="0"/>
+		   <ActionParameter name="connection_id">CFMQTT_NDS_03_Busy1</ActionParameter>
+		   <ActionParameter name="structure_id">Busy1Message</ActionParameter>
+		   <ActionParameter name="waitTime">5000</ActionParameter>
+		 </Action>
+
+		<Action name="UnSubscribe_Busy2" type="Unsubscribe" thread="22">
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy2</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubNDS_03_QOSM//NDS/NDS_03_QOSM</ApiParameter>
+		</Action>
+		
+		<!-- Every time, we should have 2 consumers at this stage. --> 
+ 		<!-- Action name="ShowSubAfterBusy2Leaves" type="ShellAction" thread="22">
+ 			<dependsOn action_id="UnSubscribe_Busy2" interval="0"/>
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription</ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowSubAfterBusy2Leaves" type="RestAPI"  thread="22">
+		<dependsOn action_id="UnSubscribe_Busy2" interval="0"/>
+        <ActionParameter name="structureID">stat_output_2L</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubNDS_03_QOSM&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubAfterBusy2Leaves" type="CompareREST"  thread="22">
+        <ActionParameter name="structureID">stat_output_2L</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">SubNDS_03_QOSM</ActionParameter>
+        <ObjectProperty name="Consumers" value="2"/>
+    </Action>							
+			
+			
+		
+		<Action name="UnSubscribe_Busy1" type="Unsubscribe" thread="11">
+			<dependsOn action_id="ShowSubAfterBusy2Leaves" interval="0"/>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy1</ActionParameter>
+			<ApiParameter name="topic">$SharedSubscription/SubNDS_03_QOSM//NDS/NDS_03_QOSM</ApiParameter>
+		</Action>
+		
+		<!-- Every time, we should have 1 consumers at this stage. --> 
+ 		<!-- Action name="ShowSubAfterBusy1Leaves" type="ShellAction" thread="22">
+ 			<dependsOn action_id="UnSubscribe_Busy1" interval="0"/>
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription</ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+		</Action -->	
+		
+	<Action name="ShowSubAfterBusy1Leaves" type="RestAPI"  thread="22">
+        <dependsOn action_id="UnSubscribe_Busy1" interval="0"/>
+        <ActionParameter name="structureID">stat_output_1L</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubNDS_03_QOSM&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubAfterBusy1Leaves" type="CompareREST"  thread="22">
+        <ActionParameter name="structureID">stat_output_1L</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">SubNDS_03_QOSM</ActionParameter>
+        <ObjectProperty name="Consumers" value="1"/>
+    </Action>					
+		
+	</Action>	
+	
+		<Action name="CloseSubConnectionBusy1_a" type="CloseConnection" thread="11">
+			<dependsOn action_id="GetBusy" interval="0"/>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseSubConnectionBusy2_a" type="CloseConnection" thread="22">
+			<dependsOn action_id="GetBusy" interval="0"/>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy2</ActionParameter>
+		</Action>		
+  
+		<Action name="CloseSubConnectionBusy3_a" type="CloseConnection" thread="33">
+			<dependsOn action_id="GetBusy" interval="0"/>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Busy3</ActionParameter>
+		</Action>
+		
+		<!-- Close, without unsubscribe, and while recieving the quiet consumer Unsubscribe should be handled
+		in the disconnect. -->
+		<Action name="CloseSubConnectionQuiet1" type="CloseConnection" thread="4">
+			<dependsOn action_id="GetBusy" interval="0"/>
+			<ActionParameter name="connection_id">CFMQTT_NDS_03_Quiet1</ActionParameter>
+		</Action>
+		
+		<!-- all gone.  --> 
+		<!-- Action name="ShowSubisGone" type="ShellAction" thread="4">
+			<dependsOn action_id="CloseSubConnectionBusy1_a"/>
+			<dependsOn action_id="CloseSubConnectionBusy2_a"/>
+			<dependsOn action_id="CloseSubConnectionBusy3_a"/>
+			<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver stat Subscription SubName=SubNDS_03_QOSM ClientID=__SharedND </ActionParameter>
+			<ActionParameter name="print_result">true</ActionParameter>
+			<ActionParameter name="expected_rc">1</ActionParameter>
+		</Action -->
+		
+	<Action name="ShowSubisGone" type="RestAPI"  thread="4">
+		<dependsOn action_id="CloseSubConnectionBusy1_a"/>
+		<dependsOn action_id="CloseSubConnectionBusy2_a"/>
+		<dependsOn action_id="CloseSubConnectionBusy3_a"/>
+        <ActionParameter name="structureID">stat_output_GONE</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=SubNDS_03_QOSM&amp;ClientID=__SharedND</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubisGone" type="CompareREST" rc="1" reason="ISMTEST3416"  thread="4">
+        <ActionParameter name="structureID">stat_output_GONE</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">SubNDS_03_QOSM</ActionParameter>
+    </Action>					
+  
+		<!-- and finally clean up --> 
+		
+		<Action name="sync_SubsDone" type="SyncAction" thread="4"> 
+			<ActionParameter name="request">set</ActionParameter>
+			<ActionParameter name="condition">SubsDone</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>	
+	    
+	</Action>
+  	 
+	 
+</IsmWSTest>
+

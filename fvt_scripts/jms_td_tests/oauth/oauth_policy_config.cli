@@ -1,0 +1,275 @@
+# Policy configuration file for OAuth testing
+# Ports used:
+#  20004 - Open policies, just uses ssl and oauth
+#  20005 - Group restrictions on policies
+#  20006 - OAuth Client certificate
+#  20007
+#  21004 - OAuth without TLS
+
+####################################################
+#
+# Converted to use restapis January 2019
+#
+# (Completed, all items migrated)  
+#
+#
+####################################################
+
+#######setupLDAP 0 create LDAP "URL=ldap://${LDAP_URI}:389" "BaseDN=ou=LTPATest,o=jndiTest" "UserIdMap=uid" "GroupIdMap=cn" "GroupMemberIdMap=member" "UserSuffix=ou=users,ou=LTPATest,o=jndiTest" "GroupSuffix=ou=groups,ou=LTPATest,o=jndiTest" "Enabled=true" "NestedGroupSearch=false"
+setupLDAP 0 POST configuration {"LDAP":{"Enabled":true,"URL":"ldap://${LDAP_URI}:389","BaseDN":"ou=LTPATest,o=jndiTest","UserIdMap":"uid","GroupIdMap":"cn","GroupMemberIdMap":"member","UserSuffix":"ou=users,ou=LTPATest,o=jndiTest","GroupSuffix":"ou=groups,ou=LTPATest,o=jndiTest","NestedGroupSearch":false}}
+setupLDAP 0 POST service/restart {"Service":"Server"}
+#######setup 0 stop
+#######setup 0 start
+
+# OAuth Key
+#######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaclient.pem oauth.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaclient.pem oauth.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaclient.pem oauth2.pem
+
+# Server Certificates
+#######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem oauth.imaserver-key.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-key.pem oauth.imaserver-key.pem
+#######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem oauth.imaserver-crt.pem 
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-crt.pem  oauth.imaserver-crt.pem
+#######setup 0 apply Certificate CertFileName=oauth.imaserver-crt.pem CertFilePassword= KeyFileName=oauth.imaserver-key.pem KeyFilePassword=
+
+#######setup 0 create CertificateProfile Name=OAuthCertProf Certificate=oauth.imaserver-crt.pem Key=oauth.imaserver-key.pem
+setup 0 POST configuration {"CertificateProfile":{"OAuthCertProf":{"Certificate":"oauth.imaserver-crt.pem","Key":"oauth.imaserver-key.pem"}}}
+
+
+#######setup 0 create OAuthProfile Name=OAuthProfileCert ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName=oauth.pem
+setup 0 POST configuration {"OAuthProfile":{"OAuthProfileCert":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp","AuthKey":"access_token","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp","UserInfoKey":"username","KeyFileName":"oauth.pem"}}}
+#######setup 0 create OAuthProfile Name=OAuthProfile ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName= 
+setup 0 POST configuration {"OAuthProfile":{"OAuthProfile":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp","AuthKey":"access_token","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp","UserInfoKey":"username","KeyFileName":""}}}
+#######setup 0 create OAuthProfile Name=OAuthProfileCommaGood ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp UserInfoKey=username KeyFileName= GroupInfoKey=group
+setup 0 POST configuration {"OAuthProfile":{"OAuthProfileCommaGood":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp","AuthKey":"access_token","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp","UserInfoKey":"username","KeyFileName":"","GroupInfoKey":"group"}}}
+#######setup 0 create OAuthProfile Name=OAuthProfileAnon ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token KeyFileName=
+setup 0 POST configuration {"OAuthProfile":{"OAuthProfileAnon":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp","AuthKey":"access_token","KeyFileName":""}}}
+### testing TrustStore
+setup 0 POST configuration {"OAuthProfile":{"OAuthProfileTrustStore":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp","AuthKey":"access_token","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp","UserInfoKey":"username","KeyFileName":"oauth2.pem","CheckServerCert":"TrustStore"}}}
+
+#######setup 0 create SecurityProfile Name=OAuthSecProfCert MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileCert
+setup 0 POST configuration {"SecurityProfile":{"OAuthSecProfCert":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfileCert"}}}
+#######setup 0 create SecurityProfile Name=OAuthSecProf MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfile
+setup 0 POST configuration {"SecurityProfile":{"OAuthSecProf":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfile"}}}
+#######setup 0 create SecurityProfile Name=OAuthSecProfAnon MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileAnon
+setup 0 POST configuration {"SecurityProfile":{"OAuthSecProfAnon":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfileAnon"}}}
+#######setup 0 create SecurityProfile Name=OAuthSecProfNoTLS TLSEnabled=False MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfile
+setup 0 POST configuration {"SecurityProfile":{"OAuthSecProfNoTLS":{"TLSEnabled":false,"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfile"}}}
+#######setup 0 create SecurityProfile Name=OAuthSecProfCommaGood MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileCommaGood
+setup 0 POST configuration {"SecurityProfile":{"OAuthSecProfCommaGood":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfileCommaGood"}}}
+setup 0 POST configuration {"SecurityProfile":{"OAuthSecProfTrustStore":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfileTrustStore"}}}
+
+#######setup 0 create ConnectionPolicy Name=OAuthCP Protocol=JMS
+setup 0 POST configuration {"ConnectionPolicy":{"OAuthCP":{"Protocol":"JMS"}}}
+#######setup 0 create ConnectionPolicy Name=OAuthCPGroup Protocol=JMS GroupID=LTPAGroup1
+setup 0 POST configuration {"ConnectionPolicy":{"OAuthCPGroup":{"Protocol":"JMS","GroupID":"LTPAGroup1"}}}
+#######setup 0 create ConnectionPolicy Name=OAuthCPUser Protocol=JMS UserID=LTPAUser3
+setup 0 POST configuration {"ConnectionPolicy":{"OAuthCPUser":{"Protocol":"JMS","UserID":"LTPAUser3"}}}
+#######setup 0 create ConnectionPolicy Name=OAuthCPGroupInfo Protocol=JMS GroupID=LTPAGroup4
+setup 0 POST configuration {"ConnectionPolicy":{"OAuthCPGroupInfo":{"Protocol":"JMS","GroupID":"LTPAGroup4"}}}
+#######setup 0 create ConnectionPolicy Name=OAuthCPCommaGroup Protocol=JMS GroupID=Comma,Group
+setup 0 POST configuration {"ConnectionPolicy":{"OAuthCPCommaGroup":{"Protocol":"JMS","GroupID":"Comma,Group"}}}
+#######setup 0 create ConnectionPolicy Name=OAuthCPCommaGood Protocol=JMS GroupID=Comma
+setup 0 POST configuration {"ConnectionPolicy":{"OAuthCPCommaGood":{"Protocol":"JMS","GroupID":"Comma"}}}
+
+#######setup 0 create MessagingPolicy Name=OAuthMP DestinationType=Topic Destination=* Protocol=JMS ActionList=Publish,Subscribe
+setup 0 POST configuration {"TopicPolicy":{"OAuthMP":{"Topic":"*","Protocol":"JMS","ActionList":"Publish,Subscribe"}}}
+#######setup 0 create MessagingPolicy Name=OAuthMPGroup DestinationType=Topic Destination=/group/oauth Protocol=JMS GroupID=LTPAGroup1 ActionList=Publish,Subscribe
+setup 0 POST configuration {"TopicPolicy":{"OAuthMPGroup":{"Topic":"/group/oauth","Protocol":"JMS","GroupID":"LTPAGroup1","ActionList":"Publish,Subscribe"}}}
+#######setup 0 create MessagingPolicy Name=OAuthMPUser DestinationType=Topic Destination=/user/oauth Protocol=JMS UserID=LTPAUser3 ActionList=Publish,Subscribe
+setup 0 POST configuration {"TopicPolicy":{"OAuthMPUser":{"Topic":"/user/oauth","Protocol":"JMS","UserID":"LTPAUser3","ActionList":"Publish,Subscribe"}}}
+#######setup 0 create MessagingPolicy Name=OAuthMPCommaGood DestinationType=Topic Destination=/oauth/${GroupID}/topic GroupID=Comma Protocol=JMS ActionList=Publish,Subscribe
+setup 0 POST configuration {"TopicPolicy":{"OAuthMPCommaGood":{"Topic":"/oauth/${GroupID}/topic","GroupID":"Comma","Protocol":"JMS","ActionList":"Publish,Subscribe"}}}
+
+#######setup 0 create MessageHub Name=OAuthHub
+setup 0 POST configuration {"MessageHub":{"OAuthHub":{}}}
+
+
+#######setup 0 create Endpoint Name=OAuthEndpoint Port=20004 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProf MessageHub=OAuthHub
+setup 0 POST configuration {"Endpoint":{"OAuthEndpoint":{"Port":20004,"ConnectionPolicies":"OAuthCP","TopicPolicies":"OAuthMP","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProf","MessageHub":"OAuthHub"}}}
+#######setup 0 create Endpoint Name=OAuthEndpointGroup Port=20005 ConnectionPolicies=OAuthCPGroup,OAuthCPUser,OAuthCPGroupInfo,OAuthCPCommaGroup MessagingPolicies=OAuthMPGroup,OAuthMPUser SecurityProfile=OAuthSecProf MessageHub=OAuthHub
+setup 0 POST configuration {"Endpoint":{"OAuthEndpointGroup":{"Port":20005,"ConnectionPolicies":"OAuthCPGroup,OAuthCPUser,OAuthCPGroupInfo,OAuthCPCommaGroup","TopicPolicies":"OAuthMPGroup,OAuthMPUser","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProf","MessageHub":"OAuthHub"}}}
+#######setup 0 create Endpoint Name=OAuthEndpointCert Port=20006 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfCert MessageHub=OAuthHub
+setup 0 POST configuration {"Endpoint":{"OAuthEndpointCert":{"Port":20006,"ConnectionPolicies":"OAuthCP","TopicPolicies":"OAuthMP","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProfCert","MessageHub":"OAuthHub"}}}
+#######setup 0 create Endpoint Name=OAuthEndpointAnon Port=20007 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfAnon MessageHub=OAuthHub
+setup 0 POST configuration {"Endpoint":{"OAuthEndpointAnon":{"Port":20007,"ConnectionPolicies":"OAuthCP","TopicPolicies":"OAuthMP","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProfAnon","MessageHub":"OAuthHub"}}}
+#######setup 0 create Endpoint Name=OAuthEndpointNoTLS Port=21004 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfNoTLS MessageHub=OAuthHub
+setup 0 POST configuration {"Endpoint":{"OAuthEndpointNoTLS":{"Port":21004,"ConnectionPolicies":"OAuthCP","TopicPolicies":"OAuthMP","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProfNoTLS","MessageHub":"OAuthHub"}}}
+#######setup 0 create Endpoint Name=OAuthEndpointCommaGood Port=20008 ConnectionPolicies=OAuthCPCommaGood MessagingPolicies=OAuthMPCommaGood SecurityProfile=OAuthSecProfCommaGood MessageHub=OAuthHub
+setup 0 POST configuration {"Endpoint":{"OAuthEndpointCommaGood":{"Port":20008,"ConnectionPolicies":"OAuthCPCommaGood","TopicPolicies":"OAuthMPCommaGood","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProfCommaGood","MessageHub":"OAuthHub"}}}
+setup 0 POST configuration {"Endpoint":{"OAuthEndpointTrustStore":{"Port":20009,"ConnectionPolicies":"OAuthCP","TopicPolicies":"OAuthMP","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProfTrustStore","MessageHub":"OAuthHub"}}}
+
+#######cleanup 0 delete Endpoint Name=OAuthEndpoint
+cleanup 0 DELETE configuration/Endpoint/OAuthEndpoint
+#######cleanup 0 delete Endpoint Name=OAuthEndpointCommaGood
+cleanup 0 DELETE configuration/Endpoint/OAuthEndpointCommaGood
+#######cleanup 0 delete Endpoint Name=OAuthEndpointTrustStore
+cleanup 0 DELETE configuration/Endpoint/OAuthEndpointTrustStore
+#######cleanup 0 delete Endpoint Name=OAuthEndpointGroup
+cleanup 0 DELETE configuration/Endpoint/OAuthEndpointGroup
+#######cleanup 0 delete Endpoint Name=OAuthEndpointCert
+cleanup 0 DELETE configuration/Endpoint/OAuthEndpointCert
+#######cleanup 0 delete Endpoint Name=OAuthEndpointAnon
+cleanup 0 DELETE configuration/Endpoint/OAuthEndpointAnon
+#######cleanup 0 delete Endpoint Name=OAuthEndpointNoTLS
+cleanup 0 DELETE configuration/Endpoint/OAuthEndpointNoTLS
+#######cleanup 0 delete MessagingPolicy Name=OAuthMP
+cleanup 0 DELETE configuration/TopicPolicy/OAuthMP
+#######cleanup 0 delete MessagingPolicy Name=OAuthMPCommaGood
+cleanup 0 DELETE configuration/TopicPolicy/OAuthMPCommaGood
+#######cleanup 0 delete MessagingPolicy Name=OAuthMPGroup
+cleanup 0 DELETE configuration/TopicPolicy/OAuthMPGroup
+#######cleanup 0 delete MessagingPolicy Name=OAuthMPUser
+cleanup 0 DELETE configuration/TopicPolicy/OAuthMPUser
+#######cleanup 0 delete ConnectionPolicy Name=OAuthCP
+cleanup 0 DELETE configuration/ConnectionPolicy/OAuthCP
+#######cleanup 0 delete ConnectionPolicy Name=OAuthCPCommaGood
+cleanup 0 DELETE configuration/ConnectionPolicy/OAuthCPCommaGood
+#######cleanup 0 delete ConnectionPolicy Name=OAuthCPGroup
+cleanup 0 DELETE configuration/ConnectionPolicy/OAuthCPGroup
+#######cleanup 0 delete ConnectionPolicy Name=OAuthCPGroupInfo
+cleanup 0 DELETE configuration/ConnectionPolicy/OAuthCPGroupInfo
+#######cleanup 0 delete ConnectionPolicy Name=OAuthCPUser
+cleanup 0 DELETE configuration/ConnectionPolicy/OAuthCPUser
+#######cleanup 0 delete ConnectionPolicy Name=OAuthCPCommaGroup
+cleanup 0 DELETE configuration/ConnectionPolicy/OAuthCPCommaGroup
+#######cleanup 0 delete MessageHub Name=OAuthHub
+cleanup 0 DELETE configuration/MessageHub/OAuthHub
+#######cleanup 0 delete SecurityProfile Name=OAuthSecProf
+cleanup 0 DELETE configuration/SecurityProfile/OAuthSecProf
+#######cleanup 0 delete SecurityProfile Name=OAuthSecProfCommaGood
+cleanup 0 DELETE configuration/SecurityProfile/OAuthSecProfCommaGood
+#######cleanup 0 delete SecurityProfile Name=OAuthSecProfTrustStore
+cleanup 0 DELETE configuration/SecurityProfile/OAuthSecProfTrustStore
+#######cleanup 0 delete SecurityProfile Name=OAuthSecProfAnon
+cleanup 0 DELETE configuration/SecurityProfile/OAuthSecProfAnon
+#######cleanup 0 delete SecurityProfile Name=OAuthSecProfCert
+cleanup 0 DELETE configuration/SecurityProfile/OAuthSecProfCert
+#######cleanup 0 delete SecurityProfile Name=OAuthSecProfNoTLS
+cleanup 0 DELETE configuration/SecurityProfile/OAuthSecProfNoTLS
+#######cleanup 0 delete CertificateProfile Name=OAuthCertProf
+cleanup 0 DELETE configuration/CertificateProfile/OAuthCertProf
+#######cleanup 0 delete OAuthProfile Name=OAuthProfile
+cleanup 0 DELETE configuration/OAuthProfile/OAuthProfile
+#######cleanup 0 delete OAuthProfile Name=OAuthProfileCommaGood
+cleanup 0 DELETE configuration/OAuthProfile/OAuthProfileCommaGood
+#######cleanup 0 delete OAuthProfile Name=OAuthProfileTrustStore
+cleanup 0 DELETE configuration/OAuthProfile/OAuthProfileTrustStore
+#######cleanup 0 delete OAuthProfile Name=OAuthProfileAnon
+cleanup 0 DELETE configuration/OAuthProfile/OAuthProfileAnon
+#######cleanup 0 delete OAuthProfile Name=OAuthProfileCert
+cleanup 0 DELETE configuration/OAuthProfile/OAuthProfileCert
+#######cleanup 0 delete LDAP
+cleanup 0 POST configuration {"LDAP":{"Enabled":false}}
+
+cleanup 0 POST service/restart {"Service":"Server"}
+
+# HA setup / cleanup - same as setup/cleanup just no LDAP
+#######setupHA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaclient.pem oauth.pem
+setupHA 0 PUT file ${M1_TESTROOT}/common/imaclient.pem oauth.pem
+#######setupHA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem oauth.imaserver-key.pem
+setupHA 0 PUT file ${M1_TESTROOT}/common/imaserver-key.pem oauth.imaserver-key.pem
+#######setupHA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem oauth.imaserver-crt.pem 
+setupHA 0 PUT file ${M1_TESTROOT}/common/imaserver-crt.pem  oauth.imaserver-crt.pem
+#######setupHA 0 apply Certificate CertFileName=oauth.imaserver-crt.pem CertFilePassword= KeyFileName=oauth.imaserver-key.pem KeyFilePassword=
+
+#######setupHA 0 create CertificateProfile Name=OAuthCertProf Certificate=oauth.imaserver-crt.pem Key=oauth.imaserver-key.pem
+setupHA 0 POST configuration {"CertificateProfile":{"OAuthCertProf":{"Certificate":"oauth.imaserver-crt.pem","Key":"oauth.imaserver-key.pem"}}}
+#######setupHA 0 create OAuthProfile Name=OAuthProfileCert ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName=oauth.pem
+setupHA 0 POST configuration {"OAuthProfile":{"OAuthProfileCert":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp","AuthKey":"access_token","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp","UserInfoKey":"username","KeyFileName":"oauth.pem"}}}
+#######setupHA 0 create OAuthProfile Name=OAuthProfile ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName= 
+setupHA 0 POST configuration {"OAuthProfile":{"OAuthProfile":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp","AuthKey":"access_token","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp","UserInfoKey":"username","KeyFileName":""}}}
+#######setupHA 0 create OAuthProfile Name=OAuthProfileAnon ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token KeyFileName=
+setupHA 0 POST configuration {"OAuthProfile":{"OAuthProfileAnon":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp","AuthKey":"access_token","KeyFileName":""}}}
+
+#######setupHA 0 create SecurityProfile Name=OAuthSecProfCert MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileCert
+setupHA 0 POST configuration {"SecurityProfile":{"OAuthSecProfCert":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfileCert"}}}
+#######setupHA 0 create SecurityProfile Name=OAuthSecProf MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfile
+setupHA 0 POST configuration {"SecurityProfile":{"OAuthSecProf":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfile"}}}
+#######setupHA 0 create SecurityProfile Name=OAuthSecProfAnon MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileAnon
+setupHA 0 POST configuration {"SecurityProfile":{"OAuthSecProfAnon":{"MinimumProtocolMethod":"TLSv1","UsePasswordAuthentication":true,"CertificateProfile":"OAuthCertProf","OAuthProfile":"OAuthProfileAnon"}}}
+
+#######setupHA 0 create ConnectionPolicy Name=OAuthCP Protocol=JMS
+setupHA 0 POST configuration {"ConnectionPolicy":{"OAuthCP":{"Protocol":"JMS"}}}
+#######setupHA 0 create ConnectionPolicy Name=OAuthCPGroup Protocol=JMS GroupID=LTPAGroup1
+setupHA 0 POST configuration {"ConnectionPolicy":{"OAuthCPGroup":{"Protocol":"JMS","GroupID":"LTPAGroup1"}}}
+#######setupHA 0 create ConnectionPolicy Name=OAuthCPGroupInfo Protocol=JMS GroupID=LTPAGroup4
+setupHA 0 POST configuration {"ConnectionPolicy":{"OAuthCPGroupInfo":{"Protocol":"JMS","GroupID":"LTPAGroup4"}}}
+#######setupHA 0 create ConnectionPolicy Name=OAuthCPUser Protocol=JMS UserID=LTPAUser3
+setupHA 0 POST configuration {"ConnectionPolicy":{"OAuthCPUser":{"Protocol":"JMS","UserID":"LTPAUser3"}}}
+#######setupHA 0 create ConnectionPolicy Name=OAuthCPCommaGroup Protocol=JMS GroupID=Comma,Group
+setupHA 0 POST configuration {"ConnectionPolicy":{"OAuthCPCommaGroup":{"Protocol":"JMS","GroupID":"Comma,Group"}}}
+
+#######setupHA 0 create MessagingPolicy Name=OAuthMP DestinationType=Topic Destination=* Protocol=JMS ActionList=Publish,Subscribe
+setupHA 0 POST configuration {"TopicPolicy":{"OAuthMP":{"Topic":"*","Protocol":"JMS","ActionList":"Publish,Subscribe"}}}
+#######setupHA 0 create MessagingPolicy Name=OAuthMPGroup DestinationType=Topic Destination=/group/oauth Protocol=JMS GroupID=LTPAGroup1 ActionList=Publish,Subscribe
+setupHA 0 POST configuration {"TopicPolicy":{"OAuthMPGroup":{"Topic":"/group/oauth","Protocol":"JMS","GroupID":"LTPAGroup1","ActionList":"Publish,Subscribe"}}}
+#######setupHA 0 create MessagingPolicy Name=OAuthMPUser DestinationType=Topic Destination=/user/oauth Protocol=JMS UserID=LTPAUser3 ActionList=Publish,Subscribe
+setupHA 0 POST configuration {"TopicPolicy":{"OAuthMPUser":{"Topic":"/user/oauth","Protocol":"JMS","UserID":"LTPAUser3","ActionList":"Publish,Subscribe"}}}
+
+#######setupHA 0 create MessageHub Name=OAuthHub
+setupHA 0 POST configuration {"MessageHub":{"OAuthHub":{}}}
+
+#######setupHA 0 create Endpoint Name=OAuthEndpoint Port=20004 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProf MessageHub=OAuthHub
+setupHA 0 POST configuration {"Endpoint":{"OAuthEndpoint":{"Port":20004,"ConnectionPolicies":"OAuthCP","TopicPolicies":"OAuthMP","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProf","MessageHub":"OAuthHub"}}}
+#######setupHA 0 create Endpoint Name=OAuthEndpointGroup Port=20005 ConnectionPolicies=OAuthCPGroup,OAuthCPUser,OAuthCPGroupInfo,OAuthCPCommaGroup MessagingPolicies=OAuthMPGroup,OAuthMPUser SecurityProfile=OAuthSecProf MessageHub=OAuthHub
+setupHA 0 POST configuration {"Endpoint":{"OAuthEndpointGroup":{"Port":20005,"ConnectionPolicies":"OAuthCPGroup,OAuthCPUser,OAuthCPGroupInfo,OAuthCPCommaGroup","TopicPolicies":"OAuthMPGroup,OAuthMPUser","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProf","MessageHub":"OAuthHub"}}}
+#######setupHA 0 create Endpoint Name=OAuthEndpointCert Port=20006 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfCert MessageHub=OAuthHub
+setupHA 0 POST configuration {"Endpoint":{"OAuthEndpointCert":{"Port":20006,"ConnectionPolicies":"OAuthCP","TopicPolicies":"OAuthMP","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProfCert","MessageHub":"OAuthHub"}}}
+#######setupHA 0 create Endpoint Name=OAuthEndpointAnon Port=20007 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfAnon MessageHub=OAuthHub
+setupHA 0 POST configuration {"Endpoint":{"OAuthEndpointAnon":{"Port":20007,"ConnectionPolicies":"OAuthCP","TopicPolicies":"OAuthMP","QueuePolicies":"","SubscriptionPolicies":"","SecurityProfile":"OAuthSecProfAnon","MessageHub":"OAuthHub"}}}
+
+#######cleanupHA 0 delete Endpoint Name=OAuthEndpoint
+cleanupHA 0 DELETE configuration/Endpoint/OAuthEndpoint
+#######cleanupHA 0 delete Endpoint Name=OAuthEndpointGroup
+cleanupHA 0 DELETE configuration/Endpoint/OAuthEndpointGroup
+#######cleanupHA 0 delete Endpoint Name=OAuthEndpointCert
+cleanupHA 0 DELETE configuration/Endpoint/OAuthEndpointCert
+#######cleanupHA 0 delete Endpoint Name=OAuthEndpointAnon
+cleanupHA 0 DELETE configuration/Endpoint/OAuthEndpointAnon
+#######cleanupHA 0 delete MessagingPolicy Name=OAuthMP
+cleanupHA 0 DELETE configuration/TopicPolicy/OAuthMP
+#######cleanupHA 0 delete MessagingPolicy Name=OAuthMPGroup
+cleanupHA 0 DELETE configuration/TopicPolicy/OAuthMPGroup
+#######cleanupHA 0 delete MessagingPolicy Name=OAuthMPUser
+cleanupHA 0 DELETE configuration/TopicPolicy/OAuthMPUser
+#######cleanupHA 0 delete ConnectionPolicy Name=OAuthCP
+cleanupHA 0 DELETE configuration/ConnectionPolicy/OAuthCP
+#######cleanupHA 0 delete ConnectionPolicy Name=OAuthCPGroup
+cleanupHA 0 DELETE configuration/ConnectionPolicy/OAuthCPGroup
+#######cleanupHA 0 delete ConnectionPolicy Name=OAuthCPGroupInfo
+cleanupHA 0 DELETE configuration/ConnectionPolicy/OAuthCPGroupInfo
+#######cleanupHA 0 delete ConnectionPolicy Name=OAuthCPCommaGroup
+cleanupHA 0 DELETE configuration/ConnectionPolicy/OAuthCPCommaGroup
+#######cleanupHA 0 delete ConnectionPolicy Name=OAuthCPUser
+cleanupHA 0 DELETE configuration/ConnectionPolicy/OAuthCPUser
+#######cleanupHA 0 delete MessageHub Name=OAuthHub
+cleanupHA 0 DELETE configuration/MessageHub/OAuthHub
+#######cleanupHA 0 delete SecurityProfile Name=OAuthSecProf
+cleanupHA 0 DELETE configuration/SecurityProfile/OAuthSecProf
+#######cleanupHA 0 delete SecurityProfile Name=OAuthSecProfAnon
+cleanupHA 0 DELETE configuration/SecurityProfile/OAuthSecProfAnon
+#######cleanupHA 0 delete SecurityProfile Name=OAuthSecProfCert
+cleanupHA 0 DELETE configuration/SecurityProfile/OAuthSecProfCert
+#######cleanupHA 0 delete CertificateProfile Name=OAuthCertProf
+cleanupHA 0 DELETE configuration/CertificateProfile/OAuthCertProf
+#######cleanupHA 0 delete OAuthProfile Name=OAuthProfile
+cleanupHA 0 DELETE configuration/OAuthProfile/OAuthProfile
+#######cleanupHA 0 delete OAuthProfile Name=OAuthProfileAnon
+cleanupHA 0 DELETE configuration/OAuthProfile/OAuthProfileAnon
+#######cleanupHA 0 delete OAuthProfile Name=OAuthProfileCert
+cleanupHA 0 DELETE configuration/OAuthProfile/OAuthProfileCert
+
+#######disableLDAP 0 update OAuthProfile Name=OAuthProfile GroupInfoKey=group UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp
+disableLDAP 0 POST configuration {"OAuthProfile":{"OAuthProfile":{"GroupInfoKey":"group","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp"}}}
+#######disableLDAP 0 update OAuthProfile Name=OAuthProfileCert GroupInfoKey=group UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp
+disableLDAP 0 POST configuration {"OAuthProfile":{"OAuthProfileCert":{"GroupInfoKey":"group","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp"}}}
+#######disableLDAP 0 update LDAP Enabled=False
+disableLDAP 0 POST configuration {"LDAP":{"Enabled":false}}
+disableLDAP 0 POST service/restart {"Service":"Server"}
+#######disableLDAP 0 stop
+#######disableLDAP 0 start
+
+#######sameURL 0 update OAuthProfile Name=OAuthProfile ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp
+sameURL 0 POST configuration {"OAuthProfile":{"OAuthProfile":{"ResourceURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp","UserInfoURL":"https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp"}}}

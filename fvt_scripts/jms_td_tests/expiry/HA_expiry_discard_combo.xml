@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name:  HA_expiry_test_jms
+
+  Test Category:  JMS/MQTT High Availability
+
+  Test Description:
+    Start JMS TestDriver
+
+    durable subscription to /HAEXP/Discard
+
+    Send 10000 messages that expire in 4 seconds (set on messaging policy)
+    
+    The consumer is inactive so the messages will pile up. They will end up
+    either being expired by the reaper, expired by iop due to the full buffer
+    or discarded due to the full buffer.
+
+    Get stats for server and subscription
+
+    Crash imaserver
+
+    Get stats for server and subscription
+    Wait 20 seconds
+    Get stats for server and subscription
+
+    Reconnect JMS subscriber and publisher
+
+    Publish 10000 more messages
+    Again, these should expire or be discarded
+
+    Eventually try to consume some?
+    Consume the messages from the JMS subscriptions.
+
+    Collect stats a final time.
+
+    Verify:
+
+    Cleanup
+
+    TEST COMPLETE
+
+*****************************************************************************/
+-->
+<ImaJmsTest name="HA_expiry_test_jms">
+    <Action name="jms" type="CompositeAction">
+        <Action name="Create_CF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF</ActionParameter>
+        </Action>
+
+        <Action name="Create_CFShared" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CFShared</ActionParameter>
+        </Action>
+
+        <Action name="Fill_CF_Props" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <!-- TODO: Update these values -->
+            <ImaProperty name="ClientID" value="HA_Expiry_JMS" />
+            <ImaProperty name="Port" value="20023" />
+            <include>../common/JMS_serverHA.xml</include>
+        </Action>
+
+        <Action name="Create_Conn" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn</ActionParameter>
+            <ActionParameter name="factory_id">CF</ActionParameter>
+        </Action>
+
+        <Action name="Create_Session" type="CreateSession">
+            <ActionParameter name="structure_id">Session</ActionParameter>
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+
+        <!-- Create JMS Destinations for the various topics we will
+             publish and subscribe to -->
+
+        <Action name="Create_Dest_Discard" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_Discard</ActionParameter>
+            <ActionParameter name="type">topic</ActionParameter>
+            <ApiParameter name="name">/HAEXP/Discard</ApiParameter>
+        </Action>
+
+        <!-- Create wildcard subscription -->
+
+        <Action name="Create_Sub" type="CreateDurableSubscriber">
+            <ActionParameter name="structure_id">Sub</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ActionParameter name="dest_id">Dest_Discard</ActionParameter>
+            <ApiParameter name="durableName">ExpiryDiscardSub</ApiParameter>
+        </Action>
+
+        <!-- Close consumers so that we don't process all the messages that we want
+             to let exipre -->
+
+        <Action name="Close_Sub" type="CloseConsumer">
+            <ActionParameter name="consumer_id">Sub</ActionParameter>
+        </Action>
+
+        <Action name="Create_Pub" type="CreateProducer">
+            <ActionParameter name="structure_id">Pub</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+        </Action>
+
+        <!-- Create retained messages -->
+
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">TextMessage</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+
+        <Action name="SetText" type="SetMessageText">
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ApiParameter name="value">TEXT: HA Expiry Normal message</ApiParameter>
+        </Action>
+
+        <!-- ttl Set directly on the JMS message -->
+        <Action name="Send_Message_ttl_A" type="SendMessage" repeat="10000">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessage</ActionParameter>
+            <ActionParameter name="dest_id">Dest_Discard</ActionParameter>
+        </Action>
+
+        <!-- Collect some server stats after we have sent everything -->
+
+        <Action name="Stats_Sub_A" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_A" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <!-- Crash the primary server-->
+<!--        <Action name="Crash_Server" type="ShellAction">-->
+<!--            <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>-->
+<!--            <ActionParameter name="command">bash ../scripts/haFunctions.sh -a stopPrimary -f stopPrimary.log</ActionParameter>-->
+<!--            <ActionParameter name="print_result">true</ActionParameter>-->
+<!--        </Action>-->
+
+        <!-- Collect more server stats immediately after the restart -->
+        <Action name="Stats_Sub_C" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_C" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+    	<Action name="Stats_Sub_D" type="RestAPI">
+    	    <dependsOn name="Stats_Server_C" interval="20000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_D" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <!-- Reconnect -->
+<!--        <Action name="Create_Conn_Reconnect" type="CreateConnection">-->
+<!--            <ActionParameter name="structure_id">Conn</ActionParameter>-->
+<!--            <ActionParameter name="factory_id">CF</ActionParameter>-->
+<!--        </Action>-->
+
+<!--        <Action name="Create_Session_Reconnect" type="CreateSession">-->
+<!--            <ActionParameter name="structure_id">Session</ActionParameter>-->
+<!--            <ActionParameter name="conn_id">Conn</ActionParameter>-->
+<!--        </Action>-->
+
+        <!-- Verification -->
+
+<!--        <Action name="Create_Pub" type="CreateProducer">-->
+<!--            <ActionParameter name="structure_id">Pub</ActionParameter>-->
+<!--            <ActionParameter name="session_id">Session</ActionParameter>-->
+<!--        </Action>-->
+
+        <!-- Create wildcard subscription -->
+
+<!--        <Action name="ReCreate_Sub" type="CreateDurableSubscriber">-->
+<!--            <ActionParameter name="structure_id">Sub</ActionParameter>-->
+<!--            <ActionParameter name="session_id">Session</ActionParameter>-->
+<!--            <ActionParameter name="dest_id">Dest_Wildcard</ActionParameter>-->
+<!--            <ApiParameter name="durableName">ExpirySubWildcard</ApiParameter>-->
+<!--        </Action>-->
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+        
+        <!-- ttl Set directly on the JMS message -->
+<!--        <Action name="Send_Message_ttl_A" type="SendMessage" repeat="10000">-->
+<!--            <ActionParameter name="producer_id">Pub</ActionParameter>-->
+<!--            <ActionParameter name="message_id">TextMessage</ActionParameter>-->
+<!--            <ActionParameter name="dest_id">Dest_Discard</ActionParameter>-->
+<!--        </Action>-->
+
+        <Action name="Receive" type="ReceiveMessage" repeat="400">
+            <ActionParameter name="consumer_id">Sub</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+        
+<!--        <Action name="ReceiveEmpty" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">-->
+<!--            <ActionParameter name="consumer_id">Sub</ActionParameter>-->
+<!--            <ActionParameter name="structure_id">rxmsg</ActionParameter>-->
+<!--            <ApiParameter name="timeout">1000</ApiParameter>-->
+<!--        </Action>-->
+        
+        <!-- Collect some more server stats after a short period of time after restart
+             This delay also provides some time to consume non-expired messages that
+             are available after reconnecting -->
+
+        <Action name="Stats_Sub_G" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_G" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    
+        <Action name="CloseConsumer" type="CloseConsumer">
+            <ActionParameter name="consumer_id">Sub</ActionParameter>
+        </Action>
+
+        <!-- Unsubscribe and disconnect -->
+        <Action name="Unsubscribe" type="Unsubscribe">
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ApiParameter name="durableName">ExpirySubWildcard</ApiParameter>
+        </Action>
+        
+        <Action name="Close_Conn" type="CloseConnection">
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+
+<!--        <Action name="StartStandby" type="ShellAction">-->
+<!--            <ActionParameter name="command">bash ../scripts/haFunctions.sh -a startStandby -f HA_expiry_test_jms.startStandby.log</ActionParameter>-->
+<!--            <ActionParameter name="print_result">true</ActionParameter>-->
+<!--        </Action>-->
+    </Action>
+</ImaJmsTest>

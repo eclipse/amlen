@@ -1,0 +1,326 @@
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+#define TRACE_COMP Admin
+
+#include <validateConfigData.h>
+#include "validateInternal.h"
+
+extern int ism_config_checkProtocolsInfo(char *pname, int capcode);
+
+/*
+ * Item: TopicPolicy
+ * Component: Security
+ *
+ * Description:
+ * 		Policy to validate topic messaging activity
+ * 		TopicPolicy cannot be deleted if it is in use by an Endpoint object
+ *
+ * Schema:
+ * {
+ * 		"TopicPolicy": {
+ *      	"Name":"string",
+ *			"Description":"string",
+ *			"ClientID":"string",
+ *			"ClientAddress":"string",
+ *			"UserID":"string",
+ *			"GroupID":"string",
+ *			"CommonNames":"string",
+ *			"Protocol":"string",
+ *			"Topic":"string",
+ *			"ActionList":"string", 			(LIST: Publish,Subscribe)
+ *			"MaxMessages":"number",
+ *			"MaxMessagesBehavior":"string",	(ENUM: RejectNewMessages,DiscardOldMessages)
+ *			"MaxMessageTimeToLive":"string",
+ *			"DisconnectedClientNotification":"boolean",
+ *			"DefaultSelectionRule":"string" (Selector)
+ *		}
+ *	}
+ *
+ *
+ * Description: Description of the topic policy object. Optional Item.
+ * ClientID: match for Client IDs allowed to use this policy
+ * ClientAddress: match for client IP addresses allowed to use this policy
+ * UserID: match for User IDs allowed to use this policy
+ * GroupID: match for Group IDs allowed to use this policy
+ * CommonName: match for Certificate common names allowed to use this policy
+ * Protocol: list of protocols allowed (may contain MQTT, JMS and any installed plug-in protocols)
+ * Topic: match for topics to use this policy
+ * ActionList: Enum - Publish,Subscribe
+ * MaxMessages: number
+ * MaxMessagesBehavior: Enum - RejectNewMessages,DiscardOldMessage
+ * MaxMessageTimeToLive: String - unlimited or number in range 1-2147483647
+ * DisconnectedClientNotification: boolean
+ *
+ * Component callback(s):
+ * - Security
+ * Validation rules:
+ *
+ * User defined Configuration Item(s):
+ * ----------------------------------
+ *
+ * Update: Data type is boolean. Options: True, False. Default: False
+ *       If set to True, object should be in the configuration file.
+ *       If set to False, object should not be in the configuration file.
+ *
+ * Delete:  Data type is boolean. Options: True, False. Default: False
+ *       If set to True, object should be in the configuration file.
+ *       If set to False, no action is taken.
+ *
+ * Internal Configuration Item(s):
+ * ------------------------------
+ *
+ * Unused configuration Item(s):
+ * ----------------------------
+ *
+ *
+ * Dependent validation rules:
+ * --------------------------
+ * TopicPolicy can not be deleted if it is used by an Endpoint object.
+ *
+ *
+ */
+XAPI int32_t ism_config_validate_TopicPolicy(json_t *currPostObj, json_t *mergedObj, char * item, char * name, int action, ism_prop_t *props)
+{
+    int32_t rc = ISMRC_OK;
+    ism_config_itemValidator_t * reqList = NULL;
+    int compType = -1;
+    const char *key;
+    json_t *value;
+    json_type objType;
+
+    TRACE(9, "Entry %s: currPostObj:%p, mergedObj:%p, item:%s, name:%s action:%d\n",
+        __FUNCTION__, currPostObj?currPostObj:0, mergedObj?mergedObj:0, item?item:"null", name?name:"null", action);
+
+    if ( !mergedObj || !props || !name ) {
+        rc = ISMRC_NullPointer;
+        goto VALIDATION_END;
+    }
+
+
+    /* Get list of required items from schema- do not free reqList, this is created at server start time and cached */
+    reqList = ism_config_json_getSchemaValidator(ISM_CONFIG_SCHEMA, &compType, item, &rc );
+    if (rc != ISMRC_OK) {
+        goto VALIDATION_END;
+    }
+
+    /* Check if request has any data - delete is not allowed */
+    if ( json_typeof(mergedObj) == JSON_NULL || json_object_size(mergedObj) == 0 ) {
+        rc = ISMRC_NotImplemented;
+        ism_common_setErrorData(rc, "%s", item);
+        goto VALIDATION_END;
+    }
+
+    /* Validate Name */
+    rc = ism_config_validateItemData( reqList, "Name", name, action, props);
+    if ( rc != ISMRC_OK ) {
+        goto VALIDATION_END;
+    }
+
+    int disconnNotif = 0;      /* disconnected client notification is set */
+    int protoDisconnNotif = 0; /* allowed protocol - MQTT, All, null */
+    int subDefined = 0;        /* Subscribe is set in ActionList */
+
+    /* Iterate thru the node */
+    void *itemIter = json_object_iter(mergedObj);
+    while(itemIter)
+    {
+        key = json_object_iter_key(itemIter);
+        value = json_object_iter_value(itemIter);
+        objType = json_typeof(value);
+
+		rc = ism_config_validateItemDataJson( reqList, name, (char *)key, value);
+		if (rc != ISMRC_OK) goto VALIDATION_END;
+
+	    /* validate special cases related to this object here*/
+		if (objType != JSON_NULL) {
+	    	char *propValue = NULL;
+	    	int gotValue = 0;
+	    	if (objType == JSON_STRING) {
+	    		propValue = (char *)json_string_value(value);
+	    		gotValue = 1;
+		    } else if (objType == JSON_FALSE || objType == JSON_TRUE || objType == JSON_INTEGER) {
+	    		gotValue = 1;
+	    	}
+
+            if ( gotValue ) {
+                /* validate special cases related to this object here*/
+
+
+                /* Policy Substitution checking*/
+            	if (propValue) {
+            		rc = ism_config_validate_PolicySubstitution(item, (char *)key, propValue);
+            		if (rc != ISMRC_OK) {
+            			goto VALIDATION_END;
+            		}
+            	}
+
+                if ( !strcmp(key, "ClientAddress")) {
+                    if ( *propValue != '\0' && *propValue != '*' ) {
+                        rc = ism_config_validateDataType_IPAddresses("ClientAddress", propValue, 0);
+                        if ( rc != ISMRC_OK  ) {
+                            goto VALIDATION_END;
+                        }
+                    }
+                } else if ( !strcmp(key, "ActionList")) {
+                    if (!*propValue ) {
+                        rc = ISMRC_BadPropertyValue;
+                        ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", key, propValue);
+                        goto VALIDATION_END;
+                    }
+
+            	    if ( strstr(propValue, "Subscribe")) {
+            	        subDefined = 1;
+            	    }
+            	} else if ( !strcmp(key, "DisconnectedClientNotification")) {
+                    if ( objType == JSON_TRUE ) {
+                        disconnNotif = 1;
+                    }
+                } else if (!strcmp(key, "Protocol")) {
+               		rc = ism_config_validate_CheckProtocol(propValue, 0, 0 );
+                    if (rc != ISMRC_OK) {
+                    	rc = ISMRC_BadPropertyValue;
+                        ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", key, propValue);
+                        goto VALIDATION_END;
+                    }
+
+                    /* validate protocol and check if protocol is all or MQTT (required if disconnected client notfication is set) */
+                    char *opttoken, *optnexttoken = NULL;
+                    int olen = strlen(propValue);            /* BEAM suppression: passing null object */
+                    char *opt = (char *)alloca(olen+1);
+                    memcpy(opt, propValue, olen);
+                    opt[olen]='\0';
+
+                    for (opttoken = strtok_r(opt, ",", &optnexttoken); opttoken != NULL; opttoken = strtok_r(NULL, ",", &optnexttoken)) {
+                        if ( !opttoken || (opttoken && *opttoken == '\0'))
+                            continue;
+
+                        if ( !strcmpi(opttoken, "mqtt")) {
+                            protoDisconnNotif = 1;
+                            break;
+                        }
+
+#if 0
+                        char *tmpstr = opttoken;
+                        while (*tmpstr) {
+                            *tmpstr = tolower(*tmpstr);
+                            tmpstr++;
+                        }
+
+                        if ( !strcmp(opttoken, "all")) continue;
+
+						if ( ism_config_checkProtocolsInfo(opttoken, ISM_PROTO_CAPABILITY_USETOPIC) == 1 ) {
+                    	    rc = ISMRC_BadPropertyValue;
+                            ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", key, opttoken);
+                            goto VALIDATION_END;
+						}
+#endif
+
+                    }
+
+                } else if ( !strcmp(key, "ClientID") || !strcmp(key, "UserID") ||
+                		!strcmp(key, "GroupID") || !strcmp(key, "CommonNames") ) {
+                    /* Do not allow ** */
+                    if ( propValue && strstr(propValue, "**")) {
+                        rc = ISMRC_BadPropertyValue;
+                        ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", key, propValue);
+                        goto VALIDATION_END;
+                    }
+                	/* Only allow one * tailing other valid characters */
+                	rc = ism_config_validate_Asterisk((char *)key, propValue);
+                	if (rc != ISMRC_OK) {
+                		goto VALIDATION_END;
+                	}
+                } else if (strcmp(key, "MaxMessageTimeToLive") == 0) {
+                	if (strcmp(propValue, "unlimited")) {
+                		int gotData = 0;
+                		int pastData = 0;
+                		long lvalue = 0;
+                		for (int j=0; j<strlen(propValue); j++) {
+                			if (!gotData && isspace(propValue[j])) continue;
+                			gotData = 1;
+                			if (!pastData && isdigit(propValue[j])) {
+                				lvalue = lvalue * 10 + (propValue[j] - '0');
+                				continue;
+                			}
+                			pastData = 1;
+                			if (isspace(propValue[j])) continue;
+                			rc = ISMRC_BadPropertyValue;
+                			ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", key, propValue);
+                			goto VALIDATION_END;
+                		}
+                		if (lvalue > 2147483647 || lvalue < 1) {
+                			rc = ISMRC_BadPropertyValue;
+                			ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", key, propValue);
+                			goto VALIDATION_END;
+                		}
+                	}
+                } else if ( !strcmp(key, "Topic")) {
+                	if (!*propValue ) {
+                		rc = ISMRC_BadPropertyValue;
+                		ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", key, propValue);
+            			goto VALIDATION_END;
+                	}
+                }
+            }
+		} else {
+            if ( !strcmp(key, "Protocol")) {
+                protoDisconnNotif = 1;
+            }
+        }
+
+        itemIter = json_object_iter_next(mergedObj, itemIter);
+    }
+
+    /* validation for disconnected client notif */
+    if ( disconnNotif == 1 && protoDisconnNotif == 0 ) {
+        rc = ISMRC_DisNotifProtError;
+        ism_common_setError(rc);
+        goto VALIDATION_END;
+    }
+
+    if ( disconnNotif == 1 && subDefined == 0 ) {
+        rc = ISMRC_DisNotifSubsError;
+        ism_common_setError(rc);
+        goto VALIDATION_END;
+    }
+
+ 	/* TopicPolicy can not be deleted if used by an endpoint */
+	if (action == 2) {
+	    rc = ism_config_valDeleteEndpointObject("TopicPolicies", name);
+	    if (rc == ISMRC_PolicyInUse ) {
+		    TRACE(3, "%s: The configuration object: %s, name: %s is still in use.\n", __FUNCTION__, item, name);
+	    }
+	    ism_common_setError(rc);
+        goto VALIDATION_END;
+	}
+
+    /* Check if required items are specified
+     * Also check if one of MinOneOptions has been specified */
+    rc = ism_config_validate_checkRequiredItemList(reqList, 0 );
+    if (rc != ISMRC_OK) {
+        goto VALIDATION_END;
+    }
+
+    /* Add missing default values */
+    rc = ism_config_addMissingDefaults(item, mergedObj, reqList);
+
+VALIDATION_END:
+
+	TRACE(9, "Exit %s: rc %d\n", __FUNCTION__, rc);
+
+    return rc;
+
+}
+
+

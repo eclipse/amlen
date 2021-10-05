@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_queues_max
+
+   Test Category:  JMS Queues
+
+   Test Description:
+   Queue update MaxMessages and AllowSend, and make sure new values actually
+   take effect. For MaxMessages, check scenario where the queue is loaded to the max,
+   the max is then reduced, we read off all the messages, then pump more in to hit the
+   new (lower) max. 
+   
+   June 2015: Several variations were removed for Angel, where we are separating 
+   QueuePolicy into different Objects rather than having a Type=Queue,Topic,Subsription
+
+   *****************************************************************************/
+  -->
+<ImaJmsTest name="jms_queues_max" >
+
+  
+	<Action name="create_Q_MP" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"QueuePolicy":{"Q_MP":{"Queue":"*","ActionList":"Send,Receive,Browse","Protocol":"JMS","ClientAddress":"``M1_IPv4_1``"}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>  
+
+  <Action name="create_Q_CP" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"ConnectionPolicy":{"Q_CP":{"ClientID":"MPmax","Protocol":"JMS"}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action> 
+
+  <Action name="create_Q_EP" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Endpoint":{"Q_EP":{"Enabled":true,"Port":20010,"QueuePolicies":"Q_MP","ConnectionPolicies":"Q_CP","MaxMessageSize":"1KB","MessageHub":"DemoHub"}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+  <!-- Action name="Create_Q_Q" type="ShellAction">
+    <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver create Queue Name=Q_Q MaxMessages=10</ActionParameter>
+    <ActionParameter name="print_result">true</ActionParameter>
+  </Action -->
+  
+	<Action name="Create_Q_Q" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"Q_Q":{"MaxMessages":10}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>  
+
+
+  <Action name="CreateFactory_c" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">CQ_c</ActionParameter>
+    <ActionParameter name="loglevel">9</ActionParameter>
+    <ActionParameter name="logfile">stdout</ActionParameter>
+  </Action>
+
+  <Action name="CreateExcListener_c" type="CreateExceptionListener">
+    <ActionParameter name="structure_id">exc_c</ActionParameter>
+  </Action>
+
+  <Action name="SetFactoryProps_c" type="FillIsmProps">
+    <ActionParameter name="structure_id">CQ_c</ActionParameter>
+    <ActionParameter name="validateAll">true</ActionParameter>
+    <ActionParameter name="validateNoWarn">false</ActionParameter>
+    <ImaProperty name="ClientID" value="MPmax" type="STRING"/>
+    <include>../common/JMS_server.xml</include>
+    <ImaProperty name="Port" value="20010" type="STRING"/>
+  </Action>
+
+  <Action name="CreateDestination_x" type="CreateDestination">
+    <ActionParameter name="structure_id">Q_Q</ActionParameter>
+    <ActionParameter name="type">queue</ActionParameter>
+    <ApiParameter name="name">Q_Q</ApiParameter>
+  </Action>
+
+
+  <Action name="CreateConnection_c" type="CreateConnection">
+    <ActionParameter name="structure_id">conn_c</ActionParameter>
+    <ActionParameter name="factory_id">CQ_c</ActionParameter>
+    <ApiParameter name="exceptionListener">exc_c</ApiParameter>
+  </Action>
+
+  <Action name="CreateSession_c" type="CreateSession">
+    <ActionParameter name="conn_id">conn_c</ActionParameter>
+    <ActionParameter name="structure_id">sess_c</ActionParameter>
+  </Action>
+
+  <Action name="CreateProducer_c" type="CreateProducer">
+    <ActionParameter name="structure_id">prod_c</ActionParameter>
+    <ActionParameter name="dest_id">Q_Q</ActionParameter>
+    <ActionParameter name="session_id">sess_c</ActionParameter>
+  </Action>
+
+  <Action name="CreateConsumer_c" type="CreateConsumer">
+    <ActionParameter name="structure_id">cons_c</ActionParameter>
+    <ActionParameter name="dest_id">Q_Q</ActionParameter>
+    <ActionParameter name="session_id">sess_c</ActionParameter>
+  </Action>
+
+  <Action name="CreateTxtMessage_c" type="CreateMessage">
+    <ActionParameter name="structure_id">txtmsg_c</ActionParameter>
+    <ActionParameter name="session_id">sess_c</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+  </Action>
+
+  <Action name="SetText_c" type="SetMessageText">
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+    <ApiParameter name="value">text of txtmsg_c</ApiParameter>
+  </Action>
+
+  <Action name="StartConnection_c" type="StartConnection">
+    <ActionParameter name="conn_id">conn_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_c" type="SendMessage" repeat_interval="0" repeat="10">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_c_overfill" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_c" type="ReceiveMessage" repeat_interval="0" repeat="10">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_c_nomore" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+    <!-- Action name="Set_Q_5" type="ShellAction">
+      <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=Q_Q MaxMessages=5</ActionParameter>
+    </Action -->
+    
+    <Action name="Set_Q_5" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"Q_Q":{"MaxMessages":5}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>  
+    
+  <Action name="SendTxtMessage_d" type="SendMessage" repeat_interval="0" repeat="5">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_d_overfill" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_d" type="ReceiveMessage" repeat_interval="0" repeat="5">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_d_nomore" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+
+    <!-- Action name="Set_Q_500" type="ShellAction">
+      <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=Q_Q MaxMessages=500</ActionParameter>
+    </Action -->
+    
+	    <Action name="Set_Q_500" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"Q_Q":{"MaxMessages":500}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>     
+
+  <Action name="SendTxtMessage_e" type="SendMessage" repeat_interval="0" repeat="500">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_e_overfill" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_e" type="ReceiveMessage" repeat_interval="0" repeat="500">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_e_nomore" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+
+
+  <!-- preload 400 messages (max-100)
+       set max mess = 100
+       try to send message and expect err
+       try to receive my 400 messages
+    -->
+
+
+  <Action name="SendTxtMessage_f" type="SendMessage" repeat_interval="0" repeat="400">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <!-- Action name="Set_Q_100" type="ShellAction">
+    <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=Q_Q MaxMessages=100</ActionParameter>
+  </Action -->
+  
+ <Action name="Set_Q_100" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"Q_Q":{"MaxMessages":100}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>      
+
+  <Action name="SendTxtMessage_f_overfill" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_f" type="ReceiveMessage" repeat_interval="0" repeat="400">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_f_nomore" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+
+  <!-- now send 100 messages (the new max)
+       and makes sure it is actually the max -->
+
+  <Action name="SendTxtMessage_g" type="SendMessage" repeat_interval="0" repeat="100">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_g_overfill" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_g" type="ReceiveMessage" repeat_interval="0" repeat="100">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_g_nomore" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_h" type="SendMessage" repeat_interval="0" repeat="100">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_h_overfill" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <!-- Action name="Set_Q_8" type="ShellAction">
+    <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=Q_Q MaxMessages=8</ActionParameter>
+  </Action -->
+  
+  <Action name="Set_Q_8" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"Q_Q":{"MaxMessages":8}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+
+  <Action name="SendTxtMessage_h_overfill_again" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_h_overflow" type="ReceiveMessage" repeat_interval="0" repeat="100">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_h_nomore_overflo" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_h_newlimit" type="SendMessage" repeat_interval="0" repeat="8">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_h_overfill_newlimit" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+
+  <Action name="ReceiveTxtMessage_h_clear_nl" type="ReceiveMessage" repeat_interval="0" repeat="8">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_h_clear_nl_none" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+
+
+
+  <!-- now try increasing the maximum -->
+
+  <Action name="SendTxtMessage_j" type="SendMessage" repeat_interval="0" repeat="8">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_j_overfill" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <!-- Action name="Set_Q_30" type="ShellAction">
+    <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=Q_Q MaxMessages=30</ActionParameter>
+  </Action -->
+  
+  <Action name="Set_Q_30" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"Q_Q":{"MaxMessages":30}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+
+  <Action name="SendTxtMessage_j_newlimit" type="SendMessage" repeat_interval="0" repeat="22">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_j_overfill_newlimit" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_j_clear_nl" type="ReceiveMessage" repeat_interval="0" repeat="30">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_j_clear_nl_none" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+
+
+
+
+  <!-- Allow Send = False -->
+  <!-- Action name="Set_AS_False" type="ShellAction">
+    <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=Q_Q MaxMessages=1000 AllowSend=False</ActionParameter>
+  </Action -->
+  
+  <Action name="Set_AS_False" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"Q_Q":{"MaxMessages":1000,"AllowSend":false}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+
+  <Action name="SendTxtMessage_k_reject" type="SendMessage" rc="1" reason="CWLNC0216">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <!-- Allow Send = True -->
+  <!-- Action name="Set_AS=True" type="ShellAction">
+    <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update Queue Name=Q_Q AllowSend=True</ActionParameter>
+  </Action -->
+  
+  <Action name="Set_AS_True" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        	<ActionParameter name="action">POST</ActionParameter>
+        	<ActionParameter name="payload">{"Queue":{"Q_Q":{"AllowSend":true}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+
+  <Action name="SendTxtMessage_k" type="SendMessage" repeat_interval="0" repeat="1000">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="SendTxtMessage_k_overfill" type="SendMessage" rc="1" reason="CWLNC0218">
+    <ActionParameter name="producer_id">prod_c</ActionParameter>
+    <ActionParameter name="message_id">txtmsg_c</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_k_clear_nl" type="ReceiveMessage" repeat_interval="0" repeat="1000">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveTxtMessage_k_clear_nl_none" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_c</ActionParameter>
+    <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="CoseConnection_c" type="CloseConnection">
+    <ActionParameter name="conn_id">conn_c</ActionParameter>
+  </Action>
+
+  <!-- Action name="delete_Q_EP" type="ShellAction">
+    <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver delete Endpoint Name=Q_EP</ActionParameter>
+  </Action -->
+  
+	<Action name="delete_Q_EP" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration/Endpoint/Q_EP</ActionParameter>
+        	<ActionParameter name="action">DELETE</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>     
+
+  <Action name="delete_Q_MP" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration/QueuePolicy/Q_MP</ActionParameter>
+        	<ActionParameter name="action">DELETE</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+
+  <Action name="delete_Q_CP" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/Q_CP</ActionParameter>
+        	<ActionParameter name="action">DELETE</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+  
+
+  <!-- Action name="delete_Q_Q" type="ShellAction">
+    <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver delete Queue Name=Q_Q DiscardMessages=True</ActionParameter>
+  </Action -->
+  
+  <Action name="delete_Q_Q" type="RestAPI">
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration/Queue/Q_Q</ActionParameter>
+        	<ActionParameter name="action">DELETE</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>   
+
+</ImaJmsTest>

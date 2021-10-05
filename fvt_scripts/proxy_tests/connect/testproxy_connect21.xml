@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<!-- Tests crash and restart of server preserves of messages and
+      subscription.
+  -->
+<IsmWSTest name="testmqtt_connect21" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>testproxy_connect21</solution>
+	</SyncClient>
+
+    <Action name="receive" type="CompositeAction">
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">proxyconnect21.receiver</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/failover/+</ApiParameter>
+   		    <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+		<Action name="sync_components1" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx11</ActionParameter>
+			<ActionParameter name="component_list">tx11;rx11</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+        <Action name="CompositeRcv" type="CompositeAction" repeat="60">
+            <Action name="ReceiveMessage" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+	            <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+	        <Action name="CommpareMessageData" type="CompareMessageData">
+       		    <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+       	    	<ActionParameter name="compareQoSbyTopic">/failover/qos0=0:/failover/qos1=1:/failover/qos2=2</ActionParameter>
+   	    	</Action>
+        </Action>
+        <Action name="FinalRcv" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		<Action name="SyncComponents2" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx12</ActionParameter>
+			<ActionParameter name="component_list">tx12;rx12</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+		<Action name="SyncComponents3" type="SyncComponentAction">
+			<ActionParameter name="component_name">rx13</ActionParameter>
+			<ActionParameter name="component_list">tx13;rx13</ActionParameter>
+			<ActionParameter name="timeout">1000000</ActionParameter>
+		</Action>
+		
+		<!-- Primary has failed, and restarted connect to the primary -->
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">proxyconnect21.receiver</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+<!-- Receive the messages that were un-ACK'd on the server when it crashed -->
+        <Action name="CompositeRcv2" type="CompositeAction" repeat="40">
+            <Action name="ReceiveMessage" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+	            <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+	        <Action name="CommpareMessageData" type="CompareMessageData">
+       		    <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+       	    	<ActionParameter name="compareQoSbyTopic">/failover/qos0=3:/failover/qos1=1:/failover/qos2=2</ActionParameter>
+   	    	</Action>
+        </Action>
+        <Action name="FinalRcv2" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <!-- Recreate the connection as cleanSession so other tests don't leave 
+            messages for the next run to pick up. -->
+        <Action name="CreateConnection3" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">proxyconnect21.receiver</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="Unsubscribe" type="Unsubscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/failover/+</ApiParameter>
+        </Action>
+        <Action name="CloseConnection3" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+    <Action name="publish" type="CompositeAction">
+	    
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">proxyconnect21.publisher</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <!-- ApiParameter name="verbose">true</ApiParameter-->
+        </Action>
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">This is message </ApiParameter>
+            <ApiParameter name="QoS">0</ApiParameter>
+            <ActionParameter name="incrementing">true</ActionParameter>
+        </Action>
+		
+		<Action name="sync_components1" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx11</ActionParameter>
+			<ActionParameter name="component_list">tx11;rx11</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+        <Action name="CompositeSend1" type="CompositeAction" repeat="20">
+            <Action name="SendMessage_0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/failover/qos0</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+            <Action name="SendMessage_1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/failover/qos1</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="SendMessage_2" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/failover/qos2</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery" type="WaitPendingDelivery">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="maxPendingMsgs">4</ActionParameter>
+            </Action>
+        </Action>
+
+		<Action name="SyncComponents2" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx12</ActionParameter>
+			<ActionParameter name="component_list">tx12;rx12</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+        <Action name="CompositeSend2" type="CompositeAction" repeat="20">
+            <Action name="SendMessage_0" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/failover/qos0</ActionParameter>
+                <ActionParameter name="QoS">0</ActionParameter>
+            </Action>
+            <Action name="SendMessage_1" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/failover/qos1</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+            </Action>
+            <Action name="SendMessage_2" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">/failover/qos2</ActionParameter>
+                <ActionParameter name="QoS">2</ActionParameter>
+            </Action>
+            <Action name="WaitForPendingDelivery" type="WaitPendingDelivery">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="maxPendingMsgs">4</ActionParameter>
+            </Action>
+        </Action>
+
+
+<!-- kill the server -->
+		<Action name="SyncCue1" type="SyncAction">
+			<ActionParameter name="request">set</ActionParameter>
+			<ActionParameter name="condition">cue_wait</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+		</Action>
+
+		<Action name="SyncCue2" type="SyncAction">
+			<ActionParameter name="request">wait</ActionParameter>
+			<ActionParameter name="condition">cue_set</ActionParameter>
+			<ActionParameter name="value">1</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+		
+        <Action name="CreateConnection2" type="CreateConnection">
+            <dependsOn action_id="SyncCue2" interval="11000"/>
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="clientId">proxyconnect21.publisher</ApiParameter>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+            <!-- ApiParameter name="verbose">true</ApiParameter-->
+            <ActionParameter name="persistenceDirectory">tmp1</ActionParameter>
+        </Action>
+		
+		<Action name="SyncComponents3" type="SyncComponentAction">
+			<ActionParameter name="component_name">tx13</ActionParameter>
+			<ActionParameter name="component_list">tx13;rx13</ActionParameter>
+			<ActionParameter name="timeout">60000</ActionParameter>
+		</Action>
+
+    </Action>
+</IsmWSTest>
+                

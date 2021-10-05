@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_translevel_002
+
+   Test Category:  JCA Local Transaction Tests
+
+   Test Description:
+   Test sending reply messages from connection factories with
+   transactionLevelSupport set to various values.
+
+   transactionLevelSupport = LocalTransaction
+   MDB = Bean-Managed Transaction
+   EJB = Bean-Managed Transaction that performs a UserTransaction
+
+   XA Transaction created in the EJB will be downgraded to a Local Transaction.
+   In the WAS SystemOut.log this message looks like:
+
+   J2CA0237I: Transaction support level has been changed from XATransaction 
+   to LocalTransaction that was returned by the resource adapter.
+
+   This doesn't get printed to the TestProps object so it isn't verified
+   anywhere in the test.
+
+   TestProps #1056
+
+  -->
+<ImaJcaTest name="jca_translevel_002">
+
+  <include>../common/jms_jndi_ldap.xml</include>
+
+  <Action name="Cluster" type="CompositeAction">
+    <!-- Retrieve the foreign connection factory from JNDI -->
+    <Action name="GetCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">cf</ActionParameter>
+      <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">connection</ActionParameter>
+      <ActionParameter name="factory_id">cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session</ActionParameter>
+    </Action>
+
+    <!-- log topic -->
+    <Action name="Create_log_dest1056" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1056</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1056</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1057" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1057</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1057</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+
+    <!-- log consumer -->
+    <Action name="CreateConsumerLog1056" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1056</ActionParameter>
+      <ActionParameter name="dest_id">logDest1056</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1057" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1057</ActionParameter>
+      <ActionParameter name="dest_id">logDest1057</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <!--  Retrieve the replyTo topic from jndi.
+          Messages received by the MDB will be forwarded to this topic. -->
+    <Action name="Create_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">dest</ActionParameter>
+      <ActionParameter name="jndiName">replyTopic_BMTUT</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer1" type="CreateConsumer">
+      <ActionParameter name="structure_id">consumer</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="HitServlet" type="HttpAction">
+      <dependsOn name="StartConnection"/>
+      <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+      <ActionParameter name="parameter">1056</ActionParameter>
+      <ActionParameter name="output">JCAServlet.jca_translevel_002a.log</ActionParameter>
+    </Action>
+
+    <Action name="Recv1056" type="CompositeAction" repeat="3">
+      <Action name="RcvObjMessage_consumer1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">15000</ApiParameter>
+      </Action>
+
+      <Action name="GetTestProps1056" type="GetTestPropsMsg">
+        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+        <ActionParameter name="verifyValue">1056</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="HitServlet2" type="HttpAction">
+      <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+      <ActionParameter name="parameter">1057</ActionParameter>
+      <ActionParameter name="output">JCAServlet.jca_translevel_002b.log</ActionParameter>
+    </Action>
+
+    <Action name="Recv1057" type="CompositeAction" repeat="3">
+      <Action name="RcvObjMessage_consumer1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">15000</ApiParameter>
+      </Action>
+
+      <Action name="GetTestProps1057" type="GetTestPropsMsg">
+        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+        <ActionParameter name="verifyValue">1057</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="RX_and_Check_Log_Msgs1056" type="CompositeAction" repeat="3">
+      <dependsOn name="HitServlet"/>
+      <Action name="RX_Log" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">logConsumer1056</ActionParameter>
+        <ActionParameter name="structure_id">log_msg</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+
+      <Action name="ShowLogs" type="GetMessageText">
+        <ActionParameter name="message_id">log_msg</ActionParameter>
+      </Action>
+    </Action>
+    <Action name="RX_and_Check_Log_Msgs1057" type="CompositeAction" repeat="3">
+      <Action name="RX_Log" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">logConsumer1057</ActionParameter>
+        <ActionParameter name="structure_id">log_msg</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+
+      <Action name="ShowLogs" type="GetMessageText">
+        <ActionParameter name="message_id">log_msg</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="RX_Logs_done1056" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+      <ActionParameter name="consumer_id">logConsumer1056</ActionParameter>
+      <ActionParameter name="structure_id">log_msg</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+    <Action name="RX_Logs_done1057" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+      <ActionParameter name="consumer_id">logConsumer1057</ActionParameter>
+      <ActionParameter name="structure_id">log_msg</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CloseSession" type="CloseSession">
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+  </Action>
+
+  <Action name="Single" type="CompositeAction">
+    <!-- Retrieve the foreign connection factory from JNDI -->
+    <Action name="GetCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">cf</ActionParameter>
+      <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">connection</ActionParameter>
+      <ActionParameter name="factory_id">cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session</ActionParameter>
+    </Action>
+
+    <!-- log topic -->
+    <Action name="Create_log_dest1056" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1056</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1056</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+    <Action name="Create_log_dest1057" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest1057</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1057</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+
+    <!-- log consumer -->
+    <Action name="CreateConsumerLog1056" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1056</ActionParameter>
+      <ActionParameter name="dest_id">logDest1056</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateConsumerLog1057" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer1057</ActionParameter>
+      <ActionParameter name="dest_id">logDest1057</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <!--  Retrieve the replyTo topic from jndi.
+          Messages received by the MDB will be forwarded to this topic. -->
+    <Action name="Create_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">dest</ActionParameter>
+      <ActionParameter name="jndiName">replyTopic_BMTUT</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer1" type="CreateConsumer">
+      <ActionParameter name="structure_id">consumer</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="HitServlet" type="HttpAction">
+      <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+      <ActionParameter name="parameter">1056</ActionParameter>
+      <ActionParameter name="output">JCAServlet.jca_translevel_002a.log</ActionParameter>
+    </Action>
+
+    <Action name="Recv1056" type="CompositeAction">
+      <Action name="RcvObjMessage_consumer1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">15000</ApiParameter>
+      </Action>
+
+      <Action name="GetTestProps1056" type="GetTestPropsMsg">
+        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+        <ActionParameter name="verifyValue">1056</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="HitServlet2" type="HttpAction">
+      <dependsOn name="StartConnection"/>
+      <ActionParameter name="url">``WASIP``/testTools_JCAtests/JCAServlet</ActionParameter>
+      <ActionParameter name="parameter">1057</ActionParameter>
+      <ActionParameter name="output">JCAServlet.jca_translevel_002b.log</ActionParameter>
+    </Action>
+
+    <Action name="Recv1057" type="CompositeAction">
+      <Action name="RcvObjMessage_consumer1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">15000</ApiParameter>
+      </Action>
+
+      <Action name="GetTestProps1057" type="GetTestPropsMsg">
+        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+        <ActionParameter name="verifyValue">1057</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="RX_and_Check_Log_Msgs1056" type="CompositeAction">
+      <dependsOn name="HitServlet"/>
+      <Action name="RX_Log" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">logConsumer1056</ActionParameter>
+        <ActionParameter name="structure_id">log_msg</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+
+      <Action name="ShowLogs" type="GetMessageText">
+        <ActionParameter name="message_id">log_msg</ActionParameter>
+      </Action>
+    </Action>
+    <Action name="RX_and_Check_Log_Msgs1057" type="CompositeAction">
+      <Action name="RX_Log" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">logConsumer1057</ActionParameter>
+        <ActionParameter name="structure_id">log_msg</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+
+      <Action name="ShowLogs" type="GetMessageText">
+        <ActionParameter name="message_id">log_msg</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="RX_Logs_done1056" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+      <ActionParameter name="consumer_id">logConsumer1056</ActionParameter>
+      <ActionParameter name="structure_id">log_msg</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+    <Action name="RX_Logs_done1057" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+      <ActionParameter name="consumer_id">logConsumer1057</ActionParameter>
+      <ActionParameter name="structure_id">log_msg</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <Action name="CloseSession" type="CloseSession">
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+  </Action>
+</ImaJcaTest>

@@ -1,0 +1,224 @@
+# Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+
+when RULE_INIT {
+	# must re-run when there is a change to serverMap, tried adding metadata
+	set static::DEBUG 1
+	set static::SERVER_MAP [list]
+	# Read iFile
+	set content [ifile get serversMap]
+	#log local0. "iFile content is: \n$content"
+	# Split into records on newlines
+	set rules [split $content "\n"]
+	# Iterate over rules
+	foreach rule $rules {
+		if { $rule == "" } { continue }
+		set mapping [split $rule " "]
+		set re [lindex $mapping 0]
+		lreplace $mapping 0 0 [list re]
+		lappend static::SERVER_MAP $mapping
+	}
+}  
+
+when CLIENT_ACCEPTED { 
+	if {$static::DEBUG > 1} {log local0. "[IP::client_addr]:[TCP::client_port]: TCP Client connected"}
+	set retryCounter 0
+	set clientID ""
+	set userName ""
+	set serverName [list] 
+	set connectMsgParsed 0
+}
+
+when CLIENTSSL_HANDSHAKE { 
+	if {$static::DEBUG > 1} {log local0. "[IP::client_addr]:[TCP::client_port]: TCP Client TLS handshake complete"}
+#   We got tls connection - start collecting data	
+	SSL::collect 12		
+}
+
+when CLIENTSSL_DATA {
+	set bufLen [SSL::payload length]
+	if { $bufLen < 12 } {
+		#This should never happen
+#		if {$static::DEBUG > 0} {log local0. "!!! Less than 12 bytes received from [IP::client_addr]:[TCP::client_port]: $bufLen "}  
+		SSL::collect 12
+		return
+	}
+	set payload [SSL::payload]
+	if {$static::DEBUG > 1} {log local0. "$bufLen bytes of data received from [IP::client_addr]:[TCP::client_port]"}
+	#Ensure that the first message is the CONNECT request
+	binary scan $payload c cmd
+	set cmd [expr { $cmd >> 4 } ]
+	set cmd [expr { $cmd & 0xf  } ]  
+	if {$cmd != 1} {
+		if {$static::DEBUG > 0} {log local0. "Data received from [IP::client_addr]:[TCP::client_port]. The first message is not CONNECT: $cmd "}  
+		reject
+		return
+	}
+	#Get the variable length
+	set multiplier 1
+	set varlen 0
+	set offset 1
+	while true {
+		binary scan $payload @${offset}c len
+		set len [ expr { $len & 0x7f } ]
+		set len [ expr { $len * $multiplier } ]
+		set varlen [expr {$varlen + $len} ]
+        incr offset 
+		if { [expr { $len & 0x80 }] == 0 } {
+			break
+		}
+		if { $offset > 5 } {
+			if {$static::DEBUG > 0} {log local0. "Data received from [IP::client_addr]:[TCP::client_port] is not valid."}  
+			reject
+			return
+		}
+	} 
+    #Ensure that we've read entire request	
+	set reqLen [expr { $offset + $varlen }]
+	if { $bufLen < $reqLen } {
+		if {$static::DEBUG > 1} {log local0. "Not enough data received from [IP::client_addr]:[TCP::client_port]: $bufLen < $reqLen"}  
+		SSL::collect $reqLen
+		return
+	}
+	if {$static::DEBUG > 2} {log local0. "Enough data received from [IP::client_addr]:[TCP::client_port] - continue processing"}  
+    #We have read entire message - parse it	
+	binary scan $payload @${offset}S len
+	incr offset 2
+	#skip protocol name
+	incr offset $len
+	set count [binary scan $payload @${offset}ccSS version flags keepAlive clientIDLen]
+	if { $count != 4 } {
+		if {$static::DEBUG > 0} { log local0. "Failed to parse the message: offset=$offset count=$count payload=[SSL::payload]" }
+		reject
+		return
+	}
+
+	set cleanSession [expr {$flags & 0x02}]
+	set willFlag [expr {$flags & 0x04}]
+	set willQoSFlag [expr {$flags & 0x18}]
+	set willRetainFlag [expr {$flags & 0x20}]
+	set passwordFlag [expr {$flags & 0x40}]
+    set userNameFlag [expr {$flags & 0x80}]	
+	
+	incr offset 6
+    set start $offset
+	set end [expr { $start + $clientIDLen - 1 } ]
+	#read client ID
+	set clientID [string range $payload $start $end]
+	incr offset $clientIDLen
+
+	if { $willFlag != 0 } {
+	    binary scan $payload @${offset}S willTopicLen
+		# skip will topic length field
+		incr offset 2
+		# skip will topic name field
+		incr offset $willTopicLen
+		
+		binary scan $payload @${offset}S willMsgLen
+		# skip will message length field
+		incr offset 2
+		# skip will message name field
+		incr offset $willMsgLen
+	}
+	
+	set userName ""
+	if { $userNameFlag != 0 } {
+		binary scan $payload @${offset}S userNameLen
+		# skip user name length field
+		incr offset 2
+		set start $offset
+		set end [expr { $start + $userNameLen - 1 } ]
+		#read user name
+		set userName [string range $payload $start $end]
+	}
+	
+	if {$static::DEBUG > 1} {log local0. "Connect message received from [IP::client_addr]:[TCP::client_port]: clientID is $clientID and userName is $userName (usernamelen=$userNameLen and clientIdLen=$clientIDLen"}  
+	#lookup for server
+
+	
+	set serverPort 0
+	set mapLength [llength $static::SERVER_MAP]	
+#    if {$static::DEBUG > 1} {log local0. "Going to match client [IP::client_addr]:[TCP::client_port]: clientID is $clientID. Map size is $mapLength"}
+	for {set i 0} {$i < $mapLength} {incr i} {
+		set mapping  [lindex $static::SERVER_MAP $i]
+		set rgexp [lindex $mapping 0]
+		if { [regexp $rgexp $clientID] == 1} {			
+			set serverName [split [lindex $mapping 1] ","]
+			set serverPort [lindex $mapping 2]
+			break
+		} else {
+			if {$static::DEBUG > 3} {log local0. "regexp $rgexp did not match $clientID"}  			
+		}
+	}
+	if { [llength $serverName] == 0 } {
+		if {$static::DEBUG > 0} {log local0. "No server matched for client $clientID"}  
+		reject
+		return
+	}
+	set connectMsgParsed 1
+	set server [lindex $serverName 0]
+	if {$static::DEBUG > 3} {log local0. "Server $server:$serverPort matched for client $clientID"}  			
+	node $server $serverPort
+	#Continue connection processing
+	TCP::release
+}
+
+when LB_FAILED {
+  if { $connectMsgParsed == 1 } {
+	  set serverAddr [LB::server addr]
+	  set serverPort [LB::server port]
+
+	  incr retryCounter  
+	  if { $retryCounter < [llength $serverName] } {  
+		if {$static::DEBUG > 0} {log local0. "LB failed for $clientID. Reselecting."}  
+		LB::reselect node [lindex $serverName $retryCounter] $serverPort  
+	  } else {
+		if {$static::DEBUG > 0} {log local0. "LB failed for $clientID. Servers $serverName are down."}  
+	  }  
+  }
+}
+
+when LB_SELECTED {
+	set serverAddr [LB::server addr]
+	set serverPort [LB::server port]
+	if {$clientID  != "" }{
+		if {$static::DEBUG > 1} {log local0. "$clientID has been sent to $serverAddr:$serverPort"}
+	}
+}
+
+when SERVER_CONNECTED {
+	if {$clientID  != "" }{
+		if {$static::DEBUG > 1} {
+			log local0. "TCP connection from: [IP::client_addr]:[TCP::client_port] mapped to [serverside {IP::local_addr}]:[serverside {TCP::local_port}] -> [IP::server_addr]:[serverside {TCP::remote_port}]."		
+		}
+	}
+}
+
+when SERVER_CLOSED {
+	if {$static::DEBUG > 1} {
+		if { $clientID != "" } { 
+			log local0. "Server closed connection for client $clientID."
+		} else {
+            log local0. "[IP::client_addr]:[TCP::client_port]: Server closed connection."
+        }
+	}	
+}
+
+when CLIENT_CLOSED {
+	if {$static::DEBUG > 1} {
+		if { $clientID != "" } { 
+			log local0. "Connection was closed for client $clientID."
+		} else {
+            log local0. "[IP::client_addr]:[TCP::client_port]: TCP Client disconnected"
+        }
+	}	
+}

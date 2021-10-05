@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_msgdelivery_defect73753
+
+  Test Category:  JMS Message Delivery
+  
+  Test Description:
+  
+  This is a test to capture the problem that was found in defect 73753. In that defect, 
+  receivers set Cache=0, but with large messages, the cache=0 was being ignored.  The 
+  msgCount kept growing until the Java process failed for lack of memory.  
+  
+  This test very specifically creates that situation, and was shown to reproduce the problem
+  seen in that defect prior to the fix being implemented. 
+  
+  You must leave the loglevel high, so as the compare logs verifies that the cache doesn't 
+  grow beyond 2. 
+    
+
+-->
+<ImaJmsTest name="jms_msgdelivery_defect73753">
+
+	<Action name="Create_cf1" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">cf1</ActionParameter>
+		<!-- DO NOT CHANGE THE LOGLEVEL -->
+		<ActionParameter name="loglevel">9</ActionParameter>
+        <ActionParameter name="logfile">stdout</ActionParameter>
+	</Action>
+	
+	<Action name="SetProps_cf1" type="FillIsmProps">
+		<ActionParameter name="structure_id">cf1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<include>../common/JMS_server.xml</include>
+		<ImaProperty name="Port" value="19500" type="STRING"/>
+		<ImaProperty name="ClientMessageCache" value="0" type="INT"/>
+	</Action>
+	
+	<Action name="CreateConnection_cf1" type="CreateConnection">
+		<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="factory_id">cf1</ActionParameter>
+	 	<ActionParameter name="prop_log_file">msgdelivery001_l.log</ActionParameter>
+	 	<ActionParameter name="prop_event_file">msgdelivery001_e.log</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession1_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession2_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session2_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="CreateSession3_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session3_cf1</ActionParameter>
+	</Action>
+
+	<Action name="Create_dest1" type="CreateDestination">
+		<ActionParameter name="structure_id">dest1</ActionParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">dest1</ApiParameter>
+	</Action>
+
+	<Action name="CreateConsumer1_dest1" type="CreateConsumer">
+		<ActionParameter name="structure_id">Consumer1_dest1</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">session2_cf1</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer1_dest1" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1_dest1</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">session3_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="StartConnection_cf1" type="StartConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+
+	<!-- PRODUCER -->
+	<!-- PRODUCER: Create messages -->
+
+	<Action name="CreateRandomMessage2" type="CreateRandomMessage">
+		<ActionParameter name="structure_id">tx_random_msg2</ActionParameter>
+		<ActionParameter name="session_id">session3_cf1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+		<ApiParameter name="length">10000000</ApiParameter>
+	</Action>
+
+	<Action name="CreateRandomMessage3" type="CreateRandomMessage">
+		<ActionParameter name="structure_id">tx_random_msg3</ActionParameter>
+		<ActionParameter name="session_id">session3_cf1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+		<ApiParameter name="length">10000000</ApiParameter>
+	</Action>
+
+	<Action name="CreateRandomMessage4" type="CreateRandomMessage">
+		<ActionParameter name="structure_id">tx_random_msg4</ActionParameter>
+		<ActionParameter name="session_id">session3_cf1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+		<ApiParameter name="length">10000000</ApiParameter>
+	</Action>
+
+	<Action name="CreateRandomMessage5" type="CreateRandomMessage">
+		<ActionParameter name="structure_id">tx_random_msg5</ActionParameter>
+		<ActionParameter name="session_id">session3_cf1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+		<ApiParameter name="length">10000000</ApiParameter>
+	</Action>
+	
+	<Action name="rmdt" type="CompositeAction" repeat="5" repeat_interval="0" interval="0">
+		<Action name="SendRandomMessage2_ses3_dest1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+			<ActionParameter name="message_id">tx_random_msg2</ActionParameter>
+		</Action>
+
+		<Action name="SendRandomMessage3_ses3_dest1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+			<ActionParameter name="message_id">tx_random_msg3</ActionParameter>
+		</Action>
+
+		<Action name="SendRandomMessage4_ses3_dest1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+			<ActionParameter name="message_id">tx_random_msg4</ActionParameter>
+		</Action>
+
+		<Action name="SendRandomMessage5_ses3_dest1" type="SendMessage">
+			<ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+			<ActionParameter name="message_id">tx_random_msg5</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="rmdr" type="CompositeAction" repeat="20" repeat_interval="0" interval="0">	
+		<!-- CONSUMER: Receive messages, but cache should not grow beyond 1 (or maybe 2) -->
+		<Action name="RcvRandomMessage_Consumer1" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">Consumer1_dest1</ActionParameter>
+			<ActionParameter name="structure_id">rx_random_msg</ActionParameter>
+			<ApiParameter name="timeout">10000</ApiParameter>
+		</Action>
+
+	</Action>
+
+	<Action name="CloseConnection_cf1" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+</ImaJmsTest>

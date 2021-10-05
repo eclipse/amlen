@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN"
+ "concept.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<concept id="sc_00006" xml:lang="en-us">
+ <title>Scenario: Fan-out broadcast</title>
+ <shortdesc>In this scenario, multiple publisher devices broadcast messages to a number of
+  subscribers.</shortdesc>
+  <conbody>
+    <section>
+      <title>Background to this scenario</title>
+      <p>A university wants to send out status updates to students about shared computing devices,
+        including printers, scanners and fax machines. These updates about the availability and
+        location of the devices are sent at regular intervals and change frequently. The students
+        each have a mobile phone or tablet with a subscriber application installed. The subscriber
+        application connects to <ph
+          conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"/>, and can receive
+        messages that are published by the shared computing devices. The subscriber application can
+        filter the messages based on their payload. </p>
+      <p>The publishing devices sit within the university intranet. A publisher application on these
+        printers, scanners and fax machines connects to <ph
+          conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"/>, and sends messages to
+        the subscriber devices. <ph
+          conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"/> sits within the DMZ, a
+        firewall configuration for securing local area networks. </p>
+      <p>Complete the steps in the following section to understand how to set up this scenario: </p>
+    </section>
+    <section>
+      <title>Planning and implementing the solution</title>
+      <p>Use the following information to help you to plan, and implement your fan-out
+        broadcast.</p>
+      <dl>
+        <dlentry>
+          <dt>Understanding your publish/subscribe architecture</dt>
+          <dd>
+            <p>In this scenario, there are a number of publishing devices. The publishing devices
+              are the shared computing devices that belong to the university. These devices include
+              printers, scanners, and fax machines. The devices publish status updates to a topic
+              string. The messages have many subscriber devices. These subscriber devices are the
+              mobile phones and tablets that belong to the students. This scenario is a fan-out
+              broadcast scenario because each publishing device broadcast messages to a number of
+              subscribers. The following diagram shows the architecture of this fan-out broadcast
+              scenario.</p>
+            <image placement="break" href="../../com.ibm.ism.doc/Planning/ov00101a.gif"
+              alt="fan-out broadcast diagram, showing a publisher and many subscribers"
+              align="center"/>
+          </dd>
+        </dlentry>
+        <dlentry>
+          <dt>Understanding the required messaging behavior for your solution</dt>
+          <dd>
+            <p>Do you want durable or non-durable subscriptions? What quality of service do you
+              need?</p>
+            <p>In this scenario, the device updates are sent at regular intervals and change
+              frequently. It is not essential that each student receives each update because further
+              updates are sent throughout the day. Therefore, the subscriptions can be non-durable
+              as the messages are not critical. In this scenario, QoS=0 is appropriate because the
+              message delivery across the network does not require acknowledgement. When QoS=0, the
+              message is delivered at most once, or it is not delivered at all. Therefore, if one
+              subscriber device is not available, the publishing device can continue to publish to
+              the topic string. </p>
+          </dd>
+        </dlentry>
+        <dlentry>
+          <dt>Planning your solution</dt>
+          <dd>
+            <p>In this scenario, consider the following key points: <ul>
+                <li>Which protocol is appropriate?<p><ph
+                      conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"/> natively
+                    supports MQTT and JMS.
+                    <!--You can also install your own protocol by using the protocol plug-in.-->You
+                    must consider which protocol is appropriate for your business needs. In this
+                    scenario, MQTT protocol is appropriate because this protocol is designed for
+                    exchanging messages between small devices on low bandwidth. Additionally, MQTT
+                    skills exist within this university.</p></li>
+                <li>What message size is appropriate?<p>In this scenario, the university wants to
+                    send large numbers of small, non-persistent messages. The information that is
+                    contained within the message is about the status of the sending device.
+                    Therefore, the message size can be relatively small. You can limit the message
+                    size that is allowed to be sent through <ph
+                      conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"/> by using
+                    the maximum message size attribute of an endpoint. </p></li>
+                <li>What message count is appropriate?<p>Consider what maximum message count is
+                    appropriate for your messaging needs. In this scenario, we are using QoS=0 which
+                    is the lowest quality of service. As messages are not persistent it might be
+                    appropriate to have a lower maximum message count than when QoS is set to 1 or
+                    2. A QoS of 1 or 2 means that if a subscriber device is unavailable a backlog of
+                    messages is created. This backlog is created because QoS 1 and 2 messages are
+                    persistent. The message is stored on <ph
+                      conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"/> until the
+                    message is sent to all the subscribers of the message. Therefore, a higher
+                    maximum message count might be appropriate. </p></li>
+                <li>What is the maximum number of topic levels that you need?<p>You can have up to
+                    32 levels in a topic string. Fewer levels are easier to manage, but many levels
+                    might be required to set up specific solutions. In this scenario, the topic
+                    string length can be relatively short. For example, a topic string called
+                      <codeph>UniversityDevices/StatusUpdates</codeph> might be sufficient. </p>
+                </li>
+                <li>How do you ensure that all of your client IDs are unique?<p>If two MQTT clients
+                    have the same ID, the second client that connects to <ph
+                      conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"/>
+                    disconnects the first client. If the first client attempts to reconnect, the
+                    second client is disconnected. Therefore, each MQTT client must have a unique
+                    ID. In this scenario, you might decide to generate unique client IDs
+                    automatically when you write your application. Or you might use the unique
+                    student ID number of each student at the university. </p></li>
+                <li>What message depth is appropriate?<p>When the maximum message depth is reached,
+                    you cannot publish any more updates to that topic string until the number of
+                    messages is reduced. </p></li>
+              </ul></p>
+          </dd>
+        </dlentry>
+        <dlentry>
+          <dt>Writing your applications</dt>
+          <dd>
+            <p>In this scenario, you must decide the name of the topic string that you are
+              publishing and subscribing to. The university needs only one topic string because they
+              are sending out information about one topic "StatusUpdates", and the students are
+              subscribing to this one topic string. If information is sent out about more than one
+              topic, for example course-related events, then more than one topic string can be used.
+              In this scenario, the name of the topic string is
+                <codeph>UniversityDevices/StatusUpdates</codeph>.</p>
+          </dd>
+        </dlentry>
+        <dlentry>
+          <dt>Setting up your <ph conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"
+            /> infrastructure and security</dt>
+          <dd>
+            <p>Create the infrastructure by configuring message hubs and endpoints. Set up your
+              security by creating connection and topic policies. </p>
+            <p>In this scenario, the university requires one message hub because there is one goal -
+              publishing device updates. The university requires two endpoints to ensure that
+              internal and external network traffic is kept separate. </p>
+            <p>Complete the following steps to set up a message hub and endpoints for this scenario: </p>
+            <p>
+              <ol>
+                <li>Create your message hub. A message hub is an organizational configuration object
+                  to collect the endpoints, connection policies, and topic policies that are
+                  associated with a specific goal in a single place. In this scenario, the message
+                  hub is called <codeph>Devices Update Hub</codeph>. You can use the following cURL
+                  command to create the message
+                  hub:<lines>
+            curl -X POST \
+                -H 'Content-Type: application/json'  \
+                -d  '{
+                         "MessageHub":  {
+                            "Devices Update Hub":  {
+                                 "Description": "Message Hub for broadcasting device status info "
+                            }
+                         }
+                      }
+                    '  \
+                 http://127.0.0.1:9089/ima/v1/configuration</lines></li>
+                <li>Create your connection policies. A connection policy is used to authorize a
+                  client to connect to an endpoint. <ul>
+                    <li>Create a connection policy for the subscriber. In this scenario, the
+                      connection policy is called <filepath>Devices Update External
+                        ConPol</filepath>.<p>In this scenario, the university restricts subscriber
+                        access so that the subscriber devices must use MQTT protocol.</p></li>
+                    <li>Create a connection policy for the publisher. In this scenario, the
+                      connection policy is called <filepath>Devices Update Internal
+                        ConPol</filepath>.<p>In this scenario, the university restricts publisher
+                        access so that the publisher device must use MQTT protocol, and use IP
+                        addresses in the domain namespace of the university
+                          <codeph>192.0.1.0-192.0.1.100</codeph>. More than one IP address is
+                        required because more than one device is authorized to publish. </p><p>You
+                        can use the following cURL commands to create the connection
+                        policies:<lines>
+            curl -X POST \
+                -H 'Content-Type: application/json'  \
+                -d  '{
+                         "ConnectionPolicy":  {
+                            "Devices Update External ConPol":  {
+                            "UserID": "*",
+                            "Protocol": "MQTT",
+                            "AllowDurable": false,
+                            "Description": "University external connection policy"
+                            }
+                         }
+                      }
+                    '  \
+                 http://127.0.0.1:9089/ima/v1/configuration</lines><lines>
+            curl -X POST \
+                -H 'Content-Type: application/json'  \
+                -d  '{
+                         "ConnectionPolicy":  {
+                            "Devices Update Internal ConPol":  {
+                            "UserID": "*",
+                            "Protocol": "MQTT",
+                            "AllowDurable": false,
+                            "Description": "University internal connection policy"
+                            }
+                         }
+                      }
+                    '  \
+                 http://127.0.0.1:9089/ima/v1/configuration</lines></p></li>
+                  </ul></li>
+                <li>Create your topic policies. A topic policy is a messaging policy that is used to
+                  authorize a client to publish or subscribe to a topic.<ul>
+                    <li>Create a topic policy for the subscriber. In this scenario, the topic policy
+                      is called <filepath>Devices Update External TopicPol </filepath>.<p>In this
+                        scenario, the university restricts subscriber access so that the subscriber
+                        devices can subscribe only to the topic string
+                          <codeph>UniversityDevices/StatusUpdates</codeph>.</p></li>
+                    <li>Create a topic policy for the publisher. In this scenario, the topic policy
+                      is called <filepath>Devices Update Internal TopicPol</filepath>.<p>In this
+                        scenario, the university restricts publisher access so that the publisher
+                        device can publish only to the topic string
+                          <codeph>UniversityDevices/StatusUpdates</codeph>.</p><p>You can use the
+                        following cURL commands to create the topic
+                        policies:<lines>
+            curl -X POST \
+                -H 'Content-Type: application/json'  \
+                -d  '{
+                         "TopicPolicy":  {
+                            "Devices Update External TopicPol":  {
+                               "Topic": "UniversityDevices/StatusUpdates",
+                               "UserID": "*",
+                               "ActionList": "Subscribe",
+                               "Protocol": "MQTT",
+                               "MaxMessages": 5000,
+                               "Description": "University external topic policy"
+                            }
+                         }
+                      }
+                    '  \
+                 http://127.0.0.1:9089/ima/v1/configuration</lines><lines>
+            curl -X POST \
+                -H 'Content-Type: application/json'  \
+                -d  '{
+                         "TopicPolicy":  {
+                            "Devices Update Internal TopicPol":  {
+                               "Topic": "UniversityDevices/StatusUpdates",
+                               "UserID": "*",
+                               "ActionList": "Publish",
+                               "Protocol": "MQTT",
+                               "MaxMessages": 5000,
+                               "Description": "University internal topic policy"
+                            }
+                         }
+                      }
+                    '  \
+                 http://127.0.0.1:9089/ima/v1/configuration</lines></p></li>
+                  </ul></li>
+                <li>Create your endpoints. An endpoint authorizes a client to connect to <ph
+                    conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"/> on one or
+                  all configured ethernet interfaces, and a specific port. You create endpoints on a
+                  message hub.<ul>
+                    <li>Create an endpoint for external internet network requests. In this scenario,
+                      the endpoint is called <codeph>Devices Update External Endpoint</codeph>.
+                      Apply the <codeph>Devices Update External ConPol</codeph>, and the
+                        <codeph>Devices Update External TopicPol</codeph> to the endpoint.</li>
+                    <li>Create an endpoint for internal intranet network requests. In this scenario,
+                      the endpoint is called <codeph>Devices Update Internal Endpoint</codeph>.
+                      Apply the <codeph>Devices Update Internal ConPol</codeph>, and the
+                        <codeph>Devices Update Internal TopicPol</codeph> to the endpoint.</li>
+                  </ul></li>
+              </ol>
+            </p>
+            <p>You can use the following cURL commands to create the
+              endpoints:<lines>
+            curl -X POST \
+                -H 'Content-Type: application/json'  \
+                -d  '{
+                         "Endpoint":  {
+                            "Devices Update External Endpoint":  {
+                               "Enabled": true,
+                               "Port": 1884,
+                               "MaxMessageSize": "1024KB",
+                               "ConnectionPolicies": "Devices Update External ConPol",
+                               "TopicPolicies": "Devices Update External TopicPol",
+                               "MessageHub": "Devices Update Hub",
+                               "Protocol": "MQTT",
+                               "Interface": "All",
+                               "Description": "University external endpoint"
+                            }
+                         }
+                      }
+                    '  \
+                 http://127.0.0.1:9089/ima/v1/configuration</lines><lines>
+            curl -X POST \
+                -H 'Content-Type: application/json'  \
+                -d  '{
+                         "Endpoint":  {
+                            "Devices Update Internal Endpoint":  {
+                               "Enabled": true,
+                               "Port": 1885,
+                               "MaxMessageSize": "1024KB",
+                               "ConnectionPolicies": "Devices Update Internal ConPol",
+                               "TopicPolicies": "Devices Update Internal TopicPol",
+                               "MessageHub": "Devices Update Hub",
+                               "Protocol": "MQTT",
+                               "Interface": "All",
+                               "Description": "University internal endpoint"
+                            }
+                         }
+                      }
+                    '  \
+                 http://127.0.0.1:9089/ima/v1/configuration</lines></p>
+          </dd>
+        </dlentry>
+        <dlentry id="TestYourSolutionForInformationAbout">
+          <dt>Testing your solution</dt>
+          <dd>
+            <p>A sample MQTT client can be found at <xref scope="external"
+                href="http://mqtt-helper.mybluemix.net" format="html">MQTT Helper</xref>. You must
+              have a separate client for each endpoint. To demonstrate the messaging capabilities of
+              your solution, enter your server, port, client ID, and topic. </p>
+            <p>For information about troubleshooting any problems that arise during testing, see the <ph
+              conref="../../com.ibm.ism.doc/TextEntities.dita#TextEntities/ISM"
+              />  Troubleshooting documentation in the IBM Knowledge Center. </p>
+          </dd>
+        </dlentry>
+      </dl>
+    </section>
+  </conbody>
+</concept>
+<?Pub *0000013604?>

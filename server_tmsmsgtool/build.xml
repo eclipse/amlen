@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="server_msg_tool" default="build_msgtool_jar" basedir=".">
+	<property environment="env" />
+	<property name="env.SRC_ROOT" location="${basedir}/../" />
+	<!-- JMS client and WebUI do not current support split builds so if build those, 
+	     safest to not set BROOT for the moment -->
+	<condition property="build_dir" value="${env.BROOT}/server_tmsmsgtool" else="${basedir}">
+		<isset property="env.BROOT" />
+	</condition>
+	<property name="broot" location="${build_dir}/.." />
+	
+	<property name="ship_dir" location="${broot}/server_ship/" />
+	<property name="client_ship_dir" location="${broot}/client_ship/" />
+	<property name="ship_tms_dir" location="${ship_dir}/tms" />
+	<property name="ship_msgcat_dir" location="${ship_dir}/msgcat" />
+	<property name="client_ship_msgcat_dir" location="${client_ship_dir}/msgcat" />
+	<property name="ship_msgcatres_dir" location="${ship_msgcat_dir}/res" />
+	<property name="msg.tool.src.dir" location="${basedir}/src" />
+	<property name="msg.tool.bin.dir" location="${build_dir}/bin" />
+	<property name="msg.tool.lib.dir" location="${build_dir}/lib" />
+	<property name="tmsxml.dir" location="${msg.tool.bin.dir}/tms" />
+	<property name="tool.config.dir" location="${msg.tool.bin.dir}/config" />
+	<property name="tool.xsl.dir" location="xsl" />
+	<property name="tmsxml.html.dir" location="${tmsxml.dir}/html" />
+	<property name="tmsxml.xml.dir" location="${tmsxml.dir}/xml" />
+	<property name="tmsxml.prb.dir" location="${tmsxml.dir}/prb" />
+	<property name="tmsxml.prb.client.dir" location="${tmsxml.dir}/clientprb" />
+	<property name="tmsxml.icu.dir" location="${tmsxml.dir}/icu" />
+	<property name="tms.work.tmp.dir" location="${msg.tool.bin.dir}/tmsxmltmp" />
+	<property name="tms2dita.work.tmp.dir" location="${msg.tool.bin.dir}/tms2ditaxmltmp" />
+	<property name="tms2dita.dita.final.dir" location="${tmsxml.dir}/tms2dita" />
+	<property file="${basedir}/../server_build/server_build.properties"/>
+
+	<property name="transport.comp.xml.dir" location="../server_transport/xml" />
+	<property name="utils.comp.xml.dir" location="../server_utils/xml" />
+	<property name="protocol.comp.xml.dir" location="../server_protocol/xml" />
+	<property name="engine.comp.xml.dir" location="../server_engine/xml" />
+	<property name="store.comp.xml.dir" location="../server_store/xml" />
+	<property name="admin.comp.xml.dir" location="../server_admin/xml" />
+	<property name="gui.comp.xml.dir" location="../server_gui/xml" />
+	<property name="jmsclient.comp.xml.dir" location="../client_jms/xml" />
+	<property name="monitoring.comp.xml.dir" location="../server_monitoring/xml" />
+	<property name="mqconnectivity.comp.xml.dir" location="../server_mqcbridge/xml" />
+	<property name="proxy.comp.xml.dir" location="../server_proxy/xml" />
+        
+	<property name="main.http.src.dir" location="../server_main/http" />
+	<property name="main.http.build.dir" location="${broot}/server_main/http" />
+	<property name="bridge.http.src.dir" location="../server_proxy_br/http" />
+	<property name="bridge.http.build.dir" location="${broot}/server_proxy_br/http" />
+
+	<property name="server.translation.dir" location="../server_translation" />
+
+	<property name="server.gui.dir" location="${gui.comp.xml.dir}/../" />
+	<property name="server.gui.build.dir" location="${broot}/server_gui/" />
+
+	<!-- define client_jms jar file name -->
+	<property name="ismmsgtool.jar" location="${msg.tool.lib.dir}/ismmsgtool.jar" />
+
+	<taskdef resource="net/sf/antcontrib/antlib.xml" />
+
+	<scriptdef language="javascript" name="convert">
+		<attribute name="string" />
+		<attribute name="to" />
+	    project.setProperty( attributes.get( "to" ),
+	                         attributes.get( "string" ).toLowerCase().replace( "_", "-" ) );
+	</scriptdef>
+
+	<condition property="is64">
+		<or>
+			<os arch="x86_64" />
+			<os arch="amd64" />
+		</or>
+	</condition>
+	<condition property="OSbit" value="64">
+		<isset property="is64" />
+	</condition>
+
+	<condition property="OSbit" value="32">
+		<not>
+			<isset property="is64" />
+		</not>
+	</condition>
+
+	<fileset dir="${server.translation.dir}/xml" id="imaserver_translations">
+		<include name="**/*.xml" />
+	</fileset>
+	<pathconvert refid="imaserver_translations" property="translations.present" setonempty="false"/>
+
+	
+	<condition property="real.translations">
+		<and>
+			<equals arg1="${env.USE_REAL_TRANSLATIONS}" arg2="true"/>
+			<isset property="translations.present" />
+		</and>
+	</condition>
+
+	<!-- Required Classpaths -->
+	<path id="compile.classpath">
+	</path>
+
+
+	<target name="clean">
+		<delete includeemptydirs="true" dir="${msg.tool.bin.dir}" />
+        <!-- Clean generated code from server_gui build -->
+		<delete includeemptydirs="true" dir="${msg.tool.src.dir}/com/ibm/ima" />
+	</target>
+
+
+	<!-- Build all normal targets  -->
+
+	<!-- Build output jar file -->
+	<target name="build_msgtool_jar" depends="clean, msgtool_compile, tmsdoc, webUI, jmsClient, tms2dita, publish">
+		<jar destfile="${ismmsgtool.jar}">
+			<fileset dir="${msg.tool.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" />
+		</jar>
+	</target>
+
+	<!--Compile the project-->
+	<target name="msgtool_compile" depends="msg_tool_init">
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac srcdir="${msg.tool.src.dir}" destdir="${msg.tool.bin.dir}" deprecation="no" includeAntRuntime="no" debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${msg.tool.src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+		<copy todir="${msg.tool.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${msg.tool.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+	<!-- Initialize the build environment -->
+	<target name="msg_tool_init">
+        	<mkdir dir="${build_dir}" />
+		<mkdir dir="${msg.tool.lib.dir}" />
+		<mkdir dir="${msg.tool.bin.dir}" />
+		<mkdir dir="${tmsxml.dir}" />
+		<mkdir dir="${tmsxml.xml.dir}" />
+	</target>
+
+	<target name="publish">
+		<mkdir dir="${ship_dir}" />
+		<mkdir dir="${client_ship_dir}" />
+		<mkdir dir="${ship_msgcat_dir}" />
+		<mkdir dir="${client_ship_msgcat_dir}" />
+		<mkdir dir="${ship_tms_dir}" />
+
+		<copy todir="${ship_msgcat_dir}" failonerror="false">
+			<fileset dir="${tmsxml.icu.dir}" />
+		</copy>
+
+		<copy todir="${ship_msgcat_dir}" failonerror="false">
+			<fileset dir="${tmsxml.prb.dir}" excludes="**/*.properties" />
+		</copy>
+		<copy todir="${client_ship_msgcat_dir}" failonerror="false">
+			<fileset dir="${tmsxml.prb.client.dir}" />
+		</copy>
+		<copy todir="${ship_tms_dir}" failonerror="false">
+			<fileset dir="${tmsxml.xml.dir}" excludes="**/ism.xml" />
+			<fileset dir="${tmsxml.dir}" includes="tms2dita*.zip" />
+		</copy>
+	</target>
+
+
+	<target name="runLogTool" depends="msgtool_compile">
+		<echo> ${env.SRC_ROOT}</echo>
+		<!-- copy the TMS DTD files-->
+		<copy todir="${msg.tool.bin.dir}">
+			<fileset dir="${basedir}/specs" includes="*.dtd, *.ent" />
+		</copy>
+		<!-- copy the TMS file -->
+		<copy todir="${msg.tool.bin.dir}">
+			<!-- <fileset dir="xml" /> -->
+			<fileset dir="${transport.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${utils.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${protocol.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${proxy.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${engine.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${admin.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${gui.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${store.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${monitoring.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${mqconnectivity.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${jmsclient.comp.xml.dir}">
+				<include name="*_tms.xml" />
+			</fileset>
+			<fileset dir="${basedir}/xml">
+				<include name="ism.xml" />
+			</fileset>
+
+			<fileset dir="config" />
+		</copy>
+
+		<copy todir="${tool.config.dir}">
+			<fileset dir="config" />
+		</copy>
+		<java dir="${msg.tool.bin.dir}" classname="com.ibm.ism.tools.msg.ISMMsgTool" fork="yes">
+			<arg value="-component" />
+			<arg value="all" />
+			<arg value="-src" />
+			<arg value="${env.SRC_ROOT}" />
+			<arg value="-TMSvalidate" />
+			<arg value="-TMSautoadd" />
+		</java>
+		<mkdir dir="${tmsxml.xml.dir}" />
+		<copy todir="${tmsxml.xml.dir}">
+			<fileset dir="${msg.tool.bin.dir}" includes="*.xml" />
+		</copy>
+
+	</target>
+
+	<target name="copyTranslations" depends="runLogTool" description="Copy translated messages" if="real.translations">
+		<echo message="Copying imaserver translations for processing" />
+		<copy todir="${tmsxml.xml.dir}"
+		      encoding="UTF-8" outputencoding="UTF-8"
+        	  overwrite="yes" failonerror="no">
+			<fileset dir="${server.translation.dir}/xml">
+				<include name="**/*.xml"/>
+			</fileset>
+		</copy>
+
+		<for list="${supportedlangs}" param="lang" delimiter=" " >
+			<sequential>
+				<convert string="@{lang}" to="fixlang" />
+				<echo>Copy index.html file for @{lang}  ${fixlang}</echo>
+
+				<copy file="${server.translation.dir}/html/${fixlang}/index.html"
+					tofile="${main.http.build.dir}/index_@{lang}.html"
+					overwrite="true" encoding="UTF-8"
+				/>
+
+				<exec executable="python3">
+					<arg value="${basedir}/../server_build/path_parser.py"/>
+					<arg value="-mdirreplace"/>
+					<arg value="-i${main.http.build.dir}"/>
+					<arg value="-o${main.http.build.dir}"/>
+					<arg value="-sinfo"/>
+				</exec>
+
+				<echo>Copy Bridge index.html file for @{lang}  ${fixlang}</echo>
+
+				<copy file="${server.translation.dir}/html_bridge/${fixlang}/index.html"
+					tofile="${bridge.http.build.dir}/index_@{lang}.html"
+					overwrite="true" encoding="UTF-8"
+				/>
+
+				<exec executable="python3">
+					<arg value="${basedir}/../server_build/path_parser.py"/>
+					<arg value="-mdirreplace"/>
+					<arg value="-i${bridge.http.build.dir}"/>
+					<arg value="-o${bridge.http.build.dir}"/>
+					<arg value="-sinfo"/>
+				</exec>
+
+				<copy todir="${msg.tool.bin.dir}" overwrite="true" encoding="UTF-8">
+					<fileset dir="${tmsxml.xml.dir}/${fixlang}">
+						<include name="*_tms.xml" />
+					</fileset>
+					<fileset dir="${basedir}/xml">
+						<include name="ism.xml" />
+					</fileset>
+				</copy>
+
+				<java dir="${msg.tool.bin.dir}" classname="com.ibm.ism.tools.msg.ISMMsgTool" fork="yes">
+					<arg value="-component" />
+					<arg value="NONE" />
+					<arg value="-src" />
+					<arg value="${env.SRC_ROOT}" />
+				</java>
+
+				<copy todir="${tmsxml.xml.dir}/${fixlang}" overwrite="true" encoding="UTF-8" outputencoding="UTF-8">
+					<fileset dir="${msg.tool.bin.dir}" includes="ism.xml" />
+				</copy>
+			</sequential>
+		</for>
+	</target>
+
+	<target name="PseudoTranslate" unless="real.translations" description="Generate pseudo translations of English Text">
+		<for list="${supportedlangs}" param="lang" delimiter=" " >
+			<sequential>
+				<convert string="@{lang}" to="fixlang" />
+				<!--
+				<exec executable="python3">
+					<arg value="-mpseudotranslation"/>
+					<arg value="-i${tmsxml.xml.dir}/ism.xml"/>
+					<arg value="-i${tmsxml.xml.dir}/ism_webui_tms.xml"/>
+					<arg value="-i${tmsxml.xml.dir}/ism_jmsclient_tms.xml"/>
+					<arg value="-o${tmsxml.xml.dir}"/>
+				</exec> -->
+				<exec executable="python3">
+					<arg value="${basedir}/nut_translations/nut_translations.py"/>
+					<arg value="-mpseudotranslation"/>
+					<arg value="-i${tmsxml.xml.dir}/ism.xml"/>
+					<arg value="-i${tmsxml.xml.dir}/ism_webui_tms.xml"/>
+					<arg value="-i${tmsxml.xml.dir}/ism_jmsclient_tms.xml"/>
+					<arg value="-b${tmsxml.xml.dir}"/>
+					<arg value="-s@{lang}"/>
+					<arg value="-d"/>
+				</exec>
+				
+				<!-- The old pseudotranslator (RPX) used to be run over the HTML files but as far as I can tell
+				     it did nothing - I assume because the HTML files are not valid XML. We could extend the 
+				     pseudotranslator to have an HTML parser as well as XML parser but this has not currently been done -->
+				<echo>Copy English index.html file for @{lang} (currently no pseudotranslation for HTML)</echo>
+
+				<copy file="${main.http.src.dir}/index.html"
+				    tofile="${main.http.build.dir}/index_@{lang}.html"
+				       overwrite="true" encoding="UTF-8"
+				/>
+
+				<exec executable="python3">
+					<arg value="${basedir}/../server_build/path_parser.py"/>
+					<arg value="-mdirreplace"/>
+					<arg value="-i${main.http.build.dir}"/>
+					<arg value="-o${main.http.build.dir}"/>
+					<arg value="-sinfo"/>
+				</exec>
+
+				<echo>Copy English Bridge index.html file for @{lang} (currently no pseudotranslation for HTML)</echo>
+
+				<copy file="${bridge.http.src.dir}/index.html"
+				           tofile="${bridge.http.build.dir}/index_@{lang}.html"
+				          overwrite="true" encoding="UTF-8"
+				/>
+
+				<exec executable="python3">
+					<arg value="${basedir}/../server_build/path_parser.py"/>
+					<arg value="-mdirreplace"/>
+					<arg value="-i${bridge.http.build.dir}"/>
+					<arg value="-o${bridge.http.build.dir}"/>
+					<arg value="-sinfo"/>
+				</exec>
+			</sequential>
+		</for>
+	</target>
+
+	<target name="tmsdoc" depends="runLogTool,PseudoTranslate,copyTranslations">
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-i${tmsxml.xml.dir}/ism.xml"/>
+			<arg value="-b${tmsxml.html.dir}"/>
+			<arg value="-mhtml"/>
+		</exec>
+
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-i${tmsxml.xml.dir}/ism.xml"/>
+			 <arg value="-b${tmsxml.html.dir}"/>
+			<arg value="-mtoc"/>
+		</exec>
+
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-i${tmsxml.xml.dir}/ism.xml"/>
+			<arg value="-o${tmsxml.icu.dir}/ism.txt"/>
+			<arg value="-croot"/>
+		</exec>
+
+		<for list="${supportedlangs}" param="lang" delimiter=" " >
+			<sequential>
+				<convert string="@{lang}" to="fixlang" />
+				<echo>Processing language @{lang} (${tmsxml.xml.dir}/${fixlang})</echo>
+
+				<exec executable="python3">
+					<arg value="${basedir}/nut_translations/nut_translations.py"/>
+					<arg value="-i${tmsxml.xml.dir}/${fixlang}/ism.xml"/>
+					<arg value="-o${tmsxml.icu.dir}/@{lang}.txt"/>
+					<arg value="-c@{lang}"/>
+				</exec>
+			</sequential>
+		</for>
+
+		<!-- Double all single quotes, but ignore already doubled quotes -->
+		<echo message="Replacing single quotes" />
+		<replace dir="${tmsxml.icu.dir}" value="&apos;" token="&apos;&apos;" encoding="UTF-8">
+			<include name="*.txt"/>
+		</replace>
+		<replace dir="${tmsxml.icu.dir}" value="&apos;&apos;" token="&apos;" encoding="UTF-8">
+			<include name="*.txt"/>
+		</replace>
+
+		<mkdir dir="${tmsxml.icu.dir}/res" />
+		<!-- Generate .res file -->
+		<exec executable="sh" failonerror="true">
+			<arg line=' -c "genrb -e UTF-8 -d ${tmsxml.icu.dir}/res ${tmsxml.icu.dir}/*.txt"' />
+		</exec>
+
+		<!-- The old TMS translation seemed to produce an empty file - that doesn't seem right -->
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mprb" />
+			<arg value="-i${tmsxml.xml.dir}/ism.xml"/>
+			<arg value="-o${tmsxml.prb.dir}/ism.properties"/>
+		</exec>
+
+		<!-- Zip the file tms2html -->
+		<zip destfile="${tmsxml.dir}/tms2html.zip" basedir="${tmsxml.html.dir}" encoding="UTF-8"/>
+		<!-- Zip the file tms2prb -->
+		<zip destfile="${tmsxml.dir}/tms2prb.zip" basedir="${tmsxml.prb.dir}" encoding="UTF-8"/>
+		<delete dir="${tmsxml.html.dir}" />
+		<!-- <delete dir="${tmsxml.prb.dir}" /> -->
+
+	</target>
+	<target name="webUI" depends="runLogTool,PseudoTranslate,copyTranslations">
+		<mkdir dir="${tms.work.tmp.dir}" />
+
+		<copy file="${gui.comp.xml.dir}/ism_webui_tms.xml"
+			tofile="${tms.work.tmp.dir}/IsmUIListResourceBundle.xml" encoding="UTF-8" outputencoding="UTF-8"/>
+
+		<for list="${supportedlangs}" param="lang" delimiter=" " >
+			<sequential>
+				<convert string="@{lang}" to="fixlang" />
+				<echo>Processing language @{lang} (${tmsxml.xml.dir}/${fixlang})</echo>
+				<copy file="${tmsxml.xml.dir}/${fixlang}/ism_webui_tms.xml"
+				tofile="${tms.work.tmp.dir}/IsmUIListResourceBundle_@{lang}.xml"
+				encoding="UTF-8" outputencoding="UTF-8" overwrite="yes" failonerror="false"/>
+
+				<exec executable="python3">
+					<arg value="${basedir}/nut_translations/nut_translations.py"/>
+					<arg value="-mlrb" />
+					<arg value="-i${tms.work.tmp.dir}/IsmUIListResourceBundle_@{lang}.xml"/>
+					<arg value="-b${tmsxml.prb.dir}"/>
+					<arg value="-cIsmUIListResourceBundle_@{lang}"/>
+					<arg value="-pcom.ibm.ima.msgcatalog"/>
+				</exec>
+			</sequential>
+		</for>
+
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mlrb" />
+			<arg value="-i${tms.work.tmp.dir}/IsmUIListResourceBundle.xml"/>
+			<arg value="-b${tmsxml.prb.dir}"/>
+			<arg value="-cIsmUIListResourceBundle"/>
+			<arg value="-pcom.ibm.ima.msgcatalog"/>
+		</exec>
+
+		<copy file="${tmsxml.prb.dir}/com/ibm/ima/msgcatalog/IsmUIListResourceBundle.java" tofile="${tmsxml.prb.dir}/com/ibm/ima/msgcatalog/IsmUIListResourceBundle_en.java" encoding="UTF-8" outputencoding="UTF-8" preservelastmodified="yes"/>
+		<replace file="${tmsxml.prb.dir}/com/ibm/ima/msgcatalog/IsmUIListResourceBundle_en.java" token="IsmUIListResourceBundle" value="IsmUIListResourceBundle_en" encoding="UTF-8" />
+
+		<copy todir="${server.gui.build.dir}/src/com/ibm/ima/msgcatalog/" preservelastmodified="yes" encoding="UTF-8" outputencoding="UTF-8">
+			<fileset dir="${tmsxml.prb.dir}/com/ibm/ima/msgcatalog/" />
+		</copy>
+
+		<copy file="${tmsxml.prb.dir}/com/ibm/ima/msgcatalog/IsmUIListResourceBundle.java" tofile="${tmsxml.prb.dir}/com/ibm/ima/msgcatalog/IsmUIListResourceBundle_en.java" encoding="UTF-8" outputencoding="UTF-8" preservelastmodified="yes"/>
+	</target>
+
+	<target name="jmsClient">
+		<mkdir dir="${tms.work.tmp.dir}" />
+
+		<!--
+			First, split jms client XML into messages and properties,
+			then convert them into Java source and Java properties files
+		-->
+		<exec executable="sh">
+			<arg line=' -c "xsltproc --encoding UTF-8 --novalid --output ${tms.work.tmp.dir}/ValidationMessages.xml ${tool.xsl.dir}/getproperties.xsl ${jmsclient.comp.xml.dir}/ism_jmsclient_tms.xml"' />
+		</exec>
+
+		<exec executable="sh">
+			<arg line=' -c "xsltproc --encoding UTF-8 --novalid --output ${tms.work.tmp.dir}/IsmJmsListResourceBundle.xml ${tool.xsl.dir}/getmessages.xsl ${jmsclient.comp.xml.dir}/ism_jmsclient_tms.xml"' />
+		</exec>
+
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mlrb" />
+			<arg value="-i${tms.work.tmp.dir}/IsmJmsListResourceBundle.xml"/>
+			<arg value="-b${tmsxml.prb.client.dir}"/>
+			<arg value="-cIsmJmsListResourceBundle"/>
+			<arg value="-pcom.ibm.ima.jms.msgcatalog"/>
+		</exec>
+
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mprb" />
+			<arg value="-i${tms.work.tmp.dir}/ValidationMessages.xml"/>
+			<arg value="-o${tmsxml.prb.client.dir}/ValidationMessages.properties"/>
+		</exec>
+
+		<copy file="${tmsxml.prb.client.dir}/com/ibm/ima/jms/msgcatalog/IsmJmsListResourceBundle.java" tofile="${tmsxml.prb.client.dir}/com/ibm/ima/jms/msgcatalog/IsmJmsListResourceBundle_en.java" preservelastmodified="yes" encoding="UTF-8" outputencoding="UTF-8"/>
+		<replace file="${tmsxml.prb.client.dir}/com/ibm/ima/jms/msgcatalog/IsmJmsListResourceBundle_en.java" token="IsmJmsListResourceBundle" value="IsmJmsListResourceBundle_en" encoding="UTF-8"/>
+
+		<copy file="${tmsxml.prb.client.dir}/ValidationMessages.properties" tofile="${tmsxml.prb.client.dir}/ValidationMessages_en.properties" preservelastmodified="yes" encoding="UTF-8" outputencoding="UTF-8"/>
+
+		<!-- Now, process translations in the same way, if available.
+		     Otherwise client_jms will generate pseudotranslations -->
+		<for list="${supportedlangs}" param="lang" delimiter=" " >
+			<sequential>
+				<convert string="@{lang}" to="fixlang" />
+
+				<echo>Processing JMS client/RA messages in language @{lang} (${server.translation.dir}/jmsclient/${fixlang}/ism_jmsclient_tms.xml)</echo>
+
+				<exec executable="sh">
+					<arg line=' -c "xsltproc --encoding UTF-8 --novalid --output ${tms.work.tmp.dir}/ValidationMessages_@{lang}.xml ${tool.xsl.dir}/getproperties.xsl ${tmsxml.xml.dir}/${fixlang}/ism_jmsclient_tms.xml"' />
+				</exec>
+
+				<exec executable="sh">
+					<arg line=' -c "xsltproc --encoding UTF-8 --novalid --output ${tms.work.tmp.dir}/IsmJmsListResourceBundle_@{lang}.xml ${tool.xsl.dir}/getmessages.xsl ${tmsxml.xml.dir}/${fixlang}/ism_jmsclient_tms.xml"' />
+				</exec>
+
+				<exec executable="python3">
+					<arg value="${basedir}/nut_translations/nut_translations.py"/>
+					<arg value="-mlrb" />
+					<arg value="-i${tms.work.tmp.dir}/IsmJmsListResourceBundle_@{lang}.xml"/>
+					<arg value="-b${tmsxml.prb.client.dir}"/>
+					<arg value="-cIsmJmsListResourceBundle_@{lang}"/>
+					<arg value="-pcom.ibm.ima.jms.msgcatalog"/>
+				</exec>
+
+				<exec executable="python3">
+					<arg value="${basedir}/nut_translations/nut_translations.py"/>
+					<arg value="-mprb" />
+					<arg value="-i${tms.work.tmp.dir}/ValidationMessages_@{lang}.xml"/>
+					<arg value="-o${tmsxml.prb.client.dir}/ValidationMessages_@{lang}.properties"/>
+				</exec>
+			</sequential>
+		</for>
+	</target>
+
+	<target name="tms2dita">
+		<!--Make the tms2dita directories-->
+		<mkdir dir="${tms2dita.work.tmp.dir}" />
+		<mkdir dir="${tms2dita.dita.final.dir}" />
+
+		<!-- copy the TMS DTD files-->
+		<copy todir="${tms2dita.work.tmp.dir}">
+			<fileset dir="${basedir}/specs" includes="*.dtd, *.ent, *.xsd" />
+		</copy>
+
+		<!--Copy the ISM TMS XML into the tms2dita working directory-->
+		<copy todir="${tms2dita.work.tmp.dir}">
+			<fileset dir="${tmsxml.xml.dir}" includes="ism.xml" />
+		</copy>
+
+		<!--Copy the WebUI TMS XML into the tms2dita working directory-->
+		<copy todir="${tms2dita.work.tmp.dir}">
+			<fileset dir="${gui.comp.xml.dir}" includes="ism_webui_tms.xml" />
+		</copy>
+
+		<!--Copy the JMSClient TMS XML into the tms2dita working directory-->
+		<copy todir="${tms2dita.work.tmp.dir}">
+			<fileset dir="${jmsclient.comp.xml.dir}" includes="ism_jmsclient_tms.xml" />
+		</copy>
+
+		<!-- Doing the TMS msg Split -->
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mdita" />
+			<arg value="-i${tms2dita.work.tmp.dir}/ism.xml"/>
+			<arg value="-b${tms2dita.dita.final.dir}"/>
+			<arg value="-len" />
+		</exec>
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mdita" />
+			<arg value="-i${tms2dita.work.tmp.dir}/ism_webui_tms.xml"/>
+			<arg value="-b${tms2dita.dita.final.dir}"/>
+			<arg value="-len" />
+		</exec>
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mdita" />
+			<arg value="-i${tms2dita.work.tmp.dir}/ism_jmsclient_tms.xml"/>
+			<arg value="-b${tms2dita.dita.final.dir}"/>
+			<arg value="-len" />
+		</exec>
+
+		<!-- Zip the file -->
+		<zip destfile="${tmsxml.dir}/tms2dita.zip" basedir="${tms2dita.dita.final.dir}" encoding="UTF-8"/>
+
+		<!-- Now repeat the process for other languages -->
+		<for list="${supportedlangs}" param="lang" delimiter=" " >
+			<sequential>
+				<convert string="@{lang}" to="fixlang" />
+				<echo>Processing language @{lang} (${tmsxml.xml.dir}/${fixlang})</echo>
+
+				<!--Copy the ISM TMS XML files into the tms2dita working directory-->
+				<delete includeemptydirs="true" failonerror="false">
+					<fileset dir="${tms2dita.work.tmp.dir}" includes="*.xml" />
+				</delete>
+				<copy todir="${tms2dita.work.tmp.dir}" failonerror="false" encoding="UTF-8" outputencoding="UTF-8">
+					<fileset dir="${tmsxml.xml.dir}/${fixlang}" includes="*.xml" />
+				</copy>
+
+				<exec executable="python3">
+					<arg value="${basedir}/nut_translations/nut_translations.py"/>
+					<arg value="-mdita" />
+					<arg value="-x${tms2dita.work.tmp.dir}"/>
+					<arg value="-b${tms2dita.dita.final.dir}"/>
+					<arg value="-l${fixlang}" />
+				</exec>
+
+				<!-- Zip the file -->
+				<zip destfile="${tmsxml.dir}/tms2dita_@{lang}.zip" basedir="${tms2dita.dita.final.dir}" encoding="UTF-8"/>
+			</sequential>
+		</for>
+
+		<delete dir="${tms2dita.dita.final.dir}" />
+	</target>
+</project>

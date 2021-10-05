@@ -1,0 +1,117 @@
+/*
+ * Copyright (c) 2014-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+*/
+
+/*
+ * Note: this header file provides Memory Event MIB definitions for MessageSight,
+ *       as well as the interface to send Memory Event traps. 
+ */
+
+#ifndef _IMASNMPMEMEVENTMIB_H_
+#define _IMASNMPMEMEVENTMIB_H_
+
+#define IMA_SNMP_MEM_EVENT_OID 2
+#define IMA_SNMP_MEM_EVENT_MIB IMA_SNMP_NOTIFICATIONS_MIB, IMA_SNMP_MEM_EVENT_OID 
+
+#define IMA_SNMP_MEM_EVENT_ELEMENTS_OID 1
+#define IMA_SNMP_MEM_EVENT_ELEMENTS_MIB IMA_SNMP_MEM_EVENT_MIB, IMA_SNMP_MEM_EVENT_ELEMENTS_OID
+
+#define IMA_SNMP_TRAP_MEM_TOTALBYTES_OID 1
+#define IMA_SNMP_TRAP_MEM_TOTALBYTES_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_MEM_TOTALBYTES_OID
+
+#define IMA_SNMP_TRAP_MEM_FREEBYTES_OID 2
+#define IMA_SNMP_TRAP_MEM_FREEBYTES_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_MEM_FREEBYTES_OID
+
+#define IMA_SNMP_TRAP_MEM_FREEPERCENT_OID 3
+#define IMA_SNMP_TRAP_MEM_FREEPERCENT_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_MEM_FREEPERCENT_OID
+
+#define IMA_SNMP_TRAP_SVR_VRTL_MEM_BYTES_OID 4
+#define IMA_SNMP_TRAP_SVR_VRTL_MEM_BYTES_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_SVR_VRTL_MEM_BYTES_OID
+
+#define IMA_SNMP_TRAP_SVR_RSDT_SET_BYTES_OID 5
+#define IMA_SNMP_TRAP_SVR_RSDT_SET_BYTES_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_SVR_RSDT_SET_BYTES_OID
+
+#define IMA_SNMP_TRAP_GRP_MSG_PAYLOADS_OID 6
+#define IMA_SNMP_TRAP_GRP_MSG_PAYLOADS_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_GRP_MSG_PAYLOADS_OID
+
+#define IMA_SNMP_TRAP_GRP_PUB_SUB_OID 7
+#define IMA_SNMP_TRAP_GRP_PUB_SUB_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_GRP_PUB_SUB_OID
+
+#define IMA_SNMP_TRAP_GRP_DESTS_OID 8
+#define IMA_SNMP_TRAP_GRP_DESTS_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_GRP_DESTS_OID
+
+#define IMA_SNMP_TRAP_GRP_CUR_ACTIVITIES_OID 9
+#define IMA_SNMP_TRAP_GRP_CUR_ACTIVITIES_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_GRP_CUR_ACTIVITIES_OID
+
+#define IMA_SNMP_TRAP_GRP_CLIENT_STATES_OID 10
+#define IMA_SNMP_TRAP_GRP_CLIENT_STATES_MIB IMA_SNMP_MEM_EVENT_ELEMENTS_MIB, IMA_SNMP_TRAP_GRP_CLIENT_STATES_OID
+
+
+#define IMA_SNMP_MEM_EVENT_DEFS_OID 2
+#define IMA_SNMP_MEM_EVENT_DEFS_MIB IMA_SNMP_MEM_EVENT_MIB, IMA_SNMP_MEM_EVENT_DEFS_OID
+
+#define IMA_SNMP_MEM_USAGE_WARN_OID 1
+#define IMA_SNMP_MEM_USAGE_WARN_MIB IMA_SNMP_MEM_EVENT_DEFS_MIB, IMA_SNMP_MEM_USAGE_WARN_OID
+
+#define IMA_SNMP_MEM_USAGE_ALERT_OID 2
+#define IMA_SNMP_MEM_USAGE_ALERT_MIB IMA_SNMP_MEM_EVENT_DEFS_MIB, IMA_SNMP_MEM_USAGE_ALERT_OID
+
+#define IMA_SNMP_MEM_EVENT_CTRL_OID 3
+#define IMA_SNMP_MEM_EVENT_CTRL_MIB IMA_SNMP_MEM_EVENT_MIB, IMA_SNMP_MEM_EVENT_CTRL_OID
+
+#define IMA_SNMP_MEM_USAGE_WARN_EN_OID 1
+#define IMA_SNMP_MEM_USAGE_WARN_EN_MIB IMA_SNMP_MEM_EVENT_CTRL_MIB, IMA_SNMP_MEM_USAGE_WARN_EN_OID
+
+#define IMA_SNMP_MEM_USAGE_WARN_TH_OID 2
+#define IMA_SNMP_MEM_USAGE_WARN_TH_MIB IMA_SNMP_MEM_EVENT_CTRL_MIB, IMA_SNMP_MEM_USAGE_WARN_TH_OID
+
+#define IMA_SNMP_MEM_USAGE_ALERT_EN_OID 3
+#define IMA_SNMP_MEM_USAGE_ALERT_EN_MIB IMA_SNMP_MEM_EVENT_CTRL_MIB, IMA_SNMP_MEM_USAGE_ALERT_EN_OID
+
+#define IMA_SNMP_MEM_USAGE_ALERT_TH_OID 4
+#define IMA_SNMP_MEM_USAGE_ALERT_TH_MIB IMA_SNMP_MEM_EVENT_CTRL_MIB, IMA_SNMP_MEM_USAGE_ALERT_TH_OID
+
+#define IMA_SNMP_MEM_USAGE_WARN_DURN_OID 5
+#define IMA_SNMP_MEM_USAGE_WARN_DURN_MIB IMA_SNMP_MEM_EVENT_CTRL_MIB, IMA_SNMP_MEM_USAGE_WARN_DURN_OID
+
+typedef enum {
+    imaSnmpMemEvent_NONE                     = 0,
+    imaSnmpMemEvent_TOTAL_BYTES              = 1,    //MemoryTotalBytes
+    imaSnmpMemEvent_FREE_BYTES               = 2,    //MemoryFreeBytes
+    imaSnmpMemEvent_FREE_PERCENT             = 3,    //MemoryFreePercent
+    imaSnmpMemEvent_SVR_VRTL_MEM_BYTES       = 4,    //ServerVirtualMemoryBytes
+    imaSnmpMemEvent_SVR_RSDT_SET_BYTES       = 5,    //ServerResidentSetBytes
+    imaSnmpMemEvent_GRP_MSG_PAYLOADS         = 6,    //MessagePayloads
+    imaSnmpMemEvent_GRP_PUB_SUB              = 7,    //PublishSubscribe
+    imaSnmpMemEvent_GRP_DESTS                = 8,    //Destinations
+    imaSnmpMemEvent_GRP_CUR_ACTIVITIES       = 9,    //CurrentActivity
+    imaSnmpMemEvent_GRP_CLIENT_STATES        = 10,   //ClientStates
+    imaSnmpMemEvent_MAX,
+
+} imaSnmpMemEventDataType_t;
+
+#define imaSnmpMemEvent_MIN  imaSnmpMemEvent_TOTAL_BYTES
+
+/* function declarations */
+#ifdef __cplusplus
+    extern "C" {
+#endif
+
+int 	ima_snmp_init_mem_event_mibs();
+void 	ima_snmp_reinit_mem_event_mibs();
+
+#ifdef __cplusplus
+    }
+#endif
+
+#endif /* _IMASNMPMEMEVENTMIB_H_ */
+

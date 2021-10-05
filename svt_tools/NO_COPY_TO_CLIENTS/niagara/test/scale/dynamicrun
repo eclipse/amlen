@@ -1,0 +1,133 @@
+#!/bin/bash
+
+declare sys=`uname -s`
+declare hn=`hostname`
+
+fn__free() {
+  local mem=100000
+
+  if [ "${sys}" == "Linux" ]; then
+    mem=`free | head -n 2 | tail -n 1|tr -s ' ' |cut -d' ' -f 4`
+  fi
+ 
+  printf "%d\n" ${mem}
+}
+
+fn__idle() {
+  local id=100
+
+  if [ "${sys}" == "Linux" ]; then
+    id=`top -b -i -n 3  | grep Cpu |cut -f4 -d',' | tail -1`
+    printf "%d\n" ${id:0:3}
+  #  iostat -c | tail -n 2 | head -n 1 |tr -s ' '| cut -d ' ' -f 7
+  elif [ "${sys}" == "Darwin" ]; then
+    id=`iostat -c1 | tail -n 1 | tr -s ' '| cut -d ' ' -f 7`
+    printf "%d\n" ${id}
+  else
+    printf "%d\n" 0
+  fi
+}
+
+
+fn__pid() {
+  local pid=0
+
+  if [ "${sys}" == "Linux" ]; then
+    pid=`ps -ef | grep java | grep -v grep | sort |tail -n 1| tr -s ' '| cut -d' ' -f 2`
+  fi
+
+  printf "%d\n" ${pid}
+}
+
+declare -i minfree=10000
+declare -i minidle=45
+declare -i finalidle=35
+declare -i critfree=1000
+declare -i critidle=20
+declare -i maxsleep=100
+declare stop=false
+
+fn__checkidle() {
+    local t=0
+    local u=0
+    local pid=0
+    local svtidle=0
+
+    svtidle=`fn__idle`
+    printf "[%s] idle:  %d (min %d)\n" ${hn} ${svtidle} ${minidle}
+
+    while [[ (${svtidle} -lt ${minidle}) && ("${stop}" == "false") ]]; do
+      sleep 20s
+      ((t++))
+
+      svtidle=`fn__idle`
+      printf "[%s] idle:  %d (min %d)\n" ${hn} ${svtidle} ${minidle}
+
+      if [ ${svtidle} -le ${critidle} ]; then
+        stop=true
+
+        sleep 120s
+        while [[ (${pid} -eq 0) && (${u} -lt 60) ]]; do
+          ((u++))
+
+          sleep 60s
+          svtidle=`fn__idle`
+          if [ ${svtidle} -le ${critidle} ]; then
+            u=60
+            pid=`fn__pid`
+            if [ ${pid} -ne 0 ]; then
+               echo kill ${pid}
+               kill ${pid}
+            fi
+          fi
+        done
+      elif [ ${t} -gt 5 ]; then
+        if [[ (${svtidle} -ge $((${minidle-5}))) && ($((${minidle}-5)) -ge ${finalidle}) ]]; then
+           ((minidle-=5))
+        fi
+      elif [ ${t} -gt 15 ]; then
+        if [[ (${svtidle} -ge $((${minidle-10}))) && ($((${minidle}-10)) -ge ${finalidle}) ]]; then
+           ((minidle-=10))
+        fi
+      elif [ ${t} -ge ${maxsleep} ]; then
+        stop=true
+      fi
+    done
+}
+
+fn__checkfree() {
+    local svtfree=0
+
+    svtfree=`fn__free`
+    printf "[%s] free:  %d (min %d)\n" ${hn} ${svtfree} ${minfree}
+
+    if [ ${svtfree} -le ${critfree} ]; then
+      stop=true
+      pid=`fn__pid`
+      if [ ${pid} -ne 0 ]; then
+         echo kill ${pid}
+         kill ${pid}
+      fi
+    elif [ ${svtfree} -le ${minfree} ]; then 
+      stop=true
+    fi
+}
+
+fn__run() {
+  id=$1
+
+  while [ "${stop}" == "false" ]; do
+    fn__checkfree
+    fn__checkidle
+
+    if [ "${stop}" == "false" ]; then
+      printf "[%s] /niagara/test/scale/manualrun 500 %d 86400\n" ${hn} ${id}
+      /niagara/test/scale/manualrun 500 ${id} 86400
+      ((id+=500))
+      sleep 20s
+    fi
+  done
+}
+
+fn__run ${1-0}
+

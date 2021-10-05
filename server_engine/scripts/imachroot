@@ -1,0 +1,234 @@
+#!/bin/sh
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+
+function download_and_run_extra_bin() {
+    firmdir=$1
+    shift
+    prog=$1
+    shift
+    if [ ! -f "$firmdir/opt/ibm/imaserver/bin/$prog" ]; then
+        level=$(find $firmdir -type f -name "THIS_IS_*" -printf "%f\n" 2>/dev/null | sed "s/THIS_IS_//")
+        buildtype=${level%_*}
+        level=${level#*_}
+
+        builduri=$buildserver/$buildserverdir/$buildtype/$level
+
+        echo Downloading $prog from $builduri
+        scp $builduri/application/server_ship/bin/$prog $firmdir/opt/ibm/imaserver/bin/.
+    fi
+
+    if [ -f "$firmdir/opt/ibm/imaserver/bin/$prog" ]; then
+        parms=$(echo $* | sed "s@$firmdir@@g")
+        sudo chroot $firmdir /opt/ibm/imaserver/bin/$prog $parms
+    else
+        echo Unable to access $firmdir/opt/ibm/imaserver/bin/$prog
+    fi
+}
+
+if [ -z "$IMA_FIRMWARE_ROOT" ]; then
+    firmrootdir=/imachroot
+else
+    firmrootdir="$IMA_FIRMWARE_ROOT"
+fi
+
+if [ ! -z "$IMA_BUILD_SERVER" ]; then
+    buildserver=$IMA_BUILD_SERVER
+else
+    echo "Must set \$IMA_BUILD_SERVER to be e.g. tester@changeme.company.com@mar145.test.company.com:/gsacache/release"
+    exit 1
+fi
+
+if [ ! -z "$IMA_STREAM" ]; then
+    buildstream=$IMA_STREAM
+    buildserverdir=$IMA_STREAM
+
+    # At the moment, the builds for IMA100 are actually written to ISM13a
+    if [ "$buildserverdir" == "IMA100" ]; then
+        buildserverdir="ISM13a"
+    # And builds for IMA120 are actually still written to IMA14a
+    elif [ "$buildserverdir" == "IMA120" ]; then
+        buildserverdir="IMA14a"
+    fi
+else
+    echo "Must set \$IMA_STREAM to be e.g. IMA100, IMA13b"
+    exit 1
+fi
+
+operation=$1
+shift
+
+if [ "$operation" == "" ]; then
+    echo "USAGE: imachroot <operation> [localdir] [buildtype:]<firmware level>"
+    echo "operation is one of: list, create, source, delete, start, apd, cli"
+    echo "buildtype is either d (development) or p (production), default = p"
+    echo "Optional localdir is the subdirectory name for the chroot (default is [buildtype:]<firmware level>)"
+
+elif [ "$operation" == "list" ]; then
+    escdir=$(echo ${firmrootdir}/ | sed "s@\/@\\\/@g")
+    sudo find $firmrootdir -maxdepth 2 -type f -name THIS_IS* -printf "%h (%f)\n" | sed "s/$escdir//g"
+else
+    localsubdir=$1
+    shift
+
+    if [ "$localsubdir" == "" ]; then
+       echo "For ${operation}, there must be an argument after the operation."
+       exit
+    fi
+
+    firmdir=$firmrootdir/$localsubdir
+    svrdir=$firmdir/opt/ibm/imaserver
+    cfgdir=$svrdir/config
+
+    if [ "$operation" == "create" ]; then
+       typeandlevel=$1
+       shift
+
+       if [ "${typeandlevel}" == "" ]; then
+          typeandlevel=$localsubdir
+       else
+          explicitlocaldir=1
+       fi
+
+       if [ "${typeandlevel:0:2}" == "D:" ] || [ "${typeandlevel:0:2}" == "d:" ]; then
+          buildtype="development"
+          level=${typeandlevel:2}
+       elif [ "${typeandlevel:0:2}" == "P:" ] || [ "${typeandlevel:0:2}" == "p:" ]; then
+          buildtype="production"
+          level=${typeandlevel:2}
+       else
+          buildtype="production"
+          level=$typeandlevel
+          typeandlevel="p:${level}"
+
+          if [ -z "$explicitlocaldir" ]; then
+             localsubdir=$typeandlevel
+          fi
+       fi
+
+        echo "Builtype is ${buildtype}, level is ${level}, localsubdir is ${localsubdir}"
+
+        archivefile=$firmrootdir/${buildtype}_${level}.tar.gz
+
+        if [ ! -f $archivefile ]; then
+            builduri=$buildserver/$buildserverdir/$buildtype/$level
+
+            echo Downloading firmware.tar.gz from $builduri
+            scp $builduri/appliance/firmware.tar.gz $archivefile
+        fi
+
+        if [ ! -d "$firmdir" ]; then
+            echo Setting up $firmdir
+            mkdir -p "$firmdir/bin"
+            echo $buildtype $level >"$firmdir/THIS_IS_${buildtype}_${level}"
+            echo imaserver /opt/ibm/imaserver/config/server_cold.cfg >"$firmdir/bin/cold_imaserver"
+            chmod 555 "$firmdir/bin/cold_imaserver"
+            echo imaserver /opt/ibm/imaserver/config/server.cfg >"$firmdir/bin/warm_imaserver"
+            chmod 555 "$firmdir/bin/warm_imaserver"
+            echo Untarring $archivefile
+            sudo tar -C "$firmdir" -xzf $archivefile
+            echo Changing access for imaserver bin directory
+            sudo chmod 777 "$firmdir/opt/ibm/imaserver/bin"
+            echo Replacing contents of config files
+            sudo sed -i -r "s/(Store\.MemoryType.*=).*1/\1 0/g" "$cfgdir/server_dynamic.cfg"
+            sudo sed -i -r "s/(Transport\.Endpoint\.Enabled\.DemoEndpoint.*=).*false/\1 true/g" "$cfgdir/server_dynamic.cfg"
+            sudo sed -i -r "s/(Processor\.16.*)/# \1/g" "$cfgdir/server.cfg"
+            sudo sed -i -r "s/(Processor\.32.*)/# \1/g" "$cfgdir/server.cfg"
+            echo Creating $cfgdir/server_cold.cfg
+            sudo cp "$cfgdir/server.cfg" "$cfgdir/server_cold.cfg"
+            sudo chown $USER:$USER "$cfgdir/server_cold.cfg"
+            echo Store.ColdStart=1 >> "$cfgdir/server_cold.cfg"
+            echo Configuring store directory $firmdir/store
+            sudo mkdir -p "$firmdir/store"
+            echo Condifuring cores directory $firmdir/ima/cores
+            sudo mkdir -p "$firmdir/ima/cores"
+            sudo chmod 777 "$firmdir/ima/cores"
+            echo Binding  /dev
+            sudo mount --bind /dev "$firmdir/dev"
+            echo Binding  /dev/pts
+            sudo mount --bind /dev/pts "$firmdir/dev/pts"
+            echo Binding /proc
+            sudo mount --bind /proc "$firmdir/proc"
+            echo Binding /sys
+            sudo mount --bind /sys "$firmdir/sys"
+        fi
+    elif [ "$operation" == "source" ]; then
+        level=$(find $firmdir -type f -name "THIS_IS_*" -printf "%f\n" 2>/dev/null | sed "s/THIS_IS_//")
+        buildtype=${level%_*}
+        level=${level#*_}
+        if [ "$RTC_HOME" == "" ]; then
+            echo "RTC_HOME must be set to the location of the RTC client"
+            exit
+        else
+            if [ "$USE_SNAPSHOT_NAME" == "" ]; then
+                snapshot="$buildstream - Hursley Production Build_$level"
+                if [ "$buildtype" == "development" ]; then
+                    snapshot="$buildstream - Austin Development Build_$level"
+                fi
+            else
+                snapshot=$USE_SNAPSHOT_NAME
+            fi
+            echo Creating source directories under $firmdir
+            sudo mkdir -p "$firmdir/source"
+            sudo chmod 777 "$firmdir/source"
+
+            # Set up symlinks for the source paths on various build machines..
+            sudo mkdir -p "$firmdir/home/itbld/jazz-build-engines/jazza06/jazza06.ism.ism-ilnx-1"
+            sudo ln -s /source $firmdir/home/itbld/jazz-build-engines/jazza06/jazza06.ism.ism-ilnx-1/build 2>/dev/null
+            sudo mkdir -p "$firmdir/home/itbld/jazz-build-engines/jazza06/jazza06.ism.ism-ilnx-r6"
+            sudo ln -s /source $firmdir/home/itbld/jazz-build-engines/jazza06/jazza06.ism.ism-ilnx-r6/build 2>/dev/null
+            sudo mkdir -p "$firmdir/home/ismbld/$buildstream"
+            sudo ln -s /source $firmdir/home/ismbld/$buildstream/workspace 2>/dev/null
+
+            # Set up symlink to the scripts
+            sudo ln -s /source/server_engine/scripts $firmdir/scripts
+
+            scmtools=$RTC_HOME/scmtools/eclipse
+            workspace=${RTC_WORKSPACE_PREFIX}_${buildtype}_${level}
+            echo Logging into RTC server $RTC_URI
+            $scmtools/lscm login -n rtc_server -r $RTC_URI -u $RTC_USER -c
+            echo Creating workspace $workspace
+            $scmtools/lscm create workspace $workspace -r rtc_server --snapshot "$snapshot"
+            echo Loading workspace $workspace
+            $scmtools/lscm load  $workspace -r rtc_server -d $firmdir/source --force "Server"
+            echo Deleting workspace $workspace
+            $scmtools/lscm workspace delete -r rtc_server $workspace
+            echo Logging out of RTC
+            $scmtools/lscm logout -r rtc_server
+        fi
+    elif [ "$operation" == "delete" ]; then
+        if [ -d "$firmdir" ]; then
+            echo Unbinding /dev/pts
+            (2>&1 sudo umount "$firmdir/dev/pts") > /dev/null
+            echo Unbinding /dev
+            (2>&1 sudo umount "$firmdir/dev") > /dev/null
+            echo Unbinding /proc
+            (2>&1 sudo umount "$firmdir/proc") > /dev/null
+            echo Unbinding /sys
+            (2>&1 sudo umount "$firmdir/sys") > /dev/null
+            echo Deleting $firmdir
+            sudo rm -rf "$firmdir"
+        else
+            echo Directory \'$firmdir\' not found
+        fi
+    elif [ "$operation" == "start" ]; then
+        sudo chroot $firmdir
+    elif [ "$operation" == "cli" ]; then
+        download_and_run_extra_bin $firmdir imaStandaloneCLI $*
+    elif [ "$operation" == "apd" ]; then
+        download_and_run_extra_bin $firmdir imaStandaloneAPD $*
+    elif [ "$operation" == "idf" ]; then
+        download_and_run_extra_bin $firmdir imadumpformatter $*
+    else
+        echo Unrecognised operation \'$operation\'
+    fi
+fi

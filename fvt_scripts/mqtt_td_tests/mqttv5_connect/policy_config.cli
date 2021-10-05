@@ -1,0 +1,108 @@
+# Converted Config File ../convert-cli.sh with 4 arguments: -s ALL -c connect/policy_config.cli 
+####################################################
+#
+# Converted to use all restapis February 2019
+#
+# (Completed, all items migrated)
+#
+#
+####################################################
+
+# Setup Configuration
+setup 0 group add GroupID=users
+setup 0 user add UserID=test1 type=messaging password=test1 GroupMembership=users
+setup 0 user add UserID=admin type=messaging password=admin GroupMembership=users
+
+# Groups for the AllowDurable= parameter on Connection Policy.
+setup 0 group add GroupID=AllowDurableNo
+setup 0 group add GroupID=AllowDurableYes
+
+# Create messaging users for AllowDurable= parameter on Connection Policy
+setup 0 user add UserID=ADNoUser1 type=messaging password=test GroupMembership=AllowDurableNo
+setup 0 user add UserID=ADYesUser1 type=messaging password=test GroupMembership=AllowDurableYes
+setup 0 user add UserID=ADChangesUser1 type=messaging password=test GroupMembership=AllowDurableYes
+setup 0 user add UserID=ADChangesUser2 type=messaging password=test
+
+# Message Hub for AllowDurable Endpoints
+
+#####setup 0 create MessageHub Name=MQTTADHub Description=MQTTAllowDurableHub
+setup 0 POST configuration {"MessageHub":{"MQTTADHub":{"Description":"MQTTAllowDurableHub"}}}
+
+# Message Hub for Anonymous Client Endpoint
+
+#####setup 0 create MessageHub Name=MQTTAnonClientHub Description=MQTTAnonymousClientHub
+setup 0 POST configuration {"MessageHub":{"MQTTAnonClientHub":{"Description":"MQTTAnonymousClientHub"}}}
+
+# Connection Policies for AllowDurable parameter.
+
+#####setup 0 create ConnectionPolicy Name=MQTTADNoCP1 GroupID=AllowDurableNo AllowDurable=False Protocol=MQTT
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTADNoCP1":{"GroupID":"AllowDurableNo","AllowDurable":false,"Protocol":"MQTT"}}}
+
+#####setup 0 create ConnectionPolicy Name=MQTTADYesCP1 GroupID=AllowDurableYes AllowDurable=True Protocol=MQTT
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTADYesCP1":{"GroupID":"AllowDurableYes","AllowDurable":true,"Protocol":"MQTT"}}}
+
+#####setup 0 create ConnectionPolicy Name=MQTTADChangesCP1 UserID=ADChangesUser2 AllowDurable=True Protocol=MQTT
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTADChangesCP1":{"UserID":"ADChangesUser2","AllowDurable":true,"Protocol":"MQTT"}}}
+
+# Connection Policy for Anonymous Clients
+
+#####setup 0 create ConnectionPolicy Name=MQTTAnonClientCP ClientID=_* Protocol=MQTT
+setup 0 POST configuration {"ConnectionPolicy":{"MQTTAnonClientCP":{"ClientID":"_*","Protocol":"MQTT"}}}
+
+# Messaging Policies for AllowDurable Endpoints
+
+#####setup 0 create MessagingPolicy Name=MQTTADMessagingPolicy01 Destination=* DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTADMessagingPolicy01":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"MQTT"}}}
+
+# Messaging Policy for Anonymous Client Endpoint
+
+# Just a basic messaging policy -- connection policy will be used to assure only anonymous clients are permitted
+
+#####setup 0 create MessagingPolicy Name=MQTTAnonClientMessagingPolicy Destination=* DestinationType=Topic "ActionList=Subscribe" Protocol=MQTT
+setup 0 POST configuration {"TopicPolicy":{"MQTTAnonClientMessagingPolicy":{"Topic":"*","ActionList":"Subscribe","Protocol":"MQTT"}}}
+
+# Endpoints for AllowDurable
+
+#####setup 0 create Endpoint Name=MQTTADEndpoint Enabled=True Port=20029 ConnectionPolicies=MQTTADNoCP1,MQTTADYesCP1,MQTTADChangesCP1 MessagingPolicies=MQTTADMessagingPolicy01 MessageHub=MQTTADHub
+setup 0 POST configuration {"Endpoint":{"MQTTADEndpoint":{"Enabled":true,"Port":20029,"ConnectionPolicies":"MQTTADNoCP1,MQTTADYesCP1,MQTTADChangesCP1","TopicPolicies":"MQTTADMessagingPolicy01","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTADHub"}}}
+
+# Endpoint for Anonymous Clients
+
+#####setup 0 create Endpoint Name=MQTTAnonClientEndpoint Enabled=True Port=20039 ConnectionPolicies=MQTTAnonClientCP MessagingPolicies=MQTTAnonClientMessagingPolicy MessageHub=MQTTAnonClientHub
+setup 0 POST configuration {"Endpoint":{"MQTTAnonClientEndpoint":{"Enabled":true,"Port":20039,"ConnectionPolicies":"MQTTAnonClientCP","TopicPolicies":"MQTTAnonClientMessagingPolicy","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"MQTTAnonClientHub"}}}
+
+# Cleanup Configuration
+cleanup 0 user delete UserID=test1 type=messaging
+cleanup 0 user delete UserID=admin type=messaging
+cleanup 0 group delete GroupID=users
+
+#####cleanup 0 delete Endpoint Name=MQTTADEndpoint
+cleanup 0 DELETE configuration/Endpoint/MQTTADEndpoint
+#####cleanup 0 delete Endpoint Name=MQTTAnonClientEndpoint
+cleanup 0 DELETE configuration/Endpoint/MQTTAnonClientEndpoint
+cleanup 0 user delete UserID=ADNoUser1 type=messaging
+cleanup 0 user delete UserID=ADYesUser1 type=messaging
+cleanup 0 user delete UserID=ADChangesUser1 type=messaging
+cleanup 0 user delete UserID=ADChangesUser2 type=messaging
+cleanup 0 group delete GroupID=AllowDurableNo
+cleanup 0 group delete GroupID=AllowDurableYes
+#####cleanup 0 delete MessageHub Name=MQTTADHub
+cleanup 0 DELETE configuration/MessageHub/MQTTADHub
+#####cleanup 0 delete MessageHub Name=MQTTAnonClientHub
+cleanup 0 DELETE configuration/MessageHub/MQTTAnonClientHub
+#####cleanup x delete Subscription SubName=/connect/AD02 ClientID=connectAD_02
+cleanup x DELETE service/Subscription/connectAD_02//connect/AD02
+#####cleanup x delete Subscription SubName=/connect/AD03 ClientID=connectAD_03
+cleanup x DELETE service/Subscription/connectAD_03//connect/AD03
+#####cleanup 0 delete ConnectionPolicy Name=MQTTADNoCP1
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTADNoCP1
+#####cleanup 0 delete ConnectionPolicy Name=MQTTADYesCP1
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTADYesCP1
+#####cleanup 0 delete ConnectionPolicy Name=MQTTADChangesCP1
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTADChangesCP1
+#####cleanup 0 delete ConnectionPolicy Name=MQTTAnonClientCP
+cleanup 0 DELETE configuration/ConnectionPolicy/MQTTAnonClientCP
+#####cleanup 0 delete MessagingPolicy Name=MQTTADMessagingPolicy01
+cleanup 0 DELETE configuration/TopicPolicy/MQTTADMessagingPolicy01
+#####cleanup 0 delete MessagingPolicy Name=MQTTAnonClientMessagingPolicy
+cleanup 0 DELETE configuration/TopicPolicy/MQTTAnonClientMessagingPolicy

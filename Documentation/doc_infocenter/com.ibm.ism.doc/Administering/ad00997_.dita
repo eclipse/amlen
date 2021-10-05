@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ad00997_" xml:lang="en-us">
+<title>Enabling high availability on a member of a cluster by using <ph
+    conref="../TextEntities.dita#TextEntities/RESTAPIs"/></title>
+<!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+<!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+<!--Put your short description next; used for first paragraph and abstract.-->
+<shortdesc>You can add high availability (HA) to members of your cluster by using <ph
+    conref="../TextEntities.dita#TextEntities/RESTAPIs"/>. </shortdesc>
+<!--To optimize PDF retrievability, add prolog and indexing tags that help crystalize why users should be looking up this topic (purpose, task, and what they will learn)-->
+<!--<prolog><metadata><keywords><indexterm></indexterm></keywords></metadata></prolog>-->
+  <taskbody>
+    <context>
+      <p>System administrators can add HA to members of a cluster by using <ph
+        conref="../TextEntities.dita#TextEntities/RESTAPIs"/>, or by using the <ph
+        conref="../TextEntities.dita#TextEntities/ISMgui"
+        />. For more information about using the <ph
+        conref="../TextEntities.dita#TextEntities/ISMgui"/> to add HA to cluster members, see <xref
+        href="ad00999_.dita"/>.</p>
+      <p>In this scenario, an <ph conref="../TextEntities.dita#TextEntities/ISM"
+        /> server that is a member of a cluster but has HA disabled is paired with another <ph
+        conref="../TextEntities.dita#TextEntities/ISM"
+        /> server to act as its backup. In this scenario, Server A is already member of a cluster, and becomes the primary node. Server B becomes the standby node in the HA pair. Server A can be a server that has data on it. Server B must be a newly installed <ph
+        conref="../TextEntities.dita#TextEntities/ISM"
+        /> server or you must complete Step 1 to remove any pre-existing data. </p>
+    </context>
+    <steps>
+      <step importance="optional">
+        <cmd>If Server B is a newly installed server, you do not need to perform this step. If Server B is not a newly installed server and has been used for messaging services, you must delete any JMS queues that exist on the server and then clean the store. </cmd>
+        <info>
+          <p>For more information about deleting message queues, see <xref href="ad00356_.dita"
+            />.</p>
+          <p>For more information about cleaning the store, see <xref href="ad00282_.dita"/>.</p>
+        </info>
+      </step>
+      <step>
+        <cmd>Configure HA on Server A.</cmd>
+        <info><p>Use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following <ph
+          conref="../TextEntities.dita#TextEntities/ISM"
+          /> configuration URI:<codeblock>http://&lt;admin-endpoint-IP:Port&gt;/ima/v1/configuration/</codeblock></p>Ensure that you specify the following HighAvailability object configuration data in the payload of the POST method:<ul>
+          <li><codeph>"EnableHA": true</codeph></li>
+          <li>A value for <codeph>"Group":</codeph></li>
+          <li>A value for <codeph>"LocalDiscoveryNIC":</codeph> For example, <codeph>"LocalDiscoveryNIC": "192.0.2.0"</codeph></li>
+          <li>A value for <codeph>"LocalReplicationNIC":</codeph> For example, <codeph>"LocalReplicationNIC": "192.0.3.0" </codeph> </li>
+          <li>A value for <codeph>"RemoteDiscoveryNIC":</codeph> For example, <codeph>"RemoteDiscoveryNIC": "192.0.2.2" </codeph></li>
+          <li><codeph>"PreferredPrimary": true</codeph></li>
+          </ul> For more information about configuring a servers as an HA pair, see <xref
+          href="ad00992_.dita"/>.</info>
+      </step>
+      <step>
+        <cmd>Configure HA on Server B. It is best practice to use a newly installed <ph
+          conref="../TextEntities.dita#TextEntities/ISM"
+          /> server to act as the standby server in the HA pair.</cmd>
+        <info>
+          <p>Use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+            /> REST API POST method with the following <ph
+            conref="../TextEntities.dita#TextEntities/ISM"
+            /> configuration URI:<codeblock>http://&lt;admin-endpoint-IP:Port&gt;/ima/v1/configuration/</codeblock>Ensure that you specify the following HighAvailability object configuration data in the payload of the POST method:</p>
+          <ul>
+            <li><codeph>"EnableHA": true</codeph></li>
+            <li>The same value for <codeph>"Group":</codeph> as that specified for Server A.</li>
+            <li>A value for <codeph>"LocalDiscoveryNIC":</codeph> For example, <codeph>"LocalDiscoveryNIC": "192.0.2.2"</codeph></li>
+            <li>A value for <codeph>"LocalReplicationNIC":</codeph> For example, <codeph>"LocalReplicationNIC": "192.0.3.2" </codeph> </li>
+            <li>The same value for <codeph>"RemoteDiscoveryNIC":</codeph> as that specified for <codeph>"LocalDiscoveryNIC":</codeph> on the primary server. For example, <codeph>"RemoteDiscoveryNIC": "192.0.2.0"</codeph></li>
+            <li><codeph>"PreferredPrimary": false</codeph></li>
+          </ul>
+        </info>
+      </step>
+      <step>
+        <cmd>Configure and enable cluster membership on Server B.</cmd>
+        <info> <p>Use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following <ph
+          conref="../TextEntities.dita#TextEntities/ISM"
+          /> configuration URI:<codeblock>http://&lt;admin-endpoint-IP:Port&gt;/ima/v1/configuration/</codeblock>Ensure that you specify the following ClusterMembership object configuration data in the payload of the POST method:</p> <ul>
+          <li><codeph>"EnableClusterMembership": true</codeph></li>
+          <li>The same value for <codeph>"ClusterName":</codeph> as that specified in the cluster membership configuration of Server A.</li>
+          <li><codeph>"ControlAddress":</codeph> of Server B.</li>
+          <li><codeph>"MessagingAddress":</codeph> of Server B.</li>
+          </ul>Ensure that you also include any other cluster membership configuration parameters that you need so that Server B and Server A can identify and connect to the other members of the cluster, for example, if Server A is using external addresses or ports. For more information about configuring cluster membership on a server, see <xref
+          href="ad00942_.dita"/>.</info>
+      </step>
+      <step>
+        <cmd>Restart both servers. Restart Server B first.</cmd>
+        <info>
+          <p>Use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+            /> REST API POST method on each server with the following <ph
+            conref="../TextEntities.dita#TextEntities/ISM"/> configuration URI:</p>
+          <p><codeph>http://&lt;admin-endpoint-IP:port>/ima/v1/service/restart</codeph></p>
+          <p>Provide object configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>: </p>
+          <codeblock>
+{    
+  "Service": "Server" 
+}</codeblock>
+        </info>
+      </step>
+      <step>
+        <cmd>After your servers have restarted, verify the status of your servers.</cmd>
+        <info>On each server, use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API GET method with the following URI:<p><codeph>http://&lt;admin-endpoint-IP:Port>/ima/v1/service/status</codeph></p></info>
+        <substeps>
+          <substep>
+            <cmd>Check the status information that is returned for Server A to verify that:</cmd>
+            <info><ul>
+              <li>Server A is running.</li>
+              <li>The status of the HA service status is <codeph>Active</codeph></li>
+              <li>The value of <codeph>NewRole</codeph> is <codeph>PRIMARY</codeph></li>
+              <li>The status of the cluster is <codeph>Active</codeph> and the server is connected to other servers in the cluster.</li>
+              </ul>Excerpt from an example response to the REST API GET method for Server A status:<codeblock>{
+"Version":"v1",
+"Server": {  
+  "Name": "ServerA.mycompany.com:9089",   
+  "UID": "PgOSgS1k",  
+  <b>"Status": "Running",</b>
+  "State": 1,
+  "StateDescription": "Running (production)",
+  "ServerTime": "2016-04-15T13:55:01.614Z",
+  "UpTimeSeconds": 1604,
+  "UpTimeDescription": "0 days 0 hours 26 minutes 44 seconds",
+  "Version": "2.0 20160414-1500",
+  "ErrorCode": 0,
+  "ErrorMessage": ""
+},
+"HighAvailability": {
+  <b>"Status": "Active",</b>
+  "Enabled": true,
+  "Group": "MyHAGroup",
+  <b>"NewRole": "PRIMARY",</b>
+  "OldRole": "PRIMARY",
+  "ActiveNodes": 2,
+  "SyncNodes": 2,
+  "PrimaryLastTime": "2016-04-15T14:05:22Z",
+  "PctSyncCompletion": -1,
+  "ReasonCode": 0,
+  "RemoteServerName": "ServerB.myCompany.com:9089"
+},
+"Cluster": {
+  <b>"Status": "Active",</b>
+  "Name": "MyCluster",
+  "Enabled": true,
+  <b>"ConnectedServers": 2,</b>
+  "DisconnectedServers": 0
+</codeblock></info>
+          </substep>
+          <substep>
+            <cmd>Check the status information that is returned for Server B to verify that:</cmd>
+            <info><ul>
+              <li>Server B is running.</li>
+              <li>The status of the HA service status is <codeph>Active</codeph></li>
+              <li>The value of <codeph>NewRole</codeph> is <codeph>STANDBY</codeph></li>
+              <li>The status of the cluster is <codeph>Standby</codeph> and the server is not connected to other servers in the cluster.</li>
+              </ul>Excerpt from an example response to the REST API GET method for Server B status:<codeblock>{
+"Version":"v1",
+"Server": {  
+  "Name": "ServerB.myCompany.com:9089",
+  "UID": "PgOSgS1k",
+  <b>"Status": "Running",</b>
+  "State": 10,
+  "StateDescription": "Standby",
+  "ServerTime": "2016-04-15T14:05:52.850Z",
+  "UpTimeSeconds": 1608,
+  "UpTimeDescription": "0 days 0 hours 26 minutes 48 seconds",
+  "Version": "2.0 20160414-1500",
+  "ErrorCode": 0,
+  "ErrorMessage": ""
+},
+"HighAvailability": {
+  <b>"Status": "Active",</b>
+  "Enabled": true,
+  "Group": "MyHAGroup",
+  <b>"NewRole": "STANDBY",</b>
+  "OldRole": "UNSYNC",
+  "ActiveNodes": 2,
+  "SyncNodes": 2,
+  "PrimaryLastTime": "",
+  "PctSyncCompletion": -1,
+  "ReasonCode": 0,
+  "RemoteServerName": "ServerA.myCompany.com:9089"
+},
+"Cluster": {
+  <b>"Status": "Standby",</b>
+  "Name": "MyCluster",
+  "Enabled": true,
+  <b>"ConnectedServers": 0,</b>
+  "DisconnectedServers": 0
+</codeblock></info>
+          </substep>
+        </substeps>
+      </step>
+      <step>
+        <cmd>Force a failover operation in order to verify that Server B is correctly configured to work with the cluster.</cmd>
+        <info>You can force a failover operation by restarting Server A.<p>Use the <ph
+          conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API POST method with the following URI:<codeblock>http://&lt;admin-endpoint-IP:port>/ima/v1/service/restart</codeblock></p><p>Provide configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>:</p><codeblock>
+{    
+  "Service": "Server"
+}</codeblock></info>
+      </step>
+      <step>
+        <cmd>Verify the status of your servers after the failover.</cmd>
+        <info>On each server, use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+          /> REST API GET method with the following URI:<p><codeph>http://&lt;admin-endpoint-IP:Port>/ima/v1/service/status</codeph></p></info>
+        <substeps>
+          <substep>
+            <cmd>Check the status information that is returned for Server A to verify that:</cmd>
+            <info><ul>
+              <li>Server A is running as the standby server.</li>
+              <li>The status of the HA service status is <codeph>Active</codeph></li>
+              <li>The value of <codeph>NewRole</codeph> is <codeph>STANDBY</codeph></li>
+              <li>The status of the cluster is <codeph>Standby</codeph> and the server is not connected to other servers in the cluster.</li>
+              </ul>Excerpt from an example response to the REST API GET method for Server A status:<codeblock>{
+"Version":"v1",
+"Server": {  
+  "Name": "ServerA.myCompany.com:9089",
+  "UID": "PgOSgS1k",
+  <b>"Status": "Running",</b>
+  "State": 10,
+  "StateDescription": "Standby",
+  "ServerTime": "2016-04-15T14:05:52.850Z",
+  "UpTimeSeconds": 360,
+  "UpTimeDescription": "0 days 0 hours 6 minutes 0 seconds",
+  "Version": "2.0 20160414-1500",
+  "ErrorCode": 0,
+  "ErrorMessage": ""
+},
+"HighAvailability": {
+  <b>"Status": "Active",</b>
+  "Enabled": true,
+  "Group": "MyHAGroup",
+  <b>"NewRole": "STANDBY",</b>
+  "OldRole": "UNSYNC",
+  "ActiveNodes": 2,
+  "SyncNodes": 2,
+  "PrimaryLastTime": "",
+  "PctSyncCompletion": -1,
+  "ReasonCode": 0,
+  "RemoteServerName": "ServerB.myCompany.com:9089"
+},
+"Cluster": {
+  <b>"Status": "Standby",</b>
+  "Name": "MyCluster",
+  "Enabled": true,
+  <b>"ConnectedServers": 0,</b>
+  "DisconnectedServers": 0
+    }
+</codeblock></info>
+          </substep>
+          <substep>
+            <cmd>Check the status information that is returned for Server B to verify that:</cmd>
+            <info><ul>
+              <li>Server B is running.</li>
+              <li>The status of the HA service is <codeph>Active</codeph></li>
+              <li>The value of <codeph>NewRole</codeph> is <codeph>PRIMARY</codeph></li>
+              <li>The status of the cluster is <codeph>Active</codeph> and the cluster is connected to other servers in the cluster.</li>
+              </ul>Excerpt from an example response to the REST API GET method for Server B status:<codeblock>{
+"Version":"v1",
+"Server": {  
+  "Name": "ServerB.mycompany.com:9089",
+  "UID": "PgOSgS1k",
+  <b>"Status": "Running",</b>
+  "State": 1,
+  "StateDescription": "Running (production)",
+  "ServerTime": "2016-04-15T13:55:01.614Z",
+  "UpTimeSeconds": 1714,
+  "UpTimeDescription": "0 days 0 hours 29 minutes 54 seconds",
+  "Version": "2.0 20160414-1500",
+  "ErrorCode": 0,
+  "ErrorMessage": ""
+},
+  "HighAvailability": {
+  <b>"Status": "Active",</b>
+  "Enabled": true,
+  "Group": "MyHAGroup",
+  <b>"NewRole": "PRIMARY",</b>
+  "OldRole": "STANDBY",
+  "ActiveNodes": 2,
+  "SyncNodes": 2,
+  "PrimaryLastTime": "2016-04-15T14:25:01Z",
+  "PctSyncCompletion": -1,
+  "ReasonCode": 0,
+  "RemoteServerName": "ServerA.myCompany.com:9089"
+},
+"Cluster": {
+  <b>"Status": "Active",</b>
+  "Name": "MyCluster",
+  "Enabled": true,
+  <b>"ConnectedServers": 2,</b>
+  "DisconnectedServers": 0 
+</codeblock></info>
+          </substep>
+        </substeps>
+      </step>
+    </steps>
+  </taskbody>
+</task>

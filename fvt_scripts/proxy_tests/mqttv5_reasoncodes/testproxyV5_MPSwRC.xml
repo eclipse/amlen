@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqttV5_MPSwRC" >
+<!--  MQTTv5 Spec 3.4.2.2.2
+    This test will test a create connection with with a small MaxPacketSize and force an error where response is to big to include ReasonCode.
+    The ReasonCode WILL NOT be returned due the packet size limitation and the Connection WILL BE Dropped. 
+-->
+<!--  ==========  connackNoRC  ==========  -->
+    <Action name="connackMPSNoRC" type="CompositeAction">
+        
+        <Action name="ConnectMPSNoRC" type="CreateConnection" rc="1" reason="ISMTEST4128">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connack:MPSNoRC</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:connack:MPSNoRC</ApiParameter>
+            <ApiParameter name="password">junk</ApiParameter>
+
+<!-- NOTE:  Not Authorized RC is mapped to 2525, TD internally checks 135, but does not expose it to test client 
+            <ActionParameter name="reasonCode">135</ActionParameter>
+            <ActionParameter name="reason">Not authorized5</ActionParameter>
+So neither of these work!  :-/   Only test for ISMTEST2525
+            <ApiParameter name="expectedrc">135</ApiParameter>
+But in this case the MaxPacketSize it too small to return the 2525MS/4128 Proxy with reason 135, so the connection is lost
+You will NOT see this clientId in the ServerLog, but you can see these messages about Maximum Packet Size exceeded:
+
+2018-05-04T23:22:41.796Z tcpiop.1 pxframe.c:142: MQTT send 20 CONNACK connect=2836: len=56 
+00000: 0080351f 00325379 7374656d 20657272 6f723a20 54686520 4d617869 6d756d20  [..5..2System error: The Maximum ]
+00032: 5061636b 65742053 697a6520 69732074 6f6f2073 6d616c6c                    [Packet Size is too small]
+2018-05-04T23:22:41.796Z tcpiop.1 pxmqtt.c:2478: MQTT error: rc=System error: The Maximum Packet Size is too small (100) command=CONNECT connect=2836 inprogress=1
+2018-05-04T23:22:41.796Z tcpiop.1 pxtcp.c:963: closeConnectionNotify: connect=2836(0x2cfd860) reason=System error: The Maximum Packet Size is too small
+
+-->
+            <ApiParameter name="maxPacketSize">50</ApiParameter>
+            <ApiParameter name="requestProblemInfo">1</ApiParameter>
+        </Action>
+               
+    </Action>
+
+
+
+<!--  ==========  pubackMPSNoRc  ==========  -->
+    <Action name="pubackMPSNoRC" type="CompositeAction">
+	
+        <Action name="ConnectMPSNoRC" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:puback:MPSNoRC</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:puback:MPSNoRC</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+
+<!-- maxPacketSize must be larger than 60 for the connection to pass -->
+            <ApiParameter name="maxPacketSize">65</ApiParameter>
+
+            <ApiParameter name="requstResponseInfo">true</ApiParameter>
+            <ApiParameter name="requstProblemInfo">1</ApiParameter>
+            <ApiParameter name="userprop.0">key=value</ApiParameter>
+            <ApiParameter name="userprop.1">name5name1name5name2name5name3name5name4="REALLY Big Value1112222222222333333333344444444445555555555</ApiParameter>
+        </Action>
+<!--
+@ PROXY
+MQTT receive 10 CONNECT: connect=18: len=201 
+00000: 00044d51 5454 05 c2 0023 7e 22 0000 26 0003 6b6579 0005 76616c7565 26 0028 6e61  [..MQTT...#~"..&..key..value&.(na]
+00032: 6d65356e 616d6531 6e616d65 356e616d 65326e61 6d65356e 616d6533 6e616d65  [me5name1name5name2name5name3name]
+00064: 356e616d 6534003c 22524541 4c4c5920 42696720 56616c75 65313131 32323232  [5name4.<"REALLY Big Value1112222]
+00096: 32323232 32323333 33333333 33333333 34343434 34343434 34343535 35353535  [22222233333333334444444444555555]
+00128: 35353535 27 00000041 0019 643a6f7267 34696f74 323a7075 6261636b 3a4d5053  [5555'...A..d:org4iot2:puback:MPS]
+00160: 4e6f5243 0019 643a 6f726734 696f7432 3a707562 61636b3a 4d50534e 6f5243 00  [NoRC..d:org4iot2:puback:MPSNoRC.]
+00192: 08                                                                       [.]
+    PropertyLength(7e)
+0x22:TopicAlias=0, 0x27:MaxPacketSz=65, 0x26:UserProperty (0x03)key(0x05)value, 0x26:UserProperty (0x28)key(0x3c)value
+
+MISSING requestResponseInfo and requestProblemInfo  ~~  DEFECT 207495 and then DEFECT 208617
+
+MQTT send 10 CONNECT connect=18: len=121 
+00000: 00064d51 54547078 05 82 ea 0023 16 22 0000 27 00000041 26 0008 696d61 70726f78  [..MQTTpx....#."..'...A&..imaprox]
+00032: 79 0001 35 0019 643a 6f726734 696f7432 3a707562 61636b3a 4d50534e 6f524300  [y..5..d:org4iot2:puback:MPSNoRC.]
+00064: 19643a6f 72673469 6f74323a 70756261 636b3a4d 50534e6f 52430008 6f726734  [.d:org4iot2:puback:MPSNoRC..org4]
+00096: 696f7432 0000001e 000d3136 392e3533 2e313436 2e313507 5b                 [iot2......169.53.146.15.[]
+    PropertyLength(16)
+0x22:TopicAlias=0, 0x27:MaxPacketSz=65, 0x26:UserProperty (08)imaproxy=(01)5
+
+@ M/S
+2018-06-26T22:19:11.287Z tcpiop.0 mqtt.c:1627: MQTT receive 10 CONNECT connect=28 rc=0: len=121 
+00000: 00064d51 54547078 0582ea 0023 16 22 0000 27 00000041 26 0008 696d61 70726f78  [..MQTTpx....#."..'...A&..imaprox]
+00032: 79 0001 35 0019643a 6f726734 696f7432 3a707562 61636b3a 4d50534e 6f524300  [y..5..d:org4iot2:puback:MPSNoRC.]
+00064: 19643a6f 72673469 6f74323a 70756261 636b3a4d 50534e6f 52430008 6f726734  [.d:org4iot2:puback:MPSNoRC..org4]
+00096: 696f7432 0000001e 000d3136 392e3533 2e313436 2e313507 5b                 [iot2......169.53.146.15.[]
+
+    PropertyLength(16)
+0x22:TopicAlias=0, 0x27:MaxPacketSz=65, 0x26:UserProperty (08)imaproxy=(01)5
+
+@ M/S
+MQTT send 20 CONNACK connect=28: len=17 
+00 00 0b 21 0100 22 0008 27 00400000 8100 05 
+[...!.."..'.@.....]
+    PropertyLength(0x0b)
+0x21:ReceiveMax=256, 0x22:TopicAlias=8, 0x27:MaxPacketSz=65
+
+@ PROXY
+MQTT send 20 CONNACK connect=18: len=9 
+00 00 06 22 0000 21 0100 
+[..."..!..]
+    PropertyLength(0x06)
+0x21:ReceiveMax=256, 0x22:TopicAlias=0
+
+-->        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">!</ApiParameter>
+        </Action>
+  
+        <Action name="SendMessageQoS1" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/rc144/fmt/&#x0084;</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ApiParameter name="expectedrcv5">144</ApiParameter>
+        </Action>
+<!-- NOTE: 
+The PUBACK/PUBREC is only single digits long (<5 bytes), where as the CONNECT and PUBLISH are over 40 bytes
+I am not sure there is a way for the PUBLISH's ACK to be LARGER than the PUBLISH when there is an error and SMALLER than the MPS
+
+The PUBLISH Never arrives at the server, the M/S server sees:
+tcpiop.0 mqtt.c:6523: ism_mqtt_closing: connect=28 client=d:org4iot2:puback:MPSNoRC rc=91 clean=1 reason=Connection closed by client 
+
+@ PROXY
+MQTT receive 32 PUBLISH connect=18 inprogress=1: len=17 
+000b 72632f3134342fc3842f21 0001 00 21 
+[..rc/144/../!...!]
+-->
+        <Action name="ChkConnAfterPublishQoS1" type="CheckConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+<!--            <ActionParameter name="reasonCode">144</ActionParameter>  -->
+        </Action>
+  
+        <Action name="SendMessageQoS2" type="SendMessage" >
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/rc144/fmt/&#x0084;</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+<!-- Timeout waiting for ACK -  defect 214606
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ApiParameter name="expectedrcv5">144</ApiParameter>
+-->
+        </Action>
+                
+        <Action name="ChkConnAfterPublishQoS2" type="CheckConnection">
+		  <dependsOn action_id="SendMessageQoS2" interval="500" />
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+<!--            <ActionParameter name="isConnected">false</ActionParameter> -->
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ActionParameter name="reasonCode">144</ActionParameter>
+            <ActionParameter name="reason">Topic name invalid.</ActionParameter>
+        </Action>
+        
+        <Action name="DISCONNECT" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+    </Action>
+
+
+
+
+<!--  ==========  DisconnectNoRC  ==========  -->
+    <Action name="disconnectMPSNoRC" type="CompositeAction">
+	
+        <Action name="ConnectMPSNoRC" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:disconnect:MPSNoRC</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:disconnect:MPSNoRC</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="maxPacketSize">65</ApiParameter>
+            <ApiParameter name="requstProblemInfo">1</ApiParameter>
+        </Action>
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">TEXT: Publish A Message that is larger than MAXIMUM PACKET SIZE specified on CONNECT and the CONNECTion will be dropped.</ApiParameter>
+        </Action>
+ 
+ <!-- PAHO ISSUE 567:  Untranslated Exception 50001  and (TO'ed waiting for ACK)  -->
+        <Action name="SendMessageQoS2" type="SendMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">txmsg</ActionParameter>
+            <ActionParameter name="topic">/bigmessages</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+<!-- Timeout waiting for ACK -  defect 214606
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ApiParameter name="expectedrcv5">144</ApiParameter>
+-->
+        </Action>
+        
+        <Action name="ChkConnAfterPublish" type="CheckConnection">
+ 		  <dependsOn action_id="SendMessageQoS2" interval="500" />
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+<!--            <ActionParameter name="isConnected">false</ActionParameter> -->
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ActionParameter name="reasonCode">144</ActionParameter>
+            <ActionParameter name="reason">Topic name invalid.</ActionParameter>
+        </Action>
+        
+        <Action name="DISCONNECT" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+		</Action>
+
+    
+</IsmWSTest>
+                

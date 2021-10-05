@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+	Test case:  jms_trans_Retained.xml
+	
+	Description:
+		Test transactions with multiple consumers on a session, and Retained messages.
+		
+		Testing two retained messages are published in order msg1 then msg3,  
+		but committed in order msg3 then msg1. In this case, msg3 is received by 
+		new subscriptions, even after msg1 is committed. A retained message 
+		that is published earlier than the current retained message is discarded. 
+		
+		Commit the sessions at various phases of receiving to create this case, 
+		and then send retained messages on the live stream. 
+		
+-->
+<ImaJmsTest name="jms_trans_Retained" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_trans_Retained</solution>
+	</SyncClient>
+  <Action name="rmdr" type="CompositeAction">
+
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<!-- ActionParameter name="loglevel">9</ActionParameter>		
+		<ActionParameter name="logfile">stdout</ActionParameter -->
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102"/>
+		<include>../common/JMS_server.xml</include>
+	</Action>
+	<Action name="CreateConnection" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateSession1" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session1</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+	
+	<Action name="CreateSession2" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+		<ActionParameter name="structure_id">Session2</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+
+	<!-- Create destination and consumer #1 -->
+	<Action name="CreateDestination1" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">transRet</ApiParameter>
+	 	<ActionParameter name="structure_id">dest1</ActionParameter>
+	</Action>
+	
+	<!-- wait until 40 retained messages of msg3 have been published and
+		committed, and 40 retained messages of msg1 have been sent but 
+		not committed. Then create the consumer. 
+		only the last of msg3 should be received, and it has special text 
+		that identifies itself.  -->
+	<Action name="sync_components" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">rx1</ActionParameter>
+		<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+	
+	<Action name="CreateConsumer1" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer1</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>
+	
+	<Action name="StartConnection" type="StartConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>			
+	
+	<Action name="ReceiveMessage3_1ast" type="ReceiveMessage">
+		<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg3_1ast</ActionParameter>
+		<ApiParameter name="timeout">20000</ApiParameter>
+	</Action>	
+	
+	<!--  It was a retained message sent from a retained source so  retained pseudo property should be set  -->
+	<Action name="GetRetainedFlag_msg2_consumer1" type="GetMessageProperty">
+		<ActionParameter name="message_id">rxmsg3_1ast</ActionParameter>
+		<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>
+		<ActionParameter name="verifyValue">1</ActionParameter>
+	</Action>	
+	
+
+	<Action name="ReadStreamMsg_consumer1" type="ReadStreamMessage">
+		<ActionParameter name="message_id">rxmsg3_1ast</ActionParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ActionParameter name="verifyValue">STREAM: Final Retained Message on Producer 3</ActionParameter>
+	</Action>
+		
+	<!-- Tell rmdt to commit the 40 msg1 retained messages  -->
+	<Action name="sync_components_2" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">rx2</ActionParameter>
+		<ActionParameter name="component_list">tx2;rx2</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>	
+
+	<!-- Wait for the commit to be completed -->
+ 	<Action name="sync_components_3" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">rx3</ActionParameter>
+		<ActionParameter name="component_list">tx3;rx3</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>	 
+
+	<!-- Create consumer #2  -->
+
+	<Action name="CreateConsumer2" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer2</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Session2</ActionParameter>
+	</Action>
+	
+	<!-- Tell rmdt to start sending more retained messages -->
+	<Action name="sync_components4" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">rx4</ActionParameter>
+		<ActionParameter name="component_list">tx4;rx4</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>		
+	
+	<!-- even though there were 40 retained msg1 committed, they had been 
+		published earlier than the final msg3 retained message, and should NOT
+		replace the final msg3 as the available retained msg. So we expect
+		to see the same message as consumer1 received. --> 
+	<Action name="ReceiveMessage3_1ast_cons2" type="ReceiveMessage">
+		<ActionParameter name="consumer_id">consumer2</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg3_1ast_cons2</ActionParameter>
+		<ApiParameter name="timeout">20000</ApiParameter>
+	</Action>	
+	
+	<!--  It was a retained message sent from a retained source so retained pseudo property should be set  -->
+	<Action name="GetRetainedFlag_msg3_last_cons2" type="GetMessageProperty">
+		<ActionParameter name="message_id">rxmsg3_1ast_cons2</ActionParameter>
+		<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>
+		<ActionParameter name="verifyValue">1</ActionParameter>
+	</Action>	
+	
+	<Action name="ReadTextMsg3_last_cons2" type="ReadStreamMessage">
+		<ActionParameter name="message_id">rxmsg3_1ast_cons2</ActionParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ActionParameter name="verifyValue">STREAM: Final Retained Message on Producer 3</ActionParameter>
+	</Action>	
+  
+	<!-- receive retained messages sent on live streams to both consumers -->
+	<Action name="CompositeRcvmsg4" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage4_1" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg4_cons1</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage4_1" type="GetMessageObject">
+			<ActionParameter name="message_id">rxmsg4_cons1</ActionParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">OBJECT: test string</ActionParameter>
+		</Action>
+		<!--  It was a retained message sent from a live source so retained pseudo property should not be set  -->
+		<Action name="GetRetainedFlag_msg4_cons1" type="GetMessageProperty">
+			<ActionParameter name="message_id">rxmsg4_cons1</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ActionParameter name="verifyValue">0</ActionParameter>
+		</Action>			
+		<Action name="ReceiveMessage4_2" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg4_cons2</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage4_2" type="GetMessageObject">
+			<ActionParameter name="message_id">rxmsg4_cons2</ActionParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">OBJECT: test string</ActionParameter>
+		</Action>
+		<!--  It was a retained message sent from a live source so retained pseudo property should not be set  -->
+		<Action name="GetRetainedFlag_msg4_cons2" type="GetMessageProperty">
+			<ActionParameter name="message_id">rxmsg4_cons2</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ActionParameter name="verifyValue">0</ActionParameter>
+		</Action>					
+	</Action>
+
+	<Action name="Commit_ses1_2" type="SessionCommit">
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>
+	
+	<Action name="Commit_ses2_2" type="SessionCommit">
+		<ActionParameter name="session_id">Session2</ActionParameter>
+	</Action>
+	
+	<!-- receive retained messages sent on live streams to both consumers -->
+	<Action name="CompositeRcvmsg2" type="CompositeAction" repeat="40" repeat_interval="0"> 
+		<Action name="ReceiveMessage2_1" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg2_cons1</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage2_1" type="GetMessageMapItem">
+			<ActionParameter name="message_id">rxmsg2_cons1</ActionParameter>
+			<ApiParameter name="propertyName">MessageContent</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">MAP: test string</ActionParameter>
+		</Action>
+		<!--  It was a retained message sent from a live source so retained pseudo property should not be set  -->
+		<Action name="GetRetainedFlag_msg2_cons1" type="GetMessageProperty">
+			<ActionParameter name="message_id">rxmsg2_cons1</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ActionParameter name="verifyValue">0</ActionParameter>
+		</Action>			
+		
+		<Action name="ReceiveMessage2_21" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg2_cons2</ActionParameter>
+			<ApiParameter name="timeout">20000</ApiParameter>
+		</Action>
+		<Action name="GetMessage2_2" type="GetMessageMapItem">
+			<ActionParameter name="message_id">rxmsg2_cons2</ActionParameter>
+			<ApiParameter name="propertyName">MessageContent</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+			<ActionParameter name="verifyValue">MAP: test string</ActionParameter>
+		</Action>
+		<!--  It was a retained message sent from a live source so retained pseudo property should not be set  -->
+		<Action name="GetRetainedFlag_msg2_cons2" type="GetMessageProperty">
+			<ActionParameter name="message_id">rxmsg2_cons2</ActionParameter>
+			<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ActionParameter name="verifyValue">0</ActionParameter>
+		</Action>						
+	</Action>
+	
+	<Action name="Commit_ses1" type="SessionCommit">
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>
+	
+	<Action name="Commit_ses2" type="SessionCommit">
+		<ActionParameter name="session_id">Session2</ActionParameter>
+	</Action>			
+
+	<Action name="CloseSession1" type="CloseSession">
+		<ActionParameter name="session_id">Session1</ActionParameter>
+	</Action>
+
+	<Action name="StopConnection" type="StopConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CloseConnection" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+</Action>
+  
+  
+  
+<Action name="rmdt" type="CompositeAction">
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillIsmProps">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="Port" value="16102"/>
+		<include>../common/JMS_server.xml</include>
+	</Action>
+	<Action name="CreateConnection" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1</ActionParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+	
+	<Action name="CreateSession" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	 	<ActionParameter name="structure_id">Ses1</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+	
+	<Action name="CreateSession2" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	 	<ActionParameter name="structure_id">Ses2</ActionParameter>
+		<ApiParameter name="transacted">1</ApiParameter>
+	</Action>
+	
+
+	<!-- Create destination and producer #1 -->
+	<Action name="CreateDestination1" type="CreateDestination">
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">transRet</ApiParameter>
+	 	<ActionParameter name="structure_id">dest1</ActionParameter>
+	</Action>
+	<Action name="CreateProducer1" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer2" type="CreateProducer">
+		<ActionParameter name="structure_id">producer2</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+
+	<!-- Create 2 more producers on session 2 -->
+
+	<Action name="CreateProducer3" type="CreateProducer">
+		<ActionParameter name="structure_id">producer3</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Ses2</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer4" type="CreateProducer">
+		<ActionParameter name="structure_id">producer4</ActionParameter>
+		<ActionParameter name="dest_id">dest1</ActionParameter>
+		<ActionParameter name="session_id">Ses2</ActionParameter>
+	</Action>
+
+	<Action name="StartConnection" type="StartConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+
+	<Action name="CreateMessage1" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg1</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>
+	
+	<Action name="SetMessage1RetainedProperty" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+		<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>			
+		<ApiParameter name="value">1</ApiParameter>
+	</Action>			
+
+	<Action name="CreateMessage1_last" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg1_last</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>
+	
+	<Action name="SetMessage1_lastRetainedProperty" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg1_last</ActionParameter>
+		<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>			
+		<ApiParameter name="value">1</ApiParameter>
+	</Action>	
+	
+	<Action name="SetRetainedMessageText1_last" type="SetMessageText">
+		<ActionParameter name="message_id">txmsg1_last</ActionParameter>
+		<ApiParameter name="value">TEXT: Final Retained Message on Producer 1</ApiParameter>
+	</Action>	
+
+	<Action name="CreateMessage2" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg2</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+		<ApiParameter name="msgType">MAP</ApiParameter>
+	</Action>
+	
+	<Action name="SetMessage2RetainedProperty" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg2</ActionParameter>
+		<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>			
+		<ApiParameter name="value">1</ApiParameter>
+	</Action>			
+
+	<Action name="CreateMessage3" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg3</ActionParameter>
+		<ActionParameter name="session_id">Ses2</ActionParameter>
+		<ApiParameter name="msgType">STREAM</ApiParameter>
+	</Action>
+	
+	<Action name="SetMessage3RetainedProperty" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg3</ActionParameter>
+		<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>			
+		<ApiParameter name="value">1</ApiParameter>
+	</Action>	
+	
+	<Action name="CreateMessage3_last" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg3_last</ActionParameter>
+		<ActionParameter name="session_id">Ses2</ActionParameter>
+		<ApiParameter name="msgType">STREAM</ApiParameter>
+	</Action>	
+	
+	<Action name="WriteStreamMessag3_last" type="WriteStreamMessage">
+		<ActionParameter name="message_id">txmsg3_last</ActionParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ApiParameter name="value">STREAM: Final Retained Message on Producer 3</ApiParameter>
+	</Action>	
+	
+	<Action name="SetMessage3_lastRetainedProperty" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg3_last</ActionParameter>
+		<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>			
+		<ApiParameter name="value">1</ApiParameter>
+	</Action>						
+	
+	<Action name="CreateMessage4" type="CreateMessage">
+		<ActionParameter name="structure_id">txmsg4</ActionParameter>
+		<ActionParameter name="session_id">Ses2</ActionParameter>
+		<ApiParameter name="msgType">OBJECT</ApiParameter>
+	</Action>
+
+	<Action name="SetMessage4RetainedProperty" type="SetMessageProperty">
+		<ActionParameter name="message_id">txmsg4</ActionParameter>
+		<ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+		<ApiParameter name="valueType">Integer</ApiParameter>			
+		<ApiParameter name="value">1</ApiParameter>
+	</Action>			
+
+	<Action name="SetMapMsg" type="SetMessageMapItem">
+		<ActionParameter name="message_id">txmsg2</ActionParameter>
+		<ApiParameter name="propertyName">MessageContent</ApiParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ApiParameter name="value">MAP: test string</ApiParameter>
+	</Action>
+	
+	<Action name="SetStreamMsg" type="WriteStreamMessage">
+		<ActionParameter name="message_id">txmsg3</ActionParameter>
+		<ApiParameter name="valueType">String</ApiParameter>
+		<ApiParameter name="value">STREAM: test string</ApiParameter>
+	</Action>
+	
+	<Action name="SetObjMsg" type="SetMessageObject">
+		<ActionParameter name="message_id">txmsg4</ActionParameter>
+		<ActionParameter name="objValueType">String</ActionParameter>
+		<ApiParameter name="value">OBJECT: test string</ApiParameter>
+	</Action>
+
+
+	<!-- Send 40 Retained messages, the last with different content, don't commit. There are no consumers yet. -->   
+	<Action name="SendMessages1" type="SendMessage" repeat="39" repeat_interval="0">
+		<ActionParameter name="producer_id">producer1</ActionParameter>
+		<ActionParameter name="message_id">txmsg1</ActionParameter>
+	</Action>
+	
+	<Action name="SendRetainedMessage1_last" type="SendMessage">
+		<ActionParameter name="producer_id">producer1</ActionParameter>
+		<ActionParameter name="message_id">txmsg1_last</ActionParameter>
+	</Action>				
+	
+	<!-- Send 40 Retained messages, the last with different content and commit. There are no consumers yet, so only one should be recieve
+	     when receiver comes up --> 	
+	<Action name="SendMessages3" type="SendMessage" repeat="39" repeat_interval="0">
+		<ActionParameter name="producer_id">producer3</ActionParameter>
+		<ActionParameter name="message_id">txmsg3</ActionParameter>
+	</Action>
+	
+	<Action name="SendRetainedMessage3_last" type="SendMessage">
+		<ActionParameter name="producer_id">producer3</ActionParameter>
+		<ActionParameter name="message_id">txmsg3_last</ActionParameter>  
+	</Action>			
+	
+	<!-- Commit messages sent on Session 2, although messages on Session 1 were sent first. --> 
+	<Action name="Commit_ses2" type="SessionCommit">
+		<ActionParameter name="session_id">Ses2</ActionParameter>
+	</Action>	
+
+	<!-- First consumer needs to come up and receive. It should get one txmsg3. -->
+	<Action name="sync_components" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">tx1</ActionParameter>
+		<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+	
+	<Action name="sync_components2" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">tx2</ActionParameter>
+		<ActionParameter name="component_list">tx2;rx2</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+	
+	<Action name="Commit_ses1" type="SessionCommit">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>	
+	
+	<!-- Second consumer needs to come up and receive. It should get one txmsg3. -->
+	<!-- Neither consumer will get get any txmsg1 because they were all retained 
+		 messages published prior to the already visible txmsg1_last 
+	
+	From Andrew and now included in the design:  
+		Messages are added to the lists at publish time and made visible at commit time. 
+		The special rules for retained messages are that there's at most one visible per 
+		topic, and you never replace the visible retained message with one that was published
+		earlier. --> 
+		
+	<Action name="sync_components_3" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">tx3</ActionParameter>
+		<ActionParameter name="component_list">tx3;rx3</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+	
+	<!-- Wait until the second consumer is created and finds the retained message -->
+	<Action name="sync_components4" type="SyncComponentAction"> 
+		<ActionParameter name="component_name">tx4</ActionParameter>
+		<ActionParameter name="component_list">tx4;rx4</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>		
+		
+	<!-- Send more retained both consumers should get all remaining messages from the live stream. -->
+	<Action name="SendMessages4" type="SendMessage" repeat="40" repeat_interval="0">
+		<ActionParameter name="producer_id">producer4</ActionParameter>
+		<ActionParameter name="message_id">txmsg4</ActionParameter>
+	</Action>
+	
+	<Action name="Commit_ses2_2" type="SessionCommit">
+		<ActionParameter name="session_id">Ses2</ActionParameter>
+	</Action>	
+		
+	<Action name="SendMessages2" type="SendMessage" repeat="40" repeat_interval="0">
+		<ActionParameter name="producer_id">producer2</ActionParameter>
+		<ActionParameter name="message_id">txmsg2</ActionParameter>
+	</Action>
+
+	<Action name="Commit_ses1_2" type="SessionCommit">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action> 
+
+	<Action name="CloseSession" type="CloseSession">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="StopConnection" type="StopConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CloseConnection" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+  </Action>
+</ImaJmsTest>

@@ -1,0 +1,684 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="proxy_mqttV5_subOptions_RetainAsPub" >
+<!--
+    Test MQTTv5 Spec 3.8.3.1 Subscription Options [BIT 3]: RetainAsPublished
+    Publish Retained and Not Retain msgs before subscribes
+    Subscribes explicit and with wildcards  and with RetainAsPublished On/Off  (Combination of 4 clients)
+    Subscribers will receive ONLY RETAIN msgs with RETAIN Flag on.
+    Publish Retained and Not Retain msgs after subscribes
+    All Subscribers will receive All Messages with caveats:
+        Subscribers with RetainAsPublish ON  will receive RETAIN msgs with RETAIN Flag on, nonRETAIN msgs with RETAIN Flag off
+        Subscribers with RetainAsPublish OFF will receive RETAIN and nonRETAIN msgs with RETAIN Flag off
+    
+This Version will test regular topic (even thought CIDs are "A:" for shared, see other tc's for $share and $SharedSubscription        
+PREExisting RETAINED messages are NEVER sent to 'shared subscriptions' at subscribe time, YET the RETAIN Flag COULD be set on received msgs if RetainOnPublish=1
+ -->  
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>proxy_mqttV5_subOptions_RetainAsPub</solution>
+    </SyncClient>
+ 
+<!--  ==========  Publisher ==========  -->
+
+    <Action name="pub" type="CompositeAction">
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:subOptsRetainAsPublish:Pub</ApiParameter>  
+            <ApiParameter name="user">d:org4iot2:subOptsRetainAsPublish:Pub</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+ 
+        <Action name="PublishTenBeforeSubs_NotRetain" type="PublishTopicTree">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/evt/subOptsRetainAsPublish/fmt/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="customMessage">{"Msg 1":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":false, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter>
+        </Action>
+        <Action name="PublishTenBeforeSubs_Retain" type="PublishTopicTree">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/evt/subOptsRetainAsPublish/fmt/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+            <ActionParameter name="retained">true</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="customMessage">{"Msg 2":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":true, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter>
+        </Action>
+
+        <Action name="sync_UP_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1</ActionParameter>
+            <ActionParameter name="component_list">r0wc1;r0topic1;r1wc1;r1topic1;p1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+        
+        <!-- Subscribes Occur here -->
+        <Action name="sync_UP_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p2</ActionParameter>
+            <ActionParameter name="component_list">r0wc2;r0topic2;r1wc2;r1topic2;p2</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+ 
+        <!--  Check Subscribes 1-10 and # exist -->
+        <Action name="SubscriptionMonitorElevenSubs" type="RestAPI">
+            <ActionParameter name="structureID">SharedSubStatus</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=__SharedM</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="PublishTreeAfterNotRetain" type="PublishTopicTree">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/evt/subOptsRetainAsPublish/fmt/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+            <ActionParameter name="retained">false</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="customMessage">{"Msg 1":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":false, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p3</ActionParameter>
+            <ActionParameter name="component_list">r0wc3;r0topic3;r1wc3;r1topic3;p3</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+         
+        <Action name="PublishTreeAfterRetain" type="PublishTopicTree">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/evt/subOptsRetainAsPublish/fmt/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+            <ActionParameter name="retained">true</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="customMessage">{"Msg 2":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":true, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter>
+        </Action>
+
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+    
+
+<!--  ==========  topic subscriber RetainAsPublish:TRUE ==========  -->
+
+    <Action name="recv1Topic" type="CompositeAction">
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!--            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>			
+			
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:subOptsRetainAsPublish:Sub1Topic</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:subOptsRetainAsPublish:Sub1Topic</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="sync_UP_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r1topic1</ActionParameter>
+            <ActionParameter name="component_list">r0wc1;r0topic1;r1wc1;r1topic1;p1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+<!-- WS can pass SubOpts in qos:  RetainAsPublished: 0x08 + QoS 0x00            <ActionParameter name="retainAsPublished">true</ActionParameter> -->
+ <!-- Defect 207662  error setting SubID which was not asked for -->
+ <!-- Defect 211331 WS can not do Multiple Topic subscribe -->
+        <Action name="SubscribeTreeRetainPublish" type="SubscribeTopicTree">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/type/subOptsRetainAsPublish/id/Pub/evt/subOptsRetainAsPublish/fmt/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">8</ActionParameter>
+<!--            <ActionParameter name="retainAsPublished">true</ActionParameter> -->
+        </Action>
+        
+        
+        <Action name="CompositeRcvOfBeforeSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareMsgsOfBeforeSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <!-- <ActionParameter name="compareBody">Msg 2:{ clientId=d:org4iot2:subOptsRetainAsPublish:Pub, RETAIN:true, topic:iot-2/evt/subOptsRetainAsPublish/fmt/* }</ActionParameter> -->
+                <ActionParameter name="compareRetain">true</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfBeforeSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r1topic2</ActionParameter>
+            <ActionParameter name="component_list">r0wc2;r0topic2;r1wc2;r1topic2;p2</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+
+        
+        <Action name="CompositeRcvRetainAfterSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareRetainAfterSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+<!--                <ActionParameter name="compareBody">{"Msg 1":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":false, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter> -->
+                <ActionParameter name="compareRetain">false</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfRetainAfterSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r1topic3</ActionParameter>
+            <ActionParameter name="component_list">r0wc3;r0topic3;r1wc3;r1topic3;p3</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+
+        
+        <Action name="CompositeRcvNotRetainAfterSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareNotRetainAfterSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+<!--                <ActionParameter name="compareBody">{"Msg 2":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":true, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter> -->
+                <ActionParameter name="compareRetain">true</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfNotRetainAfterSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="UNSubscribeTreeRetainPublish" type="UnsubscribeTopicTree">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/type/subOptsRetainAsPublish/id/Pub/evt/subOptsRetainAsPublish/fmt/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="sessionExpire">0</ActionParameter>
+        </Action>    
+    </Action>
+     
+
+<!--  ========== wildcard subscriber RetainAsPublish:TRUE ==========  -->
+
+    <Action name="recv1WC" type="CompositeAction">
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!--            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>			
+			
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:subOptsRetainAsPublish:Sub1WC</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:subOptsRetainAsPublish:Sub1WC</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="sync_UP_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r1wc1</ActionParameter>
+            <ActionParameter name="component_list">r0wc1;r0topic1;r1wc1;r1topic1;p1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+ 
+<!-- SubOpts are all Passed with QoS:  retainAsPublish 0x08 + QoS 0x02            <ActionParameter name="retainAsPublished">true</ActionParameter> -->
+        <Action name="SubscribeWithWC" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/subOptsRetainAsPublish/id/Pub/evt/subOptsRetainAsPublish/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">10</ApiParameter>
+            <ApiParameter name="expectedrc">2</ApiParameter>
+        </Action>
+
+        
+        <Action name="CompositeRcvOfBeforeSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareMsgsOfBeforeSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <!--  <ActionParameter name="compareBody">Msg 2:{ clientId=d:org4iot2:subOptsRetainAsPublish:Pub, RETAIN:true, topic:iot-2/evt/subOptsRetainAsPublish/fmt/* }</ActionParameter>  -->
+                <ActionParameter name="compareRetain">true</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfBeforeSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r1wc2</ActionParameter>
+            <ActionParameter name="component_list">r0wc2;r0topic2;r1wc2;r1topic2;p2</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+
+        
+        <Action name="CompositeRcvRetainAfterSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareRetainAfterSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+<!--                <ActionParameter name="compareBody">{"Msg 1":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":false, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter> -->
+                <ActionParameter name="compareRetain">false</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfRetainAfterSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r1wc3</ActionParameter>
+            <ActionParameter name="component_list">r0wc3;r0topic3;r1wc3;r1topic3;p3</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+
+        
+        <Action name="CompositeRcvNotRetainAfterSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareNotRetainAfterSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+<!--                <ActionParameter name="compareBody">{"Msg 2":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":true, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter> -->
+                <ActionParameter name="compareRetain">true</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfNotRetainAfterSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        
+        <Action name="UNSubscribe" type="Unsubscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/subOptsRetainAsPublish/id/Pub/evt/subOptRetainHandling/fmt/+</ApiParameter>
+        </Action>
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="sessionExpire">0</ActionParameter>
+        </Action>    
+    </Action>
+     
+    
+
+<!--  ==========  topic subscriber RetainAsPublish:FALSE ==========  -->
+
+    <Action name="recv0Topic" type="CompositeAction">
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!--            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>			
+			
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:subOptsRetainAsPublish:Sub0Topic</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:subOptsRetainAsPublish:Sub0Topic</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="sync_UP_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r0topic1</ActionParameter>
+            <ActionParameter name="component_list">r0wc1;r0topic1;r1wc1;r1topic1;p1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+<!-- Defect 207662 error setting SubID, not asked for  -->
+<!-- WS can pass SubOpts in qos:  RetainAsPublished: 0x00 + QoS 0x00            <ActionParameter name="retainAsPublished">false</ActionParameter> -->
+<!-- then Defect 211331 WS can't do SubTopicTree or Multi-Topic Subscribe -->
+        <Action name="SubscribeTreeRetainPublish" type="SubscribeTopicTree">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/type/subOptsRetainAsPublish/id/Pub/evt/subOptsRetainAsPublish/fmt/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+            <ActionParameter name="qos">0</ActionParameter>
+<!--            <ActionParameter name="retainAsPublished">false</ActionParameter>  -->
+        </Action>
+
+        
+        <Action name="CompositeRcvOfBeforeSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareMsgsOfBeforeSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <!--  <ActionParameter name="compareBody">Msg 2:{ clientId=d:org4iot2:subOptsRetainAsPublish:Pub, RETAIN:true, topic:iot-2/evt/subOptsRetainAsPublish/fmt/* }</ActionParameter>  -->
+                <ActionParameter name="compareRetain">true</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfBeforeSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r0topic2</ActionParameter>
+            <ActionParameter name="component_list">r0wc2;r0topic2;r1wc2;r1topic2;p2</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+
+        
+        <Action name="CompositeRcvRetainAfterSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareRetainAfterSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+<!--                <ActionParameter name="compareBody">{"Msg 1":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":false, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter> -->
+                <ActionParameter name="compareRetain">false</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfRetainAfterSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r0topic3</ActionParameter>
+            <ActionParameter name="component_list">r0wc3;r0topic3;r1wc3;r1topic3;p3</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+
+        
+        <Action name="CompositeRcvNotRetainAfterSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareNotRetainAfterSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+<!--                <ActionParameter name="compareBody">{"Msg 2":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":true, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter> -->
+                <ActionParameter name="compareRetain">false</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfNotRetainAfterSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="UNSubscribeTreeRetainPublish" type="UnsubscribeTopicTree">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="prefix">iot-2/type/subOptsRetainAsPublish/id/Pub/evt/subOptsRetainAsPublish/fmt/</ActionParameter>
+            <ActionParameter name="startIndex">1</ActionParameter>
+            <ActionParameter name="endIndex">10</ActionParameter>
+        </Action>
+
+        
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="sessionExpire">0</ActionParameter>
+        </Action>    
+    </Action>
+     
+
+<!--  ========== wildcard subscriber RetainAsPublish:FALSE ==========  -->
+
+    <Action name="recv0WC" type="CompositeAction">
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!--            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>			
+			
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:subOptsRetainAsPublish:Sub0WC</ApiParameter>  
+            <ApiParameter name="user">a:org4iot2:subOptsRetainAsPublish:Sub0WC</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+
+        <Action name="sync_UP_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r0wc1</ActionParameter>
+            <ActionParameter name="component_list">r0wc1;r0topic1;r1wc1;r1topic1;p1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+ 
+        <Action name="SubscribeWithWC" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/subOptsRetainAsPublish/id/Pub/evt/subOptsRetainAsPublish/fmt/+</ApiParameter>
+<!--  SubOpts passed in QoS:  retainAsPub 0x00 + QoS 0x02            <ActionParameter name="retainAsPublished">false</ActionParameter>  -->
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ApiParameter name="expectedrc">2</ApiParameter>
+        </Action>
+
+        
+        <Action name="CompositeRcvOfBeforeSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareMsgsOfBeforeSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <!-- <ActionParameter name="compareBody">Msg 2:{ clientId=d:org4iot2:subOptsRetainAsPublish:Pub, RETAIN:true, topic:iot-2/evt/subOptsRetainAsPublish/fmt/* }</ActionParameter> -->
+                <ActionParameter name="compareRetain">true</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfBeforeSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r0wc2</ActionParameter>
+            <ActionParameter name="component_list">r0wc2;r0topic2;r1wc2;r1topic2;p2</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+
+        
+        <Action name="CompositeRcvRetainAfterSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareRetainAfterSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+<!--                <ActionParameter name="compareBody">{"Msg 1":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":false, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter> -->
+                <ActionParameter name="compareRetain">false</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfRetainAfterSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        
+        <Action name="sync_UP_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r0wc3</ActionParameter>
+            <ActionParameter name="component_list">r0wc3;r0topic3;r1wc3;r1topic3;p3</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+
+        
+        <Action name="CompositeRcvNotRetainAfterSub" type="CompositeAction" repeat="10">
+            <Action name="ReceiveMessages" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">2000</ActionParameter>
+            </Action>
+            
+            <Action name="CompareNotRetainAfterSub" type="CompareMessageData">
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+<!--                <ActionParameter name="compareBody">{"Msg 2":{ "clientId":"d:org4iot2:subOptsRetainAsPublish:Pub", "RETAIN":true, "topic":"iot-2/evt/subOptsRetainAsPublish/fmt/*" }}</ActionParameter> -->
+                <ActionParameter name="compareRetain">false</ActionParameter>
+                <ActionParameter name="compareQoS">0</ActionParameter>
+            </Action>
+        
+        </Action>
+        
+        <Action name="FinalRcvOfNotRetainAfterSub" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+
+        <Action name="UNSubscribe" type="Unsubscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/subOptsRetainAsPublish/id/Pub/evt/subOptRetainHandling/fmt/+</ApiParameter>
+        </Action>
+        
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="sessionExpire">0</ActionParameter>
+        </Action>    
+    </Action>
+
+    
+</IsmWSTest>
+                

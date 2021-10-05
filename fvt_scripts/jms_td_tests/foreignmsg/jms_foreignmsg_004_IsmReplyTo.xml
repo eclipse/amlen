@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_foreignmsg_004_IsmReplyTo
+
+  Test Category:  JMS Foreign Messages
+  
+  Test Description:
+    Foreign message topic test with one connection for each provider type.  
+    The provider that sends the messages will use the same connection
+    and destination to receive the messages.  And it will use both synchronous
+    and asynchronous message delivery. This test focuses on setting/getting
+    the ReplyTo property.
+    
+    In this test, ISM JMS creates the messages and the foreign provider sends 
+    and receives the messages. The JMSReplyTo header is populated with a ISM
+    destination.
+
+-->
+<LlmJmsTest name="jms_foreignmsg_004_IsmReplyTo">
+
+		<include>../common/jms_jndi_ldap.xml</include>
+		
+		<!-- Retrieve the foreign connection factory from JNDI -->
+		<Action name="GetForeignTopicCF" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf_foreign</ActionParameter>
+			<ActionParameter name="jndiName">jmsTCF</ActionParameter>
+		</Action>
+		
+		<Action name="CreateConnection_foreign" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_foreign</ActionParameter>
+		 	<ActionParameter name="factory_id">cf_foreign</ActionParameter>
+		</Action>
+		
+		<Action name="CreatePSession_foreign" type="CreateSession">
+			<ActionParameter name="conn_id">connection_foreign</ActionParameter>
+		 	<ActionParameter name="structure_id">psession_foreign</ActionParameter>
+		</Action>
+		
+		<Action name="CreateCSession1_foreign" type="CreateSession">
+			<ActionParameter name="conn_id">connection_foreign</ActionParameter>
+		 	<ActionParameter name="structure_id">csession1_foreign</ActionParameter>
+		</Action>
+		
+		<Action name="CreateCSession2_foreign" type="CreateSession">
+			<ActionParameter name="conn_id">connection_foreign</ActionParameter>
+		 	<ActionParameter name="structure_id">csession2_foreign</ActionParameter>
+		</Action>
+		
+		<Action name="Create_dest_foreign" type="CreateDestination">
+			<ActionParameter name="structure_id">dest_foreign</ActionParameter>
+			<ActionParameter name="jndiName">jmsT</ActionParameter>
+		</Action>
+		
+		<Action name="CreateProducer_foreign" type="CreateProducer">
+			<ActionParameter name="structure_id">producer_foreign</ActionParameter>
+			<ActionParameter name="dest_id">dest_foreign</ActionParameter>
+			<ActionParameter name="session_id">psession_foreign</ActionParameter>
+		</Action>
+
+		<Action name="CreateConsumer1_foreign" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1_foreign</ActionParameter>
+			<ActionParameter name="dest_id">dest_foreign</ActionParameter>
+			<ActionParameter name="session_id">csession1_foreign</ActionParameter>
+		</Action>
+		
+		<Action name="CreateConsumer2_foreign" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer2_foreign</ActionParameter>
+			<ActionParameter name="dest_id">dest_foreign</ActionParameter>
+			<ActionParameter name="session_id">csession2_foreign</ActionParameter>
+		</Action>
+
+		<Action name="StartConnection_foreign" type="StartConnection">
+			<ActionParameter name="conn_id">connection_foreign</ActionParameter>
+		</Action>
+
+		<Action name="CreateMsgListener_consumer1" type="CreateMessageListener">
+			<ActionParameter name="structure_id">msg_listener_consumer1</ActionParameter>
+		</Action>
+		
+		<Action name="SetMsgListener_consumer1" type="SetMessageListener">
+			<ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+			<ActionParameter name="consumer_id">consumer1_foreign</ActionParameter>
+		</Action>
+	
+		<Action name="Create_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx_FM004i_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+		
+		<Action name="CreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession_ism" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session_ism</ActionParameter>
+		</Action>
+
+		<Action name="Create_dest1" type="CreateDestination">
+			<ActionParameter name="structure_id">dest1</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">jmsFM-04</ApiParameter>
+		</Action>
+
+	<Action name="rmdt" type="CompositeAction">
+		<!-- PRODUCER -->
+		<!-- PRODUCER: Create messages -->
+		<Action name="CreateBytesMessage_ism" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_bytes_msg1</ActionParameter>
+			<ActionParameter name="session_id">session_ism</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+		
+		<!-- PRODUCER: Set message content -->
+		<Action name="WriteBytesMessage_ism" type="WriteBytesMessage">
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+			<ApiParameter name="valueType">UTF8</ApiParameter>
+			<ApiParameter name="value">BYTES: test content 1</ApiParameter>
+		</Action>
+
+		<Action name="SetReplyToProperty_ism" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+			<ApiParameter name="propertyType">ReplyTo</ApiParameter>
+			<ApiParameter name="value">dest1</ApiParameter>
+		</Action>
+		
+		<!-- PRODUCER: Send messages -->
+		<!-- MQ defect 156112.  For now we will expect failure here.
+		     When the MQ defect is fixed, we'll need to update this test case.
+		     IMPORTANT NOTE: Additional actions (recreate, rewrite and resend, 
+		     				 below, will need to be removed when this action
+				 		     is able to succeed.
+		-->
+		<Action name="SendBytesMessage_foreign" type="SendMessage">
+			<ActionParameter name="producer_id">producer_foreign</ActionParameter>
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+		</Action>
+
+		<Action name="GetReplyToProperty_foreign" type="GetMessageProperty">
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+			<ApiParameter name="propertyType">ReplyTo</ApiParameter>
+			<ApiParameter name="valueType">Object</ApiParameter>
+			<ActionParameter name="verifyValue">dest1</ActionParameter>
+		</Action>
+		<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  -->
+		<!-- START TEMPORARY ACTIONS (Pending MQ fix for MQ defect 156112 -->
+		<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  -->
+		<!--Action name="RecreateBytesMessage_ism" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_bytes_msg1</ActionParameter>
+			<ActionParameter name="session_id">session_ism</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+		
+		<Action name="RewriteBytesMessage_ism" type="WriteBytesMessage">
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+			<ApiParameter name="valueType">UTF8</ApiParameter>
+			<ApiParameter name="value">BYTES: test content 1</ApiParameter>
+		</Action>
+				
+		<Action name="ResendBytesMessage_foreign" type="SendMessage">
+			<ActionParameter name="producer_id">producer_foreign</ActionParameter>
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+		</Action-->
+		<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  -->
+		<!--		 END TEMPORARY ACTIONS			-->
+		<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  -->
+	</Action>
+
+	<Action name="rmdr1" type="CompositeAction">
+		<!-- CONSUMER 1: Receive messages -->
+		<Action name="RcvBytesMessage_consumer1" type="ReceiveMessage">
+			<ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rx_bytes_msg1</ActionParameter>
+			<ApiParameter name="timeout">15000</ApiParameter>
+		</Action>
+
+		<!-- CONSUMER 1: Extract message content and verify it -->
+		<Action name="ReadBytesMsg_consumer1" type="ReadBytesMessage">
+			<ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+			<ApiParameter name="valueType">UTF8</ApiParameter>
+			<ActionParameter name="verifyValue">BYTES: test content 1</ActionParameter>
+		</Action>
+
+		<!-- NOTE: This test currently assumes that a foreign provider will 
+		     set JMSReplyTo to null for foreign messages and/or for foreign
+		     messages that specify a foreign destination for JMSReplyTo.  
+		     It's possible that some providers will do something different here.
+		-->
+		<Action name="GetReplyToProperty_consumer1" type="GetMessageProperty">
+			<ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+			<ApiParameter name="propertyType">ReplyTo</ApiParameter>
+			<ApiParameter name="valueType">Object</ApiParameter>
+			<ActionParameter name="verifyValue"></ActionParameter>
+		</Action>
+	</Action>
+	
+	<Action name="rmdr2" type="CompositeAction">	
+		<!-- CONSUMER 2: Receive messages -->
+		<Action name="RcvBytesMessage_consumer2" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer2_foreign</ActionParameter>
+			<ActionParameter name="structure_id">rx_bytes_msg2</ActionParameter>
+			<ApiParameter name="timeout">15000</ApiParameter>
+		</Action>
+
+		<!-- CONSUMER 2: Extract message content and verify it -->
+		<Action name="ReadBytesMsg_consumer2" type="ReadBytesMessage">
+			<ActionParameter name="message_id">rx_bytes_msg2</ActionParameter>
+			<ApiParameter name="valueType">UTF8</ApiParameter>
+			<ActionParameter name="verifyValue">BYTES: test content 1</ActionParameter>
+		</Action>
+
+		<!-- NOTE: This test currently assumes that a foreign provider will 
+		     set JMSReplyTo to null for foreign messages and/or for foreign
+		     messages that specify a foreign destination for JMSReplyTo.  
+		     It's possible that some providers will do something different here.
+		-->
+		<Action name="GetReplyToProperty_consumer2" type="GetMessageProperty">
+			<ActionParameter name="message_id">rx_bytes_msg2</ActionParameter>
+			<ApiParameter name="propertyType">ReplyTo</ApiParameter>
+			<ApiParameter name="valueType">Object</ApiParameter>
+			<ActionParameter name="verifyValue"></ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="CloseSession_pforeign" type="CloseSession">
+		<ActionParameter name="session_id">psession_foreign</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession_c1foreign" type="CloseSession">
+		<ActionParameter name="session_id">csession1_foreign</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession_c2foreign" type="CloseSession">
+		<ActionParameter name="session_id">csession2_foreign</ActionParameter>
+	</Action>
+
+	<Action name="StopConnection_foreign" type="StopConnection">
+		<ActionParameter name="conn_id">connection_foreign</ActionParameter>
+	</Action>
+
+	<Action name="CloseConnection_foreign" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_foreign</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession_ism" type="CloseSession">
+		<ActionParameter name="session_id">session_ism</ActionParameter>
+	</Action>
+
+	<Action name="StopConnection_ism" type="StopConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+	
+	<Action name="CloseConnection_ism" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+</LlmJmsTest>

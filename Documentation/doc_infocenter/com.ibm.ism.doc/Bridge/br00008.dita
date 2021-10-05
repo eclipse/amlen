@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="br00008.dita" xml:lang="en-us">
+<title>Event Streams support</title>
+<shortdesc>In addition to the MQTT to MQTT bridge support, the Bridge allows the destination to be
+IBM Event Streams. </shortdesc>
+<conbody>
+<p>The source must be MQTT. As IBM Event Streams is based on Kafka, many Kafka instances can also be
+used as a destination. Kafka brokers must be at least at level 0.10, must support connections with
+non-secure, TLSv1.1, or TLSv1.2 connections, and must either use no authentication or SASL Plain
+authentication.</p>
+<p>When using an Event Streams destination, the <codeph>TopicMap</codeph> and
+<codeph>Selector</codeph> properties are not used. Instead, a set of routing rules is used with an
+array of Rules that define the topic and a message selector. Event Streams topic names are from 1 to
+100 characters, limited to base alphanumerics and the special characters underscore, hyphen, and
+period [0-9A-Za-z_.-]</p>
+<section>
+<title>EventStreamsBrokerList</title>
+<p>The <codeph>EventStreamsBrokerList</codeph> replaces the <codeph>MQTTServerList</codeph> and has
+a similar format. This is the list of 1 to 16 brokers. This list does not need to contain all
+brokers that are in the Event Streams cluster, but enough brokers to ensure that at least one of the
+brokers is running.</p>
+</section>
+<section>
+<title>KafkaAPIVersion</title>
+<p>The <codeph>KafkaAPIVesion</codeph> can be used to specify the maximum version of log messages
+that are supported by the Event Streams cluster. If this value is not specified, the Bridge attempts
+to determine the value. However, Kafka does not provide a way of doing this deterministically. If
+the log message version is 2, then MQTTv5 properties are stored as Kafka headers. If the log message
+format is less than 2, then MQTTv5 properties are not stored in Event Streams.</p>
+</section>
+<section>
+<title>KeyMapping</title>
+<p>The Bridge allows an Event Streams message key to be constructed by using the same mechanism as
+<codeph>TopicMap</codeph>. The result is a string. It is possible to construct a simple JSON object
+in this way. Two additional replacement values are added to allow a timestamp to be added to the
+key.</p>
+<ul>
+<li><codeph>${TimeISO}</codeph> gives the current time in ISO8601 format to milliseconds with a
+timezone.</li>
+<li><codeph>${TimeMS}</codeph> gives the current time as a number of milliseconds from
+1970-01-01T00:00Z.</li>
+<li>JSON style replacement variables can be used to format a key as JSON. These have the format
+<codeph>${JSON:name:repl}</codeph>.</li>
+</ul>
+</section>
+<section>
+<title>RoutingRule</title>
+<p>A <codeph>RoutingRule</codeph> object replaces the <codeph>Selector</codeph> and
+<codeph>TopicMap</codeph> that are used for MQTT destinations. The  <codeph>RoutingRule</codeph>
+consists of an object that contains names strings. The name of the string item is the Event Streams
+topic name, and the value of the item is a string that contains a message selector. If the value of
+the item is null, the rule is deleted. </p>
+<p>When a message arrives from the source, each selector is run. If the selector returns
+<codeph>TRUE</codeph>, the message is forwarded to the specified Event Streams topic.</p>
+</section>
+<section>
+<title>PartitionRule</title>
+<p>The Bridge allows the partition of the topic to be selected by rule. When a Kafka topic has more
+than one partition, the partition rule is used to select which partition to send the message to.
+This provides the ability to send all messages with some characteristic to the same partition and
+therefore maintain message order. Using other partition rules can improve performance where message
+ordering is not required. </p>
+<p>The partition rule is always converted to a number, and the actual partition used is computed by
+using the method <codeph>part_value mod part_count</codeph>, where <codeph>part_value</codeph> is
+what is created with the partition rule, and <codeph>part_count</codeph> is the current count of
+partitions in the topic.</p>
+<ul>
+<li>If the value is a number, the value used to send the message to a specific partition.</li>
+<li>If the value is a string with replacement fields, the string is evaluated like a topic map and
+hashed to a number. This allows all messages containing these same replacement fields to go to the
+same partition, thereby preserving order.</li>
+<li>The following enumerated strings are handled:<ul>
+<li>“any” – Randomly assign partitions to each message</li>
+<li>“single” – Choose a single partition for each message from this forwarder. This is like using a
+numeric value except that the Bridge does the assignment.</li>
+<li>“instance” – Use the instance number of this forwarder. This is the same as single if this is
+not in an instance.</li>
+</ul></li>
+</ul>
+</section>
+<section>
+<title>Server Name</title>
+<p>When the Bridge makes a TLS connection it sends a Server Name TLS header with the name of the
+host as known to the Bridge. This is commonly known as SNI (Server Name Indication). The SNI can be
+used to define virtual servers by having multiple DNS entries for the same IP address and also
+allows these virtual servers to each present their own certificates. The name that is used by the
+Bridge comes from the <codeph>MQTTServerList</codeph> or <codeph>EventStreamsBrokerList</codeph>
+entry.</p>
+<p>In some cases a name other than the one in the server list is needed. The
+<codeph>ServerName</codeph> property on a Connection object can be used to override the Server Name
+from the server list. For example, if the server list contains numeric IP addresses, a host name
+could be given as <codeph>ServerName</codeph>. The limitation is that only one
+<codeph>ServerName</codeph> can be specified for the whole of the server list.</p>
+</section>
+</conbody>
+</concept>

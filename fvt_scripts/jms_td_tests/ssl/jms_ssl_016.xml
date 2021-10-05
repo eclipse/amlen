@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jms_ssl_016
+
+   Test Category:  JMS SSL
+
+   Test Description:
+		Test update command on ConnectionPolicy, changing ClientID, UserID, GroupID
+		and make sure the new settings are actually applied, and that things which 
+		would be allowed to connect with the old settings can no longer connect.
+
+  -->
+<ImaJmsTest name="jms_ssl_016">
+
+
+  <Action name="rmdx" type="CompositeAction">
+
+    <Action name="Create_CF" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF</ActionParameter>
+      <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+          <ActionParameter name="keyStorePassword">password</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+      <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="SetPropsFail_CF" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <ImaProperty name="Protocol" value="tcps"/>
+          <!--<ImaProperty name="ClientID" value="jmsClient"/>-->
+          <include>../common/JMS_server.xml</include>
+          <ImaProperty name="Port" value="18479"/> <!-- JMSSSLEndpoint7, CP JMSSSLCP8 -->
+    </Action>
+
+
+    <Action name="CreateConnection_conn" type="CreateConnection">
+      <ActionParameter name="structure_id">conn</ActionParameter>
+      <ApiParameter name="user">JMSUser6</ApiParameter>
+      <ApiParameter name="passwd">original</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_sess" type="CreateSession">
+          <ActionParameter name="conn_id">conn</ActionParameter>
+          <ActionParameter name="structure_id">sess</ActionParameter>
+    </Action>
+
+
+    <Action name="StartConnection_conn" type="StartConnection">
+      <ActionParameter name="conn_id">conn</ActionParameter>
+    </Action>
+
+	<Action name="UpdateUser" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"JMSSSLConnectionPolicy8":{"UserID":"JMSUser1"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"ConnectionPolicy":[{"Name":"JMSSSLConnectionPolicy8","UserID":"JMSUser1"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!--
+       [[ only allowed user on ConPol is JMSUser1/test ]]
+      -->
+
+    <Action name="CreateConnection_conn_old_UserID" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_old_UserID</ActionParameter>
+      <ApiParameter name="user">JMSUser6</ApiParameter>
+      <ApiParameter name="passwd">original</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_old_UserID" type="CreateSession" rc="1" reason="CWLNC0207">
+          <ActionParameter name="conn_id">conn_old_UserID</ActionParameter>
+          <ActionParameter name="structure_id">sess_old_UserID</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_old_UserID" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_old_UserID</ActionParameter>
+    </Action>
+
+
+
+
+    <Action name="CloseConnection_conn" type="CloseConnection">
+      <ActionParameter name="conn_id">conn</ActionParameter>
+    </Action>
+
+
+    <Action name="CreateConnection_conn_new_UserID" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_new_UserID</ActionParameter>
+      <ApiParameter name="user">JMSUser1</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_new_UserID" type="CreateSession">
+          <ActionParameter name="conn_id">conn_new_UserID</ActionParameter>
+          <ActionParameter name="structure_id">sess_new_UserID</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_new_UserID" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_new_UserID</ActionParameter>
+    </Action>
+
+	<Action name="Allow_ASTR" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"JMSSSLConnectionPolicy8":{"UserID":"*"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"ConnectionPolicy":[{"Name":"JMSSSLConnectionPolicy8","UserID":"*"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 
+    <Action name="CreateConnection_weird_UserID" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_weird_UserID</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_weird_UserID" type="CreateSession">
+          <ActionParameter name="conn_id">conn_weird_UserID</ActionParameter>
+          <ActionParameter name="structure_id">sess_weird_UserID</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_weird_UserID" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_weird_UserID</ActionParameter>
+    </Action>    
+
+
+	<Action name="UnUpdateUser" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"JMSSSLConnectionPolicy8":{"UserID":"JMSUser6"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"ConnectionPolicy":[{"Name":"JMSSSLConnectionPolicy8","UserID":"JMSUser6"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- no longer using UserID=* , should not be able to connect -->
+    <Action name="CreateConnection_weird_UserID_bad" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_weird_UserID_bad</ActionParameter>
+      <ApiParameter name="user">JMSUser2</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_weird_UserID_bad" type="CreateSession" rc="1" reason="CWLNC0207">
+          <ActionParameter name="conn_id">conn_weird_UserID_bad</ActionParameter>
+          <ActionParameter name="structure_id">sess_weird_UserID_bad</ActionParameter>
+    </Action>
+
+    <Action name="Allow_ASTR_ASTR" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"JMSSSLConnectionPolicy8":{"UserID":"**"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"ConnectionPolicy":[{"Name":"JMSSSLConnectionPolicy8","UserID":"**"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">400</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <!--Action name="Allow_ASTR_ASTR" type="ShellAction">
+      <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update ConnectionPolicy Name=JMSSSLConnectionPolicy8 Protocol=JMS UserID=**</ActionParameter>
+      <ActionParameter name="expected_rc">1</ActionParameter>
+    </Action-->
+    
+  </Action>
+
+</ImaJmsTest>

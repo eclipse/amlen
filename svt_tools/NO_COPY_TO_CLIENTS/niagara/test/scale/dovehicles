@@ -1,0 +1,114 @@
+#!/bin/bash
+
+if [ -z $1 ]; then
+  echo usage:  $0 [start_id]
+  exit
+fi
+
+
+set -x
+declare -r server=`/niagara/test/scale/bin/getserver`
+declare -ir port=16112
+declare prefix="u"
+declare -i id=$1
+declare -ir batch=500
+
+declare -i maxcount=30
+declare -i mincpu=20
+declare -i minmem=1000000
+declare -i maxproc=80
+
+declare -i wait=120
+declare -i count=0
+declare -i paho=0
+declare -i jms=0
+declare -i idle1=0
+declare -i idle2=0
+declare -i start=0
+declare -i minutes=0
+declare uname
+declare -i deltajms=0
+declare -i deltapaho=0
+declare hname=`hostname`
+
+
+while  ([ $((${paho}+${jms})) -le ${maxproc} ] && [ ${count} -le ${maxcount} ]) ; do
+  unset start
+  while [ -z ${start} ]; do
+     idle=`/niagara/test/scale/bin/getidle`
+     printf "%s - idle: %d, delta: %d, " "${hname}" ${idle} ${deltapaho}
+     if ([ ${idle} -ge ${mincpu} ] && [ ${idle} -gt $((${deltapaho}+5)) ]); then
+        freemem=`/niagara/test/scale/bin/getfreemem`
+        printf "freemem: %d" ${freemem}
+        if [ ${freemem} -ge ${minmem} ]; then
+          start=1
+        fi
+     fi
+     printf "\n"
+
+     if [ ! -z ${start} ]; then
+          printf -v uname "${prefix}%07d" ${id}
+          id=${id}+${batch}
+
+          echo java -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh svt.scale.vehicle.SVTVehicleScale -server ${server} -port ${port} -ssl true -userName ${uname} -password imasvtest -mode connect_once -paho ${batch} -minutes ${minutes} -appid 1 -order false -qos 0 -stats false -listener false -verbose false -vverbose false
+          java -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh svt.scale.vehicle.SVTVehicleScale -server ${server} -port ${port} -ssl true -userName ${uname} -password imasvtest -mode connect_once -paho ${batch} -minutes ${minutes} -appid 1 -order false -qos 0 -stats false -listener false -verbose false -vverbose false 1>&2 &
+
+          paho=${paho}+1
+          printf "%d paho processes and %d jms processes started\n" ${paho} ${jms}
+          count=0
+          idle2=`/niagara/test/scale/bin/getidle`
+          deltapaho=$((${idle}-${idle2}))
+          if [ ${deltapaho} -lt 10 ]; then 
+               deltapaho=10
+          fi
+          if [ ${deltapaho} -gt 55 ]; then 
+               deltapaho=55
+          fi
+          sleep $((100-${idle}))s
+     else 
+        sleep $((${wait}+${count}*10))
+        count=${count}+1
+     fi
+  done
+
+  if ([ $((${paho}+${jms})) -le ${maxproc} ] && [ ${count} -le ${maxcount} ]) ; then
+    unset start
+    while [ -z ${start} ]; do
+       idle=`/niagara/test/scale/bin/getidle`
+       printf "%s - idle: %d, delta: %d, " "${hname}" ${idle} ${deltajms}
+       if ([ ${idle} -ge ${mincpu} ] && [ ${idle} -gt $((${deltajms}+5)) ]); then
+          freemem=`/niagara/test/scale/bin/getfreemem`
+          printf "freemem: %d" ${freemem}
+          if [ ${freemem} -ge ${minmem} ]; then
+            start=1
+          fi
+       fi
+       printf "\n"
+  
+       if [ ! -z ${start} ]; then
+          printf -v uname "${prefix}%07d" ${id}
+          id=${id}+${batch}
+  
+          echo java -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh svt.scale.vehicle.SVTVehicleScale -server ${server} -port ${port} -ssl true -userName ${uname} -password imasvtest -mode connect_once -jms ${batch} -minutes ${minutes} -appid 1 -order false -qos 0 -stats false -listener false -verbose false -vverbose false
+          java -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh svt.scale.vehicle.SVTVehicleScale -server ${server} -port ${port} -ssl true -userName ${uname} -password imasvtest -mode connect_once -jms ${batch} -minutes ${minutes} -appid 1 -order false -qos 0 -stats false -listener false -verbose false -vverbose false 1>&2 &
+  
+          jms=${jms}+1
+          printf "%d paho processes and %d jms processes started\n" ${paho} ${jms}
+          start=1
+          count=0
+          idle2=`/niagara/test/scale/bin/getidle`
+          deltajms=$((${idle}-${idle2}))
+          if [ ${deltajms} -lt 10 ]; then 
+               deltajms=10
+          fi
+          if [ ${deltajms} -gt 55 ]; then 
+               deltajms=55
+          fi
+          sleep $((100-${idle}))s
+       else 
+          sleep $((${wait}+${count}*10))
+          count=${count}+1
+       fi
+    done
+  fi
+done

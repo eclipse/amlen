@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="br00019.dita" xml:lang="en-us">
+<title>Configuring connections and forwarders</title>
+<shortdesc>The <ph conref="../TextEntities.dita#TextEntities/ISM_bridge"/> forwards
+messages from a source MQTT server to a destination MQTT server. You must specify the source and destination
+connections and forwarders by using the connections.</shortdesc>
+    <conbody><p>You do this by creating a topic map. For more information, see <xref href="br00006.dita"
+format="dita" scope="local">Topic mapping.</xref></p>
+<section>
+<title>Connection properties</title>
+<p>After the admin endpoint is configured, the configuration can be changed by using REST APIs or
+by directly updating the configuration file. </p>
+<p>MQTT source and MQTT destination can use the same set of properties which are contained in a
+"Connection" object. Each connection must have a unique name. </p>
+<p>For a description of connection object properties, see <xref href="br00010.dita" format="dita"
+scope="local">Configuring the Bridge.</xref></p>
+<p>The following example shows the properties of a connection object where an MQTT connection of
+version 5.0 is defined with name <userinput>WIoTP</userinput>:
+<codeblock>
+{ 
+    "Connection": {
+        	"WIoTP": {
+            "MQTTServerList": [ "192.168.26.128:8883" ], /* IP address of the primary */
+            "TLS": "TLSv1.2",
+            "Version": "5.0",             /* MQTT version */
+            "ClientID": "A:x:myapp:Inst", /* v5 shared subscription prefix */
+            "SessionExpiry": 0,
+            "MaxPacketSize": 64768
+	}
+    }
+}
+</codeblock></p><p>The Bridge also supports Kafka-like destination connections. It is similar to MQTT-based
+connections but uses <parmname>EventStreamsBrokerList</parmname> instead of
+<parmname>MQTTServerList</parmname>, and does not specify <parmname>ClientID</parmname>,
+<parmname>SessionExpiry</parmname>, and <parmname>Version</parmname> parameters. The following
+example shows the format of a Kafka-like destination connection where the destination is an <ph
+conref="../TextEntities.dita#TextEntities/prodname_ies4ic_short"/> broker with the name
+EventStream:<codeblock>
+{
+    "Connection": {
+        "EventStream": {
+            "EventStreamsBrokerList": [ "192.168.26.128:9093" ],  
+            "TLS": "TLSv1.2",
+	}
+    }
+}
+</codeblock></p><p>
+<note>When TLS is enabled and a self-signed remote server certificate is used, you must set up a
+local Certificate Authority certificate file with the suffix <filepath>.pem</filepath> or <filepath>.crt</filepath> in the 
+<filepath>/var/imabridge/truststore</filepath> directory. You must also run  the <filepath>c_rehash</filepath> program in the
+<filepath>/var/imabridge/truststore</filepath> directory to ensure that the base name of the CA file
+reflects the hash value of its content, which is required for basic security.</note>
+</p>
+</section>
+<section>
+<title>Forwarder properties</title> Forwarder properties use the source and destination connection
+definitions to specify the Bridge. Two useful features are messaging filtering and the ability to
+define the message topic mapping to automatically handle the topic difference between the source
+message and destination message. The following example shows the forwarder defined with name
+<userinput>m2w</userinput>:<codeblock>
+{ 
+    "Forwarder": {
+        "m2w": {
+            "Topic": ["wiotp/event/+/+/MyEvent/#"],
+            "Enabled": true,
+            "Source": "MyServer",
+            "Destination": "WIoTP",
+            "TopicMap": "iot-2/type/${Topic2}/id/${Topic3}/evt/${Topic4}/fmt/json"
+        }
+    }
+}
+</codeblock>
+<p>For a description of forwarder object properties, see <xref href="br00010.dita" format="dita"
+scope="local">Configuring the Bridge.</xref></p><p>In the previous section, source connection
+<userinput>MyServer</userinput> and destination connection <userinput>WIoTP</userinput> are defined.
+Forwarder <userinput>m2w</userinput> is defined based on the connections to filter the message and
+map the topic.</p></section>
+<section>
+<title>Using admin REST APIs</title>
+<p>The admin REST APIs can be used to configure connections and forwarders. You can create a
+connection as follows:
+<codeblock>curl  -u "admin:admin" -X POST -k --data '{"Connection": {"WIoTP": 
+{ "MQTTServerList": [ "192.168.26.128:8883" ], "TLS": "TLSv1.2", "Version": "5.0", 
+"ClientID": "A:x:myapp:Inst", "SessionExpiry": 0, "MaxPacketSize": 64768} }}'  
+"https://localhost:9081/admin/config"</codeblock></p>
+<p>where a connection object with name <userinput>WIoTP</userinput> is posted to
+<filepath>https://127.0.0.1:9961/admin/config</filepath> with JSON format. The JSON data structure
+is the same as the structure in <filepath>bridge.cfg</filepath>.</p>
+<p>The following example shows how to create a
+forwarder:<codeblock>curl  -u "admin:admin" -X POST -k --data '{"Forwarder": 
+{ "m2w": { "Topic": ["wiotp"], "Enabled": true, "Source": "MyServer", 
+"Destination": "WIoTP",  "TopicMap": "iot-2"  }}}'  
+"https://localhost:9081/admin/config"</codeblock></p>
+<p>where a forwarder object with name <userinput>m2w</userinput> is posted to
+<filepath>https://127.0.0.1:9961/admin/config</filepath> with JSON format. The JSON data structure
+is the same as the structure in <filepath>bridge.cfg</filepath>.</p>
+</section>
+</conbody>
+</concept>

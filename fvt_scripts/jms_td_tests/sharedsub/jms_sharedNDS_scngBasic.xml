@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_sharedNDS_scngBasic.xml
+
+  Test Category:  JMS_sharedsub
+  
+  Test Description:
+  
+  	I don't know why I called it 'Basic', as it is pretty complicated.  It covers all the
+  	basic things a shared non-durable subscription should do.  
+  
+    Test concurrent consumers using a non-durable shared subscription with non-generated
+    clientID and synchronous receive, and a Selector on the subscription. 
+
+	The consumers process: single connection, two sessions
+	two consumers. 
+	
+	Consumer1 and Consumer2 come up, and create their shared subscription. 
+
+	Then the producer comes up and starts sending messages. (10,000 total).
+
+	Each consumer should get at least some of the messages, to verify they are 
+	appropriately sharing.  Exact equal sharing is NOT guaranteed.  
+
+	Consumer1 then closes. And Consumer2 receives the remainder of the messages. 
+	
+	Consumer 2 then closes, which should then cause the subscription to be 
+	removed.  The producer sends more messages to the topic. 
+	
+	Consumer 2 is recreated (its a new consumer to the server). It should not receive
+	the messages sent while there were no consumers. 
+	
+	Once we confirm no old messages are received, the consumer sends messages, and 
+	they are received by consumer2. 
+	
+	Consumer2 is closed again, and the subscription should once again be removed. The
+	producer once again sends message while there are no subscribers.
+	
+	Consumer3 is created, with a different selector. It should not receive any messages
+	sent before it was created.  Once we confirm no old messages were sent, the producer 
+	sends more messages, which are received. 
+	
+	Consumer 3 closes, and the subscription is removed, we send more messages. and close the
+	producer. 
+	
+	There's a few error cases mixed in. they are marked.   
+
+	All consumers will be synchronous, and in the same connection, different sessions.
+    
+-->
+<ImaJmsTest name="jms_sharedNDS_scngBasic">
+
+    <Action name="prod1" type="CompositeAction">
+    
+	<Action name="Createprod_cf1" type="CreateConnectionFactory">
+	    <ActionParameter name="structure_id">prod1_cf1</ActionParameter>
+	    <ActionParameter name="loglevel">9</ActionParameter>
+	    <ActionParameter name="logfile">stdout</ActionParameter>
+	</Action>
+
+	<Action name="CreateListener_prod" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_prod" type="FillIsmProps">
+		<ActionParameter name="structure_id">prod1_cf1</ActionParameter>
+	   <ActionParameter name="validateAll">true</ActionParameter>
+	    <ActionParameter name="validateNoWarn">false</ActionParameter>
+	    <ImaProperty name="ClientID" value="prod_jms_sharedNDS_scngBasic_ClientID" type="STRING"/>
+	    <include>../common/JMS_server.xml</include>
+	    <ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+        
+	<Action name="CreateConnectionprod1_cf1" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_prod1_cf1</ActionParameter>
+	    <ActionParameter name="factory_id">prod1_cf1</ActionParameter>
+            <ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+        
+	<Action name="CreateSession1prod1_conn_cf1" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+	    <ActionParameter name="structure_id">session1_prod1_cf1</ActionParameter>
+	</Action>
+
+	<Action name="Createprod1_dest1" type="CreateDestination">
+	    <ActionParameter name="structure_id">prod1_dest1</ActionParameter>
+	    <ApiParameter name="name">sharedSub_scngbasic</ApiParameter>
+	    <ActionParameter name="type">topic</ActionParameter>
+	</Action>
+
+	<Action name="CreateProducer1prod1_dest1" type="CreateProducer">
+	    <ActionParameter name="structure_id">producer1</ActionParameter>
+	    <ActionParameter name="dest_id">prod1_dest1</ActionParameter>
+	    <ActionParameter name="session_id">session1_prod1_cf1</ActionParameter>
+	</Action>
+        
+	<Action name="StartConnectionprod1_cf1" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+	</Action>
+        
+	<!-- PRODUCER: Create messages -->
+        
+	<Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+	    <ActionParameter name="structure_id">prod1_txt_msg1</ActionParameter>
+	    <ActionParameter name="session_id">session1_prod1_cf1</ActionParameter>
+	    <ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>	
+
+	<Action name="CreateTxtMessage2_prod_dest1" type="CreateMessage">
+	    <ActionParameter name="structure_id">prod1_txt_msg2</ActionParameter>
+	    <ActionParameter name="session_id">session1_prod1_cf1</ActionParameter>
+	    <ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>		
+        
+	<!-- PRODUCER: Set message content -->                
+	<Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	    <ApiParameter name="value">TEXT: Message sent from jms_sharedNDS_scngbasic.xml test.</ApiParameter>
+	</Action>	
+        
+	<Action name="SetMessageProperty" type="SetMessageProperty">
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	    <ApiParameter name="propertyName">MyName</ApiParameter>                
+	    <ApiParameter name="propertyType">Common</ApiParameter>
+	    <ApiParameter name="valueType">String</ApiParameter>
+	    <ApiParameter name="value">Janet</ApiParameter>
+	</Action>
+	
+	<!-- PRODUCER: Set message content -->                
+	<Action name="WriteBytesMessage2_prod_dest1" type="SetMessageText">
+	    <ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+	    <ApiParameter name="value">TEXT: Message sent from jms_sharedNDS_scngbasic.xml test. Should not be received.</ApiParameter>
+	</Action>	
+        
+	<Action name="SetMessage2Property" type="SetMessageProperty">
+	    <ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+	    <ApiParameter name="propertyName">MyName</ApiParameter>
+	    <ApiParameter name="propertyType">Common</ApiParameter>
+	    <ApiParameter name="valueType">String</ApiParameter>
+	    <ApiParameter name="value">Ken</ApiParameter>
+	</Action>	
+        
+	<Action name="StartConnection_cf1" type="StartConnection">
+	    <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+	</Action>
+        
+	<Action name="sync_components_prod1" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1</ActionParameter>
+	    <ActionParameter name="component_list">prod1;cons1</ActionParameter>
+	    <ActionParameter name="timeout">15000</ActionParameter>
+	</Action>
+
+	<Action name="CompositeSnd" type="CompositeAction" repeat="100" interval="0" repeat_interval="0">
+	
+		<Action name="SendBytesMessage1_prod" type="SendMessage" repeat_interval="0" repeat="100" interval="0" >
+		    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    	<ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+		</Action>
+		
+		<!-- Sprinkle some that don't match selector on consumer in the mix -->
+		<Action name="SendBytesMessage2_prod" type="SendMessage" repeat_interval="0" repeat="2" interval="0" >
+		    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    	<ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+		</Action>
+	</Action>
+	
+	<Action name="sync_components_prod1b" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1b</ActionParameter>
+	    <ActionParameter name="component_list">prod1b;cons1b</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>
+	
+	<Action name="SendBytesMessage_prod_noSubscribers" type="SendMessage" repeat_interval="0" repeat="500" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	</Action>
+	
+	<!-- Cue a new consumer to start and attempt to receive messages. It should receive none.  -->
+	<Action name="sync_components_prod1c" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1c</ActionParameter>
+	    <ActionParameter name="component_list">prod1c;cons1c</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>	
+	
+	<!-- Tell producer to send messages  -->
+	<Action name="sync_components_prod1d" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1d</ActionParameter>
+	    <ActionParameter name="component_list">prod1d;cons1d</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage2_prod_ReSubscriber" type="SendMessage" repeat_interval="0" repeat="2" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage_prod_ReSubscriber" type="SendMessage" repeat_interval="0" repeat="30" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage2Again_prod_ReSubscriber" type="SendMessage" repeat_interval="0" repeat="2" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+	</Action>	
+	
+	<!-- Send a final set of  messages some of which match the new subscription -->
+	<Action name="sync_components_prod1e" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">prod1e</ActionParameter>
+	    <ActionParameter name="component_list">prod1e;cons1e</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage2_prod_ReSubscriber3" type="SendMessage" repeat_interval="0" repeat="15" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage_prod_ReSubscriber3" type="SendMessage" repeat_interval="0" repeat="5" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage2Again_prod_ReSubscriber3" type="SendMessage" repeat_interval="0" repeat="15" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+	</Action>	
+	
+	<!-- Send a final set of  messages after all consumers are closed, and subscription is
+		(hopefully) no longer present. These should NOT be found when jms_sharedNDS_scngReconnect recreates
+		the same non-durable shared subscription.  -->
+	<Action name="sync_components_prod1f" type="SyncComponentAction" > 
+	    <ActionParameter name="component_name">prod1f</ActionParameter>
+	    <ActionParameter name="component_list">prod1f;cons1f</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage2_prod_ReSubscriber4" type="SendMessage" repeat_interval="0" repeat="15" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage_prod_ReSubscriber4" type="SendMessage" repeat_interval="0" repeat="5" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg1</ActionParameter>
+	</Action>	
+	
+	<Action name="SendBytesMessage2Again_prod_ReSubscriber4" type="SendMessage" repeat_interval="0" repeat="15" interval="0" >
+	    <ActionParameter name="producer_id">producer1</ActionParameter>
+	    <ActionParameter name="message_id">prod1_txt_msg2</ActionParameter>
+	</Action>					
+    
+	<Action name="CloseConnectionprod1_cf1" type="CloseConnection">
+	    <ActionParameter name="conn_id">connection_prod1_cf1</ActionParameter>
+	</Action>
+    </Action>  <!-- end of producer --> 
+
+    <Action name="cons1" type="CompositeAction">
+
+   <SyncClient>
+	<server>
+	    <include>../common/JMS_syncip.xml</include>
+		<include>../common/JMS_syncport.xml</include>
+	</server>
+	<solution>jms_sharedNDS_scngBasic</solution>
+    </SyncClient>
+
+	<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+	<Action name="syncReset" type="SyncAction">
+	    <ActionParameter name="request">reset</ActionParameter>
+	</Action>
+
+	<!-- Initialize the SyncDriver values -->
+	<Action name="syncInit1" type="SyncAction">
+	    <ActionParameter name="request">init</ActionParameter>
+	    <ActionParameter name="condition">syncPoint</ActionParameter>
+	    <ActionParameter name="loglevel">9</ActionParameter>
+	    <ActionParameter name="logfile">stdout</ActionParameter>    
+	</Action>         
+
+	<Action name="CreateFactory_cons1" type="CreateConnectionFactory">
+	     <ActionParameter name="structure_id">cf1</ActionParameter>
+	    <ActionParameter name="loglevel">9</ActionParameter>
+	    <ActionParameter name="logfile">stdout</ActionParameter>
+	</Action>
+
+	<Action name="CreateListener_cons1" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+
+	<Action name="SetFactoryProps_cons1" type="FillIsmProps">
+	    <ActionParameter name="structure_id">cf1</ActionParameter>
+	    <ActionParameter name="validateAll">true</ActionParameter>
+	    <ActionParameter name="validateNoWarn">false</ActionParameter>
+	    <ImaProperty name="ClientID" value="jms_sharedNDS_scngBasic_ClientID"/>
+	    <include>../common/JMS_server.xml</include>
+	    <ImaProperty name="Port" value="16102" type="STRING"/>
+	</Action>
+
+	<Action name="CreateConnection_cf1" type="CreateConnection">
+	    <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="factory_id">cf1</ActionParameter>
+	    <ApiParameter name="exceptionListener">listener1</ApiParameter>
+	</Action>
+        
+	<Action name="CreateSession1_conn_cf1" type="CreateSession">
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="structure_id">session_cons1</ActionParameter>
+	</Action>
+
+	<Action name="CreateSession2" type="CreateSession" thread="2">
+		<dependsOn name="CreateConnection_cf1"/>
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="structure_id">session_cons2</ActionParameter>
+	</Action>
+
+	<!-- used for some error testing -->
+	<Action name="CreateSession3" type="CreateSession" thread="3">
+		<dependsOn name="CreateConnection_cf1"/>
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="structure_id">session_cons3</ActionParameter>
+	</Action>
+        
+	<Action name="CreateDestination_cons1" type="CreateDestination">
+		<ApiParameter name="name">sharedSub_scngbasic</ApiParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ActionParameter name="structure_id">destCons1</ActionParameter>
+	</Action>	
+
+	<!-- This will be a non-durable shared subscription. (using the integer.  -->
+	<Action name="SetProps_destCons1" type="FillIsmProps">
+		<ActionParameter name="structure_id">destCons1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>                     
+		<ImaProperty name="ClientMessageCache" value="512" type="INT"/>		
+	</Action>
+
+	<!--  We use CreateSharedConsumer to create a non-durable Shared Subscription. (Our JMS 1.1 implementation) -->
+	<Action name="CreateConsumer1" type="CreateSharedConsumer">                        
+		<ActionParameter name="structure_id">consumer1</ActionParameter>
+		<ActionParameter name="dest_id">destCons1</ActionParameter>
+		<ActionParameter name="session_id">session_cons1</ActionParameter>
+		<ApiParameter name="nolocal">true</ApiParameter>
+		<ApiParameter name="durableName">sharedNDS_scngBasic</ApiParameter>
+		<ApiParameter name="selector">MyName='Janet'</ApiParameter>
+	</Action>
+                                                                                                               
+	<!--  We use CreateSharedConsumer to create a non-durable Shared Subscription. (Our JMS 1.1 implementation) -->
+	<Action name="CreateConsumer2" type="CreateSharedConsumer" thread="2">                       
+		<dependsOn name="SetProps_destCons1"/>
+		<ActionParameter name="structure_id">consumer2</ActionParameter>
+		<ActionParameter name="dest_id">destCons1</ActionParameter>
+		<ActionParameter name="session_id">session_cons2</ActionParameter>
+		<ApiParameter name="durableName">sharedNDS_scngBasic</ApiParameter>
+		<ApiParameter name="nolocal">true</ApiParameter>
+		<ApiParameter name="selector">MyName='Janet'</ApiParameter>
+	</Action>	
+	
+	<!--  Error test that we cannot create a subscriber with different selector while there
+		are already active subscribers to the same durable name/ clientID -->
+	<Action name="CreateConsumer3" type="CreateSharedConsumer" thread="3" rc="1" reason="CWLNC0229" >                       
+		<dependsOn name="CreateConsumer1"/>
+		<ActionParameter name="structure_id">consumer3</ActionParameter>
+		<ActionParameter name="dest_id">destCons1</ActionParameter>
+		<ActionParameter name="session_id">session_cons2</ActionParameter>
+		<ApiParameter name="nolocal">true</ApiParameter>
+		<ApiParameter name="durableName">sharedNDS_scngBasic</ApiParameter>
+		<ApiParameter name="selector">MyName='Ken'</ApiParameter>
+	</Action>
+
+	<Action name="CheckProps_consumer2" type="CheckIsmProps" thread="2">
+		<ActionParameter name="structure_id">consumer2</ActionParameter>
+		<ChkImaProperty name="ClientMessageCache" value="512" method="getInt" />
+	</Action>				
+
+	<Action name="StartConnection_cf1" type="StartConnection">
+		<dependsOn name="CreateConsumer1"/>
+		<dependsOn name="CreateConsumer2"/>
+		<dependsOn name="CreateConsumer3"/>
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+            
+	<Action name="sync_components_cons1" type="SyncComponentAction"> 	
+	    <ActionParameter name="component_name">cons1</ActionParameter>
+	    <ActionParameter name="component_list">prod1;cons1</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>	
+        
+	<Action name="CompositeConsume" type="CompositeAction" repeat="3200" repeat_interval="0" atleast="1500" >
+	    <Action name="RcvTextMessage_consumer1" type="ReceiveMessage" interval="0" >
+		<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		<ActionParameter name="structure_id">cons1_message</ActionParameter>
+		<ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>            
+	</Action>
+
+	<!-- Closing session.. which will close consumer1 -->
+	<Action name="CloseSession1" type="CloseSession">
+		<ActionParameter name="session_id">session_cons1</ActionParameter>
+	</Action>
+
+	<Action name="Consumer2" type="CompositeAction" repeat="3200" repeat_interval="0"  thread="2">
+	<dependsOn name="sync_components_cons1"/>
+	    <Action name="RcvTextMessage_consumer2" type="ReceiveMessage" interval="0" thread="2">
+		<ActionParameter name="consumer_id">consumer2</ActionParameter>
+		<ActionParameter name="structure_id">cons2_message</ActionParameter>
+		<ApiParameter name="timeout">5000</ApiParameter>
+	    </Action>            
+	</Action>	
+
+	<Action name="Consumer2_ReceiveAllTheRest" type="CompositeAction" repeat="5100" repeat_interval="0" atleast="3600" thread="2">
+		<Action name="RcvTextMessage_consumer2Rest" type="ReceiveMessage" interval="0" >
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+			<ActionParameter name="structure_id">cons2_message</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>            
+	</Action>	
+        
+	<!-- 10000 messages were sent to the shared subscription. Consumer1 received 3200. Consumer 2 received 5800. There should be no more to receive.  --> 
+	<Action name="RcvMessage_consumer2fail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="2">
+	    <ActionParameter name="consumer_id">consumer2</ActionParameter>
+	    <ActionParameter name="structure_id">cons2_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">5000</ApiParameter>
+	</Action> 
+	
+	<!-- It is a non-durable subscription, so we should not unsubscribe.  Not sure what error we will get!
+		in this case as we have an active subscriber AND it is non-durable.  --> 
+	<Action name="FailToUnsubscribe" type="Unsubscribe" thread="2" rc="1" reason="CWLNC0227" >
+		<ActionParameter name="session_id">session_cons2</ActionParameter>
+		<ApiParameter name="durableName">sharedNDS_scngBasic</ApiParameter>
+	</Action>		    
+	
+	<Action name="CloseConsumer2" type="CloseConsumer" thread="2">
+		<ActionParameter name="consumer_id">consumer2</ActionParameter>
+	</Action>	
+	
+	<!-- It is a non-durable subscription, so we should not unsubscribe. 
+		and this time, there is no subscribers, and (in theory) the susbcription does not exist either. --> 
+	<Action name="FailAgainToUnsubscribe" type="Unsubscribe"  rc="1" reason="CWLNC0227">
+		<dependsOn name="CloseSession1"/>
+		<dependsOn name="CloseConsumer2"/>
+		<ActionParameter name="session_id">session_cons2</ActionParameter>
+		<ApiParameter name="durableName">sharedNDS_scngBasic</ApiParameter>
+	</Action>	
+	
+	<!-- We have no subscription, since no active consumers.  So cue producer send more messages. And we'll make sure we don't receive them -->
+	<Action name="sync_components_cons1b" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons1b</ActionParameter>
+	    <ActionParameter name="component_list">prod1b;cons1b</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>
+	
+	<!-- Wait until messages are sent. Resubscribe and make sure we don't receive them -->
+	<Action name="sync_components_cons1c" type="SyncComponentAction"> 
+	    <ActionParameter name="component_name">cons1c</ActionParameter>
+	    <ActionParameter name="component_list">prod1c;cons1c</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>
+
+	<!--  ReCreateSharedConsumer to create a non-durable Shared Subscription. (Our JMS 1.1 implementation) -->
+	<Action name="ReCreateConsumer2" type="CreateSharedConsumer" thread="2">                       
+		<dependsOn name="sync_components_cons1c"/>
+		<ActionParameter name="structure_id">consumer2</ActionParameter>
+		<ActionParameter name="dest_id">destCons1</ActionParameter>
+		<ActionParameter name="session_id">session_cons2</ActionParameter>
+		<ApiParameter name="durableName">sharedNDS_scngBasic</ApiParameter>
+		<ApiParameter name="nolocal">true</ApiParameter>
+		<ApiParameter name="selector">MyName='Janet'</ApiParameter>
+	</Action>  
+	
+	<!-- Action name="reCreateSession3_conn_cf1" type="CreateSession" thread="3">
+		<dependsOn name="sync_components_cons1c"/>
+	    <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	    <ActionParameter name="structure_id">session_cons3</ActionParameter>
+	</Action -->	
+	
+	<!-- Some error testing included in this testcase (defect 36779 was  --> 
+	<!-- there were messages sent while we were not subscribed. They should not be received.  --> 
+	<Action name="ReRcvMessage_consumer2fail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="2">
+	    <ActionParameter name="consumer_id">consumer2</ActionParameter>
+	    <ActionParameter name="structure_id">cons2_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">5000</ApiParameter>
+	</Action> 
+	
+	<!-- Tell producer to send messages  -->
+	<Action name="sync_components_cons1d" type="SyncComponentAction" thread="2"> 
+	    <ActionParameter name="component_name">cons1d</ActionParameter>
+	    <ActionParameter name="component_list">prod1d;cons1d</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>	
+	
+	<Action name="Consumer2_ReceiveOnRecreatedSub" type="CompositeAction" repeat="30" repeat_interval="0"  thread="2">
+		<Action name="RcvTextMessage_consumer2" type="ReceiveMessage" interval="0" >
+			<ActionParameter name="consumer_id">consumer2</ActionParameter>
+			<ActionParameter name="structure_id">cons2_message</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>            
+	</Action>	
+	
+	<!-- there should be no more messages waiting..  --> 
+	<Action name="NoMoreMessages" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="2">
+	    <ActionParameter name="consumer_id">consumer2</ActionParameter>
+	    <ActionParameter name="structure_id">cons2_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">5000</ApiParameter>
+	</Action> 
+
+	<Action name="ReCloseConsumer2" type="CloseConsumer" thread="2">
+		<ActionParameter name="consumer_id">consumer2</ActionParameter>
+	</Action>	
+	
+	<!--  Create a new subscription with the same name, but a new selector. This is valid, since there are no 
+		active consumers.  And even though we had previously  messages that match, we should not receive them. -->
+	<Action name="ReCreateConsumer3" type="CreateSharedConsumer" thread="3">                       
+		<dependsOn name="ReCloseConsumer2"/>
+		<ActionParameter name="structure_id">consumer3</ActionParameter>
+		<ActionParameter name="dest_id">destCons1</ActionParameter>
+		<ActionParameter name="session_id">session_cons3</ActionParameter>
+		<ApiParameter name="durableName">sharedNDS_scngBasic</ApiParameter>
+		<ApiParameter name="nolocal">true</ApiParameter>
+		<ApiParameter name="selector">MyName='Ken'</ApiParameter>
+	</Action>  
+	
+	<!-- there should be no messages waiting, even though we sent messages with this property, the SharedSubcrition should have discarded on
+		the server.  --> 
+	<Action name="NoMessagesWithOtherProperty" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="3">
+	    <ActionParameter name="consumer_id">consumer3</ActionParameter>
+	    <ActionParameter name="structure_id">cons3_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">2000</ApiParameter>
+	</Action> 	
+	
+	<!-- Tell producer to send a final set of  messages for this test to receive some of which match the new subscription -->
+	<Action name="sync_components_cons1e" type="SyncComponentAction" thread="3"> 
+	    <ActionParameter name="component_name">cons1e</ActionParameter>
+	    <ActionParameter name="component_list">prod1e;cons1e</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>	
+	
+	<!-- receive the messages -->
+	<Action name="Consumer3_ReceiveMessages" type="CompositeAction" repeat="30" repeat_interval="0"  thread="3">
+		<Action name="RcvTextMessage_consumere" type="ReceiveMessage" interval="0" >
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+			<ActionParameter name="structure_id">cons3_message</ActionParameter>
+			<ApiParameter name="timeout">5000</ApiParameter>
+		</Action>            
+	</Action>	
+	
+	<!-- there should be no messages waiting -->
+	<Action name="NoExtraMessagesLeft" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg" thread="3">
+	    <ActionParameter name="consumer_id">consumer3</ActionParameter>
+	    <ActionParameter name="structure_id">cons3_txt_msg1</ActionParameter>
+	    <ApiParameter name="timeout">2000</ApiParameter>
+	</Action> 	
+				
+	<Action name="CloseConsumer3" type="CloseConsumer" thread="3">
+		<ActionParameter name="consumer_id">consumer3</ActionParameter>
+	</Action>	
+	
+	<!-- Tell producer to send a final set of  messages after all consumers are closed, and subscription is
+		(hopefully) no longer present. These should NOT be found when jms_sharedNDS_scngReconnect recreates
+		the same non-durable shared subscription.  -->
+	<Action name="sync_components_cons1f" type="SyncComponentAction" thread="3"> 
+	    <ActionParameter name="component_name">cons1f</ActionParameter>
+	    <ActionParameter name="component_list">prod1f;cons1f</ActionParameter>
+	    <ActionParameter name="timeout">45000</ActionParameter>
+	</Action>	
+	
+	<Action name="CloseConnection" type="CloseConnection">
+		<dependsOn name="CloseConsumer3"/>
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>		
+
+    </Action>   <!-- End of cons1 -->
+    
+</ImaJmsTest>

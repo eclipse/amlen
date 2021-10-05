@@ -1,0 +1,41 @@
+
+cleanup x DELETE configuration/Endpoint/SVTjmqtt_secure_CC
+cleanup x DELETE configuration/TopicPolicy/SVTCRLTopicPolicy
+cleanup x DELETE configuration/ConnectionPolicy/SVTCRLConnectionPolicy
+cleanup x DELETE configuration/MessageHub/SVTCRLHub
+
+cleanup x DELETE configuration/SecurityProfile/SVTjmqtt
+cleanup x DELETE configuration/SecurityProfile/SVTjmqttUP
+cleanup x DELETE configuration/SecurityProfile/SVTjmqttCC
+cleanup x DELETE configuration/CRLProfile/SVTCRLjmqtt
+cleanup x DELETE configuration/CertificateProfile/SVTjmqtt
+
+setup 0 PUT file /niagara/test/svt_jmqtt/certs2Kb/imaserver-crt-jmqtt08.pem imaserver-crt-jmqtt08.pem
+setup 0 PUT file /niagara/test/svt_jmqtt/certs2Kb/imaserver-key-jmqtt08.pem imaserver-key-jmqtt08.pem
+
+setup 0 POST configuration {"CertificateProfile":{"SVTjmqtt":{"Certificate":"imaserver-crt-jmqtt08.pem","Key":"imaserver-key-jmqtt08.pem"}}} 
+#setup 0 POST configuration {"SecurityProfile":{"SVTjmqtt":{"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":false,"Ciphers":"Fast","UsePasswordAuthentication":false,"CertificateProfile":"SVTjmqtt"}}} 
+#setup 0 POST configuration  {"SecurityProfile":{"SVTjmqttUP":{"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":false,"Ciphers":"Fast","UsePasswordAuthentication":true,"CertificateProfile":"SVTjmqtt"}}} 
+setup 0 POST configuration  {"SecurityProfile":{"SVTjmqttCC":{"MinimumProtocolMethod":"TLSv1.2","UseClientCertificate":true,"Ciphers":"Fast","UsePasswordAuthentication":false,"CertificateProfile":"SVTjmqtt"}}} 
+
+setup 0 PUT file /niagara/test/svt_jmqtt/certs2Kb/rootCA-crt-jmqtt08.pem rootCA-crt-jmqtt08.pem
+setup 0 POST configuration  {"TrustedCertificate":[{"TrustedCertificate":"rootCA-crt-jmqtt08.pem","SecurityProfileName":"SVTjmqttCC","Overwrite":true}]} 
+
+setup 0 PUT file /niagara/test/svt_jmqtt/certs2Kb/intCA1-client-crt-jmqtt08.pem intCA1-client-crt-jmqtt08.pem
+setup 0 POST configuration  {"TrustedCertificate":[{"TrustedCertificate":"intCA1-client-crt-jmqtt08.pem","SecurityProfileName":"SVTjmqttCC","Overwrite":true}]} 
+
+
+
+setup 0 POST configuration {"MessageHub":{"SVTCRLHub":{"Description":"SVTCRLHub"}}}
+
+setup 0 POST configuration {"ConnectionPolicy":{"SVTCRLConnectPolicy":{"Protocol":"JMS,MQTT","Description":"SVTSecureConnectionPolicyForCRL","AllowPersistentMessages":true,"ClientAddress":"","AllowDurable":true,"UserID":"","ClientID":"","CommonNames":"","GroupID":""}}}
+setup 0 POST configuration {"TopicPolicy":{"SVTCRLTopicPolicy":{"Protocol":"MQTT","ActionList":"Publish,Subscribe","Topic":"*","MaxMessages":20000000}}}
+setup 0 POST configuration {"Endpoint":{"SVTjmqtt_secure_CC":{"Enabled":true,"Port":16474,"MessageHub":"SVTCRLHub","Interface":"*","MaxMessageSize":"256MB","ConnectionPolicies":"SVTCRLConnectPolicy","TopicPolicies":"SVTCRLTopicPolicy","QueuePolicies":"","SubscriptionPolicies":"","Description":"SVT secured endpoint for svt_cmqtt w/ client certificate","SecurityProfile":"SVTjmqttCC"}}}
+
+setup2 0 PUT file /niagara/test/svt_jmqtt/certs2Kb/intCA1-client-crt-crl-jmqtt08.pem intCA1-client-crt-crl-jmqtt08.pem
+setup2 0 POST configuration {"CRLProfile":{"SVTCRLjmqtt":{"CRLSource":"intCA1-client-crt-crl-jmqtt08.pem","RevalidateConnection":true,"Overwrite":true}}} 
+setup2 0 POST configuration  {"SecurityProfile":{"SVTjmqttCC":{"CRLProfile":"SVTCRLjmqtt"}}}
+
+setup3 0 PUT file /niagara/test/svt_jmqtt/certs2Kb/intCA1-client-crt-upd-crl-jmqtt08.pem intCA1-client-crt-upd-crl-jmqtt08.pem
+setup3 0 POST configuration {"CRLProfile":{"SVTCRLjmqtt":{"CRLSource":"intCA1-client-crt-upd-crl-jmqtt08.pem","RevalidateConnection":true,"Overwrite":true}}} 
+

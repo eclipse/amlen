@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_msgdelivery_023
+
+   Test Category:  JMS Message Delivery
+
+   Test Description:
+   Make sure we can send an arbitrary number of messages to for which there
+   are no consumers. Basically making sure messages are thrown away, not stored
+   when there are no consumers to consume them.
+
+   *****************************************************************************/
+  -->
+
+<ImaJmsTest name="jms_msgdelivery_023" >
+
+  <Action name="Create_CF" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">CF</ActionParameter>
+    <ActionParameter name="loglevel">9</ActionParameter>
+    <ActionParameter name="logfile">stdout</ActionParameter>
+  </Action>
+
+  <Action name="SetFactoryProps" type="FillIsmProps">
+	<ActionParameter name="structure_id">CF</ActionParameter>
+	<ActionParameter name="validateAll">true</ActionParameter>
+	<ActionParameter name="validateNoWarn">false</ActionParameter>
+	<include>../common/JMS_server.xml</include>
+	<ImaProperty name="Port" value="18456" type="STRING"/>
+  </Action>
+
+  <Action name="CreateDestination" type="CreateDestination">
+	<ApiParameter name="name">md23</ApiParameter>
+	<ActionParameter name="type">topic</ActionParameter>
+	<ActionParameter name="structure_id">md23</ActionParameter>
+  </Action>
+
+  <Action name="CreateListener_tx" type="CreateExceptionListener">
+	<ActionParameter name="structure_id">list_tx</ActionParameter>
+  </Action>
+
+  <Action name="CreateListener_rx" type="CreateExceptionListener">
+	<ActionParameter name="structure_id">list_rx</ActionParameter>
+  </Action>  
+
+  <Action name="CreateConnection_tx" type="CreateConnection">
+	<ActionParameter name="structure_id">conn_tx</ActionParameter>
+	<ActionParameter name="factory_id">CF</ActionParameter>
+    <ApiParameter name="user">☆</ApiParameter>
+    <ApiParameter name="passwd">test</ApiParameter>
+	<ApiParameter name="exceptionListener">list_tx</ApiParameter>
+  </Action>
+
+  <Action name="CreateConnection_rx" type="CreateConnection">
+	<ActionParameter name="structure_id">conn_rx</ActionParameter>
+	<ActionParameter name="factory_id">CF</ActionParameter>
+    <ApiParameter name="user">☆</ApiParameter>
+    <ApiParameter name="passwd">test</ApiParameter>
+	<ApiParameter name="exceptionListener">list_rx</ApiParameter>
+  </Action>
+
+  <Action name="CreateSession_rx" type="CreateSession">
+	<ActionParameter name="conn_id">conn_rx</ActionParameter>
+	<ActionParameter name="structure_id">sess_rx</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession_tx" type="CreateSession">
+	<ActionParameter name="conn_id">conn_tx</ActionParameter>
+	<ActionParameter name="structure_id">sess_tx</ActionParameter>
+  </Action>
+
+  <Action name="CreateProducer" type="CreateProducer">
+	<ActionParameter name="structure_id">prod</ActionParameter>
+	<ActionParameter name="dest_id">md23</ActionParameter>
+	<ActionParameter name="session_id">sess_tx</ActionParameter>
+  </Action>
+
+  <Action name="CreateMessage" type="CreateMessage">
+	<ActionParameter name="structure_id">txmsg</ActionParameter>
+	<ActionParameter name="session_id">sess_tx</ActionParameter>
+	<ApiParameter name="msgType">BYTES</ApiParameter>
+  </Action>
+
+  <Action name="SetMessageText" type="SetMessageText">
+	<ActionParameter name="message_id">txmsg</ActionParameter>
+	<ApiParameter name="value">ima little text message!</ApiParameter>
+  </Action>
+
+
+  <Action name="CreateConsumer" type="CreateConsumer">
+	<ActionParameter name="structure_id">cons</ActionParameter>
+	<ActionParameter name="dest_id">md23</ActionParameter>
+	<ActionParameter name="session_id">sess_rx</ActionParameter>
+  </Action>
+
+  <Action name="StartConnection_rx" type="StartConnection">
+    <ActionParameter name="conn_id">conn_rx</ActionParameter>
+  </Action>
+
+  <Action name="SendMessages_tolimit" type="SendMessage" repeat="5000" repeat_interval="0">
+	<ActionParameter name="producer_id">prod</ActionParameter>
+	<ActionParameter name="message_id">txmsg</ActionParameter>
+  </Action>
+
+  <Action name="SendMessage_overflow" type="SendMessage" rc="1" reason="CWLNC0218">
+	<ActionParameter name="producer_id">prod</ActionParameter>
+	<ActionParameter name="message_id">txmsg</ActionParameter>
+  </Action>
+
+
+  <Action name="ReceiveMessage_before_restart" type="ReceiveMessage" repeat="1000" repeat_interval="0">
+    <ActionParameter name="consumer_id">cons</ActionParameter>
+    <ActionParameter name="structure_id">rxdmsg</ActionParameter>
+    <ApiParameter name="timeout">2000</ApiParameter>
+  </Action>
+
+
+  <Action name="StopConnection_rx" type="StopConnection">
+     <ActionParameter name="conn_id">conn_rx</ActionParameter>    
+  </Action>
+
+  <Action name="ReceiveMessage_nothing_while_stopped" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons</ActionParameter>
+    <ActionParameter name="structure_id">rxdmsg</ActionParameter>
+    <ApiParameter name="timeout">2000</ApiParameter>
+  </Action>
+
+
+  <!-- send some messages while rx is stopped -->
+  <Action name="SendMessages_lots" type="SendMessage" repeat="500" repeat_interval="0">
+	<ActionParameter name="producer_id">prod</ActionParameter>
+	<ActionParameter name="message_id">txmsg</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveMessage_nothing_while_stopped2" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons</ActionParameter>
+    <ActionParameter name="structure_id">rxdmsg</ActionParameter>
+    <ApiParameter name="timeout">2000</ApiParameter>
+  </Action>
+
+
+  <Action name="StartConnection_rx_again" type="StartConnection">
+    <ActionParameter name="conn_id">conn_rx</ActionParameter>
+  </Action>
+
+  <Action name="ReceiveMessage_after_restart" type="ReceiveMessage" repeat="4500" repeat_interval="0">
+    <ActionParameter name="consumer_id">cons</ActionParameter>
+    <ActionParameter name="structure_id">rxdmsg</ActionParameter>
+    <ApiParameter name="timeout">2000</ApiParameter>
+  </Action>
+
+  <Action name="ReceiveMessage_nomore" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons</ActionParameter>
+    <ActionParameter name="structure_id">rxdmsg</ActionParameter>
+    <ApiParameter name="timeout">2000</ApiParameter>
+  </Action>
+
+  <Action name="CloseConnection_rx" type="CloseConnection">
+    <ActionParameter name="conn_id">conn_rx</ActionParameter>
+  </Action>  
+
+  <Action name="CloseConnection_tx" type="CloseConnection">
+    <ActionParameter name="conn_id">conn_tx</ActionParameter>
+  </Action>
+
+
+
+</ImaJmsTest>

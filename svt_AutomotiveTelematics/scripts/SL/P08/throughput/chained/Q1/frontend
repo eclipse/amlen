@@ -1,0 +1,42 @@
+#!/bin/bash
+
+source ./test.cfg 
+
+DEBUG=0
+
+ENDPOINT=`/niagara/test/scripts/getclusterserverendpointport.py -c ${CLUSTER} -e SVT-CarsInternetEndpoint -a ${APPLIANCE[$1]}`
+i=${ENDPOINT/:*/}
+p=${ENDPOINT/*:/}
+
+#export IMAServer="198.23.126.154:$i 169.53.4.4:$i 169.53.4.5:$i 169.53.4.6:$i 169.53.4.7:$i 169.53.4.8:$i 169.53.4.9:$i"
+#export IMAPort="$p $p $p $p $p $p $p"
+
+#remove 10. and 172. addresses
+for j in `hostname -I | sed "s/10[\.0-9]* //" | sed "s/172[\.0-9]* //"`; do
+  LIST="${LIST} $j:$i"
+  PLIST="${PLIST} $p"
+done
+
+export IMAServer="${LIST}"
+export IMAPort="${PLIST}"
+
+echo IMAServer="${IMAServer}"
+echo IMAPort="${IMAPort}"
+
+export DelayCount=1
+export DelayTime=2000
+export SourcePortLo=5000
+export UseSecureConn=1
+#export PipeCommands=1
+export SSLClientMeth=TLSv12
+export SSLCipher=AES128-GCM-SHA256
+export PATH=/root/workspace/application/server_ship/bin:/root/workspace/application/client_ship/bin:${PATH}
+export LD_LIBRARY_PATH=/root/workspace/application/server_ship/lib:/root/workspace/application/client_ship/lib:/usr/lib:${LD_LIBRARY_PATH}
+export IOProcThreads=6
+export RetryDelayTime=2.0
+export RetryDelayBackoff=1.01
+export SIZE=32
+
+echo mqttbench -d 0 -tx ${QOS}:0:/APP/1/:1:$((${PUBLISHERS}/2)):2 -r ${RATE} -s ${SIZE}-${SIZE} -cl ${CL[$1]} 
+mqttbench -d 0 -tx ${QOS}:0:/APP/1/:1:$((${PUBLISHERS}/2)):2 -r ${RATE} -s ${SIZE}-${SIZE} -cl ${CL[$1]} 
+

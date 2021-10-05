@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_mqtt_001
+
+  Test Category: JMS to MQTT
+  
+  Test Description:
+  	Test the ability to send messages to a topic that is subscribed to by
+  	the MQTT client.
+  	
+  	This test also sends RETAINED messages from JMS to MQTT
+
+-->
+<LlmJmsTest name="jms_mqtt_001jms">
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_mqtt_001</solution>
+    </SyncClient>
+    
+    <Action name="CreateTx_cf1" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">tx_cf1</ActionParameter>
+    </Action>
+        
+    <Action name="SetPropsTx_cf1" type="FillIsmProps">
+        <ActionParameter name="structure_id">tx_cf1</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="ClientID" value="jms_001_clientid" type="STRING"/>
+        <include>../common/JMS_server.xml</include>
+        <ImaProperty name="Port" value="16102" type="STRING"/>
+    </Action>
+        
+    <Action name="CreateConnectionTx_cf1" type="CreateConnection">
+        <ActionParameter name="structure_id">connection_tx_cf1</ActionParameter>
+     	<ActionParameter name="factory_id">tx_cf1</ActionParameter>
+    </Action>
+        
+    <Action name="CreateSession1Tx_conn_cf1" type="CreateSession">
+        <ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+     	<ActionParameter name="structure_id">session1_tx_cf1</ActionParameter>
+    </Action>
+
+    <Action name="CreateTx_dest1" type="CreateDestination">
+        <ActionParameter name="structure_id">tx_dest1</ActionParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ApiParameter name="name">/JmsToMqtt&#x20000;&#x2606;&#x2603;&#x20001;&#x20002;&#x20003;&#x20004;&#x2A6D4;&#x2A6D5;&#x2A6D6;&#x2000B;&#x2A190;&#x2A6B2;&#x00C7;</ApiParameter>
+    </Action>
+
+    <Action name="CreateProducer1Tx_dest1" type="CreateProducer">
+        <ActionParameter name="structure_id">producer1_dest1</ActionParameter>
+        <ActionParameter name="dest_id">tx_dest1</ActionParameter>
+        <ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+    </Action>
+        
+    <Action name="StartConnectionTx_cf1" type="StartConnection">
+        <ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+    </Action>
+        
+    <!-- PRODUCER: Create messages -->
+    <Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+        <ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <!-- PRODUCER: Set message content -->                
+    <Action name="SetTxtMsg_prod_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+        <ApiParameter name="value">TEXT: test content 1</ApiParameter>
+    </Action>
+
+    <!-- PRODUCER: Create a retained message -->
+    <Action name="CreateRetainedMessage_prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">tx_retained_msg1</ActionParameter>
+        <ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetMessageRetainedProperty" type="SetMessageProperty">
+        <ActionParameter name="message_id">tx_retained_msg1</ActionParameter>
+        <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+        <ApiParameter name="valueType">Integer</ApiParameter>
+        <ApiParameter name="value">1</ApiParameter>
+    </Action>
+
+    <Action name="WriteRetainedMessage2_1_prod_dest1" type="SetMessageText">
+        <ActionParameter name="message_id">tx_retained_msg1</ActionParameter>
+        <ApiParameter name="value">TEXT: Retained Message1</ApiParameter>
+    </Action>
+
+    <!-- PRODUCER: Create a null retained message (Which works differently than MQTT  -->
+    <Action name="CreateRetainedMessage2prod_dest1" type="CreateMessage">
+        <ActionParameter name="structure_id">tx_retained_msg2</ActionParameter>
+        <ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetMessageRetained2Property" type="SetMessageProperty">
+        <ActionParameter name="message_id">tx_retained_msg2</ActionParameter>
+        <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+        <ApiParameter name="valueType">Short</ApiParameter>
+        <ApiParameter name="value">1</ApiParameter>
+    </Action>
+
+    <!-- PRODUCER: Send retained messages before mqtt subscription created -->
+    <Action name="SendRetainedTxtMessage_prod_dest1" type="SendMessage">
+        <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+        <ActionParameter name="message_id">tx_retained_msg1</ActionParameter>
+    </Action>
+
+    <Action name="SendRetainedNullMessage_prod_dest1" type="SendMessage">
+        <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+        <ActionParameter name="message_id">tx_retained_msg2</ActionParameter>
+    </Action>
+
+    <!-- Send retained messages before mqtt client has subscribed -->
+    <Action name="sync_retained" type="SyncComponentAction">
+        <ActionParameter name="component_name">jms_retain</ActionParameter>
+        <ActionParameter name="component_list">jms_retain;mqtt_retain;mqttV5_retain</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- Wait for mqtt client to subscribe and receive retained messages -->
+    <Action name="sync_cons_created" type="SyncComponentAction">
+        <ActionParameter name="component_name">jms_tx</ActionParameter>
+        <ActionParameter name="component_list">jms_tx;mqtt_tx;mqttV5_tx</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- PRODUCER: Send messages -->
+    <Action name="SendTxtMessage_prod_dest1" type="SendMessage">
+        <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+        <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+    </Action>
+
+    <Action name="SendRetainedTxtMessageLive_prod_dest1" type="SendMessage">
+        <ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+        <ActionParameter name="message_id">tx_retained_msg1</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection2Tx_cf1" type="StopConnection">
+        <ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+    </Action>
+        
+    <Action name="CloseConnectionTx_cf1" type="CloseConnection">
+        <ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+    </Action>
+</LlmJmsTest>    

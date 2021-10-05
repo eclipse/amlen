@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="CLI_Utils" default="production" basedir=".">
+
+    <property environment="env"/>
+	<property name="project.dir.name" value="${ant.project.name}" />
+	<property name="project.lib.dir" location="lib" />
+	<property name="project.obj.dir" location="obj" />
+	<property name="client.ship.lib.dir" value="${basedir}/../client_ship/lib"/>
+	<property name="src" location="src" />
+	<property name="build" location="${project.obj.dir}/build" />
+	<property name="cli-test-utils.jar" location="${project.lib.dir}/cli-test-utils.jar" />
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+
+    <!--Required Classpath-->
+    <path id="compile.classpath">
+        <pathelement location="${client.deps.dir}/commons-cli-1.2.jar" />
+        <pathelement location="${client.deps.dir}/SuperCSV-1.52.jar" />
+        <pathelement location="${client.deps.dir}/commons-lang3-3.1.jar" />
+        <pathelement location="${client.deps.dir}/hamcrest-core-1.3.jar" />
+        <pathelement location="${client.deps.dir}/jsch-0.1.49.jar" />
+        <pathelement location="${client.deps.dir}/junit-4.11.jar" />
+        <pathelement location="${client.ship.lib.dir}/jms.jar" />
+        <pathelement location="${client.ship.lib.dir}/imaclientjms.jar" />
+     	<pathelement location="${client.ship.lib.dir}/org.eclipse.paho.client.mqttv3.jar" />
+    </path>
+
+    <target name="production" depends="retail, generate_test_suite, cli_util_publish" description="production build and package">
+		<echo> ==  Invoking ant for testTools_CLI_Utils build ============= </echo>
+	</target>
+
+    <!-- Build output jar file -->
+	<target name="retail" depends="compile" description="builds jar">
+        <!-- copy MANIFEST.MF file -->
+		<copy file="${src}/META-INF/MANIFEST.MF" todir="${build}/META-INF" failonerror="yes" verbose="true" />
+        <!-- set version= with env.VERSION_ID in the MANIFEST.MF file -->
+		<replace file="${build}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+        <!-- set build= with env.BUILD_ID in the MANIFEST.MF file -->
+		<replace file="${build}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+		<jar destfile="${cli-test-utils.jar}" manifest="${build}/META-INF/MANIFEST.MF">
+			<fileset dir="${build}" includes="**/*.class, **/*.properties" />
+		</jar>
+	</target>
+
+	<!--Compile the project-->
+	<target name="compile" depends="init">
+		<javac  source="1.6" target="1.6" srcdir="${src}" destdir="${build}" debug="Yes" deprecation="Yes">
+	         <classpath refid="compile.classpath" />
+		</javac>
+		<copy todir="${build}" preservelastmodified="yes">
+			<fileset dir="${src}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+	<target name="init">
+		<mkdir dir="${project.lib.dir}" />
+		<mkdir dir="${project.obj.dir}" />
+		<mkdir dir="${build}" />
+	</target>
+
+	<target name="generate_test_suite">
+		<java classname="com.ibm.ima.test.cli.policy.PolicyTestSuite"
+		failonerror="true"
+		fork="true">
+		<classpath>
+			<pathelement location="${cli-test-utils.jar}"/>
+			<pathelement location="${client.deps.dir}/SuperCSV-1.52.jar"/>
+		</classpath>
+		</java>
+	</target>
+
+	<!-- Copy the product file to ship tree      -->
+	<target name="cli_util_publish">
+		<echo> ==  Copy files to testTools_ship tree ================ </echo>
+		<copy file="${cli-test-utils.jar}" todir="${testTools.ship.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${client.deps.dir}/SuperCSV-1.52.jar" todir="${testTools.ship.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${client.deps.dir}/commons-cli-1.2.jar" todir="${testTools.ship.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${client.deps.dir}/commons-lang3-3.1.jar" todir="${testTools.ship.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${client.deps.dir}/hamcrest-core-1.3.jar" todir="${testTools.ship.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${client.deps.dir}/jsch-0.1.49.jar" todir="${testTools.ship.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${client.deps.dir}/junit-4.11.jar" todir="${testTools.ship.lib.dir}" preservelastmodified="yes"/>
+		<copy file="policyTestPlans/topic/policyTests.zip" todir="../fvt_ship/cli_tests/" preservelastmodified="yes"/>
+	</target>
+
+</project>

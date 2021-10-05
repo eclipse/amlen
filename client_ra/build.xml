@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="client_ra" default="build_client_ra">
+	<property environment="env"/>
+	<property name="client.ra.src.dir" location="${client.ra.dir}/src" />
+	<property name="client.ra.test.src.dir" location="${client.ra.dir}/test" />
+	<property name="client.ra.bin.dir" location="${client.ra.dir}/bin" />
+	<property name="client.ra.junit.dir" location="${client.ra.bin.dir}/test" />
+	<property name="client.ra.lib.dir" location="${client.ra.bin.dir}/lib" />
+	<property name="server.translation.dir" value="${client.build.dir}/../server_translation"/>
+	<property name="server.tmstool.dir" value="${client.build.dir}/../server_tmsmsgtool"/>
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+
+	<property environment="lxenv" />
+
+	<available file="${client.jms.rpx.dir}" type="dir" property="rpx.path.exists" />
+	<available file="${client.common.dir}/msgcat" type="dir" property="msgcat.path.exists" />
+	<available file="${client.deps.dir}/com.ibm.ws.sib.server.jar" type="file" property="sib.jar.exists" />
+
+	<!-- define client_ra jar file name -->
+	<property name="imara.jar" location="${client.ra.lib.dir}/imara.jar"/>
+	<!-- define client_ra rar file name -->
+	<property name="ima.jmsra.rar" location="${client.ra.lib.dir}/ima.jmsra.rar"/>
+
+	<property name="imajmsra_test.jar" location="${client.ra.lib.dir}/imajmsra_test.jar"/>
+
+	<property name="java8.dir" location="${env.JAVA_HOME}" />
+
+	<fileset dir="${server.translation.dir}/xml" id="jmsclient_translations">
+		<include name="**/*.xml" />
+	</fileset>
+	<pathconvert refid="jmsclient_translations" property="translations.present" setonempty="false"/>
+
+   <condition property="is64">
+       <or>
+           <os arch="x86_64" />
+           <os arch="amd64" />
+       </or>
+   </condition>
+   <condition property="OSbit" value="64">
+       <isset property="is64" />
+   </condition>
+
+   <condition property="OSbit" value="32">
+       <not>
+           <isset property="is64" />
+       </not>
+   </condition>
+
+	<!-- Load definition of TMS tools tasks -->
+	<property name="tms.dir" location="${env.TMS_ROOT}" />
+	<path id="tms.path">
+		<fileset dir="${tms.dir}/tools">
+			<include name="**/*.jar" />
+		</fileset>
+	</path>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+ 	  <pathelement location="${client.deps.dir}/j2ee.jar" />
+ 	  <pathelement location="${client.deps.dir}/com.ibm.ws.runtime.jar" />
+	  <pathelement location="${client.deps.dir}/com.ibm.ws.admin.core.jar" />
+	  <pathelement location="${client.deps.dir}/com.ibm.ws.sib.server.jar" />
+   	  <pathelement location="${client.jms.dir}/bin/lib/imaclientjms.jar" />
+   </path>
+
+   <path id="test.classpath">
+      <path refid="compile.classpath" />
+      <pathelement location="/usr/share/java" />
+      <pathelement location="/usr/share/java/junit.jar" />
+      <pathelement location="${client.ra.bin.dir}" />
+      <pathelement location="${client.ra.junit.dir}" />
+      <pathelement location="${jms.jar.dir}" />
+   	  <pathelement location="${client.deps.dir}/fscontext.jar" />
+   	  <pathelement location="${client.deps.dir}/providerutil.jar" />
+   	  <pathelement location="${client.jms.dir}/bin/lib/imaclientjms_test.jar" />
+   </path>
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${client.ra.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="ra_publish">
+		<echo> ==  Copy files to client_ship tree ================ </echo>
+		<copy todir="${client.common.lib.dir}" preservelastmodified="yes">
+		    <fileset dir="${client.ra.lib.dir}" />
+		</copy>
+	    <copy todir="${client.common.ra.dir}" preservelastmodified="yes" file="${ima.jmsra.rar}" />
+   </target>
+
+	<target name="copyTranslations" description="Copy translated messages">
+		<!-- Convert translated properties into java source code tree -->
+	      <copy todir="${client.ra.src.dir}" >
+	         <fileset dir="${client.common.dir}/msgcat">
+	      		<include name="**/*.properties"/>
+	         </fileset>
+	      </copy>
+	</target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, javadoc, package"  -->
+	<target name="build_client_ra" depends="build_ra_rar, jmsra_test, ra_publish">
+		<echo> ==  Invoking ant for client_ra build ============= </echo>
+	</target>
+
+	<!-- Build the RA if we have the WAS jars, otherwise do nothing-->
+	<target name="optional_build_client_ra" depends="warn_lack_sib" if="sib.jar.exists" >
+		<antcall target="build_client_ra"/>
+	</target>
+
+	<target name="warn_lack_sib" unless="sib.jar.exists" >
+		<echo>Not building Resource adaptor because of lack of com.ibm.ws.sib.server.jar</echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_ra_jar" depends="ra_compile" >
+		<!-- copy MANIFEST.MF file -->
+		<delete file="${client.ra.bin.dir}/META-INF/MANIFEST.MF" />
+		<copy file="${client.ra.src.dir}/META-INF/MANIFEST.MF" todir="${client.ra.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.ra.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.ra.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imara.jar}">
+			<fileset dir="${client.ra.bin.dir}" includes="**/*.class, **/*.properties, **/*.xsd" excludes="test/**, samples/**" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${imara.jar}" manifest="${client.ra.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!-- Build output rar file -->
+	<target name="build_ra_rar" depends="build_ra_jar" >
+		<!-- copy MANIFEST.MF file -->
+		<delete file="${client.ra.bin.dir}/META-INF/MANIFEST.MF" />
+		<copy file="${client.ra.src.dir}/META-INF/MANIFEST.MF" todir="${client.ra.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<copy file="${client.ra.src.dir}/META-INF/ra.xml" todir="${client.ra.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the ra.xml file -->
+		<replace file="${client.ra.bin.dir}/META-INF/ra.xml" token="VERSION_ID" value="${version.id}" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.ra.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.ra.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${ima.jmsra.rar}">
+			<fileset dir="${client.ra.lib.dir}" includes="imara.jar" />
+			<fileset dir="${client.jms.dir}/bin/lib" includes="imaclientjms.jar" />
+			<fileset dir="${client.ra.bin.dir}" includes="**/*.xml" excludes="test/**" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${ima.jmsra.rar}" manifest="${client.ra.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+   <!-- Execute unit test for the project -->
+    <target name="jmsra_test" depends="jmsra_compile_test, jmsra_junittest_32, jmsra_junittest_64">
+    </target>
+
+    <!-- Execute unit test 32 for the project -->
+    <target name="jmsra_junittest_32" depends="jmsra_compile_test" unless="lxenv.NO_RA_JUNIT" >
+       <echo> ==  Unit tests with 32 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="32"/>
+       </antcall>
+    </target>
+
+    <!-- Execute unit test 64 for the project -->
+    <target name="jmsra_junittest_64" if="do.unit.64" depends="jmsra_compile_test" unless="lxenv.NO_RA_JUNIT" >
+       <echo> ==  Unit tests with 64 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="64"/>
+       </antcall>
+    </target>
+
+	<!-- Execute the unit tests for the project -->
+	<target name="junit_test">
+		<echo> ==  Unit test setup for ${os.st} bits ======================== </echo>
+		<property name="test.data.dir" location="${client.ra.junit.dir}/test-data/${os.st}" />
+		<property name="test.reports.dir" location="${client.ra.junit.dir}/test-reports/${os.st}" />
+		<delete dir="${test.data.dir}" />
+		<delete dir="${test.reports.dir}" />
+		<mkdir dir="${test.data.dir}" />
+		<mkdir dir="${test.reports.dir}" />
+
+		<!-- property name="jvmargadd_1" value="-showversion" / -->
+		<condition property="jvmargadd_1" value="-d${os.st}" else="-showversion">
+			<equals arg1="${os.name}" arg2="SunOS"/>
+		</condition>
+
+		<if>
+			<isset property="generate_coverage" />
+			<then>
+				<coverage destfile="${client.ra.bin.dir}/jacoco.exec">
+					<junit printsummary="no" haltonfailure="false" haltonerror="false" jvm="java" showoutput="yes" fork="true" forkmode="once">
+						<jvmarg value="${jvmargadd_1}" />
+						<classpath refid="test.classpath" />
+						<formatter type="xml" />
+						<formatter type="plain" usefile="no" />
+						<test name="com.ibm.ima.ra.AllTests" fork="yes" todir="${test.data.dir}"/>
+					</junit>
+				</coverage>
+			</then>
+			<else>
+				<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
+					<jvmarg value="${jvmargadd_1}" />
+					<classpath refid="test.classpath" />
+					<formatter type="xml" />
+					<formatter type="plain" usefile="no" />
+					<test name="com.ibm.ima.ra.AllTests" fork="yes" todir="${test.data.dir}"/>
+				</junit>
+			</else>
+		</if>
+
+		<!-- HTML report for the unit tests -->
+		<junitreport todir="${test.data.dir}" >
+			<fileset dir="${test.data.dir}">
+				<include name="*.xml" />
+			</fileset>
+			<report format="frames" todir="${test.reports.dir}" />
+		</junitreport>
+	</target>
+
+	<!--  Compile the unit test code  -->
+	<target name="jmsra_compile_test" depends="ra_compile">
+		<javac source="1.6"
+               target="1.6"
+               srcdir="${client.ra.test.src.dir}"
+               destdir="${client.ra.junit.dir}"
+               encoding="utf-8"
+               debug="yes"
+               debuglevel="lines,source,vars"
+               includeantruntime="no"
+               optimize="yes">
+         <classpath refid="test.classpath" />
+      </javac>
+      <copy todir="${client.ra.junit.dir}" preservelastmodified="yes">
+         <fileset dir="${client.ra.test.src.dir}" excludes="**/*.java" />
+      </copy>
+   </target>
+
+
+	<!--Compile the project-->
+	<target name="ra_compile" depends="client_ra_init, copyTranslations, NWays_mock">
+		<!-- set build id in the ImaResourceAdapter.java file -->
+		<replace file="${client.ra.src.dir}/com/ibm/ima/ra/ImaResourceAdapter.java" token="BUILD_ID" value="${build.id}" />
+
+	    <condition property="run.pseudolocalized.messages.test" value="true" else="false">
+	        <not>
+	            <isset property="translations.present" />
+	        </not>
+	    </condition>
+		<replace file="${client.ra.test.src.dir}/com/ibm/ima/ra/AllTests.java"
+			token="RUN_PSEUDOLOCALIZED_MESSAGES_TEST"
+			value="${run.pseudolocalized.messages.test}" />
+
+        <!-- set version in the ImaResourceAdapterMetaData.java file -->
+        <replace file="${client.ra.src.dir}/com/ibm/ima/ra/ImaResourceAdapterMetaData.java" token="VERSION_ID" value="${version.id}" />
+
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac source="1.6" target="1.6" srcdir="${client.ra.src.dir}" destdir="${client.ra.bin.dir}" deprecation="no"
+             includeAntRuntime="no" encoding="utf-8"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${client.ra.src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+	    <jar destfile="${imajmsra_test.jar}">
+			<fileset dir="${client.ra.junit.dir}" includes="**/*.class" />
+		</jar>
+        <copy todir="${client.ra.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${client.ra.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+	<!-- Executing RPX tool for pseudo translation-->
+
+	<target name="NWays_mock" if="rpx.path.exists"  unless="translations.present" description="Runs RPX class to do pseudo translation">
+	<if>
+	    <equals arg1="${msgcat.path.exists}" arg2="false"/>
+    <then>
+        <mkdir dir="${client.common.dir}/msgcat" />
+    </then>
+	</if>
+		<!-- Classpath for RPX -->
+		<path id="rpx.specific.classpath">
+		    <pathelement location="rpx.jar"/>
+		    <fileset dir="${client.jms.rpx.dir}">
+		       <include name="**/*.jar"/>
+		    </fileset>
+		</path>
+
+		<taskdef name="nways" classname="com.ibm.rpx.ant.Nw" classpathref="rpx.specific.classpath"/>
+
+		<echo message="Running RPX"/>
+		<nways classpath="${client.jms.rpx.dir};${client.jms.rpx.dir}\rpx.jar;${ant.home}/lib/ant.jar" ways="fr de ja zh zh_TW" >
+			 <!-- <fileset dir="${client.common.dir}/msgcat/com/ibm/ima/jms/msgcatalog/"> -->
+			 <fileset dir="${client.common.dir}/../client_ra/src/">
+				 <include name="ValidationMessages.properties"/>
+			 </fileset>
+		</nways>
+
+	</target>
+
+    <!-- Initialize the build environment -->
+	<target name="client_ra_init">
+	    <mkdir dir="${client.ra.junit.dir}"/>
+		<mkdir dir="${client.ra.lib.dir}"/>
+	</target>
+</project>

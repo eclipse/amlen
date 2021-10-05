@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name:  JMS_DS_001
+
+  Test Category:  JMS Durable Subscription
+  
+  Test Description:
+  	Test the Session.createDurableSubscriber(Topic topic, String name) method
+  	as well as unsubscribing from a durable subscription.
+
+        Also testing Section 4.11 from the JMS Spec.
+        Attempt to call topic specific methods from a queue session, and
+        queue specific methods from a topic session.
+          - createDurableSubscriber
+          - createTemporaryTopic
+          - unsubscribe
+          - createQueueBrowser
+          - createTemporaryQueue
+
+*****************************************************************************/
+-->
+<ImaJmsTest name="jms_durablesub_001" >
+
+	<Action name="rmdr" type="CompositeAction" thread="1">
+
+		<Action name="CreateFactory" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+			<!--ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter-->
+		</Action>
+
+		<Action name="SetFactoryProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx_DS001_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnectionFail" type="CreateConnection">
+			<ActionParameter name="structure_id">Con2</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1</ActionParameter>
+		 	<ApiParameter name="user">admin</ApiParameter>
+		 	<ApiParameter name="passwd">adminfail</ApiParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSessionFail" type="CreateSession" rc="1" reason="CWLNC0207">
+			<ActionParameter name="conn_id">Con2</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="CreateConnection" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1</ActionParameter>
+		 	<ApiParameter name="user">JMSUser1</ApiParameter>
+		 	<ApiParameter name="passwd">test</ApiParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="CreateQueueSession" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">SesQueue</ActionParameter>
+	 		<ActionParameter name="type">queue</ActionParameter>
+		</Action>
+
+		<Action name="CreateTopicSession" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">SesTopic</ActionParameter>
+	 		<ActionParameter name="type">topic</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination3" type="CreateDestination">
+			<ApiParameter name="name"></ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX3</ActionParameter>
+		</Action>
+
+		<Action name="CreateQueue" type="CreateDestination">
+			<ApiParameter name="name">JMSQueue1</ApiParameter>
+			<ActionParameter name="type">queue</ActionParameter>
+		 	<ActionParameter name="structure_id">queue</ActionParameter>
+		</Action>
+
+		<!-- Trying to create a durable subscription with a queue session -->
+		<Action name="CreateDurableQueue" type="CreateDurableSubscriber" rc="1" reason="CWLNC0018">
+			<ActionParameter name="structure_id">consumerQueue</ActionParameter>
+			<ActionParameter name="dest_id">destRX3</ActionParameter>
+			<ActionParameter name="session_id">SesQueue</ActionParameter>
+			<ApiParameter name="durableName">queueDurable</ApiParameter>
+		</Action>
+
+		<!-- Trying to call unsubscribe from a queue session -->
+		<Action name="UnsubscribeQueue" type="Unsubscribe" rc="1" reason="CWLNC0018">
+			<ActionParameter name="session_id">SesQueue</ActionParameter>
+			<ApiParameter name="durableName">queueDurable</ApiParameter>
+		</Action>
+
+		<!-- Trying to create a temporary topic from a queue session -->
+		<Action name="CreateTempTopic" type="CreateTemporaryTopic" rc="1" reason="CWLNC0018">
+			<ActionParameter name="structure_id">tempTopic</ActionParameter>
+			<ActionParameter name="session_id">SesQueue</ActionParameter>
+		</Action>
+
+		<!-- Trying to create a queue browser from a topic session -->
+		<Action name="CreateQueueBrowser" type="CreateQueueBrowser" rc="1" reason="CWLNC0017">
+			<ActionParameter name="structure_id">browser</ActionParameter>
+			<ActionParameter name="queue_id">queue</ActionParameter>
+			<ActionParameter name="session_id">SesTopic</ActionParameter>
+		</Action>
+
+		<!-- Trying to create a temporary queue from a topic session -->
+		<Action name="CreateTempQueue" type="CreateTemporaryQueue" rc="1" reason="CWLNC0017">
+			<ActionParameter name="structure_id">tempQueue</ActionParameter>
+			<ActionParameter name="session_id">SesTopic</ActionParameter>
+		</Action>
+
+		<!-- Empty topic name specified -->
+		<Action name="CreateConsumer1" type="CreateConsumer" rc="1" reason="CWLNC0209">
+			<ActionParameter name="structure_id">consumer0</ActionParameter>
+			<ActionParameter name="dest_id">destRX3</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="FillDestProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">destRX3</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="name" value="jmsDS-01" type="STRING"/>
+		</Action>
+
+		<!-- No durable name specified -->
+		<Action name="CreateConsumer2" type="CreateDurableSubscriber" rc="1" reason="JMSTDNullPtr">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX3</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="CreateConsumer4" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer3</ActionParameter>
+			<ActionParameter name="dest_id">destRX3</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName">durableSub1</ApiParameter>
+		</Action>
+		
+		<!-- variation added for defect 38308 which caused server crash -->
+		<Action name="CreateConsumer4Again" type="CreateDurableSubscriber" rc="1" reason="CWLNC0021">
+			<ActionParameter name="structure_id">consumer3_again</ActionParameter>
+			<ActionParameter name="dest_id">destRX3</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName">durableSub1</ApiParameter>
+		</Action>		
+
+		<Action name="CloseConsumer1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer3</ActionParameter>
+		</Action>
+
+		<Action name="Unsubscribe1" type="Unsubscribe">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName">durableSub1</ApiParameter>
+		</Action>
+
+		<Action name="StartConnection" type="StartConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession" type="CloseSession">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection" type="StopConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection2" type="CloseConnection">
+			<ActionParameter name="conn_id">Con2</ActionParameter>
+		</Action>
+	</Action> 
+
+	<Action name="rmdr2" type="CompositeAction" thread="2">
+		
+		<Action name="CreateFactory" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx2_DS001_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession" type="CreateSession">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+	 		<ActionParameter name="structure_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination" type="CreateDestination">
+			<ApiParameter name="name">jmsDS-01</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX</ActionParameter>
+		</Action>
+
+		<Action name="CreateConsumer4" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName">durableSub1</ApiParameter>
+		</Action>
+
+		<!-- Note: This return code was change between V1 and the 4Q2013 release -->
+		<Action name="Unsubscribe1" type="Unsubscribe" rc="1" reason="CWLNC0227">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName"> abcv</ApiParameter>
+		</Action>
+
+		<!-- Note: This return code was change between V1 and the 4Q2013 release -->
+		<Action name="Unsubscribe2" type="Unsubscribe" rc="1" reason="CWLNC0227">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName">abcv</ApiParameter>
+		</Action>
+
+		<!-- Note: This return code was change between V1 and the 4Q2013 release -->
+		<Action name="Unsubscribe3" type="Unsubscribe" rc="1" reason="CWLNC0226">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName">durableSub1</ApiParameter>
+		</Action>
+
+		<Action name="CloseConsumer1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+		</Action>
+
+		<Action name="unsubscribe4" type="Unsubscribe">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="durableName">durableSub1</ApiParameter>
+		</Action>
+
+		<Action name="StartConnection" type="StartConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession" type="CloseSession">
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection" type="StopConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1</ActionParameter>
+		</Action>
+	</Action>
+</ImaJmsTest>

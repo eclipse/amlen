@@ -1,0 +1,134 @@
+# Default behavior is to execute the first target
+# otherwithe one need to give the target name.
+# CC is defined at the mak_MD.$(OS)
+# OS should be defined at the environment using setenv OS `uname`
+# To create a 64 bit version use OS_ST=64 otherwise a 32 bit version will be created
+
+include setOS
+
+VERSION_ID=2.6.0.4
+OS_ST = 64
+OSDIR = $(OS)/$(OS_ST)
+LIBDIR= ../lib/$(OSDIR)
+OBJDIR= ./$(OSDIR)
+OPT 	=
+OPT 	= -g
+
+rmm_SRC_C = ../include/rumCapi.h rum2rmm.h BuffBoxMgm.c BuffBoxMgm.h MemMan.c MemMan.h \
+		rmmCutils.h rmmCutils.c rmmWinPthreads.h rmmSystem.h SockMgm.c SockMgm.h \
+		rmmConstants.h rmmPacket.h rumPrivate.h RumRxTxApi.c ConnectionHandler.c ../include/llmCommonApi.h \
+
+rmm_SRC_T = RumTransmitterApi.c MonitorThread.c RepairThread.c \
+			TokenBucket.c rmmTprivate.h rmmTutils.c rumFireOutThread.c
+
+rmm_SRC_R = RumReceiverApi.c SortedQmgm.c SortedQmgm.h rmmRutils.c rmmRutils.h rumRprivate.h ParseMtl.c
+
+
+
+rmm_OBJ 	= RumRxTxApi.o
+rmm_OBJS  = $(rmm_OBJ) $(jni_OBJ)
+rmm_BEAM	= RumRxTxApi.beam
+rmm_LIB 	= librum.a
+rmm_SO		= librum.so
+
+# Note: some of the above definitions are used within the following include.
+include mak_md.$(OS)
+
+INCDIR = -I. -I../include
+#CFLAGS = -DOS_$(OS) -DUNIX -D_THREAD_SAFE -D_ANSI_C_SOURCE -D_REENTRANT -D_ALL_SOURCE
+#CFLAGS = -DUNIX	-D_THREAD_SAFE -D_ANSI_C_SOURCE -D_REENTRANT -D_ALL_SOURCE
+CFLAGS = -DRUM_CODE -DRMM_UNIX -DOS_$(OS) -DUNIX -D_THREAD_SAFE -D_REENTRANT -DBUILD_ID=$(BUILD_ID)
+CFLAG  = -c $(OPT) $(INCDIR) $(CFLAGS) $(CFLAGS_MD) $(USE_NOMA) $(DROP) -DOLD_OS_INFO $(ALEX) -DVERSION_ID=$(VERSION_ID)
+
+BEAM_OPTIONS = --beam::parms=rmm_params.tcl --beam::stats_file=$*.stat --beam::parser_file=$*.parse --beam::complaint_file=$*.comp --beam::source=compiler_c_config.tcl -I/usr/lib/gcc/x86_64-redhat-linux/4.1.1/include/
+
+RMM_FILES = $(rmm_OBJS) $(rmm_SO) $(rmm_LIB) $(pd_OBJ) $(pd_SO)
+
+all: $(MD_OS_ST)
+#all: os_32
+
+os_64:
+	@make -f makelib OS_ST=64 make_os_dir $(rmm_LIB) $(so_TARGETS) 
+
+os_32:
+	@make -f makelib OS_ST=32 make_os_dir mv_from_dir $(rmm_LIB) $(so_TARGETS) mv_to_dir
+
+$(rmm_OBJ):	$(rmm_SRC_C) $(rmm_SRC_T) $(rmm_SRC_R) makelib
+	 $(CC) $(M64) $(CFLAG) $(IFLAGS) $*.c
+
+$(jni_OBJ):  $(jni_SRC)
+	$(CC) $(M64) $(CFLAG) $(IFLAGS) -I$(JAVA_HOME)/include $*.c
+
+$(pd_OBJ):  $(pd_SRC)
+	$(CC) $(M64) $(CFLAG) $(IFLAGS) $*.c
+
+$(rmm_LIB): $(rmm_OBJS) makelib
+	rm -f $@
+	$(AR) $(X64) vq $@	$(rmm_OBJS)
+
+$(rmm_SO): $(rmm_OBJS) makelib
+	rm -f $@
+	$(CC) $(M64) $(so_LFLAGS_MD) $(rmm_OBJS) -o $@
+#gcc	$(M64) -G $(rmm_OBJS) -o $@
+
+$(pd_SO): $(pd_OBJ) makelib
+	rm -f $@
+	$(CC) $(M64) $(so_LFLAGS_MD) $(pd_OBJ) -o $@
+
+$(rmm_BEAM):  $(rmm_SRC_C) $(rmm_SRC_T) $(rmm_SRC_R)
+	-rm -f $*.stat $*.parse $*.comp
+	echo M64 is $(M64)
+	$(BEAM) $(BEAM_OPTIONS) $(M64) $(CFLAG) $(IFLAGS) $*.c
+
+$(jni_BEAM):  $(jni_SRC)
+	-rm -f $*.stat $*.parse $*.comp
+	$(BEAM) $(BEAM_OPTIONS) $(M64) $(CFLAG) $(IFLAGS) $*.c
+
+beamR:  $(rmm_BEAM)
+	touch beamR
+
+beamJ:  $(jni_BEAM)
+	touch beamJ
+
+clean:
+	rm -f $(RMM_FILES)
+	if [ -d $(OBJDIR) ] ; then cd $(OBJDIR) ;rm -f $(RMM_FILES); cd .. ; fi ;
+	if [ -d $(LIBDIR) ] ; then cd $(LIBDIR) ;rm -f $(RMM_FILES); cd .. ; fi ;
+
+make_os_dir:
+	@mkdir -p $(OBJDIR)
+	@mkdir -p $(LIBDIR)
+
+mv_from_dir:
+	@-if [ -f $(OBJDIR)/$(rmm_OBJ) ] ; then mv $(OBJDIR)/$(rmm_OBJ) . ; fi;
+	@-if [ -f $(OBJDIR)/$(jni_OBJ) ] ; then mv $(OBJDIR)/$(jni_OBJ) . ; fi;
+	@-if [ -f $(LIBDIR)/$(rmm_LIB) ] ; then mv $(LIBDIR)/$(rmm_LIB) . ; fi;
+	@-if [ -f $(LIBDIR)/$(rmm_SO)	] ; then mv $(LIBDIR)/$(rmm_SO) . ; fi;
+	@-if [ -f $(OBJDIR)/$(pd_OBJ) ] ; then mv $(OBJDIR)/$(pd_OBJ) . ; fi;
+	@-if [ -f $(LIBDIR)/$(pd_SO) ] ; then mv $(LIBDIR)/$(pd_SO) . ; fi;
+
+mv_to_dir:
+	@-if [ -f $(rmm_OBJ) ] ; then mv $(rmm_OBJ) $(OBJDIR) ; fi;
+	@-if [ -f $(jni_OBJ) ] ; then mv -f $(jni_OBJ) $(OBJDIR) ; fi;
+	@-if [ -f $(rmm_LIB) 	] ; then mv $(rmm_LIB) $(LIBDIR) ; fi;
+	@-if [ -f $(rmm_SO)		] ; then mv $(rmm_SO) $(LIBDIR) ; fi;
+	@-if [ -f $(pd_OBJ) ] ; then mv -f $(pd_OBJ) $(OBJDIR) ; fi;
+	@-if [ -f $(pd_SO)      ] ; then mv $(pd_SO) $(LIBDIR) ; fi;
+
+# Remove exsiting suffixes
+.SUFFIXES:
+
+# define new suffixes
+.SUFFIXES: .c .cpp .o .beam
+
+# Create .o from .c
+.c.o:
+	 $(CC) $(M64) $(CFLAG) $(IFLAGS) $<
+
+# $< is for getting the input from the make itself
+.cpp.o:
+	 $(CC) $(M64) -c $(CFLAG) $(IFLAGS) $<
+
+.c.beam:
+	$(BEAM) $(BEAM_OPTIONS) $(M64) $(CFLAG) $(IFLAGS) $<
+

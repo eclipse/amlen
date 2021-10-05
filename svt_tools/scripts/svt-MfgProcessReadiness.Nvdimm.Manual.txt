@@ -1,0 +1,192 @@
+Name: svt-MfgProcessReadiness.Nvdimm.txt
+
+There are a series of tests that need to be run as part of the Manufacturing process to verify a machine is ready for customer usage.
+The file is one step of the check list.
+
+---------------------------------------------------------------------------------------
+Test 1: NVDIMM check/fill test. Basic Hardware Test.
+---------------------------------------------------------------------------------------
+Prerequisites:
+1. NVDimms installed and system booted up to command line Console>
+2. Passwordless is setup between Appliance and Client
+
+Purpose:
+These are the steps to minimally verify that the NVDIMMS are operational. Perform all four
+steps below 1-7 (including sub parts 1a,1b,1c, etc..) to complete this verification.
+
+---------------------------------------------------------------------------------------
+
+1. Verify or set Store.MemoryType == 0. This must be set to 0 to allow the test to pass.
+1a. Check current MemoryType setting:
+	Console>  advanced-pd-options _memorytype 
+1b. If Memorytype is not == 0, then set MemoryType to 0 and restart imaserver.
+	Console>  advanced-pd-options _memorytype Type=0
+	Console>  imaserver stop
+	Console>  imaserver start
+
+2. Run the command "advanced-pd-options _nvdimmtest fill" from the command line Console>.
+2a. Verify that size in the output is as expected matching the total size of all nvdimm's installed.
+2b. Verify that a "Wrote X GB" message occurs for all installed memory.
+2c. Verify that completion occurs with "All Done!" message
+ 
+
+Example output. See below for sample output.  
+
+Console> advanced-pd-options _nvdimmtest fill
+Start nvDIMM test
+
+Wed Jan 30 18:38:44 UTC 2013
+Found nvDIMMs at 1080000000, size = 16 GB
+Seed file is missing: writing new seed
+Wrote new seed = 1610685763
+Mapping nvDIMMs...
+Done
+Wrote new seed = 2088393098
+Filling...
+Wrote 1 GB
+Wrote 2 GB
+Wrote 3 GB
+Wrote 4 GB
+Wrote 5 GB
+Wrote 6 GB
+Wrote 7 GB
+Wrote 8 GB
+Wrote 9 GB
+Wrote 10 GB
+Wrote 11 GB
+Wrote 12 GB
+Wrote 13 GB
+Wrote 14 GB
+Wrote 15 GB
+Wrote 16 GB
+Unmap
+All Done!
+Console> 
+
+
+3. Run the command "device restart" from the command line Console>. 
+This command will be replaced with these options on subsequent iterations:
+ 3.2 Power Off - Power On
+ 3.3 Pull the A/C power plug (leave out for 30 seconds) and pluging A/C power  back in
+ 3.4 Use IMM to do Immediately Power Off or Do Power Off and restart OS option from IMM
+
+
+4. Wait for the appliance to reboot back up to the Console> prompt.
+
+
+
+5.  Run the command "advanced-pd-options _nvdimmtest check" from the command line Console>.
+5a. Verify that size is as expected matching the total size of all nvdimm's installed.
+5b. Verify that that a "Checked X GB" message occurs for all installed memory.
+5c. Verify that completion occurs with "All Done!" message
+5d. Verify that no "Unexpected value detected" messages occur.
+
+Example output for success. See below for sample output. 
+
+Console> advanced-pd-options _nvdimmtest check
+Start nvDIMM test
+
+Wed Jan 30 18:55:11 UTC 2013
+Found nvDIMMs at 1080000000, size = 16 GB
+Read previous seed = 2088393098
+Mapping nvDIMMs...
+Done
+Checking...
+Checked 1 GB
+Checked 2 GB
+Checked 3 GB
+Checked 4 GB
+Checked 5 GB
+Checked 6 GB
+Checked 7 GB
+Checked 8 GB
+Checked 9 GB
+Checked 10 GB
+Checked 11 GB
+Checked 12 GB
+Checked 13 GB
+Checked 14 GB
+Checked 15 GB
+Checked 16 GB
+Unmap
+All Done!
+Console> 
+
+
+Example output for failure. See below for sample output.  This is something that we do not want to see during the verification.
+ 
+ Tue Jan 22 20:50:43 UTC 2013
+Found nvDIMMs at 1080000000, size = 16 GB
+Read previous seed = 1004800154
+Mapping nvDIMMs...
+ Done
+Checking...
+Checked 1 GB
+Unexpected value detected: off=1721540608, val=420261774 instead of 1219992730 ; exiting...
+Unmap
+All Done!
+Console>  
+
+6) Repeat this test case using the other options for Step 2 until all options have passed successfully 
+
+7) Run the nvDIMMTest.sh script for 1000 loops to verify the durability of the nvDIMMS.
+	syntax:
+  nvDIMMTest.sh   [#loops]  [IMAServer_IP_Address]  | tee [IMAServer_IP_Address].log
+	for example:
+  nvDIMMTest.sh   1000  10.10.10.10  | tee 10.10.10.10.log
+  
+ The following files are generated:
+ root@mar061 /niagara/nvdimm> ls -al 10.10.10.10*
+-rw-r--r-- 1 root root    121 Feb  7 13:12 10.10.10.10.11.nveeprom
+-rw-r--r-- 1 root root    120 Feb  7 13:12 10.10.10.10.2.nveeprom
+-rw-r--r-- 1 root root    151 Feb  7 13:12 10.10.10.10.5.nveeprom
+-rw-r--r-- 1 root root    120 Feb  7 13:12 10.10.10.10.8.nveeprom
+-rw-r--r-- 1 root root    243 Feb  7 13:12 10.10.10.10.check
+-rw-r--r-- 1 root root    333 Feb  7 13:13 10.10.10.10.fill
+-rw-r--r-- 1 root root 299583 Feb  7 13:13 10.10.10.10.log
+-rw-r--r-- 1 root root    400 Feb  7 13:13 10.10.10.10.nvcheck
+
+Validate by looking at 10.10.10.10.log first.  
+If all loops are successful, your done.
+If there are errors you will need to look closer and determine the source of the error.
+The files *.nveeprom, *.nvcheck, *.fill, and *.check only show the results of the last executed loop.
+Search back through the *.log file, when there were errors the details of the log were dumped.
+
+Severe errors would be less than 16GB was reported in a Fill or Check test.  nvDIMM may need replacing.
+Others would be evaluated on case by case level.  No errors are expected or acceptable.
+
+
+
+
+---------------------------------------------------------------------------------------
+Test 2: NVDIMM messaging test. Basic messaging capablity test.
+---------------------------------------------------------------------------------------
+Prerequisites:
+1. NVDimms installed and system booted up to command line Console>
+2. Passwordless is setup between Appliance and Client
+3. Successfully Completed Test 1: NVDIMM check/fill test. Basic Hardware Test.
+
+Purpose:
+These are the steps to minimally verify that the NVDIMMS are operational. Perform all four
+steps below 1-4 (including sub parts 1a,1b,1c, etc..) to complete this verification.
+
+---------------------------------------------------------------------------------------
+
+1. Configure Appliance and restart imaserver w/ nvdimms enabled. Key settings: Store.NVRAMOffset = 0x1080000000, Store.MemoryType = 1 . Verify or set Store.MemoryType == 1. This must be set to 1 to allow the test to pass.
+1a. Check current MemoryType setting:
+	Console>  advanced-pd-options _memorytype 
+1b. If Memorytype is not == 1, then set MemoryType to 1 and restart imaserver.
+	Console>  advanced-pd-options _memorytype Type=1 
+	Console>  imaserver stop
+	Console>  imaserver start
+2. Start subscriber to start a durable subscription clean session false, with message order verification and message file verification:
+  ./mqttsample_array -s 10.10.1.39:16102  -a subscribe -q 2 -n 100  -v -x reconnectWait=10 -x retryConnect=100  -x connectTimeout=10 -i MARC_221_S -c false  -t MARC221  -x userReceiveTimeout=30000 -x verifyMsg=1 -x msgFile=./BIGFILE  -x orderMsg=1  -x keepAliveInterval=60
+3. Wait for "Begin receiving messages" to print on the subscriber 
+4. Start publisher with clean session false, message ordering:
+  ./mqttsample_array -s 10.10.1.39:16102 -a publish -q 2 -n 100 -v -x reconnectWait=10 -x retryConnect=100  -x connectTimeout=10  -i MARC_221_P -c false -t MARC221  -x orderMsg=1  -x msgFile=./BIGFILE  -x keepAliveInterval=60
+5. At this point , inject an error such as device restart, imaserver stop, imaserver stop force, power off appliance. 
+6. When server comes back up, publisher/subscriber should continue where it left off and all messages should be received. Disregard warnings printed out while the clients try to reestablish communication to the appliance, unless they are labeled as ERRORS, or if you do not receive all expected messages.
+7. Repeat steps 3-7 in various combinations, for example, publish all messages, then inject error, then receive all messages. 
+---------------------------------------------------------------------------------------
+	
+	

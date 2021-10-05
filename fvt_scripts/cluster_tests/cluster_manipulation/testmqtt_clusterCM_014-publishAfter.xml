@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_clusterCM_014-publishAfter" >
+<!--
+    TODO: Fill in a brief description
+-->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testmqtt_clusterCM_014-publishAfter</solution>
+    </SyncClient>
+    
+    <!-- Server 1 subscriber -->
+    <Action name="server1Subscribe" type="CompositeAction">
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server1.xml</include>
+            <ApiParameter name="clientId">CM_014_sub1</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <!-- Subscribe -->
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/reliable/maxmsg/001</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        
+        <!-- Disconnect -->
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        
+        <Action name="sync_components_1" type="SyncComponentAction">
+            <ActionParameter name="component_name">sub1</ActionParameter>
+            <ActionParameter name="component_list">sub1;pub1</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+    </Action>
+    <!-- Server 1 subscriber end -->
+    
+    <!-- Server 1 receiver -->
+    <Action name="server1Receive" type="CompositeAction">
+    	<Action name="sync_components_1" type="SyncComponentAction">
+            <ActionParameter name="component_name">rcv2</ActionParameter>
+            <ActionParameter name="component_list">pub2;rcv2</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+        
+        <Action name="StatCluster_onA1" type="RestAPI">
+        	<ActionParameter name="structureID">stat_Cluster_A1</ActionParameter>
+        	<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+    	<Action name="StatCluster_onA2" type="RestAPI">
+        	<ActionParameter name="structureID">stat_Cluster_A2</ActionParameter>
+        	<ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/monitor/Cluster</ActionParameter>
+        	<ActionParameter name="action">GET</ActionParameter>
+        	<ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+        	<ActionParameter name="expectedStatusCode">200</ActionParameter>
+        	<ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+    	
+    	<Action name="restStatSub" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=CM_014_sub1</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+        
+        <Action name="restStatServer1" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+        
+        <Action name="restStatServer2" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+    	
+        <Action name="CreateConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server1.xml</include>
+            <ApiParameter name="clientId">CM_014_sub1</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <!-- Receive -->
+        <Action name="ReceiveMessages" type="CompositeAction" repeat="20" repeat_interval="0">
+            <Action name="ReceiveMessage" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+            </Action>
+            
+            <Action name="CheckMessage" type="CompareMessageData">
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="compareBody">Sent by testmqtt_clusterReliable_001</ActionParameter>
+                <ActionParameter name="compareTopic">/reliable/maxmsg/001</ActionParameter>
+            </Action>
+        </Action>
+        
+        <!-- Disconnect -->
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+    </Action>
+    <!-- Server 1 receiver end -->
+    
+    <!-- Server 2 publisher -->
+    <Action name="server2Publish" type="CompositeAction">
+    	<Action name="sync_components_1" type="SyncComponentAction">
+            <ActionParameter name="component_name">pub1</ActionParameter>
+            <ActionParameter name="component_list">sub1;pub1</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+        
+        <!-- Connect -->
+        <Action name="CreateConnection" type="CreateConnection">
+        	<dependsOn action_id="sync_components_1" interval="5000"/>
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>server2.xml</include>
+            <ApiParameter name="clientId">CM_014_pub2</ApiParameter>
+            <ApiParameter name="port">20007</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        
+        <!-- Publish -->
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">msg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Sent by testmqtt_clusterReliable_001</ApiParameter>
+        </Action>
+
+        <Action name="SendMessage" type="SendMessage" repeat="20" repeat_interval="0">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="message_id">msg1</ActionParameter>
+            <ActionParameter name="topic">/reliable/maxmsg/001</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>
+            
+        <!-- Disconnect -->
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        
+        <Action name="restStatSub" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?ClientID=CM_014_sub1</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+        
+        <Action name="restStatServer1" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+        
+        <Action name="restStatServer2" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    
+        <Action name="sync_components_2" type="SyncComponentAction">
+            <ActionParameter name="component_name">pub2</ActionParameter>
+            <ActionParameter name="component_list">pub2;rcv2</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+    </Action>
+    <!-- Server 2 publisher end -->
+</IsmWSTest>

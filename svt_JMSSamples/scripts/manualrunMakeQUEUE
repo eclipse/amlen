@@ -1,0 +1,85 @@
+#! /bin/bash 
+
+source manualrun_HA_JMS
+
+####################################################################
+# deleteQueue()
+# Inputs Assumed:
+#   QUEUE_NAME - Establish variable value before calling this fcn()
+####################################################################
+createQueue() {
+
+  ssh admin@${PRIMARY} "imaserver create Queue Name=${QUEUE_NAME} MaxMessages=20000000 AllowSend=True ConcurrentConsumers=True "
+  if [ $? -ne 0 ]; then
+     ssh admin@${PRIMARY} "imaserver stat Queue \"${QueueName_SYNTAX}=${QUEUE_NAME}\" "
+
+     ssh admin@${PRIMARY} "imaserver stat Subscription  "
+
+     ssh admin@${PRIMARY} "imaserver stat Connection "
+
+     ssh admin@${PRIMARY} "imaserver update Queue Name=${QUEUE_NAME} MaxMessages=20000000 AllowSend=True ConcurrentConsumers=True "
+  fi
+
+}
+
+####################################################################
+###--------------------------------------------------------------###
+# MAIN
+# PRIMARY - IMA Server variable is sourced manualrun_HA_JMS 
+###--------------------------------------------------------------###
+
+if [ $# -eq 0 ]; then
+  echo "you goofed system, what is the IMA Server?"
+  read PRIMARY
+else
+  PRIMARY=$1
+fi
+
+# Eventually make these input parameters $2 and $3
+declare -i APPNUM_START         # index starts - Number of Pub/Sub clients to create
+declare -i APPNUM_END           # index ends   - Number of Pub/Sub clients to create
+
+if [ $# -le 1 ]; then
+  echo "What's QUEUE number of the FIRST Queue to DELETE on IMA Server ${PRIMARY}?"
+  read APPNUM_START
+else
+  APPNUM_START=$2
+fi
+
+if [ $# -le 2 ]; then
+  echo "What's QUEUE number of the LAST Queue to DELETE on IMA Server ${PRIMARY}?"
+  read APPNUM_END
+else
+  APPNUM_END=$3
+fi
+
+client-name
+if [ $# -eq 4 ]; then
+  USERHOST=$4
+fi
+
+
+for id in $(eval echo {${APPNUM_START}..${APPNUM_END}} )
+
+do
+#  client-name
+  USERCNT=`printf "%03d" ${id}`
+
+  declare SUB_USERNAME=c${USERCNT}0${USERHOST}
+  declare PUB_USERNAME=c${USERCNT}1${USERHOST}
+
+  declare PUB_QUEUE_NAME=${QUEUE_APP}"/"${QUEUE_USER}${SUB_USERNAME}
+  declare SUB_QUEUE_NAME=${QUEUE_USER}${SUB_USERNAME}"/"${QUEUE_APP}
+# when not using MDB PUB/SUB Topics need to match -- COMMENT NEXT LINE WHEN USING MDB.
+#  declare PUB_QUEUE_NAME=${SUB_QUEUE_NAME}
+
+set -x
+  QUEUE_NAME=${SUB_QUEUE_NAME}
+  createQueue
+  QUEUE_NAME=${PUB_QUEUE_NAME}
+  createQueue
+set +x
+
+done
+
+

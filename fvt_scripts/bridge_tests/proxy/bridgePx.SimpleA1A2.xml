@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="BridgeSimpleA1A2" >
+<!--  MessageSight Bridge Simple A1A2
+    Using a basic Bridge Config, a Publisher will send 8 messages to Px:P1/MS:A1 
+    The Bridge should ONLY receive/forward 4 messages that match the Forwarder Topic pattern transform to Px:P2/MS:A2
+    The first two messages are V3-ish and have no Properties, the second two have many V5 Properties
+	and are checked when received from Px:P2/MS:A2 by the subscriber.
+	
+	Things to Note:  THIS IS THE GENERAL MODEL for All Proxy Tests (non-HA)
+	   MQTT Clients use PORT 1883 to talk to Proxy
+	   Proxy uses PORT 1884 to talk to Bridge 
+	   Proxy uses PORT 16102 to talk to MsgGtwy Servers
+	Pictorially, the message flow looks like:  
+	   M1.PUB(-1883->)P1.Px(-16102->)A1.MessageGateway
+	                       (-1884->)B1.BridgeSource --> B1.BridgeDest(-1884->)P2.Px(-16102->)A2.MessageGateway
+	                                                                               (-1883->)M2.SUB
+-->
+<!--  ==========  BridgeConfig : Bridge.A1A2.cfg  ==========  -->
+	
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>BridgeSimpleA1A2</solution>
+    </SyncClient>
+ 
+    
+<!--  ==========  P2Subscriber  ==========  -->
+    <Action name="P2Subscriber" type="CompositeAction">
+	
+        <Action name="GetBrForwarderStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``B1_HOST``:``B1_BRIDGEPORT``</ActionParameter>
+            <ActionParameter name="path">/admin/forwarder</ActionParameter>
+            <ActionParameter name="userID">``B1_REST_USER``</ActionParameter>
+            <ActionParameter name="password">``B1_REST_PW``</ActionParameter>
+            <ActionParameter name="requireSSL">false</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+	
+        <Action name="GetA1ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+	
+        <Action name="GetA2ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+	
+       
+        <Action name="ConnectP2Subscriber" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA2</ActionParameter>
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_serverP2.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">a:orgDestIoT2:P2Sub:SimpleA1A2</ApiParameter>
+            <ApiParameter name="user">a:orgDestIoT2:P2Sub:SimpleA1A2</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+			<!-- QoS:1 + RetainAsPublished:8 = QoS:9 -->
+<!--  When Proxy in between -->
+        <Action name="1SubscribeIoT2" type="Subscribe" >
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/+/id/+/evt/+/fmt/Simple</ApiParameter>
+            <ApiParameter name="QoS">9</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+        <Action name="2SubscribeIoT2" type="Subscribe" >
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/+/id/+/cmd/+/fmt/Simple</ApiParameter>
+            <ApiParameter name="QoS">9</ApiParameter>
+            <ApiParameter name="expectedrc">1</ApiParameter>
+        </Action>
+
+
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s1</ActionParameter>
+            <ActionParameter name="component_list">s1;p1</ActionParameter>
+            <ActionParameter name="timeout">9000</ActionParameter>
+        </Action>
+
+
+        <Action name="ReceiveMessage_1a" type="ReceiveMessage" >
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">10000</ActionParameter>
+        </Action>
+
+		<Action name="CheckMessage_1a" type="CompareMessageData">
+			<ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+			<ActionParameter name="compareBody">MSG :{ clientId:A:orgSrcIoT2:P1Pub:SimpleA1A2 , Client:v5}</ActionParameter>
+			<ActionParameter name="compareTopic">iot-2/type/A2/id/P2Sub:SimpleA1A2/cmd/Bridge/fmt/Simple</ActionParameter>
+			<ActionParameter name="compareQoS">1</ActionParameter>
+			<ActionParameter name="compareRetain">false</ActionParameter> 
+			<ActionParameter name="mqttMessageVersion">5</ActionParameter>
+		</Action>
+
+        <Action name="sync_1a" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s1a</ActionParameter>
+            <ActionParameter name="component_list">s1a;p1a</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveMessage_1b" type="ReceiveMessage" >
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">1500</ActionParameter>
+        </Action>
+
+		<Action name="CheckMessage_1b" type="CompareMessageData">
+			<ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+			<ActionParameter name="compareBody">MSG :{ clientId:A:orgSrcIoT2:P1Pub:SimpleA1A2 , Client:v5}</ActionParameter>
+			<ActionParameter name="compareTopic">iot-2/type/A2/id/P1Pub:SimpleA1A2/cmd/Bridge/fmt/Simple</ActionParameter>
+			<ActionParameter name="compareQoS">1</ActionParameter>
+			<ActionParameter name="compareRetain">false</ActionParameter> 
+			<ActionParameter name="mqttMessageVersion">5</ActionParameter>
+		</Action>
+
+        <Action name="sync_1b" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s1b</ActionParameter>
+            <ActionParameter name="component_list">s1b;p1b</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveMessage_1c" type="ReceiveMessage" >
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">1500</ActionParameter>
+        </Action>
+
+		<Action name="CheckMessage_1c" type="CompareMessageData">
+			<ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+			<ActionParameter name="compareBody">{"MSG" :{ "clientId":"A:orgSrcIoT2:P1Pub:SimpleA1A2" , "Client":"v5 with Properties"}}</ActionParameter>
+			<ActionParameter name="compareTopic">iot-2/type/A1/id/P1Pub:SimpleA1A2/cmd/Forwarder/fmt/Simple</ActionParameter>
+			<ActionParameter name="compareQoS">0</ActionParameter>
+			<ActionParameter name="compareRetain">false</ActionParameter> 
+            <ApiParameter name="compareCorrelationData">69</ApiParameter>  
+            <ApiParameter name="comparePayloadFormatIndicator">true</ApiParameter>
+            <ApiParameter name="compareMsgExpire">4294967295</ApiParameter>
+            <ApiParameter name="compareContentType">json</ApiParameter>
+            <ApiParameter name="compareResponseTopic">reply/to/here/topic</ApiParameter>
+            <ApiParameter name="compareTopicAlias">29</ApiParameter>
+            <ApiParameter name="compareUserprop.0">Name=Value1</ApiParameter>
+            <ApiParameter name="compareUserprop.1">Name=Value2</ApiParameter>
+            <ApiParameter name="compareUserprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+			<ActionParameter name="mqttMessageVersion">5</ActionParameter>
+		</Action>
+
+        <Action name="sync_1c" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s1c</ActionParameter>
+            <ActionParameter name="component_list">s1c;p1c</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+        
+        <Action name="ReceiveMessage_1d" type="ReceiveMessage" >
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">1500</ActionParameter>
+        </Action>
+
+		<Action name="CheckMessage_1d" type="CompareMessageData">
+			<ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+			<ActionParameter name="compareBody">{"MSG" :{ "clientId":"A:orgSrcIoT2:P1Pub:SimpleA1A2" , "Client":"v5 with Properties"}}</ActionParameter>
+			<ActionParameter name="compareTopic">iot-2/type/A1/id/P2Sub:SimpleA1A2/cmd/ForwardRetain/fmt/Simple</ActionParameter>
+			<ActionParameter name="compareQoS">1</ActionParameter>
+			<ActionParameter name="compareRetain">true</ActionParameter> 
+            <ApiParameter name="compareCorrelationData">69</ApiParameter>  
+            <ApiParameter name="comparePayloadFormatIndicator">true</ApiParameter>
+            <ApiParameter name="compareMsgExpire">4294967295</ApiParameter>
+            <ApiParameter name="compareContentType">json</ApiParameter>
+            <ApiParameter name="compareResponseTopic">reply/to/here/topic</ApiParameter>
+            <ApiParameter name="compareTopicAlias">29</ApiParameter>
+            <ApiParameter name="compareUserprop.0">Name=Value1</ApiParameter>
+            <ApiParameter name="compareUserprop.1">Name=Value2</ApiParameter>
+            <ApiParameter name="compareUserprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+			<ActionParameter name="mqttMessageVersion">5</ActionParameter>
+		</Action>
+
+        
+        <Action name="ReceiveMessageNoMore" type="ReceiveMessage" rc="1" reason="ISMTEST1143" >
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ActionParameter name="structure_id">rxmsgA1</ActionParameter>
+            <ActionParameter name="waitTime">3000</ActionParameter>
+        </Action>
+
+        <Action name="DisconnectP2Subscriber" type="CloseConnection">
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+        </Action>
+               
+    </Action>
+
+
+
+<!--  ==========  P1Publisher  ==========  -->
+    <Action name="P1Publisher" type="CompositeAction">
+    
+        
+        <Action name="ConnectP1Publisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">A:orgSrcIoT2:P1Pub:SimpleA1A2</ApiParameter>
+            <ApiParameter name="user">A:orgSrcIoT2:P1Pub:SimpleA1A2</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+
+        <Action name="CreateMessage_V3ish" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">MSG :{ clientId:A:orgSrcIoT2:P1Pub:SimpleA1A2 , Client:v5}</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage_V5" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg5</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"MSG" :{ "clientId":"A:orgSrcIoT2:P1Pub:SimpleA1A2" , "Client":"v5 with Properties"}}</ApiParameter>
+            <ApiParameter name="correlationData">69</ApiParameter>
+            <ApiParameter name="payloadFormatIndicator">true</ApiParameter>
+            <ApiParameter name="msgExpire">4294967295</ApiParameter>
+            <ApiParameter name="contentType">json</ApiParameter>
+            <ApiParameter name="responseTopic">reply/to/here/topic</ApiParameter>
+            <ApiParameter name="topicAlias">29</ApiParameter>
+            <ApiParameter name="userprop.0">Name=Value1</ApiParameter>
+            <ApiParameter name="userprop.1">Name=Value2</ApiParameter>
+            <ApiParameter name="userprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+        </Action>
+           
+
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1</ActionParameter>
+            <ActionParameter name="component_list">s1;p1</ActionParameter>
+            <ActionParameter name="timeout">9000</ActionParameter>
+        </Action>
+        
+		
+        <Action name="PublishMsg_1a" type="SendMessage">
+          <dependsOn action_id="CreateMessage_V5" interval="2000"/>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/A2/id/P2Sub:SimpleA1A2/evt/Bridge/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+        </Action>
+	    <Action name="WaitForPendingDelivery_1a" type="WaitPendingDelivery" >
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+
+        <Action name="sync_1a" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1a</ActionParameter>
+            <ActionParameter name="component_list">s1a;p1a</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+           
+        <Action name="PublishMsg_1b" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/A2/id/P1Pub:SimpleA1A2/evt/Bridge/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>
+	    <Action name="WaitForPendingDelivery_1b" type="WaitPendingDelivery" >
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+
+        <Action name="sync_1b" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1b</ActionParameter>
+            <ActionParameter name="component_list">s1b;p1b</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+           
+        <Action name="PublishMsg_1c" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg5</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/A1/id/P1Pub:SimpleA1A2/evt/Forwarder/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>            
+	    <Action name="WaitForPendingDelivery_1c" type="WaitPendingDelivery" >
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+
+        <Action name="sync_1c" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1c</ActionParameter>
+            <ActionParameter name="component_list">s1c;p1c</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+           
+        <Action name="PublishMsg_1d" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg5</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/A1/id/P2Sub:SimpleA1A2/evt/ForwardRetain/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+<!-- SubOpts used by Subscriber:  RH 0x00 + RetainAsPub 0x08 + QoS 0x01 will see retain bit ON when msg is received -->
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>            
+	    <Action name="WaitForPendingDelivery_1d" type="WaitPendingDelivery" >
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+           
+		<!-- Won't be delivered to the Subscribe on A2 -->
+
+		<!-- Will be fwded, but not delivered due to Sub's subscription topic -->
+        <Action name="PublishMsg_2a" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/A1/id/P1Pub:SimpleA1A2/evt/Bridge/fmt/NotSimple</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+        </Action> 
+		
+        <!-- Matched the SUB's subscription, but not the Forwarder's, not be fwded -->
+        <Action name="PublishMsg_2b" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/A1/id/P1Pub:SimpleA1A2/cmd/Bridge/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>            
+
+		<!-- Will be fwded, but not delivered due to Sub's subscription topic -->
+        <Action name="PublishMsg_2c" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg5</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/A1/id/Publisher/evt/Bridge/fmt/SimpleA1A2</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+        </Action>            
+
+		<!-- Not a valid publish topic by IOT Rules, even though it is close to matching the Forwarder -->
+        <Action name="PublishMsg_2d" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg5</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/A1/id/P1Pub.SimpleA1A2/evt/Bridge/fmt/Simple/extra</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>            
+           
+        <!-- Bad Publish TOPIC causes a disconnect -->
+        <Action name="DisconnectedPublisher" type="CheckConnection">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ApiParameter name="expectedrc">144</ApiParameter>
+			<!--
+            <ActionParameter name="reasonCode">144</ActionParameter>
+            <ActionParameter name="reason">Topic Name invalid.</ActionParameter>
+			-->
+            <ApiParameter name="isConnected">false</ApiParameter>
+        </Action>
+       
+    </Action>
+
+
+<!-- NO LONGER USED - - COULD BE DELETED -->
+<!--  ==========  P1PublisherClearRetain  ==========  -->
+    <Action name="P1PublisherClearRetain" type="CompositeAction">
+<!-- DeleteAllRetainMessages Action is NPE-ing - workaround 216038 -->
+    
+    
+        <Action name="GetA1ServerStatsBefore" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA2ServerStatsBefore" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        
+        <Action name="ConnectA1Publisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">A:orgSrcIoT2:A1Pub:SimpleA1A2</ApiParameter>
+<!--
+            <include>../common/PROXY_server.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">A:orgSrcIoT2:P1Pub:SimpleA1A2</ApiParameter>
+            <ApiParameter name="user">A:orgSrcIoT2:P1Pub:SimpleA1A2</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+-->			
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+        
+        <Action name="ConnectA2Publisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA2</ActionParameter>
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server2.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">A:orgDestIoT2:A2Pub:SimpleA1A2</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+		
+        <Action name="CreateMessageClearRetainA1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload"></ApiParameter>
+        </Action>
+
+        <!-- send an EMPTY PAYLOAD with Retain will clear the existing Retain Message -->  
+        <Action name="CleanRetainedA1" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/orgSrcIoT2/type/A1/id/P2Sub:SimpleA1A2/evt/ForwardRetain/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+		
+		
+        <Action name="CreateMessageClearRetainA@" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload"></ApiParameter>
+        </Action>
+
+        <!-- send an EMPTY PAYLOAD with Retain will clear the existing Retain Message -->  
+        <Action name="CleanRetainedA2" type="SendMessage">
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ActionParameter name="message_id">txmsg2</ActionParameter>
+            <ActionParameter name="topic">iot-2/orgDestIoT2/type/A1/id/P2Sub:SimpleA1A2/cmd/ForwardRetain/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">true</ActionParameter>
+        </Action>
+		
+<!-- 
+        <Action name="DeleteAllRetainedA1" type="DeleteAllRetainedMessages">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+        
+
+
+        <Action name="DeleteAllRetainedA2" type="DeleteAllRetainedMessages">
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+        </Action>
+-->
+    
+        <Action name="GetA1ServerStatsAfter" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+<!--
+		<Action name="VerifyNoRetainedA1" type="CompareREST" >
+			<ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+			<ActionParameter name="topLevelKey">Server</ActionParameter>
+			<ActionParameter name="subObjectKey">RetainedMessages</ActionParameter>
+			<ActionParameter name="subObjectName">0</ActionParameter>
+		</Action>   
+-->
+    
+        <Action name="GetA2ServerStatsAfter" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+<!--
+		<Action name="VerifyNoRetainedA2" type="CompareREST" >
+			<ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+			<ActionParameter name="topLevelKey">Server</ActionParameter>
+			<ActionParameter name="subObjectKey">RetainedMessages</ActionParameter>
+			<ActionParameter name="subObjectName">0</ActionParameter>
+		</Action>   
+-->    
+
+        <Action name="DisconnectA1Publisher" type="CloseConnection">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+		
+        <Action name="DisconnectA2Publisher" type="CloseConnection">
+            <ActionParameter name="connection_id">CFA2</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+		
+    </Action>           
+
+	
+</IsmWSTest>
+                

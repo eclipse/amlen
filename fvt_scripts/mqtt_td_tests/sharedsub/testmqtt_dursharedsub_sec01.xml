@@ -1,0 +1,1834 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<!--
+	This test will test a large set of various authorizations allow or do not
+	allow the appropriate access to a SharedDurableSubscription in MQTT.   
+	
+	The test variations create and delete Durable Shared Subscriptions with MQTT,
+	verifying that the subscription exists or doesn't exist as appropriate.   
+	
+	These require a TopicPolicy SubscriptionPolicy 
+	
+	Note: per design change, and different from JMS, an unsubscribe of the 
+	last MQTT Subscriber will cause the subscription to be deleted even if the
+	client does not have "Control" authority on a Subscription policy, unless 
+	JMS has registered an interest in the same shared Subscription.  
+	
+	The ability to create the subscription is checked for all 16 possibilities. 
+	
+	The unsubscribe is spot checked to assure that Control or even topic access is 
+	not required. 
+	
+	See the setupSS section of Policy_config.cli for mqtt 
+	
+	The topic being used is: 
+	
+	$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1
+	
+	Each variation uses a short code of the form Y_X in the name where: 
+	
+	Y is the authority granted on the Subscription policy as follows: 
+	
+		C = Control only
+		CR = Control and Receive
+		R = Receive only
+		N = None
+		
+		The Subscription Policy is different on each of the four Endpoints used. 
+		
+	X is the authority granted via the Topic Policy as follows: 
+	
+		P = Publish only
+		S = Subsribe only
+		PS = Publish and Subscribe
+		N = None
+		
+		The Topic policy is different for each userid used.  
+	
+-->
+
+<IsmWSTest name="testmqtt_dursharedsub_sec01" >
+	<!-- make sure the client we are about to use has no prior state --> 
+	<Action name="CreateConnectionClear1" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+        <ApiParameter name="port">29310</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<Action name="CloseConnectionClear1" type="CloseConnection">
+   	    <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    
+	<!-- make sure the client we are about to use has no prior state --> 
+	<Action name="CreateConnectionClear2" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+    	<ApiParameter name="port">29311</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<Action name="CloseConnectionClear2" type="CloseConnection">
+   	    <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>    
+    
+	<!-- make sure the client we are about to use has no prior state --> 
+	<Action name="CreateConnectionClear3" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+	    <ApiParameter name="port">29312</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<Action name="CloseConnectionClear3" type="CloseConnection">
+   	    <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action> 
+
+	<!-- make sure the client we are about to use has no prior state --> 
+	<Action name="CreateConnectionClear4" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+	    <ApiParameter name="port">29313</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<Action name="CloseConnectionClear4" type="CloseConnection">
+   	    <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action> 
+        
+
+	<!-- *************************************************************************** -->
+	<!-- Section 1: Subscribe with Connections with Control only to the Subscription --> 
+	<!-- **************************************************************************** -->
+    
+    <!-- C_PS means Subscription has actions Control, Topic has Publish,Subscribe --> 
+       	
+	<Action name="CreateConnection_C_PS" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29311</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Both</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- This userid and port have Control access on the Subscription, and Pub/Sub on the Topic
+		Expected result: Subscribe will silently fail since there is no "receive" on the SubscriptionPoicy.  --> 
+	<Action name="Subscribe_C_PS" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created.
+		And here was were Defect 55874 occurred, but has since been fixed. --> 
+	<Action name="ShowSubNotCreated_C_PS" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_C_PS</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_C_PS" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_C_PS</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>			
+
+	<Action name="CloseConnection_C_PS" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	
+	    <!-- C_P means Subscription has actions Control, Topic has Publish --> 
+       	
+	<Action name="CreateConnection_C_P" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29311</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Pub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no "receive" on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_C_P" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_C_P" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_C_P</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_C_P" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_C_P</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>			
+		
+	
+	<Action name="CloseConnection_C_P" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+   <!-- C_S means Subscription has actions Control, Topic has Subscribe --> 
+       	
+	<Action name="CreateConnection_C_S" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29311</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Creating the Subscription will silently fail since there is no "receive" on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_C_S" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created.
+		And here was were Defect 55874 occurred, but has since been fixed.  --> 
+	<Action name="ShowSubNotCreated_C_S" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_C_S</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_C_S" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_C_S</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>				
+	
+	<Action name="CloseConnection_C_S" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>		
+   
+  <!-- C_N means Subscription has actions Control, User has no authority on the Topic --> 
+       	
+	<Action name="CreateConnection_C_N" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29311</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_None</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no "receive" on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_C_N" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_C_N" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_C_N</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_C_N" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_C_N</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>				
+	
+	<Action name="CloseConnection_C_N" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	   
+   
+
+	<!-- **************************************************** -->
+	<!-- Section 2: Subscribe with Connections with Receive only to the Subscription
+		That are trying to create the Subscription --> 
+	<!-- **************************************************** -->
+    
+    <!-- R_PS means Subscription has actions Receive, Topic has Publish,Subscribe --> 
+       	
+	<Action name="CreateConnection_R_PS" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29312</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Both</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- This userid and port have Receive access on the Subscription, and Pub/Sub on the Topic
+		Expected result: Subscribe will silently fail since there is no "control" on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_R_PS" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+	
+	<Action name="ShowSubNotCreated_R_PS" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_R_PS</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_R_PS" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_R_PS</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>					
+	
+	<Action name="CloseConnection_R_PS" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+	    <!-- R_P means Subscription has actions Receive, Topic has Publish --> 
+       	
+	<Action name="CreateConnection_R_P" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29312</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Pub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no "control" on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_R_P" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_R_P" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_R_P</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_R_P" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_R_P</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>						
+	
+	<Action name="CloseConnection_R_P" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+   <!-- R_S means Subscription has actions Receive, Topic has Subscribe
+   		But the subscription does not exist, so silently fail.  --> 
+       	
+	<Action name="CreateConnection_R_S" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29312</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no "control" on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_R_S" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_R_S" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_R_S</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_R_S" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_R_S</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>					
+	
+	<Action name="CloseConnection_R_S" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>		 
+   
+  <!-- R_N means Subscription has actions Receive, User has no authority on the Topic --> 
+       	
+	<Action name="CreateConnection_R_N" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29312</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_None</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no "control" or Topic access on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_R_N" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_R_N" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_R_N</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_R_N" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_R_N</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>		
+	
+	<Action name="CloseConnection_R_N" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	   
+
+	<!-- **************************************************** -->
+	<!-- Section 3: Subscribe with Connections with Control,Receive only to the Subscription
+		that are trying to create the Subscription --> 
+	<!-- **************************************************** -->
+    
+    <!-- CR_PS means Subscription has actions Receive, Topic has Publish,Subscribe --> 
+       	
+	<Action name="CreateConnection_CR_PS" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Both</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- This userid and port have Control,Receive access on the Subscription, and Pub/Sub on the Topic
+		Expected result: Subscribe will Succeed! --> 
+	<Action name="Subscribe_CR_PS" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>    
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it worked, if the subscription is created. --> 
+
+	<Action name="ShowSubCreated_CR_PS" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_PS</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_PS" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_PS</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>		
+	
+	<!-- Unsubscribe is also valid for this config-->
+	<Action name="UnSubscribe_CR_PS" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+	</Action>
+	
+	<!-- We can tell Unsubscribe worked, if the subscription is deleted --> 
+
+	<Action name="ShowSubDeleted_CR_PS" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_PS</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubDeleted_CR_PS" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_CR_PS</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>					
+	
+	<Action name="CloseConnection_CR_PS" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+    <!-- CR_P means Subscription has actions Control,Receive, Topic has Publish --> 
+       	
+	<Action name="CreateConnection_CR_P" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Pub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no Subscribe on the Topic Policy --> 
+	<Action name="Subscribe_CR_P" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>	
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_CR_P" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_P</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_CR_P" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_CR_P</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>		
+	
+	<Action name="CloseConnection_CR_P" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+   <!-- CR_S means Subscription has actions Control,Receive, Topic has Subscribe --> 
+       	
+	<Action name="CreateConnection_CR_S" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will succeed.  --> 
+	<Action name="Subscribe_CR_S" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it worked, if the subscription is created. --> 
+
+	<Action name="ShowSubCreated_CR_S" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_S" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+	<!-- Unsubscribe is also valid for this config-->
+	<Action name="UnSubscribe_CR_S" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it unsubscribed, if the subscription is now gone. --> 
+
+	<Action name="ShowSubDeleted_CR_S" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubDeleted_CR_S" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_CR_S</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>
+	
+	<Action name="CloseConnection_CR_S" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>		 
+   
+  <!-- CR_N means Subscription has actions Control,Receive, User has no authority on the Topic --> 
+       	
+	<Action name="CreateConnection_CR_N" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_None</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no  Topic access on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_CR_N" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_CR_N" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_N</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_CR_N" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_CR_N</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>			
+	
+	<Action name="CloseConnection_CR_N" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	        
+    
+
+	<!-- **************************************************** -->
+	<!-- Section 4: Subscribe with Connections with no subscription policy.
+		that are trying to create the Subscription --> 
+	<!-- **************************************************** -->
+    
+    <!-- N_PS means No Subscription Policy and has Publish,Subscribe --> 
+       	
+	<Action name="CreateConnection_N_PS" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29313</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Both</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- This userid and port have NO access on the Subscription, and Pub/Sub on the Topic
+		Expected result: Subscribe silenetly fail --> 
+	<Action name="Subscribe_N_PS" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	 
+	<Action name="ShowSubNotCreated_N_PS" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_N_PS</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_N_PS" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_N_PS</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>						
+	
+	<Action name="CloseConnection_N_PS" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+    <!-- N_P means Subscription has actions None, Topic has Publish --> 
+       	
+	<Action name="CreateConnection_N_P" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29313</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Pub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no Subscribe on the Topic Policy --> 
+	<Action name="Subscribe_N_P" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>	
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_N_P" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_N_P</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_N_P" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_N_P</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>							
+	
+	<Action name="CloseConnection_N_P" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+   <!-- N_S means Subscription has actions None, Topic has Subscribe --> 
+       	
+	<Action name="CreateConnection_N_S" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29313</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will fail silently.  --> 
+	<Action name="Subscribe_N_S" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_N_S" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_N_S</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_N_S" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_N_S</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>							
+	
+	<Action name="CloseConnection_N_S" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>		 
+   
+  <!-- N_N means Subscription has actions Control,Receive, User has no authority on the Topic --> 
+       	
+	<Action name="CreateConnection_N_N" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29313</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_None</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will silently fail since there is no  Topic access on the SubscriptionPolicy.  --> 
+	<Action name="Subscribe_N_N" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it failed, if the subscription is not created. --> 
+
+	<Action name="ShowSubNotCreated_N_N" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_N_N</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubNotCreated_N_N" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_N_N</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>						
+	
+	<Action name="CloseConnection_N_N" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	  
+	 
+	<!-- **************************************************** -->
+	<!-- Section 5: UnSubscribe. MQTT keeps track of clients subscriptions
+	     by clientID & port.  So to test unsubscribe.. You need to 
+	     create the subscription. .then come back in and unsubscribe 
+	     using the same clientID and Port.  I'm going to use 
+	     the userid to get the different authorizations needed on 
+	     the Subscription Policy.
+	     
+	     Two of these variations have been tested above. The ability 
+	     to unsubscribe with CR_PS, and with CR_S 
+	     
+	       -->
+	<!-- **************************************************** -->
+    	  
+   <!-- Use CR_S to create a Subscription which we could be able
+   to delete with CR_N --> 
+       	
+	<Action name="CreateConnection_CR_S_Prep1" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will succeed.  --> 
+	<Action name="Subscribe_CR_S_Prep1" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<Action name="ShowSubCreated_CR_S_Prep1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_S_Prep1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+	<!-- Expected result: Subscribe will succeed. This just verifies that the 
+		two subscribes to the same topicstring won't cause problems.  --> 
+	<Action name="Subscribe_CR_S_Prep1Twice" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>		
+	
+	<!-- We can tell it worked, if the subscription is created. --> 
+
+	<Action name="ShowSubCreated_CR_S_Prep1Twice" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep1Twice</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_S_Prep1Twice" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep1Twice</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	   
+	 	       	
+	<Action name="CloseConnection_CR_S_Prep1" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	  
+	 
+	<!-- Prep1retry series was added as a test for defect 56508 
+		that defect was that subscribe to the same topic from 
+		the same mqtt clientsession after it had closed and 
+		opened, would disconnect the client.  -->  
+	<Action name="CreateConnection_CR_S_Prep1retry" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will succeed.  -->
+	<Action name="Subscribe_CR_S_Prep1retry" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action> 
+	
+	<Action name="ShowSubscribe_CR_S_Prep1retry" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep1retry</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubscribe_CR_S_Prep1retry" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep1retry</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	     
+	 	       	
+	<Action name="CloseConnection_CR_S_Prep1retry" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	  	 
+	 
+	 <!-- now come back with same clientID on same Port, but a user with no 
+	 topic access -->
+	 
+	<Action name="CreateConnection_CR_N_ForUnsub" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_None</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+	<!-- Show the Subscription with no consumers.  --> 
+
+	<Action name="ShowSubExists_CR_N_Prep1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubExists_CR_N_Prep1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="0"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	   	   
+	
+	<!-- what will happen? He had access.. and he had has a subscription, but umm. Now he 
+	doesn't. -->
+	<Action name="UnSubscribe_CR_N" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+	</Action>	
+	
+	<!-- Show the Subscription is gone. (after defects 55886 & 56498 were fixed.)  --> 
+
+	<Action name="ShowSubDeleted_CR_N_Unsub" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_N_Unsub</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubDeleted_CR_N_Unsub" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_CR_N_Unsub</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>							   
+		       	
+	<Action name="CloseConnection_CR_N_Unsub" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	 
+	 
+  <!-- Use CR_S to create a Subscription which we should be able to delete with 
+    	CR_P --> 
+       	
+	<Action name="CreateConnection_CR_S_Prep2" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will succeed.  --> 
+	<Action name="Subscribe_CR_S_Prep2" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it worked, if the subscription is created. --> 
+
+	<Action name="ShowSubCreated_CR_S_Prep2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep2</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_S_Prep2" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep2</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	   	   	   
+	 	       	
+	<Action name="CloseConnection_CR_S_Prep2" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	  
+	 
+	 <!-- now come back with same clientID on same Port, but a user with no 
+	 topic access -->
+	 
+	<Action name="CreateConnection_CR_PForUnsub" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Pub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+	<!-- Show the Subscription. It will have no consumers. --> 
+
+	<Action name="ShowSubCreated_CR_P_Prep1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_P_Prep1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_P_Prep1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_P_Prep1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="0"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	   	 
+    	   
+	<!-- Expected result: Subscribe will fail silently. And.. it will actually unsubscribe this clientID.  --> 
+	<Action name="Subscribe_CR_P_HMM4" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- Action name="ShowSubCreated_CR_P_Prep1_stillnone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_P_Prep1s</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_P_Prep1_stillnone" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_P_Prep1s</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="0"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>
+	
+	<Action name="UnSubscribe_CR_P" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+	</Action -->	
+	
+		<!-- Show the Subscription is gone. (after defects 55886 & 56498 were fixed.)  --> 
+
+	<Action name="ShowSubDeleted_CR_P_Unsub" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_P_Unsub</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubDeleted_CR_P_Unsub" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_CR_P_Unsub</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>			   
+		       	
+	<Action name="CloseConnection_CR_P_Unsub" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>	  
+    </Action>	
+
+  <!-- Use CR_S to create a Subscription which we should be able to delete with 
+    	C_N --> 
+       	
+	<Action name="CreateConnection_CR_S_Prep3" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will succeed.  --> 
+	<Action name="Subscribe_CR_S_Prep3" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it worked, if the subscription is created. --> 
+
+	<Action name="ShowSubCreated_CR_S_Prep3" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep3</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_S_Prep3" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep3</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	   
+	 	       	
+	<Action name="CloseConnection_CR_S_Prep3" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+	   	<!-- Remove the Receive from the Policy.  --> 
+	
+	<Action name="ModifySubPolicy_1" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"SubscriptionPolicy":{"MQTTDSSSubPolicyBoth":{"ActionList":"Control"}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	   </Action>  	     	  	   
+	 	       	
+	 
+	 <!-- now come back with same clientID on same Port, but a user with no 
+	 topic access -->
+	 
+	<Action name="CreateConnection_C_N_ForUnsub" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_None</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+	<!-- Show the Subscription. It will have no consumer.  --> 
+
+	<Action name="ShowSubCreated_C_N_Prep1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_C_N_Prep1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_C_N_Prep1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_C_N_Prep1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="0"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	  	   
+	
+	<!-- My My. . what will happen? He had access.. and he had has a subscription, but umm. Now he 
+	doesn't. -->
+	<Action name="UnSubscribe_C_N" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+	</Action>	
+	
+		<!-- Show the Subscription is gone. (after defects 55886 & 56498 were fixed.)  --> 
+	
+	<Action name="ShowSubDeleted_C_N_Unsub" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_C_N_Unsub</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubDeleted_C_N_Unsub" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_C_N_Unsub</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>			   	   
+		       	
+	<Action name="CloseConnection_C_N_Unsub" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>	  
+    </Action>	
+    	
+	   	<!-- Remove the Receive from the Policy.  --> 
+	
+	<Action name="ModifySubPolicy_1Restore" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"SubscriptionPolicy":{"MQTTDSSSubPolicyBoth":{"ActionList":"Control,Receive"}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	   </Action>  	     	   
+
+
+  <!-- Use CR_S to create a Subscription which we will be able to delete with 
+    	R_S --> 
+       	
+	<Action name="CreateConnection_CR_S_Prep4" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will succeed.  --> 
+	<Action name="Subscribe_CR_S_Prep4" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>	
+	
+	<!-- We can tell it worked, if the subscription is created. --> 
+	
+	<Action name="ShowSubCreated_CR_S_Prep4" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep4</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSShowSubCreated_CR_S_Prep4" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep4</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>		   
+	 	       	
+	<Action name="CloseConnection_CR_S_Prep4" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+	   	<!-- Remove the Control from the Policy.  --> 
+	
+	<Action name="ModifySubPolicy_2" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"SubscriptionPolicy":{"MQTTDSSSubPolicyBoth":{"ActionList":"Receive"}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	   </Action>  	     
+	
+	<!-- Show the Policy.  --> 
+
+	<Action name="ShowSubPolicy_2" type="RestAPI">
+    	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration/SubscriptionPolicy/MQTTDSSSubPolicyBoth</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+    	    <ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>     
+	 
+	 <!-- now come back with same clientID on same Port, same user -->
+	 
+	<Action name="CreateConnection_R_S_ForUnsub" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+	<!-- Show the Subscription. It will have 1 consumer. -->
+	
+	<Action name="ShowSubSubCreated_R_S_Prep1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_R_S_Prep1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSShowSubCreated_SubCreated_R_S_Prep1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_R_S_Prep1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>		   
+	
+	<Action name="UnSubscribe_R_S" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+	</Action>	
+	
+		<!-- There was no Control on the subscription policy, but there also is no JMS subscriber, and per the 
+		design update on 03/31/2014, it will indeed delete the subscription without needing Control if this was
+		the last MQTT user on the subscription. (and it is) This is different from the JMS case.  --> 
+	
+	<Action name="ShowSubIsGone_R_S_Unsub" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_R_S_Unsub</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubIsGone_R_S_Unsub" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_R_S_Unsub</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>				   
+		       	
+	   	<!-- Repair the Policy.  --> 
+
+	<Action name="ModifySubPolicy_2Restore" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"SubscriptionPolicy":{"MQTTDSSSubPolicyBoth":{"ActionList":"Control,Receive"}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	   </Action>  
+	 	        
+	<Action name="CloseConnection_R_S_Unsub" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>	  
+    </Action>	
+    	    	
+ <!-- Use CR_S to create a Subscription which we will be able to delete with 
+    	N_N --> 
+       	
+	<Action name="CreateConnection_CR_S_Prep5" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_Sub</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- Expected result: Subscribe will succeed.  --> 
+	<Action name="Subscribe_CR_S_Prep5" type="Subscribe" > 
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+		<ApiParameter name="QoS">0</ApiParameter>
+	</Action>
+	
+	<!-- We can tell it worked, if the subscription is created. --> 
+
+	<Action name="ShowSubCreated_CR_S_Prep5" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep5</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_CR_S_Prep5" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_CR_S_Prep5</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>		   
+	 	       	
+	<Action name="CloseConnection_CR_S_Prep5" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>
+	 </Action>	
+	 
+	   	<!-- Remove the Subscription Policy from the endpoint. --> 
+
+	<Action name="ModifyEndpoint1_1" type="RestAPI">
+    	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+    	    <!-- ActionParameter name="payload">{"Endpoint":{"MQTTDSSEndpoint1":{"MessagingPolicies":"MQTTDSSMessagingPolicyBoth"}}}</ActionParameter -->
+    	    <ActionParameter name="payload">{"Endpoint":{"MQTTDSSEndpoint1":{"SubscriptionPolicies":""}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>	     
+	
+	    	<!-- Show the Endpoint --> 
+
+	<Action name="ShowEndpoint1_1" type="RestAPI">
+    	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration/Endpoint/MQTTDSSEndpoint1</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+    	    <ActionParameter name="payload"></ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>	     
+	 
+	 <!-- now come back with same clientID on same Port, and a user with no topic access. 
+	 Even with no access whatsoever, we should be able to unsubscribe, and as the only
+	 subscriber, we should see the durable shared subscription be deleted -->
+	 
+	<Action name="CreateConnection_N_N_ForUnsub" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">MQTTDSS_clientIDSec01</ApiParameter>
+ 	    <ApiParameter name="port">29310</ApiParameter>
+ 	    <ApiParameter name="user">MQTT_DSSSec_None</ApiParameter>
+      	<ApiParameter name="password">password</ApiParameter>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+	<!-- Show the Subscription. It will have NO consumers. -->
+	
+	<Action name="ShowSubCreated_N_N_Prep1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_N_N_Prep1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubCreated_N_N_Prep1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_N_N_Prep1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="Consumers" value="0"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>		
+		   
+
+	<Action name="UnSubscribe_N_N" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<ApiParameter name="topic">$SharedSubscription/MQTTDSS_SecSub01//MQTTDSS_sec01/Topic1</ApiParameter>
+	</Action>	
+	
+		<!-- There was no Control on the subscription policy, but there also is no JMS subscriber, and per the 
+		design update on 03/31/2014, it will indeed delete the subscription without needing Control if this was
+		the last MQTT user on the subscription. (and it is) This is ifferent from the JMS case.  --> 
+		
+	<Action name="ShowSubIsGone_N_N_Unsub" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_N_N_Unsub</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=MQTTDSS_SecSub01&amp;ClientID=__Shared</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareShowSubIsGone_N_N_Unsub" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_N_N_Unsub</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">MQTTDSS_SecSub01</ActionParameter>
+    </Action>					   
+		       	
+	   	<!-- Repair the Policy.  --> 
+
+	<Action name="ModifyEndpoint1_1Restore" type="RestAPI">
+    	    <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        	<ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+    	    <ActionParameter name="payload">{"Endpoint":{"MQTTDSSEndpoint1":{"TopicPolicies":"MQTTDSSMessagingPolicyBoth,MQTTDSSMessagingPolicySub,MQTTDSSMessagingPolicyPub","SubscriptionPolicies":"MQTTDSSSubPolicyBoth"}}}</ActionParameter>
+        	<ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    	    <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+ 	        
+	<Action name="CloseConnection_N_N_Unsub" type="CloseConnection">
+    	<ActionParameter name="connection_id">CF1</ActionParameter>	  
+    </Action>	
+    	    	
+		  
+
+	<!-- **************************************************** -->
+    	      	 
+    
+</IsmWSTest>
+                

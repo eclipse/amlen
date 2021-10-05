@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name:  jms_oauth_003.xml
+
+  Test Category:  JMS OAuth
+  
+  Test Description:
+  	Connect to MessageSight using OAuth for client authentication
+  	
+  	UserID = LTPAUser1 - Member of LTPAGroup1
+  	Matches OAuthCPGroup connection policy
+-->
+<ImaJmsTest name="jms_oauth_003">
+    <Action name="CreateCF" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+        <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+    <Action name="FillCFProps" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Port" value="20005" type="STRING"/>
+        <ImaProperty name="Protocol" value="tcps" type="STRING"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+    <Action name="GetOAuthAccessToken" type="GetOAuthAccessToken">
+        <ActionParameter name="clientId">imaclient</ActionParameter>
+        <ActionParameter name="clientSecret">password</ActionParameter>
+        <ActionParameter name="username">LTPAUser1</ActionParameter>
+        <ActionParameter name="password">ima4test</ActionParameter>
+        <ActionParameter name="WAS_URI">``LTPAWAS_IP``:9443</ActionParameter>
+    </Action>
+    <Action name="CreateConnection" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession" type="CreateSession">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    <Action name="CreateDestination" type="CreateDestination">
+        <ApiParameter name="name">/group/oauth</ApiParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest</ActionParameter>
+    </Action>
+    <Action name="CreateConsumer" type="CreateConsumer">
+        <ActionParameter name="structure_id">consumer</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateProducer" type="CreateProducer">
+        <ActionParameter name="structure_id">producer</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateMessage" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg</ActionParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+    <Action name="SetMessageText" type="SetMessageText">
+        <ActionParameter name="message_id">txmsg</ActionParameter>
+        <ApiParameter name="value">OAuth GroupID Test Message</ApiParameter>
+    </Action>
+    <Action name="StartConnection" type="StartConnection">
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    <Action name="SendMessage" type="SendMessage" repeat="100">
+        <ActionParameter name="producer_id">producer</ActionParameter>
+        <ActionParameter name="message_id">txmsg</ActionParameter>
+    </Action>
+    <Action name="CompositeRcv" type="CompositeAction" repeat="100">
+        <Action name="ReceiveMessage" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+        <Action name="GetMessageContents" type="GetMessageText">
+            <ActionParameter name="message_id">rxmsg</ActionParameter>
+            <ActionParameter name="verifyValue">OAuth GroupID Test Message</ActionParameter>
+        </Action>
+    </Action>
+    <Action name="CloseConnection" type="CloseConnection">
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+</ImaJmsTest>

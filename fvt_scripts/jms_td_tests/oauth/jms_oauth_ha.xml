@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name:  jms_oauth_ha.xml
+
+  Test Category:  JMS OAuth
+  
+  Test Description:
+  	Connect to MessageSight using OAuth for client authentication
+  	
+  	UserID = LTPAUser3 - member of Group LTPAGroup3
+  	Matches OAuthCPUser connection policy
+-->
+<ImaJmsTest name="jms_oauth_ha">
+	<Action name="run2" type="CompositeAction">
+    <Action name="CreateCF" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+        <ActionParameter name="keyStorePassword">password</ActionParameter>
+          <ActionParameter name="loglevel">9</ActionParameter>
+          <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+    <Action name="FillCFProps" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Port" value="20005" type="STRING"/>
+        <ImaProperty name="Protocol" value="tcps" type="STRING"/>
+        <ImaProperty name="ClientID" value="oauth_client"/>
+        <include>../common/JMS_serverHA.xml</include>
+    </Action>
+    <Action name="GetOAuthAccessToken" type="GetOAuthAccessToken">
+        <ActionParameter name="clientId">imaclient</ActionParameter>
+        <ActionParameter name="clientSecret">password</ActionParameter>
+        <ActionParameter name="username">LTPAUser3</ActionParameter>
+        <ActionParameter name="password">ima4test</ActionParameter>
+        <ActionParameter name="WAS_URI">``LTPAWAS_IP``:9443</ActionParameter>
+    </Action>
+    <Action name="CreateConnection" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession" type="CreateSession">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    <Action name="CreateDestination" type="CreateDestination">
+        <ApiParameter name="name">/user/oauth</ApiParameter>
+        <ActionParameter name="type">topic</ActionParameter>
+        <ActionParameter name="structure_id">dest</ActionParameter>
+    </Action>
+    <Action name="CreateConsumer" type="CreateDurableSubscriber">
+        <ActionParameter name="structure_id">consumer</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+        <ApiParameter name="durableName">oauth_durable</ApiParameter>
+    </Action>
+    <Action name="CreateProducer" type="CreateProducer">
+        <ActionParameter name="structure_id">producer</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+    <Action name="CreateMessage" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg</ActionParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+    <Action name="SetMessageText" type="SetMessageText">
+        <ActionParameter name="message_id">txmsg</ActionParameter>
+        <ApiParameter name="value">OAuth UserID Test Message</ApiParameter>
+    </Action>
+    <Action name="SendMessage" type="SendMessage" repeat="100">
+        <ActionParameter name="producer_id">producer</ActionParameter>
+        <ActionParameter name="message_id">txmsg</ActionParameter>
+    </Action>
+
+    <Action name="CrashServer" type="CompositeAction">
+        <dependsOn name="SendMessage" interval="1000"/>
+        <Action name="ShellAction" type="ShellAction">
+            <ActionParameter name="command">python ../scripts/haFunctions.py -f jms_oauth_ha.xml.crashPrimary.log -a crashPrimary</ActionParameter>
+            <ActionParameter name="print_result">1</ActionParameter>
+        </Action>
+    </Action>
+
+    <Action name="CreateConnection2" type="CreateConnection">
+        <dependsOn name="CrashServer" interval="15000"/>
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession2" type="CreateSession">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    <Action name="CreateConsumer2" type="CreateDurableSubscriber">
+        <ActionParameter name="structure_id">consumer</ActionParameter>
+        <ActionParameter name="dest_id">dest</ActionParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+        <ApiParameter name="durableName">oauth_durable</ApiParameter>
+    </Action>
+    <Action name="StartConnection" type="StartConnection">
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    <Action name="CompositeRcv" type="CompositeAction" repeat="100">
+        <Action name="ReceiveMessage" type="ReceiveMessage">
+            <ActionParameter name="consumer_id">consumer</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+        <Action name="GetMessageContents" type="GetMessageText">
+            <ActionParameter name="message_id">rxmsg</ActionParameter>
+            <ActionParameter name="verifyValue">OAuth UserID Test Message</ActionParameter>
+        </Action>
+    </Action>
+    <Action name="CloseConsumer" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+    </Action>
+    <Action name="Unsubscribe" type="Unsubscribe">
+        <ActionParameter name="session_id">session</ActionParameter>
+        <ApiParameter name="durableName">oauth_durable</ApiParameter>
+    </Action>
+    <Action name="CloseConnection" type="CloseConnection">
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    </Action>
+</ImaJmsTest>

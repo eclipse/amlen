@@ -1,0 +1,47 @@
+
+#------------------------------------------------------
+# MQConnectivity RuleTypes
+#------------------------------------------------------
+#define ISMMQCB_RT_FROM_ISMTOPIC_TO_MQQUEUE          1
+#define ISMMQCB_RT_FROM_ISMTOPIC_TO_MQTOPIC          2
+#define ISMMQCB_RT_FROM_MQQUEUE_TO_ISMTOPIC          3
+#define ISMMQCB_RT_FROM_MQTOPIC_TO_ISMTOPIC          4
+#define ISMMQCB_RT_FROM_ISMWILDTOPIC_TO_MQQUEUE      5
+#define ISMMQCB_RT_FROM_ISMWILDTOPIC_TO_MQTOPIC      6
+#define ISMMQCB_RT_FROM_ISMWILDTOPIC_TO_MQWILDTOPIC  7
+#define ISMMQCB_RT_FROM_MQWILDTOPIC_TO_ISMTOPIC      8
+#define ISMMQCB_RT_FROM_MQWILDTOPIC_TO_ISMWILDTOPIC  9
+
+#------------------------------------------------------
+# Setup MQConnectivity for Automotive User Scale test w/ mar400
+# The MQConnectivity has a defect where it doesn't start on KVM,
+#
+# I had to split out the mqconnectivity_stop and mqconnectivity_start
+# from the other mqconnectivity_automotive_user_scale parts due to observation below.
+#
+# Observation 10.15.12: stop MQConnectivity does not complete with run-cli.sh:
+# There is also an issue that mqconnectivity_stop does not complete
+# from run-cli.sh perspective even though it actually does complete
+# Discussed with James and he said he would be handling it, but that
+# it may also be an ismserver defect that they did not support a status for
+# MQConnectivity.
+#------------------------------------------------------
+
+mqconnectivity_stop 0 stop mqconnectivity 
+mqconnectivity_start 0 start mqconnectivity
+
+#------------------------------------------------------
+# Commands below wont start working for some time after starting MQConnectivity... (~15 seconds)
+# That is why the mqconnectivity_init commands are separate. It is expected that a sleep
+# for at least 15 seconds will be executed after mqconnectivity_init is executed before running
+# any the mqconnectivity_automotive_user_scale commands.
+#
+# Note: I had to escape the parenthesis in the QueueManagerConnection command to prevent an 
+# error from run-cli.sh
+#------------------------------------------------------
+mqconnectivity_automotive_user_scale x create QueueManagerConnection "Name=QM1" "QueueManagerName=SVTBRIDGE.QUEUE.MANAGER" "ConnectionName=${MQSERVER1_IP}(1414)" "ChannelName=SVTBRIDGE.CHANNEL"
+mqconnectivity_automotive_user_scale x create DestinationMappingRule "Name=Rule1" "QueueManagerConnection=QM1" "RuleType=7" "Source=/APP" "Destination=/APP" "Enabled=True"
+mqconnectivity_automotive_user_scale x create DestinationMappingRule "Name=Rule2" "QueueManagerConnection=QM1" "RuleType=9" "Source=/CAR" "Destination=/CAR" "Enabled=True"
+mqconnectivity_automotive_user_scale x create DestinationMappingRule "Name=Rule3" "QueueManagerConnection=QM1" "RuleType=9" "Source=/USER" "Destination=/USER" "Enabled=True"
+
+

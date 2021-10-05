@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_retained_001
+
+   Test Category:  JCA Basic Tests
+
+   Test Description:
+   Send a retained message message to a topic that the test app
+   will subscribe to (/send/Topic) before the app is started.
+
+   When the app starts, the MDB should receive this message as retained.
+
+   Since there is only 1 retained message on a topic, there will only be 1
+   message received by the test driver when ReceiveRetained is run.
+
+   All MDB's in server/cluster receive the retained message that was published,
+   and forward that retained message to the reply topic. They all go to
+   the same reply topic so only the latest one will be the retained message
+   that the test driver receives (they all send the same message anyways).
+   
+   TestProps #0001
+   
+  -->
+<ImaJcaTest name="jca_retained_001">
+
+  <include>../common/jms_jndi_ldap.xml</include>
+
+  <Action name="SendRetained" type="CompositeAction">
+    <Action name="GetCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">cf</ActionParameter>
+      <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">connection</ActionParameter>
+      <ActionParameter name="factory_id">cf</ActionParameter>
+      <ApiParameter name="ClientID">retainedCID</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session</ActionParameter>
+    </Action>
+
+    <Action name="Create_destSend" type="CreateDestination">
+      <ActionParameter name="structure_id">destSend</ActionParameter>
+      <ActionParameter name="jndiName">sendTopic</ActionParameter>
+    </Action>
+
+    <Action name="Create_destReply" type="CreateDestination">
+      <ActionParameter name="structure_id">destReply</ActionParameter>
+      <ActionParameter name="jndiName">replyTopic</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer1" type="CreateProducer">
+      <ActionParameter name="structure_id">producer</ActionParameter>
+      <ActionParameter name="dest_id">destSend</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="CreateTestPropsMessage" type="CreateTestPropsMessage">
+        <ActionParameter name="structure_id">message</ActionParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+        <ApiParameter name="msgParam">0001</ApiParameter>
+    </Action>
+
+    <Action name="SetReplyTo" type="SetMessageProperty">
+        <ActionParameter name="message_id">message</ActionParameter>
+        <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+        <ApiParameter name="value">destReply</ApiParameter>
+    </Action>
+
+    <Action name="SetRetained" type="SetMessageProperty">
+        <ActionParameter name="message_id">message</ActionParameter>
+        <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+        <ApiParameter name="valueType">Integer</ApiParameter>
+        <ApiParameter name="value">1</ApiParameter>
+    </Action>
+
+    <Action name="SendMessage" type="SendMessage">
+        <ActionParameter name="producer_id">producer</ActionParameter>
+        <ActionParameter name="message_id">message</ActionParameter>
+    </Action>
+
+    <Action name="CloseSession" type="CloseSession">
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+  </Action>
+
+  <Action name="ReceiveRetained" type="CompositeAction">
+    <!-- Retrieve the foreign connection factory from JNDI -->
+    <Action name="GetCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">cf</ActionParameter>
+      <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">connection</ActionParameter>
+      <ActionParameter name="factory_id">cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session</ActionParameter>
+    </Action>
+
+    <!-- log topic -->
+    <Action name="Create_log_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest</ActionParameter>
+      <ApiParameter name="name">/log/Topic/1</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+
+    <!-- log consumer -->
+    <Action name="CreateConsumerLog" type="CreateConsumer">
+      <ActionParameter name="structure_id">logConsumer</ActionParameter>
+      <ActionParameter name="dest_id">logDest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <!--  Retrieve the replyTo topic from jndi.
+          Messages received by the MDB will be forwarded to this topic. -->
+    <Action name="Create_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">dest</ActionParameter>
+      <ActionParameter name="jndiName">replyTopic</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer1" type="CreateConsumer">
+      <ActionParameter name="structure_id">consumer</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="RcvObjMessage0001_consumer1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">15000</ApiParameter>
+    </Action>
+
+    <Action name="GetTestProps0001" type="GetTestPropsMsg">
+        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+        <ActionParameter name="verifyValue">0001</ActionParameter>
+    </Action>
+
+    <Action name="GetRetained" type="GetMessageProperty">
+        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+        <ApiParameter name="valueType">Integer</ApiParameter>
+        <ApiParameter name="verifyValue">1</ApiParameter>
+    </Action>
+
+    <Action name="CloseSession" type="CloseSession">
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+  </Action>
+</ImaJcaTest>

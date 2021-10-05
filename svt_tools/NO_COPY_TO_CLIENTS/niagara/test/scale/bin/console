@@ -1,0 +1,816 @@
+#!/bin/bash
+
+if [ "${A1_HOST}" == "" ]; then
+  if [ -f ${TESTROOT}/scripts/ISMsetup.sh ]; then
+    source ${TESTROOT}/scripts/ISMsetup.sh
+  elif [ -f ${M1_TESTROOT}/scripts/ISMsetup.sh ]; then
+    source ${M1_TESTROOT}/scripts/ISMsetup.sh
+  elif [ -f ${SVT_SCALE}/../scripts/ISMsetup.sh ]; then
+    source ${SVT_SCALE}/../scripts/ISMsetup.sh
+  elif [ -f /niagara/test/scripts/ISMsetup.sh ]; then
+    source /niagara/test/scripts/ISMsetup.sh
+  fi
+fi
+
+declare -i i=0
+
+stop() {
+  if [ "`ssh admin@${server} status imaserver`" != "Status = Stopped" ]; then
+    echo imaserver stop
+    ssh admin@${server} imaserver stop
+    status=`ssh admin@${server} status imaserver|head -n 1`
+    while [ "${status}" != "Status = Stopped" ]; do
+      echo ${status}
+      sleep 3s
+      status=`ssh admin@${server} status imaserver|head -n 1`
+    done
+  fi
+  unset status
+}
+
+start() {
+  status=`ssh admin@${server} status imaserver`
+  if [ "${status}" != "Status = Running" ] || [ "${status}" != "Status = Maintenance" ]; then
+    echo imaserver start
+    ssh admin@${server} imaserver start
+    status=`ssh admin@${server} status imaserver`
+    while [ "${status}" != "Status = Running" ] && [ "${status}" != "Status = Maintenance" ]; do
+      echo ${status}
+      sleep 2s
+      status=`ssh admin@${server} status imaserver`
+    done
+  fi
+  sleep 2s
+  unset status
+}
+
+restart() {
+  stop
+  start
+}
+
+production() {
+  echo imaserver runmode production
+  ssh admin@${server} imaserver runmode production
+  restart
+}
+
+clean_store() {
+  echo imaserver runmode clean_store
+  ssh admin@${server} imaserver runmode clean_store
+  restart
+}
+
+process() {
+  declare last
+  str=$1
+
+  if [ "$str" != "p" ]; then
+    last=${str}
+  else
+    read -e -i "${last}" -p "${nodename}> " str
+  fi
+
+  if [ "$str" == "exit" ]; then
+    break
+  elif [ "${str:0:6}" == "macro " ]; then
+    if [ "${str:6:12}" == "pxe" ]; then
+      echo ... power down and reboot appliance...
+      echo ... at IBM System X screen... press F12
+      echo ... enter UEFI password...
+      echo ... move cursor to... NIC1:PXE8 - Onboard Ethernet Port1
+      echo *press enter*
+      echo ... wait for appliance to reboot...
+      echo ... wait for boot: prompt ...
+      echo strap
+      echo ... wait...
+      echo 2
+      echo ping -c3 10.10.10.10
+      echo ... if sucessful...  exit and continue below
+      echo ... otherwise
+      echo ifconfig eth0
+      echo ... wait and repeat until eth0 configuration appears...
+      echo ... if eth0 not configured... ifconfig eth0 10.10.10.10 netmask 10.10.10.10
+      echo route -n
+      echo ... if no default route.... route add default gateway 10.10.10.10
+      echo ping -c3 10.10.10.10
+      echo exit
+      echo 8
+      echo http://10.10.10.10/release/ISM13a/production/20130326-0600/appliance/cleartext-boot.tar.gz
+      echo 4
+      echo http://10.10.10.10/release/ISM13a/production/20130326-0600/appliance/firmware.tar.gz
+      echo 1
+      echo ... wait for appliance to reboot...
+      echo ... select IBM Messaging Appliance...
+      echo ... at login: prompt... admin
+      echo admin
+      echo *press enter*
+      echo *press enter*
+      echo 10.10.10.10/24
+      echo 10.10.10.10
+      echo *press enter*
+      echo net-test ping 10.10.10.10
+      echo imaserver set TestLicense
+      echo show imaserver
+      echo nodename set mar336
+      echo show ethernet-interface eth7   \(or eth6 on mar457\)
+      echo edit ethernet-interface eth7   \(or eth6 on mar457\)
+      echo ip
+      echo address 10.10.10.10/23
+      echo exit
+      echo set AdminState Enabled
+      echo exit
+      echo show ethernet-interface eth7   \(or eth6 on mar457\)
+      echo net-test ping 10.10.10.10
+      echo
+      echo ... to setup access to 10.10.10.10 on client machines
+      echo ... on each client machine...
+      echo cd /etc/sysconfig/network-scripts
+      echo create file such as... ifcfg-eth2:1
+      echo
+      echo DEVICE=... such as... eth2:1
+      echo BOOTPROTO=none
+      echo NETMASK=10.10.10.10
+      echo TYPE=Ethernet
+      echo HWADDR= ... such as... 90:e2:ba:0b:0c:64
+      echo IPADDR=... such as... 10.10.10.10
+
+    elif [ "${str:6:12}" == "passwordless" ]; then
+      declare -a list
+
+      printf "In a separate window, Log into each appliance by executing:\n"
+      if [ "${HA[@]}" != "" ] ; then
+        for line in ${HA[@]}; do
+          printf "ssh admin@${line}\n"
+        done
+      else 
+        server=`getserver`
+      fi
+      printf "\n"
+      printf "Then execute:\n"
+      printf "   file get "scp://root@${client}:~/.ssh/id_sample_harness_sshkey" identity\n"
+#      printf "   imaserver apply identity identity\n"
+      printf "\n"
+
+      cont=no
+      read -e -p "Enter [y] to apply identity: " cont
+      if [[ ${cont} =~ [Yy] ]]; then
+        printf "ssh admin@${server} imaserver apply identity identity\n"
+        ssh admin@${server} imaserver apply identity identity
+        printf "ssh admin@${server} user sshkey add \"scp://root@${client}:~/.ssh/authorized_keys\"\n"
+        ssh admin@${server} user sshkey add "scp://root@${client}:~/.ssh/authorized_keys"
+      fi
+
+      cont=no
+      read -e -p "Enter [y] to build known_hosts file on each appliance: " cont
+      if [[ ${cont} =~ [Yy] ]]; then
+        for i in $(eval echo {1..${M_COUNT}}); do
+          if [[ ! "${list[*]}" =~ $(eval echo \$M${i}_HOST) ]]; then
+            list=("${list[@]}" "$(eval echo \$M${i}_HOST)")
+          fi
+        done
+        for t in `clientlist 9`; do
+          if [[ ! "${list[*]}" =~ ${t} ]]; then
+            list=("${list[@]}" "${t}")
+          fi
+        done
+
+        for i in $(eval echo {1..${M_COUNT}}); do
+          if [[ ! "${list[*]}" =~ $(eval echo \$M${i}_IPv4_1) ]]; then
+            list=("${list[@]}" "$(eval echo \$M${i}_IPv4_1)")
+          fi
+          if [[ ! "${list[*]}" =~ $(eval echo \$M${i}_IPv4_2) ]]; then
+            list=("${list[@]}" "$(eval echo \$M${i}_IPv4_2)")
+          fi
+        done
+        for t in `clientlist 10`; do
+          if [[ ! "${list[*]}" =~ ${t} ]]; then
+            list=("${list[@]}" "${t}")
+          fi
+        done
+
+        for line in ${HA[@]}; do
+          for t in ${list[@]}; do
+            printf "build_known_hosts.sh ${line} ${t}\n"
+            build_known_hosts.sh ${line} ${t} | grep "Warning:"
+          done
+        done
+        unset i
+        unset t
+        unset line
+      fi
+      unset cont
+
+    elif [ "${str:6:13}" == "log list" ]; then
+      echo ssh admin@${server} show log list
+      ssh admin@${server} show log list
+
+    elif [ "${str:6:13}" == "query ports" ]; then
+      rm -f ./console.out
+      ssh admin@${server} list ethernet-interface 
+      ssh admin@${server} list ethernet-interface > ./console.out
+      cat ./console.out | while read line; do 
+           ssh admin@${server} status ethernet-interface ${line} | grep Up 
+      done
+      unset line
+
+    elif [ "${str:6:13}" == "get logs" ]; then
+      rm -f ./console.out
+      PWD=`pwd`
+      ssh admin@${server} show log list > ./console.out
+      cat ./console.out | while read line; do 
+         if [ -e ${PWD}/${line} ] ; then
+           echo unable to put ${PWD}/${line}, file already exists
+         else
+           echo ssh admin@${server} show log ${line} \> ./${line}
+           ssh admin@${server} show log ${line} > ./${line} &
+           wait
+         fi
+      done
+      unset PWD
+      unset line
+
+
+    elif [ "${str:6:16}" == "show local ports" ]; then
+       _eth=`ifconfig | cut -d' ' -f1| sort -u`
+       for _port in ${_eth[@]}; do
+          _speed=`ethtool ${_port} | grep Speed | cut -d':' -f2`
+          _address=`ifconfig ${_port} | grep "inet addr" | tr -s ' '|cut -d':' -f3|cut -d' ' -f1`
+        if [[ "${_speed}" != " Unknown!" && "${_speed}" != "" && "${_address}" != "" ]]; then
+          printf "%-8s %-16s %-20s\n" ${_port} ${_address} ${_speed}
+        fi
+       done
+
+    elif [ "${str:6:10}" == "show ports" ]; then
+      _eth=`ssh admin@${server} list ethernet-interface`
+      for _port in ${_eth[@]}; do
+        _out=`ssh admin@${server} show ethernet-interface ${_port}`
+        _state=`echo ${_out} | grep AdminState | cut -d'"' -f4`
+        _address=`echo "${_out}" | grep address | cut -d'"' -f2`
+        _speed=""
+        if [ "${_state}" == "Enabled" ]; then
+           _speed=`ssh admin@${server} status ethernet-interface ${_port} | grep speed | tr -s ' ' | cut -d':' -f3`
+           printf "%-8s %-16s %-20s\n" ${_port} ${_address} ${_speed}
+        fi
+      done
+      unset _eth
+      unset _port
+      unset _out
+      unset _address
+      unset _speed
+
+    elif [ "${str:6:7}" == "get log" ]; then
+      if [ ! -z "${str:14}" ]; then
+        line=${str:14}
+      else
+        ssh admin@${server} show log list
+        echo
+        read -e -p "log file? " line
+      fi
+      ans=no
+      if [ -e ${PWD}/${line} ] ; then
+        read -e -p "${PWD}/${line} already exists, continue? " ans
+      fi
+      if [[ ${ans} = [Yy]* ]]; then
+        echo ssh admin@${server} show log ${line} \> ./${line}
+        ssh admin@${server} show log ${line} > ./${line} &
+        wait
+      fi
+      unset ans
+      unset line
+
+    elif [ "${str:6:11}" == "create ldap" ]; then
+      read -e -p "Enter [y] to delete existing LDAP configuration: " cont
+      if [[ ${cont} =~ [Yy] ]]; then
+         echo ssh admin@${server} imaserver delete LDAP 
+         ssh admin@${server} imaserver delete LDAP 
+         read -e -p "Enter [y] to configure 10.10.10.10 as external LDAP for ${server}: " cont
+         if [[ ${cont} =~ [Yy] ]]; then
+           echo ssh admin@${server} imaserver create LDAP Enabled=True "URL=ldap://10.10.10.10:5389"  "BaseDN=ou=SVT,O=IBM,C=US" "BindDN=cn=root" "BindPassword=ima4test" "UserSuffix=ou=users,ou=SVT,O=IBM,C=US"  "GroupSuffix=ou=groups,ou=SVT,O=IBM,C=US"  "UserIdMap=uid" "GroupIdMap=cn" "GroupMemberIdMap=member" "EnableCache=True" "CacheTimeout=10" "GroupCacheTimeout=300" "Timeout=30" "MaxConnections=100" "IgnoreCase=False" "NestedGroupSearch=false"
+           ssh admin@${server} imaserver create LDAP Enabled=True "URL=ldap://10.10.10.10:5389"  "BaseDN=ou=SVT,O=IBM,C=US" "BindDN=cn=root" "BindPassword=ima4test" "UserSuffix=ou=users,ou=SVT,O=IBM,C=US"  "GroupSuffix=ou=groups,ou=SVT,O=IBM,C=US"  "UserIdMap=uid" "GroupIdMap=cn" "GroupMemberIdMap=member" "EnableCache=True" "CacheTimeout=10" "GroupCacheTimeout=300" "Timeout=30" "MaxConnections=100" "IgnoreCase=False" "NestedGroupSearch=false"
+        fi
+#       echo ssh admin@${server} imaserver create LDAP Enabled=True "URL=ldap://10.10.10.10:389" "BaseDN=ou=SVT,o=IBM,c=US" "BindDN=cn=root,o=IBM,c=US" "BindPassword=ima4test" "UserSuffix=ou=users,ou=SVT,o=IBM,c=US" "GroupSuffix=ou=groups,ou=SVT,o=IBM,c=US" "UserIdMap=uid" "GroupIdMap=cn" "GroupMemberIdMap=member" "EnableCache=True" "CacheTimeout=10" "GroupCacheTimeout=300" "Timeout=30" "MaxConnections=100" "IgnoreCase=False" "NestedGroupSearch=false"
+        read -e -p "Enter [y] to restart imaserver: " cont
+        if [[ ${cont} =~ [Yy] ]]; then
+          restart
+        else
+          echo Restart imaserver to have LDAP changes take effect
+        fi
+      fi
+
+    elif ([ "${str:6:16}" == "display memory q" ]); then
+       QUEUENAME=*
+       queuegiven=`echo ${str:6} | cut -d " " -f 4`
+       if [ "${queuegiven}" != "" ]; then
+          QUEUENAME=${queuegiven}
+       fi
+       while(true); do
+          console "nodename get; status uptime; echo; imaserver stat memory; status flash; imaserver stat Store; imaserver stat Queue QueueName=${QUEUENAME} ResultCount=100 StatType=BufferedMsgsHighest" > console.out
+          console imaserver stat Queue QueueName=${QUEUENAME} ResultCount=100 StatType=BufferedMsgsHighest | column -s',' -t > ./.console.out
+                 printf "\e[2J";
+                 head -n 17 console.out
+                 printf "\n";
+                 tail -n +18 console.out | column -s ',' -t
+                 printf "\n";
+             cat ./.console.out
+                 sleep 5s
+       done
+
+
+    elif ([ "${str:6:14}" == "display memory" ]); then
+     while(true); do 
+	     console "nodename get; status uptime; echo; imaserver stat memory; status flash; imaserver stat Store; imaserver stat Endpoint" > console.out
+         console imaserver stat Subscription StatType=PublishedMsgsHighest | column -s',' -t > ./.console.out
+		 printf "\e[2J"; 
+		 head -n 17 console.out
+		 printf "\n"; 
+		 tail -n +18 console.out | column -s ',' -t
+		 printf "\n"; 
+	     cat ./.console.out
+		 sleep 5s
+	 done
+
+
+    elif ([ "${str:6:8}" == "display " ]); then
+     while(true); do console "${str:15}" > console.out; printf "\e[2J"; cat console.out ; sleep 5s; done
+
+    elif [ "${str:6:7}" == "monitor" ]; then
+      if [ ! -z "${str:14}" ]; then
+        line=${str:14}
+      else
+        ssh admin@${server} show log list
+        echo
+        read -e -p "log file? " line
+      fi
+      ans=yes
+      if [ -e ${PWD}/${line} ] ; then
+        read -e -p "${PWD}/${line} already exists, overwrite? " ans
+      fi
+      declare -i size=0
+      if [[ ${ans} = [Yy]* ]]; then
+        echo ssh admin@${server} show log ${line} \> ./${line}
+        ssh admin@${server} show log ${line} > ./${line} &
+        wait
+        size=`cat ./${line} | wc -l`
+
+        if [ ${size} -gt 0 ]; then
+          tail ./${line} 
+        fi
+      fi
+      declare -i delta=0
+      while(true); do
+        sleep 5s
+        ssh admin@${server} show log ${line} > ./.${line} &
+        wait
+        size2=`cat ./.${line} | wc -l`
+        delta=$((${size2}-${size}))
+        if [ ${delta} -gt 0 ]; then
+          tail -n ${delta} ./.${line} 
+          mv ./.${line} ./${line} 
+          size=${size2}
+        fi
+        sleep 5s
+      done
+      unset ans
+      unset line
+
+    elif [ "${str:6:13}" == "restart" ]; then
+    if [ "`ssh admin@${server} status imaserver`" != "Status = Stopped" ]; then
+        echo imaserver stop
+        ssh admin@${server} imaserver stop
+        while [ "`ssh admin@${server} status imaserver`" != "Status = Stopped" ]; do
+          echo waiting...
+          sleep 2s
+        done
+      fi
+      sleep 1s
+
+      if [ "`ssh admin@${server} status imaserver`" != "Status = Running" ]; then
+        echo imaserver start
+        ssh admin@${server} imaserver start
+        while [ "`ssh admin@${server} status imaserver`" != "Status = Running" ]; do
+          echo waiting...
+          sleep 2s
+        done
+      fi
+      sleep 1s
+
+    elif [ "${str:6:19}" == "list files" ]; then
+      rm -f ./console.out
+      PWD=`pwd`
+      echo "ssh admin@${server} file list"
+      ssh admin@${server} file list > ./console.out
+      cat ./console.out | while read line; do 
+         fn=`echo ${line}| cut -d" " -f1`
+         echo ${fn}
+      done
+      unset fn
+      rm -f ./console.out
+      echo "ssh admin@${server} advanced-pd-options list"
+      ssh admin@${server} advanced-pd-options list > ./console.out
+      cat ./console.out | while read line; do 
+         if [ "${line}" != "No files found" ]; then 
+           fn=`echo ${line}| cut -d" " -f1` 
+           echo ${fn}
+         fi 
+      done
+      unset line
+      unset fn
+      rm -f ./console.out
+
+    elif [ "${str:6:19}" == "upload file" ]; then
+      PWD=`pwd`
+      read -e -p "Name? " fn 
+      if [ ! -z $fn ] ; then
+        echo ssh admin@${server} file get scp://root@${client}:/$PWD/$fn .
+        ssh admin@${server} file get scp://root@${client}:/$PWD/$fn .
+        unset fn 
+      fi
+      unset PWD
+    elif [ "${str:6:19}" == "export files" ]; then
+      rm -f ./console.out
+      PWD=`pwd`
+      ssh admin@${server} file list > ./console.out
+      cat ./console.out | while read line; do 
+         fn=`echo ${line}| cut -d" " -f1`
+         if [ -e ${PWD}/${fn} ] ; then
+           echo unable to put ${PWD}/${fn}, file already exists
+         else
+           echo ssh admin@${server} file put ${fn} scp://root@${client}:${PWD}/
+           ssh admin@${server} file put ${fn} scp://root@${client}:${PWD}/ &
+           wait
+         fi
+      done
+      unset fn
+      rm -f ./console.out
+      ssh admin@${server} advanced-pd-options list > ./console.out
+      cat ./console.out | while read line; do 
+         if [ "${line}" != "No files found" ]; then 
+           fn=`echo ${line}| cut -d" " -f1` 
+           if [ -e ${PWD}/${fn} ] ; then
+             if [ -e ${PWD}/adv_${fn} ] ; then
+               echo unable to export ${PWD}/adv_${fn}, file already exists
+             else
+               echo ssh admin@${server} advanced-pd-options export ${fn} scp://root@${client}:${PWD}/adv_${fn}
+               ssh admin@${server} advanced-pd-options export ${fn} scp://root@${client}:${PWD}/adv_${fn} &
+               wait
+             fi
+           else
+             echo ssh admin@${server} advanced-pd-options export ${fn} scp://root@${client}:${PWD}/
+             ssh admin@${server} advanced-pd-options export ${fn} scp://root@${client}:${PWD}/ &
+             wait
+           fi
+         fi 
+      done
+      unset fn
+      rm -f ./console.out
+
+    elif [ "${str:6:19}" == "delete files" ]; then
+      rm -f ./console.out
+      ssh admin@${server} file list > ./console.out
+      cat ./console.out | while read line; do 
+         fn=`echo ${line}| cut -d" " -f1` 
+         echo ssh admin@${server} file delete ${fn} 
+         ssh admin@${server} file delete ${fn} &
+         wait
+      done
+      unset fn
+      rm -f ./console.out
+      ssh admin@${server} advanced-pd-options list > ./console.out
+      cat ./console.out | while read line; do 
+         if [ "${line}" != "No files found" ]; then 
+           fn=`echo ${line}| cut -d" " -f1` 
+           echo ssh admin@${server} advanced-pd-options delete ${fn} 
+           ssh admin@${server} advanced-pd-options delete ${fn} &
+           wait
+         fi 
+      done
+      unset fn
+      rm -f ./console.out
+    elif ([ "${str:6:27}" == "delete subscriptions" ] || [ "${str:6:17}" == "delete sub" ]); then
+      ssh admin@${server} imaserver stat Subscription StatType=PublishedMsgsHighest ResultCount=100 | tail -n +2 > ./console.out
+      i=0; while read line; do out[$i]=${line}; ((i++)); done < ./console.out
+
+      for line in ${out[@]}; do
+        if [ ${#line} -gt 3 ]; then
+          sn=`echo ${line}| cut -d"," -f1`
+          cn=`echo ${line}| cut -d"," -f3`
+          if [[ "${sn}" == \"*\" ]]; then
+             sn=${sn:1:$((${#sn}-2))}
+          fi
+          if [[ "${cn}" == \"*\" ]]; then
+             cn=${cn:1:$((${#cn}-2))}
+          fi
+          echo ssh admin@${server} "imaserver delete Subscription \"SubscriptionName=${sn}\" \"ClientID=${cn}\""
+          ssh admin@${server} "imaserver delete Subscription \"SubscriptionName=${sn}\" \"ClientID=${cn}\""
+        fi
+      done
+
+      unset out
+    elif [ "${str:6:26}" == "delete subscription" ]; then
+      read -e -p "Name? " sn 
+      read -e -p "Client? " cn
+      echo ssh admin@${server} imaserver delete Subscription SubscriptionName=$sn ClientID=$cn
+      ssh admin@${server} imaserver delete Subscription SubscriptionName=$sn ClientID=$cn
+
+    elif [ "${str:6:27}" == "delete mqttclients" ]; then
+      out=`ssh admin@${server} "imaserver stat MQTTClient ResultCount=100"`
+
+      for line in ${out[@]}; do
+       if [[ ${line} =~ [,] ]]; then
+          sn=`echo ${line}|cut -d'"' -f2`
+         echo ssh admin@${server} imaserver delete MQTTClient \"Name=${sn}\"
+         ssh admin@${server} imaserver delete MQTTClient \"Name=${sn}\"
+       fi
+      done
+
+    elif ([ "${str:6:14}" == "stat endpoints" ]); then
+      ssh admin@${server} imaserver list Endpoint > ./console.out
+
+      read -r line < ./console.out
+      ssh admin@${server} imaserver stat Endpoint Name=${line} | head -n 1 > ./.console.out &
+      wait
+
+      cat ./console.out | while read line; do 
+         (exec ssh admin@${server} imaserver stat Endpoint Name=${line} | tail -n +2 >> ./.console.out) &
+         wait
+      done
+      unset line
+
+      cat ./.console.out | sed -e "s/^,/(none),/" | column -s ',' -t 
+
+    elif ([ "${str:6:25}" == "stat endpoint" ]); then
+      echo ssh admin@${server} imaserver stat Endpoint
+      ssh admin@${server} imaserver stat Endpoint| sed -e "s/^,/(none),/" | sed -e "s/,,/,\"\",/" | column -s ',' -t
+
+    elif ([ "${str:6:25}" == "stat conn" ]); then
+      echo ssh admin@${server} imaserver stat Connection
+      ssh admin@${server} imaserver stat Connection| sed -e "s/^,/(none),/" | sed -e "s/,,/,\"\",/" | column -s ',' -t
+
+    elif ([ "${str:6:25}" == "stat sub buff" ]); then
+      echo ssh admin@${server} imaserver stat Subscription StatType=PublishedMsgsHighest ResultCount=100 
+      ssh admin@${server} imaserver stat Subscription StatType=BufferedPercentHighest ResultCount=100| sed -e "s/^,/(none),/" | column -s ',' -t
+
+    elif ([ "${str:6:25}" == "stat mqttclient" ]); then
+      echo ssh admin@${server} imaserver stat MQTTClient ResultCount=100 
+      ssh admin@${server} imaserver stat MQTTClient ResultCount=100| sed -e "s/^,/(none),/" | column -s ',' -t
+
+    elif ([ "${str:6:25}" == "stat subscriptions" ] || [ "${str:6:15}" == "stat sub" ]); then
+      echo ssh admin@${server} imaserver stat Subscription StatType=PublishedMsgsHighest
+      ssh admin@${server} imaserver stat Subscription StatType=PublishedMsgsHighest  > ./console.out
+      sed -i 's/"//g' ./console.out
+      i=0; while read line; do out[$i]=${line}; ((i++)); done < ./console.out
+
+      for line in ${out[@]}; do
+        IFS=, read -ra parts <<< ${line}
+        i=0
+        for p in ${parts[@]}; do
+          if [[ $((${#p} + 3)) -gt ${ss[$i]} ]]; then ss[$i]=$((${#p} + 3)); fi
+          ((i++))
+        done
+      done
+
+      for line in ${out[@]}; do
+        IFS=, read -ra parts <<< ${line}
+        i=0
+        for p in ${parts[@]}; do
+          printf "%-${ss[$i]}s" ${p}
+          ((i++))
+        done
+        printf "\n"
+      done
+
+      unset out
+
+
+    elif ([ "${str:6:19}" == "clean store" ]||[ "${str:6:19}" == "clean_store" ]); then
+      if [ "`ssh admin@${server} status imaserver`" == "Status = Maintenance" ]; then
+         production
+      fi
+      start
+      clean_store 
+      production
+
+    elif ([ "${str:6:11}" == "must gather" ]||[ "${str:6:11}" == "must-gather" ]) then
+      if [ ! -z "${str:18}" ]; then
+        fn=${str:18}
+      else
+        read -e -p "file? " fn
+      fi
+      ans=no
+      if [ -e ${PWD}/${fn} ] ; then
+        read -e -p "${PWD}/${fn} already exists, continue? " ans
+      else
+        ans=yes
+      fi
+      if [[ ${ans} = [Yy]* ]]; then
+        echo imaserver trace flush
+        ssh admin@${server} imaserver trace flush
+        echo platform must-gather $fn
+        ssh admin@${server} platform must-gather $fn
+        echo file put $fn scp://root@$client:/tmp/$fn
+        ssh admin@${server} file put $fn scp://root@$client:/tmp/$fn
+        echo ssh admin@${server} file delete $fn
+        ssh admin@${server} file delete $fn
+        echo rm -rf /tmp/mg
+        rm -rf /tmp/mg
+        echo mkdir /tmp/mg
+        mkdir /tmp/mg
+        echo cd /tmp/mg
+        cd /tmp/mg
+        echo tar -xvf ../$fn
+        tar -xvf ../$fn
+        echo deoball
+        deoball
+        find /tmp/mg -name "*.otx" -exec rm -f {} \;
+
+        ans=no
+        if [ -e /tmp/de${fn} ] ; then
+          read -e -p "/tmp/de${fn} already exists, continue? " ans
+        fi
+        if [[ ${ans} = [Yy]* ]]; then
+          tar -czvf ../de$fn *
+        fi
+      fi
+      unset fn
+      unset ans
+    elif [ "${str:6:7}" == "license" ]; then
+      echo ssh admin@${server} imaserver set AcceptLicense
+      ssh admin@${server} imaserver set AcceptLicense
+    elif [ "${str:6:18}" == "get firmware" ]; then
+      echo file get scp://root@$client:/niagara/appliance/rel_bedrock.scrypt2 .
+      ssh admin@${server} file get scp://root@$client:/niagara/appliance/rel_bedrock.scrypt2 .
+      echo To complete upgrade:
+      echo ima
+      echo firmware upgrade rel_bedrock.scrypt2 
+    elif [ "${str:6:18}" == "get devfirmware" ]; then
+      echo file get scp://root@$client:/niagara/appliance/dev_bedrock.scrypt2 .
+      ssh admin@${server} file get scp://root@$client:/niagara/appliance/dev_bedrock.scrypt2 .
+      echo To complete upgrade:
+      echo ima
+      echo firmware upgrade dev_bedrock.scrypt2 
+    elif [ "${str:6:16}" == "help" ]; then
+      echo \  macro passwordless
+      echo \  macro log list
+      echo \  macro get logs
+      echo \  macro get log [filename]
+      echo \  macro monitor [filename]
+      echo \  macro restart
+      echo \  macro list files
+      echo \  macro export files
+      echo \  macro delete files
+      echo \  macro delete mqttclients
+      echo \  macro delete subscriptions
+      echo \  macro delete sub
+      echo \  macro delete subscription
+      echo \  macro stat endpoints
+      echo \  macro stat sub buff
+      echo \  macro stat subscriptions
+      echo \  macro stat sub
+      echo \  macro clean store
+      echo \  macro clean_store
+      echo \  macro must gather [filename]
+      echo \  macro must-gather [filename]
+      echo \  macro get firmware
+      echo \  macro get devfirmware
+      echo \  macro license
+      echo \  macro help
+    else
+      echo
+    fi
+  else
+    ssh admin@${server} $str
+  fi
+}
+
+
+#############################
+# Returns:
+#   0-Primary/Standby identified
+#   1-UNSYNC, Maintenance (Unusable, Unrecoverable state)
+#   9-UNKNOWN Status
+#############################
+function status-imaserver {
+#set -x
+##  echo "   Status ${IMASERVER} until it Syncs..."
+  unsync=0
+  unsync_error=3
+  rc=0
+
+  while [ 1 ]
+  do
+    HAROLE=`ssh -nx admin@${IMASERVER} "status imaserver" | grep "HARole = "`
+    STATUS=`ssh -nx admin@${IMASERVER} "status imaserver" | grep "Status = "`
+
+    if [[ "${STATUS}" == *"Maintenance"* ]]; then
+        UNSYNC=`echo ${IMASERVER}`
+        echo "IMAServer: ${IMASERVER} HARole is: '"${HAROLE}"' and Status is: '"${STATUS}"' which is unexpected, aborting."
+        rc=1
+        break      
+    elif [[ "${STATUS}" == *"Stopped" ]]; then
+      STANDBY=`echo ${IMASERVER}`
+      echo 'IMAServer: '${STANDBY}'  is  '${STATUS}
+      break
+    elif [[ "${HAROLE}" == *"PRIMARY"* &&  "${STATUS}" == *"Running"* ]]; then
+      PRIMARY=`echo ${IMASERVER}`
+      echo 'IMAServer: '${PRIMARY}' '${HAROLE}' and '${STATUS}
+      break
+    elif  [[ "${HAROLE}" == *"STANDBY"* &&  "${STATUS}" == *"Standby"* ]]; then
+      STANDBY=`echo ${IMASERVER}`
+      echo 'IMAServer: '${STANDBY}' '${HAROLE}' and '${STATUS}
+      break
+    elif  [[ "${HAROLE}" == *"UNSYNC"* ]]; then
+      unsync=$(( ${unsync}+1 ))
+      echo '   IMAServer: '${IMASERVER}'  '${HAROLE}' and '${STATUS}' '${unsync}' time(s).  TIME: ' ` ssh admin@${IMASERVER} "datetime get" `
+      if [[ "${unsync}" == "${unsync_error}" ]]; then
+        UNSYNC=`echo ${IMASERVER}`
+        echo "IMAServer: ${IMASERVER} HARole is: '"${HAROLE}"' and Status is: '"${STATUS}"' which is unexpected, aborting."
+        rc=1
+        break
+      fi
+    else 
+      # HA Role is unexpected - has been blank and other values
+      unsync=$(( ${unsync}+1 ))
+      echo '   IMAServer: '${IMASERVER}'  '${HAROLE}' and '${STATUS}' '${unsync}' time(s).  TIME: ' ` ssh admin@${IMASERVER} "datetime get" `
+      if [[ "${unsync}" == "${unsync_error}" ]]; then
+        UNSYNC=`echo ${IMASERVER}`
+        echo "IMAServer: ${IMASERVER} HARole is: '"${HAROLE}"' and Status is: '"${STATUS}"' which is unexpected and may abort."
+        rc=9
+        break
+      fi
+    fi
+    sleep 15
+  done
+  return ${rc}
+#set +x
+}
+
+
+
+# MAIN LINE START
+declare str
+server=`getserver`
+if [ "${svt_server}" == "" ]; then
+  IMASERVERLIST=`getserverlist`
+  PRIMARY=" "
+  STANDBY=" "
+  UNSYNC=" "
+  
+     for IMASERVER in ${IMASERVERLIST}
+     do
+       # Is the Server in HA Role?
+       HAROLE=`ssh -nx admin@${IMASERVER} "imaserver harole" `
+  
+       if [[ "${HAROLE}" == *"HADISABLED"* ]]; then 
+       # This server is NOT in HA Mode at all.   
+         PRIMARY=`getserver`
+         break
+      
+       # Rest of the ELSE Cases assume HAROLE is ENABLED UNLESS HAROLE is NULL then the server is probably rebooting...stderr: "no route to host".
+       elif [[ "${HAROLE}" == "" ]]; then
+           UNSYNC=${IMASERVER}
+           echo "IMAServer: ${IMASERVER} may be rebooting, unable to determine HAROLE"
+       else
+         status-imaserver
+         RC=$?
+         if [[ "${PRIMARY}" == "" ]]; then
+           echo " "
+           echo "THERE IS A PROBLEM WITH IMASERVER "${IMASERVERLIST}".  Could not Find the Primary - Check the status and collect logs!"
+           exit -1
+         fi
+       fi
+       
+     done
+
+     if [[ "${PRIMARY}" == "" ]]; then
+       echo " "
+       echo "THERE IS A PROBLEM WITH IMASERVER "${IMASERVERLIST}".  Could not Find the Primary - Check the status and collect logs!"
+       exit -1
+     else
+       server=${PRIMARY}
+     fi
+
+fi
+
+client=`getlocaladdr 9`
+
+i=0; for line in `getserverlist`; do HA[$i]=${line}; ((i++)); done
+unset i
+unset line
+#for line in ${HA[@]}; do
+#  printf "${line}\n"
+#done
+
+nodename=`ssh admin@${server} nodename get | tail -n 1| cut -d" " -f3`
+
+if [ $# -gt 0 ]; then
+  process "$*"
+else
+  while true; do
+    read -e -p "${nodename:0:$((${#nodename}))}> " str
+    process "${str}"
+  done
+fi
+
+
+

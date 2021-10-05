@@ -1,0 +1,56 @@
+# Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+
+# Set the base image to centos7
+FROM centos:7
+
+#File author / Maintainer
+MAINTAINER ISM Build
+
+WORKDIR ${IMA_WEBUI_INSTALL_PATH}/bin
+
+# Add RPM in a temporary directory inside the container
+# Make sure that imawebui.rpm is available in the directory where "docker build" command
+# is being executed
+ADD ./imawebui.rpm /tmp/
+
+# Update all packages
+RUN yum -y upgrade 
+
+
+#To run as a non-root user
+# 1) Create the user and group outside the container with a selected uid/gid
+#        groupadd -r -g 463 ima
+#        useradd -r  -s /sbin/nologin -g ima -u 463 ima
+# 2) Give that user read/write access to any volumes that will be used
+# 3) Create a config file so the RPM knows the user
+#        RUN echo 'user=ima' >/etc/messagesight-user.cfg
+# 4) Uncomment the RUN group/useradd setup lines:
+#      (Ensure the numeric uid/gid below match step 1 above)
+#        RUN groupadd -r -g 463 ima
+#        RUN useradd -r  -s /sbin/nologin -g ima -u 463 ima
+# 5) Uncomment the USER line above the Entrypoint before the entrypoint
+
+
+#Install the WebUI intself
+RUN yum -y install /tmp/imawebui.rpm
+
+# Delete imawebui.rpm from temporary directory
+RUN rm -f /tmp/imawebui.rpm
+
+#Uncomment below USER line to run as a non-root user (but do the above steps 1-4 as well!)
+#USER ima:ima
+
+# Set file permissions
+RUN chmod -R +x ${IMA_WEBUI_APPSRV_INSTALL_PATH}
+
+ENTRYPOINT [ "${IMA_WEBUI_INSTALL_PATH}/bin/startWebUI.sh" ]

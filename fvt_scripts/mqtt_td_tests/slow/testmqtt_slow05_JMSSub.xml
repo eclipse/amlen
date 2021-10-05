@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: testmqtt_slow05_JMSSub
+
+  Test Category:  MQTT slow
+
+  Test Description:  This part of the test shows that although most of the messages
+  are being discarded by MQTT subscriptions (where MaxMessagesBehavior is set to DiscardOldest)
+  the JMS subscriptions are not affected, and all messages are delivered to this 
+  subscription. 
+    
+
+*****************************************************************************/
+-->
+<ImaJmsTest name="testmqtt_slow05_JMSSub" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>mqttSlow05</solution>
+	</SyncClient>
+
+    <Action name="JMSSub" type="CompositeAction">
+
+    	<Action name="CreateFactory_JMSSub" type="CreateConnectionFactory">
+    	    <ActionParameter name="structure_id">CF1_JMSSub</ActionParameter>
+        	<!--ActionParameter name="loglevel">9</ActionParameter>
+        	<ActionParameter name="logfile">stdout</ActionParameter-->
+		</Action>
+
+        <Action name="CreateListener_JMSSub" type="CreateExceptionListener">
+                <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_JMSSub" type="FillIsmProps">
+           <ActionParameter name="structure_id">CF1_JMSSub</ActionParameter>
+           <ActionParameter name="validateAll">true</ActionParameter>
+           <ActionParameter name="validateNoWarn">false</ActionParameter>
+	       <include>../common/JMS_server.xml</include>
+    	   <ImaProperty name="Port" value="29303" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_JMSSub" type="CreateConnection">
+                <ActionParameter name="structure_id">Con1_JMSSub</ActionParameter>
+                <ActionParameter name="factory_id">CF1_JMSSub</ActionParameter>
+                <ApiParameter name="exceptionListener">listener1</ApiParameter>
+                <ApiParameter name="ClientID">Slow05JMSSub</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_JMSSub" type="CreateSession">
+                <ActionParameter name="conn_id">Con1_JMSSub</ActionParameter>
+                <ActionParameter name="structure_id">Ses1_JMSSub</ActionParameter>
+        </Action>
+
+        <Action name="CreateDestination_JMSSub" type="CreateDestination">
+                <ApiParameter name="name">/MM/Slow05</ApiParameter>
+                <ActionParameter name="type">topic</ActionParameter>
+                <ActionParameter name="structure_id">JMSDest</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumer1" type="CreateConsumer">
+                <ActionParameter name="structure_id">consumer1</ActionParameter>
+                <ActionParameter name="dest_id">JMSDest</ActionParameter>
+                <ActionParameter name="session_id">Ses1_JMSSub</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection_JMSSub1" type="StartConnection">
+                <ActionParameter name="conn_id">Con1_JMSSub</ActionParameter>
+        </Action>
+
+        <Action name="sync_components_1" type="SyncComponentAction">
+                <ActionParameter name="component_name">JMSSub1</ActionParameter>
+                <ActionParameter name="component_list">Subs1;Pubs1;JMSSub1</ActionParameter>
+                <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <Action name="CompositeRcv" type="CompositeAction" expected="6000" interval="0" repeat_interval="0">
+                <Action name="ReceiveMessage1-1" type="ReceiveMessage">
+                        <ActionParameter name="consumer_id">consumer1</ActionParameter>
+                        <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                        <ApiParameter name="timeout">5000</ApiParameter>
+                </Action>
+        </Action>
+                
+        <Action name="WaitFor2ndPublish" type="SyncComponentAction">
+                <ActionParameter name="component_name">JMSSub2</ActionParameter>
+                <ActionParameter name="component_list">Pubs2;JMSSub2;Subs2</ActionParameter>
+                <ActionParameter name="timeout">60000</ActionParameter>
+        </Action>  
+        
+		<!-- SyncAction action_id="WaitFor2ndPublish">
+			<param name="request">wait</param>
+			<param name="condition">Pubs2</param>
+			<param name="value">1</param>
+			<param name="timeout">60000</param>
+		</SyncAction -->
+
+       <Action name="CompositeRcv2" type="CompositeAction" expected="6300" interval="0" repeat_interval="0">
+                <Action name="ReceiveMessage1-2" type="ReceiveMessage">
+                        <ActionParameter name="consumer_id">consumer1</ActionParameter>
+						<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+						<ApiParameter name="timeout">5000</ApiParameter>
+                </Action>
+        </Action>
+
+        <Action name="CloseSession_JMSSub2" type="CloseSession">
+                <ActionParameter name="session_id">Ses1_JMSSub</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_JMSSub1" type="CloseConnection">
+                <ActionParameter name="conn_id">Con1_JMSSub</ActionParameter>
+        </Action>
+
+    </Action>
+
+</ImaJmsTest>

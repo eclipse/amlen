@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="svt_mqconnectivity" default="build_svt_mqconnectivity"  basedir=".">
+	<property name="svt.mqconnectivity.src.dir" location="${basedir}/src" />
+	<property name="svt.mqconnectivity.bin.dir" location="${basedir}/bin" />
+	<property name="svt.mqconnectivity.scripts.dir" location="${basedir}/scripts" />
+	<property name="svt.mqconnectivity.ssl.dir" location="${basedir}/scripts/ssl" />
+	<property name="svt.mqconnectivity.lib.dir" location="${svt.mqconnectivity.bin.dir}/lib" />
+	<property name="client.ship.lib.dir" value="${basedir}/../client_ship/lib"/>
+	<property name="svt.ship.dir" value="${basedir}/../svt_ship"/>
+    <property environment="env"/>
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+	<property name="testHarnessBuildTools" location="${thirdPartyLibs}/applications/test_harness" />
+	<property name="testTools" location="${publishBuildTools}/applications/test_harness" />
+	<property name="testTools.ship.lib.dir" value="${basedir}/../testTools_ship/lib"/>
+
+<!-- NOT USED, use build_tools now:	<property name="testTools.lib.dir" location="../testTools_MQ_MQTTClient/lib"/> -->
+
+	<!-- define svt_mqconnectivity jar file name -->
+	<property name="mqconnectivity.jar" location="${svt.mqconnectivity.lib.dir}/mqconnectivity.jar"/>
+
+	<property name="svtScripts.build.dir" value="${basedir}/scripts"/>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+       <pathelement location="${client.deps.dir}/com.ibm.micro.client.mqttv3.jar"/>
+   		<!-- You should only have one of these.  The one above is the latest. -->
+		<!-- <pathelement location="${external.sdk.CandI.dir}/lib/com.ibm.micro.client.mqttv3_7.1.0.0.jar"/> -->
+		<!-- <pathelement location="${external.sdk.CandI.dir}/lib/com.ibm.micro.client.mqttv3_7.5.0.0.jar"/> -->
+   		<pathelement location="${client.deps.dir}/com.ibm.mq.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mqjms.jar"/>
+   	    <pathelement location="${client.deps.dir}/connector.jar"/>
+   	    <pathelement location="${client.deps.dir}/dhbcore.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mq.commonservices.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mq.headers.jar"/>
+   		<pathelement location="${client.deps.dir}/com.ibm.mq.jmqi.jar"/>
+   		<pathelement location="${client.deps.dir}/jms.jar"/>
+    	<pathelement location="${client.ship.lib.dir}/imaclientjms.jar" />
+        <pathelement location="${client.ship.lib.dir}/org.eclipse.paho.client.mqttv3.jar"/>
+   	<fileset dir="${testTools.ship.lib.dir}/">
+   						<include name="*.jar" />
+   					</fileset>
+   </path>
+	<property name="compile_classpath" refid="compile.classpath"/>
+	<echo message="compile.classpath = ${compile_classpath}"/>
+
+   <!--path id="test.classpath">
+      <path refid="compile.classpath" />
+   	  <pathelement location="/opt/apache-ant/lib" />
+      <pathelement location="${svt.mqconnectivity.bin.dir}" />
+      <pathelement location="${jms.jar.dir}" />
+   </path-->
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${svt.mqconnectivity.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="mqconnectivity_publish">
+		<echo> ==  mqconnectivity_publish called (TBD) ================ </echo>
+		<echo> ==  Copy files to svt_ship tree ================ </echo>
+		<fixcrlf eol="unix" srcdir="${svtScripts.build.dir}" includes="**/*" excludes="**/*.jks **/*.pkcs12"/>
+		<copy file="${mqconnectivity.jar}" todir="${svt.ship.dir}/lib" preservelastmodified="yes" verbose="true"/>
+		<!-- These next 2 lines are not needed. These files are already being put in svt/svt_ssl by another test. -->
+   		<!-- <copy file="${cacerts.jks}" todir="${svt.ship.dir}/svt_ssl" preservelastmodified="yes" verbose="true"/> -->
+		<!-- <copy file="${cacerts.pkcs12}" todir="${svt.ship.dir}/svt_ssl" preservelastmodified="yes" verbose="true"/> -->
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, package"  -->
+	<target name="build_svt_mqconnectivity"  depends="build_mqconnectivity_jar, mqconnectivity_publish">
+		<echo> ==  Invoking ant for svt_mqconnectivity build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_mqconnectivity_jar" depends="mqconnectivity_compile" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${svt.mqconnectivity.src.dir}/META-INF/MANIFEST.MF" todir="${svt.mqconnectivity.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${svt.mqconnectivity.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${svt.mqconnectivity.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${mqconnectivity.jar}">
+			<!--fileset dir="${svt.mqconnectivity.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/*" /-->
+			<fileset dir="${svt.mqconnectivity.bin.dir}" includes="**/*.class" />
+			<!--fileset dir="${svt.mqconnectivity.bin.dir}/test" includes="**/*.class" /-->
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${mqconnectivity.jar}" manifest="${svt.mqconnectivity.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!--Compile the project-->
+	<target name="mqconnectivity_compile" depends="svt_mqconnectivity_init">
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac srcdir="${svt.mqconnectivity.src.dir}" destdir="${svt.mqconnectivity.bin.dir}" deprecation="no"
+             includeAntRuntime="no"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${svt.mqconnectivity.src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+        <copy todir="${svt.mqconnectivity.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${svt.mqconnectivity.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+    <!-- Initialize the build environment -->
+	<target name="svt_mqconnectivity_init">
+		<mkdir dir="${svt.mqconnectivity.lib.dir}"/>
+	</target>
+</project>

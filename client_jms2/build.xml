@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="client_jms2" default="build_client_jms2">
+	<property environment="env"/>
+	<!-- If not already set, set them here so this can run standalone -->
+	<property name="publishBuildTools" location="../build_tools" />
+	<property name="client.jms2.dir" location="." />
+	<property name="client.jms.dir" location="../client_jms" />
+	<property name="version.id" value="2.0" />
+	<property name="build.id"   value="private" />
+	<property name="client.common.dir" location="../client_ship/ImaClient" />
+		
+	<property name="client.jms2.src.dir" location="${client.jms2.dir}/src" />
+	<property name="client.jms2.test.src.dir" location="${client.jms2.dir}/test" />
+	<property name="client.jms2.bin.dir" location="${client.jms2.dir}/bin" />
+	<property name="client.jms2.junit.dir" location="${client.jms2.bin.dir}/test" />
+	<property name="client.jms2.lib.dir" location="${client.jms2.bin.dir}/lib" />
+	
+	<!-- define client_jms jar file name -->
+	<property name="imaclientjms20.jar" location="${client.jms2.dir}/lib/imaclientjms20.jar"/>
+
+	<property name="imaclientjms20_test.jar" location="${client.jms2.dir}/lib/imaclientjms20_test.jar"/>
+
+	<property name="java8.dir" location="${env.JAVA_HOME}" />
+	
+   <condition property="is64">
+       <or>
+           <os arch="x86_64" />
+           <os arch="amd64" />
+       </or>
+   </condition>
+   <condition property="OSbit" value="64">
+       <isset property="is64" />
+   </condition>
+
+   <condition property="OSbit" value="32">
+       <not>
+           <isset property="is64" />
+       </not>
+   </condition>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+   	  <pathelement location="${publishBuildTools}/applications/oracle/jms20.jar" />
+   	  <pathelement location="${publishBuildTools}/applications/oracle/porting.jar" />
+   </path>
+
+   <path id="test.classpath">
+   	  <pathelement location="/opt/apache-ant/lib" />
+      <pathelement location="${client.jms2.bin.dir}" />
+      <pathelement location="${client.jms2.junit.dir}" />
+      <path refid="compile.classpath" />
+      <!-- <pathelement location="${jms.jar.dir}" /> -->
+   	  <pathelement location="${publishBuildTools}/applications/oracle/fscontext.jar" />
+   	  <pathelement location="${publishBuildTools}/applications/oracle/providerutil.jar" />
+   </path>
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${client.jms2.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="jms_publish">
+		<echo> ==  Copy files to client_ship tree ================ </echo>
+		<copy todir="${client.common.dir}/lib" preservelastmodified="yes">
+			<fileset dir="${client.jms2.lib.dir}" />
+		</copy>
+        <copy file="${publishBuildTools}/applications/oracle/jms20.jar" todir="${client.jms2.dir}/lib" preservelastmodified="yes"/>
+        <copy file="${imaclientjms20.jar}" todir="${client.common.dir}/jms/lib" preservelastmodified="yes"/>
+        <copy file="${publishBuildTools}/applications/oracle/jms20.jar" todir="${client.common.dir}/jms/lib" preservelastmodified="yes"/>
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, javadoc, package"  -->
+	<target name="build_client_jms2"  depends="build_jms2_jar, build_jms2_test_jar, jms_test, jms_publish">
+		<echo> ==  Invoking ant for client_jms build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_jms2_jar" depends="jms2_compile, jms2_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.jms.dir}/src/META-INF/MANIFEST.MF" todir="${client.jms2.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.jms2.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+	
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.jms2.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imaclientjms20.jar}">
+			<fileset dir="${client.jms2.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/**, samples/**" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${imaclientjms20.jar}" manifest="${client.jms2.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+    
+    <target name="build_jms2_test_jar" depends="jms2_compile, jms2_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.jms.dir}/src/META-INF/MANIFEST.MF" todir="${client.jms2.junit.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.jms2.junit.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+	
+		<!-- set build id in the MANIFEST.MF file -->
+        <replace file="${client.jms2.junit.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imaclientjms20_test.jar}">
+			<fileset dir="${client.jms2.junit.dir}" includes="**/*.class" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+        <jar update="true" keepcompression="true" compress="false" destfile="${imaclientjms20_test.jar}" manifest="${client.jms2.junit.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+
+	<!--Compile the project-->
+	<target name="jms2_compile" depends="client_jms2_init">				
+
+        <copy todir="${client.jms2.bin.dir}" preservelastmodified="yes" overwrite="true" >
+            <fileset dir="${client.jms.dir}/src" />
+        </copy>
+        <copy todir="${client.jms2.bin.dir}" preservelastmodified="yes" overwrite="true" >
+            <fileset dir="${client.jms2.src.dir}" />
+        </copy>
+	    <!-- set build id in the ImaConstants.java file -->
+	    <replace file="${client.jms2.bin.dir}/com/ibm/ima/jms/impl/ImaConstants.java" token="BUILD_ID" value="${build.id}" />
+	        
+	    <!-- set version id in the ImaConstants.java file -->
+	    <replace file="${client.jms2.bin.dir}/com/ibm/ima/jms/impl/ImaConstants.java" token="VERSION_ID" value="${version.id}" />
+	        
+		<javac source="1.7" target="1.7" srcdir="${client.jms2.bin.dir}" destdir="${client.jms2.bin.dir}" deprecation="no"
+             includeAntRuntime="no"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${client.jms2.bin.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+	</target>
+	
+   
+
+   <!-- Execute unit test for the project -->
+    <target name="jms_test" depends="jms2_compile_test, jms_junittest_32, jms_junittest_64">
+    </target>
+
+    <!-- Execute unit test 32 for the project -->
+    <target name="jms_junittest_32" depends="jms2_compile_test" >
+       <echo> ==  Unit tests with 32 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="32"/>
+       </antcall>
+    </target>
+
+    <!-- Execute unit test 64 for the project -->
+    <target name="jms_junittest_64" if="do.unit.64" depends="jms2_compile_test"  >
+       <echo> ==  Unit tests with 64 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="64"/>
+       </antcall>
+    </target>
+
+	<!-- Execute the unit tests for the project -->
+	<target name="junit_test">
+		<echo> ==  Unit test setup for ${os.st} bits ======================== </echo>
+		<property name="test.data.dir" location="${client.jms2.junit.dir}/test-data/${os.st}" />
+		<property name="test.reports.dir" location="${client.jms2.junit.dir}/test-reports/${os.st}" />
+		<delete dir="${test.data.dir}" />
+		<delete dir="${test.reports.dir}" />
+		<mkdir dir="${test.data.dir}" />
+		<mkdir dir="${test.reports.dir}" />
+
+		<!-- property name="jvmargadd_1" value="-showversion" / -->
+		<condition property="jvmargadd_1" value="-d${os.st}" else="-showversion">
+			<equals arg1="${os.name}" arg2="SunOS"/>
+		</condition>
+
+		<junit printsummary="no" haltonfailure="no" jvm="java" showoutput="yes">
+			<jvmarg value="${jvmargadd_1}" />
+			<classpath refid="test.classpath" />
+			<formatter type="xml" />
+			<formatter type="plain" usefile="no" />
+			<test name="com.ibm.ima.jms.impl.AllTests" fork="yes" todir="${test.data.dir}"/>
+		</junit>
+
+		<!-- HTML report for the unit tests -->
+		<junitreport todir="${test.data.dir}" >
+			<fileset dir="${test.data.dir}">
+				<include name="*.xml" />
+			</fileset>
+			<report format="frames" todir="${test.reports.dir}" />
+		</junitreport>
+	</target>
+
+	<!--  Compile the unit test code  -->
+	<target name="jms2_compile_test" depends="jms2_compile">
+        <copy todir="${client.jms2.dir}/test2" preservelastmodified="yes" overwrite="true" >
+            <fileset dir="${client.jms.dir}/test" />
+        </copy>
+        <copy todir="${client.jms2.dir}/test2" preservelastmodified="yes" overwrite="true" >
+            <fileset dir="${client.jms2.test.src.dir}" />
+        </copy>
+		<javac  source="1.7" target="1.7" srcdir="${client.jms2.dir}/test2" destdir="${client.jms2.junit.dir}"
+                     debug="yes" debuglevel="lines,source,vars" optimize="yes">
+         <classpath refid="test.classpath" />
+      </javac>
+      <copy todir="${client.jms2.junit.dir}" preservelastmodified="yes">
+         <fileset dir="${client.jms2.test.src.dir}" excludes="**/*.java" />
+      </copy>
+   </target>
+
+	
+    <!-- Initialize the build environment -->
+	<target name="client_jms2_init">
+		<mkdir dir="${client.jms2.bin.dir}"/>
+	    <mkdir dir="${client.jms2.junit.dir}"/>
+		<mkdir dir="${client.jms2.lib.dir}"/>
+	</target>
+</project>

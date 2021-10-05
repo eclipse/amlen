@@ -1,0 +1,601 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: JMS_queues_014d
+
+   Test Category:  JMS Queues
+   
+   Test Description:
+   Two Producers (one silly AsyncTransactionSend, one Sync), Two Consumers (One Async, one Sync)
+   (each is on their own session and own PROCESS)
+   The producers send messages to a single queue.
+
+   Msg A: sent by prod1 (async), TP red
+   Msg B: sent by prod2 (sync),  TP green
+   Msg C: sent by prod1 (async), TP blue
+   Msg D: sent by prod2 (sync),  TP yellow
+
+   Cons1 (async): recvs red
+   Cons2 (sync):  recvs blue
+   Cons3 (async): recvs green
+   Cons4 (sync):  recvs yellow
+   
+   prod1 : m1
+   prod2 : m2
+   cons1 : m1
+   cons2 : m1
+   cons3 : m2
+   cons4 : m2
+
+  -->
+
+<LlmJmsTest name="jms_queueus_014d">
+
+  <SyncClient>
+    <server>
+      <include>../common/JMS_syncip.xml</include>
+      <include>../common/JMS_syncport.xml</include>
+    </server>
+    <solution>jms_queues_014d</solution>
+  </SyncClient>
+
+  <Action name="syncReset" type="SyncAction">
+    <ActionParameter name="request">reset</ActionParameter>
+  </Action>
+
+  <include>../common/jms_jndi_ldap.xml</include>
+
+  <!-- P1, ASYNC PRODUCER (red, blue) -->
+  <Action name="p1" type="CompositeAction">
+    <Action name="Create_Q14_cons" type="CreateDestination">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ActionParameter name="jndiName">jndi_queue014</ActionParameter>
+    </Action>
+    <Action name="CheckProps_Q14" type="CheckIsmProps">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ChkImaProperty name="name" value="JMSQueue014"/>
+    </Action>
+    <Action name="Create_qcfasync" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">qcfasync</ActionParameter>
+      <ActionParameter name="jndiName">jndi_qcfasync</ActionParameter>
+	  <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+	  <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+    </Action>
+    <Action name="CheckProps_qcfasync" type="CheckIsmProps">
+      <ActionParameter name="structure_id">qcfasync</ActionParameter>
+      <ChkImaProperty name="Port" value="18458" method="getString"/>
+      <ChkImaProperty name="AsyncTransactionSend" value="true" method="getBoolean"/>
+    </Action>
+    <Action name="CreateAsyncExceptionListener" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exe_listener_async</ActionParameter>
+    </Action>
+    <Action name="CreateConnection_qcfasync" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_qcfasync</ActionParameter>
+      <ActionParameter name="factory_id">qcfasync</ActionParameter>
+      <ApiParameter name="exceptionListener">exe_listener_async</ApiParameter>
+    </Action>
+    <Action name="StartConnection_qcfasync" type="StartConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CreateSession_prod1" type="CreateSession">
+      <ActionParameter name="structure_id">sess_prod1</ActionParameter>
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CreateProducer_prod1" type="CreateProducer">
+      <ActionParameter name="structure_id">prod1</ActionParameter>
+      <ActionParameter name="dest_id">Q14</ActionParameter>
+      <ActionParameter name="session_id">sess_prod1</ActionParameter>
+      <ApiParameter name="deliveryMode">1</ApiParameter>
+    </Action>
+    <!-- MSG A -->
+    <Action name="Create_TXT_A" type="CreateMessage">
+      <ActionParameter name="structure_id">msg_a</ActionParameter>
+      <ActionParameter name="session_id">sess_prod1</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+    <Action name="SetMsg_A" type="SetMessageText">
+      <ActionParameter name="message_id">msg_a</ActionParameter>
+      <ApiParameter name="value">This is message ALPHA.</ApiParameter>
+    </Action>
+    <Action name="SetMsgAProp" type="SetMessageProperty">
+      <ActionParameter name="message_id">msg_a</ActionParameter>
+      <ApiParameter name="propertyName">TestProperty</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">red</ApiParameter>
+    </Action>
+    <!-- C -->
+    <Action name="Create_TXT_C" type="CreateMessage">
+      <ActionParameter name="structure_id">msg_c</ActionParameter>
+      <ActionParameter name="session_id">sess_prod1</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+    <Action name="SetMsg_C" type="SetMessageText">
+      <ActionParameter name="message_id">msg_c</ActionParameter>
+      <ApiParameter name="value">This is message GAMMA.</ApiParameter>
+    </Action>
+    <Action name="SetMsgCProp" type="SetMessageProperty">
+      <ActionParameter name="message_id">msg_c</ActionParameter>
+      <ApiParameter name="propertyName">TestProperty</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">blue</ApiParameter>
+    </Action>
+    <!-- P1 SEND -->
+    <Action name="SendP1" type="CompositeAction" repeat="1000" repeat_interval="0">
+      <Action name="SendMsg_A" type="SendMessage" interval="0">
+        <ActionParameter name="producer_id">prod1</ActionParameter>
+        <ActionParameter name="message_id">msg_a</ActionParameter>
+      </Action>
+      <Action name="SendMsg_C" type="SendMessage" interval="0">
+        <ActionParameter name="producer_id">prod1</ActionParameter>
+        <ActionParameter name="message_id">msg_c</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="Sync_EndProd_BeginConsume" type="SyncComponentAction">
+      <ActionParameter name="component_name">p1</ActionParameter>
+      <ActionParameter name="component_list">p1;p2;c1;c2;c3;c4</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection_qcfasync" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CloseConnection_qcfasync" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+  </Action>
+
+
+
+
+  <!-- P2 SYNC PRODUCER, (green & yellow) -->
+  <Action name="p2" type="CompositeAction">
+    <Action name="Create_Q14_cons" type="CreateDestination">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ActionParameter name="jndiName">jndi_queue014</ActionParameter>
+    </Action>
+    <Action name="CheckProps_Q14" type="CheckIsmProps">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ChkImaProperty name="name" value="JMSQueue014"/>
+    </Action>
+    <Action name="Create_qcf1" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">qcf1</ActionParameter>
+      <ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+	  <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+	  <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+    </Action>
+    <Action name="CheckProps_qcf1" type="CheckIsmProps">
+      <ActionParameter name="structure_id">qcf1</ActionParameter>
+      <ChkImaProperty name="Port" value="18458" method="getString"/>
+      <ChkImaProperty name="AsyncTransactionSend" value="false" method="getBoolean"/>
+    </Action>
+    <Action name="CreateSyncExceptionListener" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exe_listener_sync</ActionParameter>
+    </Action>
+    <Action name="CreateConnection_qcf1" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_qcf1</ActionParameter>
+      <ActionParameter name="factory_id">qcf1</ActionParameter>
+      <ApiParameter name="exceptionListener">exe_listener_sync</ApiParameter>
+    </Action>
+    <Action name="StartConnection_qcf1" type="StartConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CreateSession_prod2" type="CreateSession">
+      <ActionParameter name="structure_id">sess_prod2</ActionParameter>
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CreateProducer_prod2" type="CreateProducer">
+      <ActionParameter name="structure_id">prod2</ActionParameter>
+      <ActionParameter name="dest_id">Q14</ActionParameter>
+      <ActionParameter name="session_id">sess_prod2</ActionParameter>
+      <ApiParameter name="deliveryMode">1</ApiParameter>
+    </Action>
+    <!-- B -->
+    <Action name="Create_TXT_B" type="CreateMessage">
+      <ActionParameter name="structure_id">msg_b</ActionParameter>
+      <ActionParameter name="session_id">sess_prod2</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+    <Action name="SetMsg_B" type="SetMessageText">
+      <ActionParameter name="message_id">msg_b</ActionParameter>
+      <ApiParameter name="value">This is message BETA.</ApiParameter>
+    </Action>
+    <Action name="SetMsgBProp" type="SetMessageProperty">
+      <ActionParameter name="message_id">msg_b</ActionParameter>
+      <ApiParameter name="propertyName">TestProperty</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">green</ApiParameter>
+    </Action>
+    <!-- D -->
+    <Action name="Create_TXT_D" type="CreateMessage">
+      <ActionParameter name="structure_id">msg_d</ActionParameter>
+      <ActionParameter name="session_id">sess_prod2</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+    <Action name="SetMsg_D" type="SetMessageText">
+      <ActionParameter name="message_id">msg_d</ActionParameter>
+      <ApiParameter name="value">This is message DELTA.</ApiParameter>
+    </Action>
+    <Action name="SetMsgDProp" type="SetMessageProperty">
+      <ActionParameter name="message_id">msg_d</ActionParameter>
+      <ApiParameter name="propertyName">TestProperty</ApiParameter>
+      <ApiParameter name="propertyType">Common</ApiParameter>
+      <ApiParameter name="value">yellow</ApiParameter>
+    </Action>
+    <!-- P2 SEND -->
+    <Action name="SendP2" type="CompositeAction" repeat="1000" repeat_interval="0">
+      <Action name="SendMsg_B" type="SendMessage" interval="0">
+        <ActionParameter name="producer_id">prod2</ActionParameter>
+        <ActionParameter name="message_id">msg_b</ActionParameter>
+      </Action>
+      <Action name="SendMsg_D" type="SendMessage" interval="0">
+        <ActionParameter name="producer_id">prod2</ActionParameter>
+        <ActionParameter name="message_id">msg_d</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="Sync_EndProd_BeginConsume" type="SyncComponentAction">
+      <ActionParameter name="component_name">p2</ActionParameter>
+      <ActionParameter name="component_list">p1;p2;c1;c2;c3;c4</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection_qcf1" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CloseConnection_qcf1" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+  </Action>
+
+
+
+
+
+  <!-- C1 ASYNC CONSUMER (red) -->
+  <Action name="c1" type="CompositeAction">
+    <Action name="Create_Q14_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ActionParameter name="jndiName">jndi_queue014</ActionParameter>
+    </Action>
+    <Action name="CheckProps_Q14" type="CheckIsmProps">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ChkImaProperty name="name" value="JMSQueue014"/>
+    </Action>
+    <Action name="Create_qcfasync" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">qcfasync</ActionParameter>
+      <ActionParameter name="jndiName">jndi_qcfasync</ActionParameter>
+	  <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+	  <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+    </Action>
+    <Action name="CheckProps_qcfasync" type="CheckIsmProps">
+      <ActionParameter name="structure_id">qcfasync</ActionParameter>
+      <ChkImaProperty name="Port" value="18458" method="getString"/>
+      <ChkImaProperty name="AsyncTransactionSend" value="true" method="getBoolean"/>
+    </Action>
+    <Action name="CreateAsyncExceptionListener" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exe_listener_async</ActionParameter>
+    </Action>
+    <Action name="CreateConnection_qcfasync" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_qcfasync</ActionParameter>
+      <ActionParameter name="factory_id">qcfasync</ActionParameter>
+      <ApiParameter name="exceptionListener">exe_listener_async</ApiParameter>
+    </Action>
+    <Action name="StartConnection_qcfasync" type="StartConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CreateSession_cons1" type="CreateSession">
+      <ActionParameter name="structure_id">sess_cons1</ActionParameter>
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CreateConsumer_cons1" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons1</ActionParameter>
+      <ActionParameter name="dest_id">Q14</ActionParameter>
+      <ActionParameter name="session_id">sess_cons1</ActionParameter>
+      <ApiParameter name="selector">TestProperty='red'</ApiParameter>
+    </Action>
+    <Action name="CreateMsgListener_cons1" type="CreateMessageListener">
+      <ActionParameter name="structure_id">msg_listener_cons1</ActionParameter>
+    </Action>
+    <Action name="SetMsgListener_cons1" type="SetMessageListener">
+      <ActionParameter name="listener_id">msg_listener_cons1</ActionParameter>
+      <ActionParameter name="consumer_id">cons1</ActionParameter>
+    </Action>
+
+    <Action name="Sync_EndProd_BeginConsume" type="SyncComponentAction">
+      <ActionParameter name="component_name">c1</ActionParameter>
+      <ActionParameter name="component_list">p1;p2;c1;c2;c3;c4</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- consume msgs A (red) (sent async, recvd async) -->
+    <Action name="ConsumeAs" type="CompositeAction" repeat="1000" repeat_interval="0">
+      <Action name="RXMsg_A" type="ReceiveMessage" interval="0">
+        <ActionParameter name="listener_id">msg_listener_cons1</ActionParameter>
+        <ActionParameter name="structure_id">rxd_msg_a</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+      <Action name="GetMsgText_A" type="GetMessageText" interval="0">
+        <ActionParameter name="message_id">rxd_msg_a</ActionParameter>
+        <ActionParameter name="verifyValue">This is message ALPHA.</ActionParameter>
+      </Action>
+    </Action>
+
+    <!-- expect nothing else on the queue for this consumer -->
+    <Action name="ReceiveNothingLeft" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+      <ActionParameter name="listener_id">msg_listener_cons1</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg</ActionParameter>
+      <ApiParameter name="timeout">500</ApiParameter>
+    </Action>
+
+    <Action name="StopConnection_qcfasync" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CloseConnection_qcfasync" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+  </Action>
+
+
+
+
+
+  <!-- C2 SYNC CONSUMER (blue) -->
+  <Action name="c2" type="CompositeAction">
+    <Action name="Create_Q14_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ActionParameter name="jndiName">jndi_queue014</ActionParameter>
+    </Action>
+    <Action name="CheckProps_Q14" type="CheckIsmProps">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ChkImaProperty name="name" value="JMSQueue014"/>
+    </Action>
+    <Action name="Create_qcf1" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">qcf1</ActionParameter>
+      <ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+	  <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+	  <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+    </Action>
+    <Action name="CheckProps_qcf1" type="CheckIsmProps">
+      <ActionParameter name="structure_id">qcf1</ActionParameter>
+      <ChkImaProperty name="Port" value="18458" method="getString"/>
+      <ChkImaProperty name="AsyncTransactionSend" value="false" method="getBoolean"/>
+    </Action>
+    <Action name="CreateSyncExceptionListener" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exe_listener_sync</ActionParameter>
+    </Action>
+    <Action name="CreateConnection_qcf1" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_qcf1</ActionParameter>
+      <ActionParameter name="factory_id">qcf1</ActionParameter>
+      <ApiParameter name="exceptionListener">exe_listener_sync</ApiParameter>
+    </Action>
+    <Action name="StartConnection_qcf1" type="StartConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CreateSession_cons2" type="CreateSession">
+      <ActionParameter name="structure_id">sess_cons2</ActionParameter>
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CreateConsumer_cons2" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons2</ActionParameter>
+      <ActionParameter name="dest_id">Q14</ActionParameter>
+      <ActionParameter name="session_id">sess_cons2</ActionParameter>
+      <ApiParameter name="selector">TestProperty='blue'</ApiParameter>
+    </Action>
+
+    <Action name="Sync_EndProd_BeginConsume" type="SyncComponentAction">
+      <ActionParameter name="component_name">c2</ActionParameter>
+      <ActionParameter name="component_list">p1;p2;c1;c2;c3;c4</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- consume msgs C (green) (sent async, recvd async) -->
+    <Action name="ConsumeCs" type="CompositeAction" repeat="1000" repeat_interval="0">
+      <Action name="RXMsg_C" type="ReceiveMessage" interval="0">
+        <ActionParameter name="consumer_id">cons2</ActionParameter>
+        <ActionParameter name="structure_id">rxd_msg_c</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+      <Action name="GetMsgText_C" type="GetMessageText" interval="0">
+        <ActionParameter name="message_id">rxd_msg_c</ActionParameter>
+        <ActionParameter name="verifyValue">This is message GAMMA.</ActionParameter>
+      </Action>
+    </Action>
+
+    <!-- expect nothing else on the queue for this consumer -->
+    <Action name="ReceiveNothingLeft" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+      <ActionParameter name="consumer_id">cons2</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg</ActionParameter>
+      <ApiParameter name="timeout">500</ApiParameter>
+    </Action>
+
+    <Action name="StopConnection_qcf1" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CloseConnection_qcf1" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+  </Action>
+
+
+
+
+
+  <!-- C3 ASYNC CONSUMER (green) -->
+  <Action name="c3" type="CompositeAction">
+    <Action name="Create_Q14_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ActionParameter name="jndiName">jndi_queue014</ActionParameter>
+    </Action>
+    <Action name="CheckProps_Q14" type="CheckIsmProps">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ChkImaProperty name="name" value="JMSQueue014"/>
+    </Action>
+    <Action name="Create_qcfasync" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">qcfasync</ActionParameter>
+      <ActionParameter name="jndiName">jndi_qcfasync</ActionParameter>
+	  <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+	  <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+    </Action>
+    <Action name="CheckProps_qcfasync" type="CheckIsmProps">
+      <ActionParameter name="structure_id">qcfasync</ActionParameter>
+      <ChkImaProperty name="Port" value="18458" method="getString"/>
+      <ChkImaProperty name="AsyncTransactionSend" value="true" method="getBoolean"/>
+    </Action>
+    <Action name="CreateAsyncExceptionListener" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exe_listener_async</ActionParameter>
+    </Action>
+    <Action name="CreateConnection_qcfasync" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_qcfasync</ActionParameter>
+      <ActionParameter name="factory_id">qcfasync</ActionParameter>
+      <ApiParameter name="exceptionListener">exe_listener_async</ApiParameter>
+    </Action>
+    <Action name="StartConnection_qcfasync" type="StartConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CreateSession_cons3" type="CreateSession">
+      <ActionParameter name="structure_id">sess_cons3</ActionParameter>
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CreateConsumer_cons3" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons3</ActionParameter>
+      <ActionParameter name="dest_id">Q14</ActionParameter>
+      <ActionParameter name="session_id">sess_cons3</ActionParameter>
+      <ApiParameter name="selector">TestProperty='green'</ApiParameter>
+    </Action>
+    <Action name="CreateMsgListener_cons3" type="CreateMessageListener">
+      <ActionParameter name="structure_id">msg_listener_cons3</ActionParameter>
+    </Action>
+    <Action name="SetMsgListener_cons3" type="SetMessageListener">
+      <ActionParameter name="listener_id">msg_listener_cons3</ActionParameter>
+      <ActionParameter name="consumer_id">cons3</ActionParameter>
+    </Action>
+
+    <Action name="Sync_EndProd_BeginConsume" type="SyncComponentAction">
+      <ActionParameter name="component_name">c3</ActionParameter>
+      <ActionParameter name="component_list">p1;p2;c1;c2;c3;c4</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- consume msgs B (blue) (sent sync, recvd sync) -->
+    <Action name="ConsumeBs" type="CompositeAction" repeat="1000" repeat_interval="0">
+      <Action name="RXMsg_B" type="ReceiveMessage" interval="0">
+        <ActionParameter name="listener_id">msg_listener_cons3</ActionParameter>
+        <ActionParameter name="structure_id">rxd_msg_b</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+      <Action name="GetMsgText_B" type="GetMessageText" interval="0">
+        <ActionParameter name="message_id">rxd_msg_b</ActionParameter>
+        <ActionParameter name="verifyValue">This is message BETA.</ActionParameter>
+      </Action>
+    </Action>
+
+    <!-- expect nothing else on the queue for this consumer -->
+    <Action name="ReceiveNothingLeft" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+      <ActionParameter name="listener_id">msg_listener_cons3</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg</ActionParameter>
+      <ApiParameter name="timeout">500</ApiParameter>
+    </Action>
+
+    <Action name="StopConnection_qcfasync" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+    <Action name="CloseConnection_qcfasync" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    </Action>
+  </Action>
+
+
+
+
+
+  <!-- C4 SYNC CONSUMER (yellow) -->
+  <Action name="c4" type="CompositeAction">
+    <Action name="Create_Q14_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ActionParameter name="jndiName">jndi_queue014</ActionParameter>
+    </Action>
+    <Action name="CheckProps_Q14" type="CheckIsmProps">
+      <ActionParameter name="structure_id">Q14</ActionParameter>
+      <ChkImaProperty name="name" value="JMSQueue014"/>
+    </Action>
+    <Action name="Create_qcf1" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">qcf1</ActionParameter>
+      <ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+	  <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+	  <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+    </Action>
+    <Action name="CheckProps_qcf1" type="CheckIsmProps">
+      <ActionParameter name="structure_id">qcf1</ActionParameter>
+      <ChkImaProperty name="Port" value="18458" method="getString"/>
+      <ChkImaProperty name="AsyncTransactionSend" value="false" method="getBoolean"/>
+    </Action>
+    <Action name="CreateSyncExceptionListener" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exe_listener_sync</ActionParameter>
+    </Action>
+    <Action name="CreateConnection_qcf1" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_qcf1</ActionParameter>
+      <ActionParameter name="factory_id">qcf1</ActionParameter>
+      <ApiParameter name="exceptionListener">exe_listener_sync</ApiParameter>
+    </Action>
+    <Action name="StartConnection_qcf1" type="StartConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CreateSession_cons4" type="CreateSession">
+      <ActionParameter name="structure_id">sess_cons4</ActionParameter>
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CreateConsumer_cons4" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons4</ActionParameter>
+      <ActionParameter name="dest_id">Q14</ActionParameter>
+      <ActionParameter name="session_id">sess_cons4</ActionParameter>
+      <ApiParameter name="selector">TestProperty='yellow'</ApiParameter>
+    </Action>
+
+    <Action name="Sync_EndProd_BeginConsume" type="SyncComponentAction">
+      <ActionParameter name="component_name">c4</ActionParameter>
+      <ActionParameter name="component_list">p1;p2;c1;c2;c3;c4</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- consume msgs D (yellow) (sent sync, recvd sync) -->
+    <Action name="ConsumeDs" type="CompositeAction" repeat="1000" repeat_interval="0">
+      <Action name="RXMsg_D" type="ReceiveMessage" interval="0">
+        <ActionParameter name="consumer_id">cons4</ActionParameter>
+        <ActionParameter name="structure_id">rxd_msg_d</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+      <Action name="GetMsgText_D" type="GetMessageText" interval="0">
+        <ActionParameter name="message_id">rxd_msg_d</ActionParameter>
+        <ActionParameter name="verifyValue">This is message DELTA.</ActionParameter>
+      </Action>
+    </Action>
+
+    <!-- expect nothing else on the queue for this consumer -->
+    <Action name="ReceiveNothingLeft" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+      <ActionParameter name="consumer_id">cons4</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg</ActionParameter>
+      <ApiParameter name="timeout">500</ApiParameter>
+    </Action>
+
+    <Action name="StopConnection_qcf1" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+    <Action name="CloseConnection_qcf1" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_qcf1</ActionParameter>
+    </Action>
+  </Action>
+
+</LlmJmsTest>

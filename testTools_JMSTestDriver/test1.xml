@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2007-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<LlmJmsTest name="CreateConnection" >
+	<Action name="CreateFactory" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+	<!--	 <ActionParameter name="jndiName">CF1</ActionParameter> -->
+	</Action>
+	<Action name="CreateListener" type="CreateExceptionListener">
+		<ActionParameter name="structure_id">listener1</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillLlmProps">
+		<ActionParameter name="structure_id">CF1</ActionParameter>
+		<LlmProperty name="MulticastLoop" value="1"/>
+		<LlmProperty name="Port" value="12345"/>
+		<LlmProperty name="Name" value="JMSCon"/>
+		<LlmProperty name="LogLevel" value="6"/>
+	</Action>
+	<Action name="CreateConnection" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+	 	<ActionParameter name="factory_id">CF1</ActionParameter>
+	 	<ApiParameter name="user">alex</ApiParameter>
+	 	<ApiParameter name="passwd">password</ApiParameter>
+	 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+	 	<ApiParameter name="eventListener">listener1</ApiParameter>
+	 	<ApiParameter name="logListener">listener1</ApiParameter>
+	</Action>
+	<Action name="CreateSession" type="CreateSession">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	 	<ActionParameter name="structure_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="CreateDestination" type="CreateDestination">
+	 	<ActionParameter name="structure_id">destRX</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillLlmProps">
+		<ActionParameter name="structure_id">destRX</ActionParameter>
+		<LlmProperty name="Group" value="239.1.2.3"/>
+		<LlmProperty name="dataPort" value="12345"/>
+		<LlmProperty name="Topic" value="JmsTopic1"/>
+	</Action>
+	<Action name="CreateConsumer" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer1</ActionParameter>
+		<ActionParameter name="dest_id">destRX</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="CreateDestination" type="CreateDestination">
+	 	<ActionParameter name="structure_id">destTX</ActionParameter>
+	</Action>
+	<Action name="SetFactoryProps" type="FillLlmProps">
+		<ActionParameter name="structure_id">destTX</ActionParameter>
+		<LlmProperty name="Destination" value="rmm://239.1.2.3:12345"/>
+		<LlmProperty name="Topic" value="JmsTopic1"/>
+	</Action>
+	<Action name="CreateProducer" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1</ActionParameter>
+		<ActionParameter name="dest_id">destTX</ActionParameter>
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="StartConnection" type="StartConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CompositeSend" type="CompositeAction" repeat="10"> 
+		<Action name="CreateMessage" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1</ActionParameter>
+			<ActionParameter name="session_id">Ses1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">Hello world!</ApiParameter>
+		</Action>
+		<Action name="SetMessageProperty1" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="value">1234</ApiParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="propertyName">IntegerProperty</ApiParameter>
+		</Action>
+		<Action name="SetMessageProperty2" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="propertyType">CorrelationID</ApiParameter>
+			<ApiParameter name="value">JMS_TEST</ApiParameter>
+		</Action>
+		<Action name="SetMessageProperty3" type="SetMessageProperty">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="valueType">Counter</ApiParameter>
+			<ApiParameter name="propertyName">Counter</ApiParameter>
+			<ApiParameter name="value">CompositeSend</ApiParameter>
+		</Action>
+		<Action name="SendMessage" type="SendMessage">
+			<ActionParameter name="producer_id">producer1</ActionParameter>
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+		</Action>
+	</Action>
+	<Action name="CompositeRcv" type="CompositeAction" repeat="10"> 
+		<Action name="ReceiveMessage" type="ReceiveMessage">
+			<ActionParameter name="consumer_id">consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ApiParameter name="timeout">60000</ApiParameter>
+		</Action>
+		<Action name="GetMessageProperty1" type="GetMessageProperty">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">1234</ActionParameter>
+			<ApiParameter name="valueType">Integer</ApiParameter>
+			<ApiParameter name="propertyName">IntegerProperty</ApiParameter>
+		</Action>
+		<Action name="GetMessageProperty2" type="GetMessageProperty">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">JMS_TEST</ActionParameter>
+			<ApiParameter name="propertyType">CorrelationID</ApiParameter>
+			<ApiParameter name="valueType">String</ApiParameter>
+		</Action>
+		<Action name="GetMessageProperty3" type="GetMessageProperty">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">CompositeRcv</ActionParameter>
+			<ApiParameter name="valueType">Counter</ApiParameter>
+			<ApiParameter name="propertyName">Counter</ApiParameter>
+		</Action>
+		<Action name="GetMessageText" type="GetMessageText">
+			<ActionParameter name="message_id">rxmsg1</ActionParameter>
+			<ActionParameter name="verifyValue">Hello world!</ActionParameter>
+		</Action>
+	</Action>
+	<Action name="CloseSession" type="CloseSession">
+		<ActionParameter name="session_id">Ses1</ActionParameter>
+	</Action>
+	<Action name="StopConnection" type="StopConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+	<Action name="CloseConnection" type="CloseConnection">
+		<ActionParameter name="conn_id">Con1</ActionParameter>
+	</Action>
+</LlmJmsTest>

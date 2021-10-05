@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_sessionexpiry_01" >
+    
+    <!-- Create connection with cleansession true to clear -->
+    <Action name="CleanSession" type="CompositeAction">
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirysub</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+        <Action name="CreateConnection2" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirypub</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+        <Action name="SubscriptionMonitor" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="RESTmonitorServer" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- Disconnect -->
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>            
+        <Action name="CloseConnection2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+    </Action>
+    
+
+
+    <Action name="Subscribes" type="CompositeAction">
+        <Action name="CreateConnection1" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirysub</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action> 
+
+
+        <Action name="Subscribe1" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/sexp01/topic1</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="SubscriptionMonitorAfterSub1" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+        
+
+
+        <Action name="CreateConnectionPub" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpiry01_pub</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action> 
+
+        <Action name="Publoop1" type="PublishLoop">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+            <ActionParameter name="topic">/sexp01/topic1</ActionParameter>
+            <ActionParameter name="initializeCounter">true</ActionParameter>
+            <ActionParameter name="endIndex">100</ActionParameter>
+            <ActionParameter name="qos">2</ActionParameter>
+            <ActionParameter name="clearRetained">false</ActionParameter>
+            <ActionParameter name="counterID">PQ1</ActionParameter>
+        </Action> 
+
+
+        <Action name="ReceiveMessages1" type="CompositeAction" repeat="50">
+            <Action name="ReceiveMessage1-1" type="ReceiveMessage" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="structure_id">submsg1</ActionParameter>
+                <ActionParameter name="waitTime">10000</ActionParameter>
+                <ActionParameter name="printNumberReceived">true</ActionParameter>
+            </Action>
+        </Action>
+
+
+        <Action name="SubscriptionMonitorAfterReceive" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+
+        <Action name="CloseConnection1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action> 
+
+        <Action name="ClientMonitorAfterReceive" type="RestAPI">
+            <dependsOn action_id="CloseConnection1" interval="1000"/>
+            <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=sessionexpirysub%26ResultCount=50</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="VerifyClientHasExpiryTime" type="CompareREST">
+            <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+            <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+            <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+            <ActionParameter name="subObjectName">sessionexpirysub</ActionParameter>
+            <ObjectProperty name="ExpiryTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)"/> 
+        </Action>
+
+        <Action name="RESTmonitorServer1" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- wait 70 seconds for session to expire -->
+
+        <Action name="SubscriptionMonitorAfterWait" type="RestAPI">
+            <dependsOn action_id="CloseConnection1" interval="70000"/>
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="ClientMonitorAfterWait" type="RestAPI">
+            <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=sessionexpirysub%26ResultCount=50</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <!-- Manual testing: 3416: top level empty -->
+        <!-- in AF there are existing disconnected clients so expect 3410: Object to compare not found -->
+        <!-- Client monitor call using clientID filter so expect empty, 3416 -->
+        <Action name="VerifyClientGone" type="CompareREST" rc="1" reason="ISMTEST3416">
+            <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+            <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+            <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+            <ActionParameter name="subObjectName">sessionexpirysub</ActionParameter>
+            <ObjectProperty name="IsConnected" value="false"/> 
+        </Action>
+
+        <Action name="RESTmonitorServer2" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+
+        <!-- additional verification - reconnect and try to receive messages, should fail -->
+
+        <Action name="CreateConnectionAfterWait" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirysub</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action> 
+
+        <Action name="ReceiveMessageAfterWait" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+            <dependsOn action_id="CreateConnectionAfterWait" interval="1000"/>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">submsg1</ActionParameter>
+            <ActionParameter name="waitTime">10000</ActionParameter>
+            <ActionParameter name="printNumberReceived">true</ActionParameter>
+        </Action>
+
+        <Action name="SubscribeBeforeSecondDisconnect" type="Subscribe">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="topic">/sexp01/topic1</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+
+        <Action name="SubscriptionMonitorBeforeSecondDisconnect" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+
+        <Action name="CloseConnectionAfterWait" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action> 
+
+        <Action name="ClientMonitorAfterSecondDisconnect" type="RestAPI">
+            <dependsOn action_id="CloseConnectionAfterWait" interval="100"/>
+            <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=sessionexpirysub%26ResultCount=50</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="VerifyClientHasExpiryTimeAfterSecondDisconnect" type="CompareREST">
+            <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+            <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+            <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+            <ActionParameter name="subObjectName">sessionexpirysub</ActionParameter>
+            <ObjectProperty name="ExpiryTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)"/> 
+        </Action>
+
+        <Action name="CloseConnection3" type="CloseConnection">
+            <ActionParameter name="connection_id">CF3</ActionParameter>
+        </Action> 
+
+
+        <!-- wait 30 seconds for expiry on client 1 and connect again -->
+
+        <Action name="CreateConnectionAfterSecondWait" type="CreateConnection">
+            <dependsOn action_id="CloseConnectionAfterWait" interval="30100"/>
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="clientId">sessionexpirysub</ApiParameter>
+            <ApiParameter name="port">25000</ApiParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="SubscriptionMonitorAfterSecondReconnect" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="VerifySubGone" type="CompareREST" rc="1" reason="ISMTEST3410">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+            <ActionParameter name="subObjectKey">SubName</ActionParameter>
+            <ActionParameter name="subObjectName">/sexp01/topic1</ActionParameter>
+            <ObjectProperty name="ClientID" value="sessionexpirysub"/> 
+        </Action>
+
+        <Action name="RESTmonitorServer3" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+
+    </Action>
+
+
+</IsmWSTest>

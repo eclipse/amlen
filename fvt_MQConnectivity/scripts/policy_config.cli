@@ -1,0 +1,981 @@
+#------------------------------------------------------
+# MQConnectivity RuleTypes
+#------------------------------------------------------
+#define IMAMQCB_RT_FROM_IMATOPIC_TO_MQQUEUE          1
+#define IMAMQCB_RT_FROM_IMATOPIC_TO_MQTOPIC          2
+#define IMAMQCB_RT_FROM_MQQUEUE_TO_IMATOPIC          3
+#define IMAMQCB_RT_FROM_MQTOPIC_TO_IMATOPIC          4
+#define IMAMQCB_RT_FROM_IMAWILDTOPIC_TO_MQQUEUE      5
+#define IMAMQCB_RT_FROM_IMAWILDTOPIC_TO_MQTOPIC      6
+#define IMAMQCB_RT_FROM_IMAWILDTOPIC_TO_MQWILDTOPIC  7
+#define IMAMQCB_RT_FROM_MQWILDTOPIC_TO_IMATOPIC      8
+#define IMAMQCB_RT_FROM_MQWILDTOPIC_TO_IMAWILDTOPIC  9
+
+#------------------------------------------------------
+# Setup MQConnectivity for Automotive User Scale test w/ mar400
+# The MQConnectivity has a defect where it doesn't start on KVM,
+#
+# I had to split out the mqconnectivity_stop and mqconnectivity_start
+# from the other mqconnectivity_automotive_user_scale parts due to observation below.
+#
+# Observation 10.15.12: stop MQConnectivity does not complete with run-cli.sh:
+# There is also an issue that mqconnectivity_stop does not complete
+# from run-cli.sh perspective even though it actually does complete
+# Discussed with James and he said he would be handling it, but that
+# it may also be an ismserver defect that they did not support a status for
+# MQConnectivity.
+#------------------------------------------------------
+
+#mqconnectivity_stop 0 stop mqconnectivity
+#mqconnectivity_start 0 start mqconnectivity
+
+disable 0 POST configuration {"MQConnectivityEnabled":false}
+disable 0 GET service/status/MQConnectivity
+# Make sure Demo endpoints are enabled
+enable 0 POST configuration {"Endpoint":{"DemoEndpoint":{"Enabled":true}}}
+enable 0 POST configuration {"Endpoint":{"DemoMqttEndpoint":{"Enabled":true}}}
+enable 0 GET configuration/Endpoint
+enable 0 POST configuration {"MQConnectivityEnabled":true}
+enable 0 GET service/status/MQConnectivity
+restart 0 POST service/restart {"Service":"mqconnectivity"}
+
+#for sample.test.aj
+#####setup_mqconnectivity 0 set TraceLevel=9
+setup_mqconnectivity 0 POST configuration {"TraceLevel":"9"}
+#####setup_mqconnectivity_msgCon1 - get HelpImTrappedInATraceLog
+setup_mqconnectivity - GET configuration/HelpImTrappedInmsgCon0
+#####setup_mqconnectivity 0 create QueueManagerConnection Name=QMC_AJ QueueManagerName=QM_MQJMS ConnectionName=${MQSERVER1_IP}(1415) ChannelName=CHNLJMS
+setup_mqconnectivity 0 POST configuration {"QueueManagerConnection":{"QMC_AJ":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity 0 create DestinationMappingRule Name=DMR_AJ1 QueueManagerConnection=QMC_AJ RuleType=2 Source=${MQKEY}/FOOTBALL/ARSENAL Destination=${MQKEY}/FOOTBALL/ARSENAL Enabled=True
+setup_mqconnectivity 0 POST configuration {"DestinationMappingRule":{"DMR_AJ1":{"QueueManagerConnection":"QMC_AJ","RuleType":2,"Source":"${MQKEY}/FOOTBALL/ARSENAL","Destination":"${MQKEY}/FOOTBALL/ARSENAL","Enabled":true}}}
+
+#####teardown_setup_mqconnectivity 0 update DestinationMappingRule Name=DMR_AJ1 QueueManagerConnection=QMC_AJ RuleType=2 Source=${MQKEY}/FOOTBALL/ARSENAL Destination=${MQKEY}/FOOTBALL/ARSENAL Enabled=False
+teardown_setup_mqconnectivity 0 POST configuration {"DestinationMappingRule":{"DMR_AJ1":{"QueueManagerConnection":"QMC_AJ","RuleType":2,"Source":"${MQKEY}/FOOTBALL/ARSENAL","Destination":"${MQKEY}/FOOTBALL/ARSENAL","Enabled":false}}}
+#####teardown_setup_mqconnectivity 0 delete DestinationMappingRule Name=DMR_AJ1
+teardown_setup_mqconnectivity 0 DELETE configuration/DestinationMappingRule/DMR_AJ1
+#####teardown_setup_mqconnectivity 0 delete QueueManagerConnection Name=QMC_AJ
+teardown_setup_mqconnectivity 0 DELETE configuration/QueueManagerConnection/QMC_AJ
+#####teardown_setup_mqconnectivity 0 set TraceLevel=7
+teardown_setup_mqconnectivity 0 POST configuration {"TraceLevel":"7"}
+
+
+# for the mqcon.msgconversion and mqcon.jms tests
+#####setup_mqconnectivity_msgCon1 0 set TraceLevel=9
+setup_mqconnectivity_msgCon1 0 POST configuration {"TraceLevel":"9"}
+#####setup_mqconnectivity_msgCon1 - get HelpImTrappedInATraceLog
+setup_mqconnectivity_msgCon1 - GET configuration/HelpImTrappedInmsgCon1
+#####setup_mqconnectivity_msgCon1 0 create QueueManagerConnection Name=MQC_MSGCONVERSION1 QueueManagerName=QM_MQJMS ConnectionName=${MQSERVER1_IP}(1415) ChannelName=CHNLJMS
+setup_mqconnectivity_msgCon1 0 POST configuration {"QueueManagerConnection":{"MQC_MSGCONVERSION1":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_msgCon1 0 create DestinationMappingRule Name=MSGCONVERSION1 QueueManagerConnection=MQC_MSGCONVERSION1 RuleType=2 Source=UK/ENGLAND/WINCHESTER Destination=${MQKEY}/UK/SCOTLAND/DUNDEE Enabled=True
+setup_mqconnectivity_msgCon1 0 POST configuration {"DestinationMappingRule":{"MSGCONVERSION1":{"QueueManagerConnection":"MQC_MSGCONVERSION1","RuleType":2,"Source":"UK/ENGLAND/WINCHESTER","Destination":"${MQKEY}/UK/SCOTLAND/DUNDEE","Enabled":true}}}
+
+#####teardown_mqconnectivity_msgCon1 0 update DestinationMappingRule Name=MSGCONVERSION1 QueueManagerConnection=MQC_MSGCONVERSION1 RuleType=2 Source=UK/ENGLAND/WINCHESTER Destination=${MQKEY}/UK/SCOTLAND/DUNDEE Enabled=False
+teardown_mqconnectivity_msgCon1 0 POST configuration {"DestinationMappingRule":{"MSGCONVERSION1":{"QueueManagerConnection":"MQC_MSGCONVERSION1","RuleType":2,"Source":"UK/ENGLAND/WINCHESTER","Destination":"${MQKEY}/UK/SCOTLAND/DUNDEE","Enabled":false}}}
+#####teardown_mqconnectivity_msgCon1 0 delete DestinationMappingRule Name=MSGCONVERSION1
+teardown_mqconnectivity_msgCon1 0 DELETE configuration/DestinationMappingRule/MSGCONVERSION1
+#####teardown_mqconnectivity_msgCon1 0 delete QueueManagerConnection Name=MQC_MSGCONVERSION1
+teardown_mqconnectivity_msgCon1 0 DELETE configuration/QueueManagerConnection/MQC_MSGCONVERSION1
+#####teardown_mqconnectivity_msgCon1 0 set TraceLevel=7
+teardown_mqconnectivity_msgCon1 0 POST configuration {"TraceLevel":"7"}
+
+# for the mqcon.msgconversion and mqcon.jms tests
+#####setup_mqconnectivity_msgCon2 0 set TraceLevel=9
+setup_mqconnectivity_msgCon2 0 POST configuration {"TraceLevel":"9"}
+#####setup_mqconnectivity_msgCon2 - get HelpImTrappedInATraceLog
+setup_mqconnectivity_msgCon2 - GET configuration/HelpImTrappedInmsgCon2
+#####setup_mqconnectivity_msgCon2 0 create QueueManagerConnection Name=MQC_MSGCONVERSION2 QueueManagerName=QM_MQJMS ConnectionName=${MQSERVER1_IP}(1415) ChannelName=CHNLJMS
+setup_mqconnectivity_msgCon2 0 POST configuration {"QueueManagerConnection":{"MQC_MSGCONVERSION2":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_msgCon2 0 create DestinationMappingRule Name=MSGCONVERSION2 QueueManagerConnection=MQC_MSGCONVERSION2 RuleType=4 Source=${MQKEY}/UK/SCOTLAND/ARGYLL Destination=UK/ENGLAND/AVON Enabled=True
+setup_mqconnectivity_msgCon2 0 POST configuration {"DestinationMappingRule":{"MSGCONVERSION2":{"QueueManagerConnection":"MQC_MSGCONVERSION2","RuleType":4,"Source":"${MQKEY}/UK/SCOTLAND/ARGYLL","Destination":"UK/ENGLAND/AVON","Enabled":true}}}
+
+#####teardown_mqconnectivity_msgCon2 0 update DestinationMappingRule Name=MSGCONVERSION2 QueueManagerConnection=MQC_MSGCONVERSION2 RuleType=4 Source=${MQKEY}/UK/SCOTLAND/ARGYLL Destination=UK/ENGLAND/AVON Enabled=False
+teardown_mqconnectivity_msgCon2 0 POST configuration {"DestinationMappingRule":{"MSGCONVERSION2":{"QueueManagerConnection":"MQC_MSGCONVERSION2","RuleType":4,"Source":"${MQKEY}/UK/SCOTLAND/ARGYLL","Destination":"UK/ENGLAND/AVON","Enabled":false}}}
+#####teardown_mqconnectivity_msgCon2 0 delete DestinationMappingRule Name=MSGCONVERSION2
+teardown_mqconnectivity_msgCon2 0 DELETE configuration/DestinationMappingRule/MSGCONVERSION2
+#####teardown_mqconnectivity_msgCon2 0 delete QueueManagerConnection Name=MQC_MSGCONVERSION2
+teardown_mqconnectivity_msgCon2 0 DELETE configuration/QueueManagerConnection/MQC_MSGCONVERSION2
+#####teardown_mqconnectivity_msgCon2 0 set TraceLevel=7
+teardown_mqconnectivity_msgCon2 0 POST configuration {"TraceLevel":"7"}
+
+# for the mqcon.msgconversion and mqcon.jms tests
+#####setup_mqconnectivity_msgCon3 0 create MessageHub Name=MQCONN_JMS1
+setup_mqconnectivity_msgCon3 0 POST configuration {"MessageHub":{"MQCONN_JMS1":{}}}
+#####setup_mqconnectivity_msgCon3 0 create ConnectionPolicy Name=MQCONN_JMS_CP1 Protocol=JMS,MQTT
+setup_mqconnectivity_msgCon3 0 POST configuration {"ConnectionPolicy":{"MQCONN_JMS_CP1":{"Protocol":"JMS,MQTT"}}}
+#####setup_mqconnectivity_msgCon3 0 create MessagingPolicy Name=MQCONN_JMS_MP1 DestinationType=Queue "Destination=*" ActionList=Send,Receive,Browse Protocol=JMS
+setup_mqconnectivity_msgCon3 0 POST configuration {"QueuePolicy":{"MQCONN_JMS_MP1":{"Queue":"*","ActionList":"Send,Receive,Browse","Protocol":"JMS"}}}
+#####setup_mqconnectivity_msgCon3 0 create MessagingPolicy Name=MQCONN_JMS_MP2 DestinationType=Topic "Destination=*" ActionList=Publish,Subscribe Protocol=JMS,MQTT
+setup_mqconnectivity_msgCon3 0 POST configuration {"TopicPolicy":{"MQCONN_JMS_MP2":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"JMS,MQTT"}}}
+#####setup_mqconnectivity_msgCon3 0 create Endpoint Name=MQCONN_JMS_EP1 Enabled=True Port=16202 Protocol=JMS,MQTT ConnectionPolicies=MQCONN_JMS_CP1 MessagingPolicies=MQCONN_JMS_MP1,MQCONN_JMS_MP2 MessageHub=MQCONN_JMS1
+setup_mqconnectivity_msgCon3 0 POST configuration {"Endpoint":{"MQCONN_JMS_EP1":{"Enabled":true,"Port":16202,"Protocol":"JMS,MQTT","ConnectionPolicies":"MQCONN_JMS_CP1","TopicPolicies":"MQCONN_JMS_MP2","QueuePolicies":"MQCONN_JMS_MP1","SubscriptionPolicies":"","MessageHub":"MQCONN_JMS1"}}}
+#####setup_mqconnectivity_msgCon3 0 create Queue Name=UK/ENGLAND/TINTAGEL AllowSend=True ConcurrentConsumers=True MaxMessages=1000
+setup_mqconnectivity_msgCon3 0 POST configuration {"Queue":{"UK/ENGLAND/TINTAGEL":{"AllowSend":true,"ConcurrentConsumers":true,"MaxMessages":1000}}}
+#####setup_mqconnectivity_msgCon3 0 create QueueManagerConnection Name=MQC_MSGCONVERSION3 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_msgCon3 0 POST configuration {"QueueManagerConnection":{"MQC_MSGCONVERSION3":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_msgCon3 0 create DestinationMappingRule Name=MSGCONVERSION3 QueueManagerConnection=MQC_MSGCONVERSION3 RuleType=11 Source=UK/ENGLAND/TINTAGEL Destination=${MQKEY}/UK/SCOTLAND/OBAN Enabled=True
+setup_mqconnectivity_msgCon3 0 POST configuration {"DestinationMappingRule":{"MSGCONVERSION3":{"QueueManagerConnection":"MQC_MSGCONVERSION3","RuleType":11,"Source":"UK/ENGLAND/TINTAGEL","Destination":"${MQKEY}/UK/SCOTLAND/OBAN","Enabled":true}}}
+
+#####teardown_mqconnectivity_msgCon3 0 update DestinationMappingRule Name=MSGCONVERSION3 QueueManagerConnection=MQC_MSGCONVERSION3 RuleType=11 Source=UK/ENGLAND/TINTAGEL Destination=${MQKEY}/UK/SCOTLAND/OBAN Enabled=False
+teardown_mqconnectivity_msgCon3 0 POST configuration {"DestinationMappingRule":{"MSGCONVERSION3":{"QueueManagerConnection":"MQC_MSGCONVERSION3","RuleType":11,"Source":"UK/ENGLAND/TINTAGEL","Destination":"${MQKEY}/UK/SCOTLAND/OBAN","Enabled":false}}}
+#####teardown_mqconnectivity_msgCon3 0 delete DestinationMappingRule Name=MSGCONVERSION3
+teardown_mqconnectivity_msgCon3 0 DELETE configuration/DestinationMappingRule/MSGCONVERSION3
+#####teardown_mqconnectivity_msgCon3 0 delete QueueManagerConnection Name=MQC_MSGCONVERSION3
+teardown_mqconnectivity_msgCon3 0 DELETE configuration/QueueManagerConnection/MQC_MSGCONVERSION3
+#####teardown_mqconnectivity_msgCon3 0 delete Endpoint Name=MQCONN_JMS_EP1
+teardown_mqconnectivity_msgCon3 0 DELETE configuration/Endpoint/MQCONN_JMS_EP1
+#####teardown_mqconnectivity_msgCon3 0 delete MessagingPolicy Name=MQCONN_JMS_MP1
+teardown_mqconnectivity_msgCon3 0 DELETE configuration/QueuePolicy/MQCONN_JMS_MP1
+#####teardown_mqconnectivity_msgCon3 0 delete MessagingPolicy Name=MQCONN_JMS_MP2
+teardown_mqconnectivity_msgCon3 0 DELETE configuration/TopicPolicy/MQCONN_JMS_MP2
+#####teardown_mqconnectivity_msgCon3 0 delete ConnectionPolicy Name=MQCONN_JMS_CP1
+teardown_mqconnectivity_msgCon3 0 DELETE configuration/ConnectionPolicy/MQCONN_JMS_CP1
+#####teardown_mqconnectivity_msgCon3 0 delete MessageHub Name=MQCONN_JMS1
+teardown_mqconnectivity_msgCon3 0 DELETE configuration/MessageHub/MQCONN_JMS1
+#####teardown_mqconnectivity_msgCon3 0 delete Queue Name=UK/ENGLAND/TINTAGEL DiscardMessages=True
+teardown_mqconnectivity_msgCon3 0 DELETE configuration/Queue/UK/ENGLAND/TINTAGEL?DiscardMessages=true
+
+# for the mqcon.msgconversion and mqcon.jms tests
+#####setup_mqconnectivity_msgCon4 0 create MessageHub Name=MQCONN_JMS2
+setup_mqconnectivity_msgCon4 0 POST configuration {"MessageHub":{"MQCONN_JMS2":{}}}
+#####setup_mqconnectivity_msgCon4 0 create ConnectionPolicy Name=MQCONN_JMS_CP2 Protocol=JMS,MQTT
+setup_mqconnectivity_msgCon4 0 POST configuration {"ConnectionPolicy":{"MQCONN_JMS_CP2":{"Protocol":"JMS,MQTT"}}}
+#####setup_mqconnectivity_msgCon4 0 create MessagingPolicy Name=MQCONN_JMS_MP3 DestinationType=Queue "Destination=*" ActionList=Send,Receive,Browse Protocol=JMS
+setup_mqconnectivity_msgCon4 0 POST configuration {"QueuePolicy":{"MQCONN_JMS_MP3":{"Queue":"*","ActionList":"Send,Receive,Browse","Protocol":"JMS"}}}
+#####setup_mqconnectivity_msgCon4 0 create MessagingPolicy Name=MQCONN_JMS_MP4 DestinationType=Topic "Destination=*" ActionList=Publish,Subscribe Protocol=JMS,MQTT
+setup_mqconnectivity_msgCon4 0 POST configuration {"TopicPolicy":{"MQCONN_JMS_MP4":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"JMS,MQTT"}}}
+#####setup_mqconnectivity_msgCon4 0 create Endpoint Name=MQCONN_JMS_EP2 Enabled=True Port=16202 Protocol=JMS,MQTT ConnectionPolicies=MQCONN_JMS_CP2 MessagingPolicies=MQCONN_JMS_MP3,MQCONN_JMS_MP4 MessageHub=MQCONN_JMS2
+setup_mqconnectivity_msgCon4 0 POST configuration {"Endpoint":{"MQCONN_JMS_EP2":{"Enabled":true,"Port":16202,"Protocol":"JMS,MQTT","ConnectionPolicies":"MQCONN_JMS_CP2","TopicPolicies":"MQCONN_JMS_MP4","QueuePolicies":"MQCONN_JMS_MP3","SubscriptionPolicies":"","MessageHub":"MQCONN_JMS2"}}}
+#####setup_mqconnectivity_msgCon4 0 create QueueManagerConnection Name=MQC_MSGCONVERSION4 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_msgCon4 0 POST configuration {"QueueManagerConnection":{"MQC_MSGCONVERSION4":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_msgCon4 0 create DestinationMappingRule Name=MSGCONVERSION4 QueueManagerConnection=MQC_MSGCONVERSION4 RuleType=3 Source=${MQKEY}/UK/SCOTLAND/PERTH Destination=UK/ENGLAND/WHITBY Enabled=True
+setup_mqconnectivity_msgCon4 0 POST configuration {"DestinationMappingRule":{"MSGCONVERSION4":{"QueueManagerConnection":"MQC_MSGCONVERSION4","RuleType":3,"Source":"${MQKEY}/UK/SCOTLAND/PERTH","Destination":"UK/ENGLAND/WHITBY","Enabled":true}}}
+
+#####teardown_mqconnectivity_msgCon4 0 update DestinationMappingRule Name=MSGCONVERSION4 QueueManagerConnection=MQC_MSGCONVERSION4 RuleType=3 Source=${MQKEY}/UK/SCOTLAND/PERTH Destination=UK/ENGLAND/WHITBY Enabled=False
+teardown_mqconnectivity_msgCon4 0 POST configuration {"DestinationMappingRule":{"MSGCONVERSION4":{"QueueManagerConnection":"MQC_MSGCONVERSION4","RuleType":3,"Source":"${MQKEY}/UK/SCOTLAND/PERTH","Destination":"UK/ENGLAND/WHITBY","Enabled":false}}}
+#####teardown_mqconnectivity_msgCon4 0 delete DestinationMappingRule Name=MSGCONVERSION4
+teardown_mqconnectivity_msgCon4 0 DELETE configuration/DestinationMappingRule/MSGCONVERSION4
+#####teardown_mqconnectivity_msgCon4 0 delete QueueManagerConnection Name=MQC_MSGCONVERSION4
+teardown_mqconnectivity_msgCon4 0 DELETE configuration/QueueManagerConnection/MQC_MSGCONVERSION4
+#####teardown_mqconnectivity_msgCon4 0 delete Endpoint Name=MQCONN_JMS_EP2
+teardown_mqconnectivity_msgCon4 0 DELETE configuration/Endpoint/MQCONN_JMS_EP2
+#####teardown_mqconnectivity_msgCon4 0 delete MessagingPolicy Name=MQCONN_JMS_MP3
+teardown_mqconnectivity_msgCon4 0 DELETE configuration/QueuePolicy/MQCONN_JMS_MP3
+#####teardown_mqconnectivity_msgCon4 0 delete MessagingPolicy Name=MQCONN_JMS_MP4
+teardown_mqconnectivity_msgCon4 0 DELETE configuration/TopicPolicy/MQCONN_JMS_MP4
+#####teardown_mqconnectivity_msgCon4 0 delete ConnectionPolicy Name=MQCONN_JMS_CP2
+teardown_mqconnectivity_msgCon4 0 DELETE configuration/ConnectionPolicy/MQCONN_JMS_CP2
+#####teardown_mqconnectivity_msgCon4 0 delete MessageHub Name=MQCONN_JMS2
+teardown_mqconnectivity_msgCon4 0 DELETE configuration/MessageHub/MQCONN_JMS2
+
+# for rules mapping tests
+#####setup_mqconnectivity_rules_queue 0 set TraceLevel=9
+setup_mqconnectivity_rules_queue 0 POST configuration {"TraceLevel":"9"}
+#####setup_mqconnectivity_rules_queue - get HelpImTrappedInRulesQueue
+setup_mqconnectivity_rules_queue - GET configuration/HelpImTrappedInRulesQueue
+#####setup_mqconnectivity_rules_queue 0 create MessageHub Name=RulesHubQueues
+setup_mqconnectivity_rules_queue 0 POST configuration {"MessageHub":{"RulesHubQueues":{}}}
+#####setup_mqconnectivity_rules_queue 0 create ConnectionPolicy Name=RulesQueueConnectionPolicy Protocol=JMS,MQTT
+setup_mqconnectivity_rules_queue 0 POST configuration {"ConnectionPolicy":{"RulesQueueConnectionPolicy":{"Protocol":"JMS,MQTT"}}}
+#####setup_mqconnectivity_rules_queue 0 create MessagingPolicy Name=RulesQueueMessagingPolicy DestinationType=Queue "Destination=*" ActionList=Send,Receive,Browse Protocol=JMS
+setup_mqconnectivity_rules_queue 0 POST configuration {"QueuePolicy":{"RulesQueueMessagingPolicy":{"Queue":"*","ActionList":"Send,Receive,Browse","Protocol":"JMS"}}}
+#####setup_mqconnectivity_rules_queue 0 create Endpoint Name=RulesQueueEndpoint Enabled=True Port=16104 Protocol=JMS,MQTT ConnectionPolicies=RulesQueueConnectionPolicy MessagingPolicies=RulesQueueMessagingPolicy MessageHub=RulesHubQueues
+setup_mqconnectivity_rules_queue 0 POST configuration {"Endpoint":{"RulesQueueEndpoint":{"Enabled":true,"Port":16104,"Protocol":"JMS,MQTT","ConnectionPolicies":"RulesQueueConnectionPolicy","TopicPolicies":"","QueuePolicies":"RulesQueueMessagingPolicy","SubscriptionPolicies":"","MessageHub":"RulesHubQueues"}}}
+#####teardown_mqconnectivity_rules_queue 0 delete Endpoint Name=RulesQueueEndpoint
+teardown_mqconnectivity_rules_queue 0 DELETE configuration/Endpoint/RulesQueueEndpoint
+#####teardown_mqconnectivity_rules_queue 0 delete MessagingPolicy Name=RulesQueueMessagingPolicy
+teardown_mqconnectivity_rules_queue 0 DELETE configuration/QueuePolicy/RulesQueueMessagingPolicy
+#####teardown_mqconnectivity_rules_queue 0 delete ConnectionPolicy Name=RulesQueueConnectionPolicy
+teardown_mqconnectivity_rules_queue 0 DELETE configuration/ConnectionPolicy/RulesQueueConnectionPolicy
+#####teardown_mqconnectivity_rules_queue 0 delete MessageHub Name=RulesHubQueues
+teardown_mqconnectivity_rules_queue 0 DELETE configuration/MessageHub/RulesHubQueues
+#####teardown_mqconnectivity_rules_queue 0 set TraceLevel=7
+teardown_mqconnectivity_rules_queue 0 POST configuration {"TraceLevel":"7"}
+
+#####setup_mqconnectivity_rules_topic 0 set TraceLevel=9
+setup_mqconnectivity_rules_topic 0 POST configuration {"TraceLevel":"9"}
+#####setup_mqconnectivity_rules_topic - get HelpImTrappedInATraceLog
+setup_mqconnectivity_rules_topic - GET configuration/HelpImTrappedInRulesTopic
+#####setup_mqconnectivity_rules_topic 0 create MessageHub Name=RulesHubTopics
+setup_mqconnectivity_rules_topic 0 POST configuration {"MessageHub":{"RulesHubTopics":{}}}
+#####setup_mqconnectivity_rules_topic 0 create ConnectionPolicy Name=RulesTopicConnectionPolicy Protocol=JMS,MQTT
+setup_mqconnectivity_rules_topic 0 POST configuration {"ConnectionPolicy":{"RulesTopicConnectionPolicy":{"Protocol":"JMS,MQTT"}}}
+#####setup_mqconnectivity_rules_topic 0 create MessagingPolicy Name=RulesTopicMessagingPolicy DestinationType=Topic "Destination=*" ActionList=Publish,Subscribe Protocol=JMS,MQTT
+setup_mqconnectivity_rules_topic 0 POST configuration {"TopicPolicy":{"RulesTopicMessagingPolicy":{"Topic":"*","ActionList":"Publish,Subscribe","Protocol":"JMS,MQTT"}}}
+#####setup_mqconnectivity_rules_topic 0 create Endpoint Name=RulesTopicEndpoint Enabled=True Port=16105 Protocol=JMS,MQTT ConnectionPolicies=RulesTopicConnectionPolicy MessagingPolicies=RulesTopicMessagingPolicy  MessageHub=RulesHubTopics
+setup_mqconnectivity_rules_topic 0 POST configuration {"Endpoint":{"RulesTopicEndpoint":{"Enabled":true,"Port":16105,"Protocol":"JMS,MQTT","ConnectionPolicies":"RulesTopicConnectionPolicy","TopicPolicies":"RulesTopicMessagingPolicy","QueuePolicies":"","SubscriptionPolicies":"","MessageHub":"RulesHubTopics"}}}
+#####teardown_mqconnectivity_rules_topic 0 delete Endpoint Name=RulesTopicEndpoint
+teardown_mqconnectivity_rules_topic 0 DELETE configuration/Endpoint/RulesTopicEndpoint
+#####teardown_mqconnectivity_rules_topic 0 delete MessagingPolicy Name=RulesTopicMessagingPolicy
+teardown_mqconnectivity_rules_topic 0 DELETE configuration/TopicPolicy/RulesTopicMessagingPolicy
+#####teardown_mqconnectivity_rules_topic 0 delete ConnectionPolicy Name=RulesTopicConnectionPolicy
+teardown_mqconnectivity_rules_topic 0 DELETE configuration/ConnectionPolicy/RulesTopicConnectionPolicy
+#####teardown_mqconnectivity_rules_topic 0 delete MessageHub Name=RulesHubTopics
+teardown_mqconnectivity_rules_topic 0 DELETE configuration/MessageHub/RulesHubTopics
+#####teardown_mqconnectivity_rules_topic 0 set TraceLevel=7
+teardown_mqconnectivity_rules_topic 0 POST configuration {"TraceLevel":"7"}
+
+# rule-specific set-up
+# 1 	IBM Messaging Appliance topic to WebSphere MQ queue
+# 2 	IBM Messaging Appliance topic to WebSphere MQ topic
+# 3 	WebSphere MQ queue to IBM Messaging Appliance topic
+# 4 	WebSphere MQ topic to IBM Messaging Appliance topic
+# 5 	IBM Messaging Appliance topic subtree to WebSphere MQ queue
+# 6 	IBM Messaging Appliance topic subtree to WebSphere MQ topic
+# 7 	IBM Messaging Appliance topic subtree to WebSphere MQ topic subtree
+# 8 	WebSphere MQ topic subtree to IBM Messaging Appliance topic
+# 9 	WebSphere MQ topic subtree to IBM Messaging Appliance topic subtree
+# 10 	IBM Messaging Appliance queue to WebSphere MQ queue
+# 11 	IBM Messaging Appliance queue to WebSphere MQ topic
+# 12 	WebSphere MQ queue to IBM Messaging Appliance queue
+# 13 	WebSphere MQ topic to IBM Messaging Appliance queue
+# 14 	WebSphere MQ topic subtree to IBM Messaging Appliance queue
+
+######setup_mqconnectivity_rules1 0 create QueueManagerConnection Name=MQC_RULES1 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules1 0 POST configuration {"QueueManagerConnection":{"MQC_RULES1":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules1 0 create DestinationMappingRule Name=Rule1mqcr QueueManagerConnection=MQC_RULES1 RuleType=1 Source=${MQKEY}/ISMTopic/To/MQQueue Destination=${MQKEY}.ISMTopic.To.MQQueue Enabled=True
+setup_mqconnectivity_rules1 0 POST configuration {"DestinationMappingRule":{"Rule1mqcr":{"QueueManagerConnection":"MQC_RULES1","RuleType":1,"Source":"${MQKEY}/ISMTopic/To/MQQueue","Destination":"${MQKEY}.ISMTopic.To.MQQueue","Enabled":true}}}
+#####stop_mqconnectivity_rules1 0 update DestinationMappingRule Name=Rule1mqcr QueueManagerConnection=MQC_RULES1 RuleType=1 Source=${MQKEY}/ISMTopic/To/MQQueue Destination=${MQKEY}.ISMTopic.To.MQQueue Enabled=False
+stop_mqconnectivity_rules1 0 POST configuration {"DestinationMappingRule":{"Rule1mqcr":{"QueueManagerConnection":"MQC_RULES1","RuleType":1,"Source":"${MQKEY}/ISMTopic/To/MQQueue","Destination":"${MQKEY}.ISMTopic.To.MQQueue","Enabled":false}}}
+#####start_mqconnectivity_rules1 0 update DestinationMappingRule Name=Rule1mqcr QueueManagerConnection=MQC_RULES1 RuleType=1 Source=${MQKEY}/ISMTopic/To/MQQueue Destination=${MQKEY}.ISMTopic.To.MQQueue Enabled=True
+start_mqconnectivity_rules1 0 POST configuration {"DestinationMappingRule":{"Rule1mqcr":{"QueueManagerConnection":"MQC_RULES1","RuleType":1,"Source":"${MQKEY}/ISMTopic/To/MQQueue","Destination":"${MQKEY}.ISMTopic.To.MQQueue","Enabled":true}}}
+#####teardown_mqconnectivity_rules1 0 update DestinationMappingRule Name=Rule1mqcr QueueManagerConnection=MQC_RULES1 RuleType=1 Source=${MQKEY}/ISMTopic/To/MQQueue Destination=${MQKEY}.ISMTopic.To.MQQueue Enabled=False
+teardown_mqconnectivity_rules1 0 POST configuration {"DestinationMappingRule":{"Rule1mqcr":{"QueueManagerConnection":"MQC_RULES1","RuleType":1,"Source":"${MQKEY}/ISMTopic/To/MQQueue","Destination":"${MQKEY}.ISMTopic.To.MQQueue","Enabled":false}}}
+#####teardown_mqconnectivity_rules1 0 delete DestinationMappingRule Name=Rule1mqcr
+teardown_mqconnectivity_rules1 0 DELETE configuration/DestinationMappingRule/Rule1mqcr
+#####teardown_mqconnectivity_rules1 0 delete QueueManagerConnection Name=MQC_RULES1
+teardown_mqconnectivity_rules1 0 DELETE configuration/QueueManagerConnection/MQC_RULES1
+
+#####setup_mqconnectivity_rules2 0 create QueueManagerConnection Name=MQC_RULES2 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules2 0 POST configuration {"QueueManagerConnection":{"MQC_RULES2":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules2 0 create DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic  Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=True
+setup_mqconnectivity_rules2 0 POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":true}}}
+#####toggle_mqconnectivity_rules2 0 update DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+toggle_mqconnectivity_rules2 0 POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####toggle_mqconnectivity_rules2 0 update DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=True
+toggle_mqconnectivity_rules2 0 POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":true}}}
+#####toggle_mqconnectivity_rules2 0 update DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+toggle_mqconnectivity_rules2 0 POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####toggle_mqconnectivity_rules2 0 update DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=True
+toggle_mqconnectivity_rules2 0 POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":true}}}
+#####toggle_mqconnectivity_rules2 0 update DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+toggle_mqconnectivity_rules2 0 POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####toggle_mqconnectivity_rules2 0 update DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=True
+toggle_mqconnectivity_rules2 0 POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":true}}}
+#####teardown_mqconnectivity_rules2 0 update DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+teardown_mqconnectivity_rules2 0 POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####teardown_mqconnectivity_rules2 0 delete DestinationMappingRule Name=Rule2mqcr
+teardown_mqconnectivity_rules2 0 DELETE configuration/DestinationMappingRule/Rule2mqcr
+#####teardown_mqconnectivity_rules2 0 delete QueueManagerConnection Name=MQC_RULES2
+teardown_mqconnectivity_rules2 0 DELETE configuration/QueueManagerConnection/MQC_RULES2
+
+#####setup_mqconnectivity_rules2mr 0 create QueueManagerConnection Name=MQC_RULES2MR QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules2mr 0 POST configuration {"QueueManagerConnection":{"MQC_RULES2MR":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules2mr 0 create DestinationMappingRule Name=Rule2mqcrmr0 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics  Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics0 Enabled=True
+setup_mqconnectivity_rules2mr 0 POST configuration {"DestinationMappingRule":{"Rule2mqcrmr0":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics0","Enabled":true}}}
+#####setup_mqconnectivity_rules2mr 0 create DestinationMappingRule Name=Rule2mqcrmr1 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics  Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics1 Enabled=True
+setup_mqconnectivity_rules2mr 0 POST configuration {"DestinationMappingRule":{"Rule2mqcrmr1":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics1","Enabled":true}}}
+#####setup_mqconnectivity_rules2mr 0 create DestinationMappingRule Name=Rule2mqcrmr2 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics  Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics2 Enabled=True
+setup_mqconnectivity_rules2mr 0 POST configuration {"DestinationMappingRule":{"Rule2mqcrmr2":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics2","Enabled":true}}}
+#####teardown_mqconnectivity_rules2mr 0 update DestinationMappingRule Name=Rule2mqcrmr2 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics2 Enabled=False
+teardown_mqconnectivity_rules2mr 0 POST configuration {"DestinationMappingRule":{"Rule2mqcrmr2":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics2","Enabled":false}}}
+#####teardown_mqconnectivity_rules2mr 0 update DestinationMappingRule Name=Rule2mqcrmr1 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics1 Enabled=False
+teardown_mqconnectivity_rules2mr 0 POST configuration {"DestinationMappingRule":{"Rule2mqcrmr1":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics1","Enabled":false}}}
+#####teardown_mqconnectivity_rules2mr 0 update DestinationMappingRule Name=Rule2mqcrmr0 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics0 Enabled=False
+teardown_mqconnectivity_rules2mr 0 POST configuration {"DestinationMappingRule":{"Rule2mqcrmr0":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics0","Enabled":false}}}
+#####teardown_mqconnectivity_rules2mr 0 delete DestinationMappingRule Name=Rule2mqcrmr2
+teardown_mqconnectivity_rules2mr 0 DELETE configuration/DestinationMappingRule/Rule2mqcrmr2
+#####teardown_mqconnectivity_rules2mr 0 delete DestinationMappingRule Name=Rule2mqcrmr1
+teardown_mqconnectivity_rules2mr 0 DELETE configuration/DestinationMappingRule/Rule2mqcrmr1
+#####teardown_mqconnectivity_rules2mr 0 delete DestinationMappingRule Name=Rule2mqcrmr0
+teardown_mqconnectivity_rules2mr 0 DELETE configuration/DestinationMappingRule/Rule2mqcrmr0
+#####teardown_mqconnectivity_rules2mr 0 delete QueueManagerConnection Name=MQC_RULES2MR
+teardown_mqconnectivity_rules2mr 0 DELETE configuration/QueueManagerConnection/MQC_RULES2MR
+
+#####setup_mqconnectivity_rules3 0 create QueueManagerConnection Name=MQC_RULES3 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules3 0 POST configuration {"QueueManagerConnection":{"MQC_RULES3":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules3 0 create DestinationMappingRule Name=Rule3mqcr QueueManagerConnection=MQC_RULES3 RuleType=3 Source=${MQKEY}.MQQueue.To.ISMTopic Destination=${MQKEY}/MQQueue/To/ISMTopic Enabled=True
+setup_mqconnectivity_rules3 0 POST configuration {"DestinationMappingRule":{"Rule3mqcr":{"QueueManagerConnection":"MQC_RULES3","RuleType":3,"Source":"${MQKEY}.MQQueue.To.ISMTopic","Destination":"${MQKEY}/MQQueue/To/ISMTopic","Enabled":true}}}
+#####teardown_mqconnectivity_rules3 0 update DestinationMappingRule Name=Rule3mqcr QueueManagerConnection=MQC_RULES3 RuleType=3 Source=${MQKEY}.MQQueue.To.ISMTopic Destination=${MQKEY}/MQQueue/To/ISMTopic Enabled=False
+teardown_mqconnectivity_rules3 0 POST configuration {"DestinationMappingRule":{"Rule3mqcr":{"QueueManagerConnection":"MQC_RULES3","RuleType":3,"Source":"${MQKEY}.MQQueue.To.ISMTopic","Destination":"${MQKEY}/MQQueue/To/ISMTopic","Enabled":false}}}
+#####teardown_mqconnectivity_rules3 0 delete DestinationMappingRule Name=Rule3mqcr
+teardown_mqconnectivity_rules3 0 DELETE configuration/DestinationMappingRule/Rule3mqcr
+#####teardown_mqconnectivity_rules3 0 delete QueueManagerConnection Name=MQC_RULES3
+teardown_mqconnectivity_rules3 0 DELETE configuration/QueueManagerConnection/MQC_RULES3
+
+#####setup_mqconnectivity_rules4 0 create QueueManagerConnection Name=MQC_RULES4 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules4 0 POST configuration {"QueueManagerConnection":{"MQC_RULES4":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules4 0 create DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic  Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=True
+setup_mqconnectivity_rules4 0 POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":true}}}
+#####toggle_mqconnectivity_rules4 0 update DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+toggle_mqconnectivity_rules4 0 POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####toggle_mqconnectivity_rules4 0 update DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=True
+toggle_mqconnectivity_rules4 0 POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":true}}}
+#####toggle_mqconnectivity_rules4 0 update DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+toggle_mqconnectivity_rules4 0 POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####toggle_mqconnectivity_rules4 0 update DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=True
+toggle_mqconnectivity_rules4 0 POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":true}}}
+#####toggle_mqconnectivity_rules4 0 update DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+toggle_mqconnectivity_rules4 0 POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####toggle_mqconnectivity_rules4 0 update DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=True
+toggle_mqconnectivity_rules4 0 POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":true}}}
+#####teardown_mqconnectivity_rules4 0 update DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+teardown_mqconnectivity_rules4 0 POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####teardown_mqconnectivity_rules4 0 delete DestinationMappingRule Name=Rule4mqcr
+teardown_mqconnectivity_rules4 0 DELETE configuration/DestinationMappingRule/Rule4mqcr
+#####teardown_mqconnectivity_rules4 0 delete QueueManagerConnection Name=MQC_RULES4
+teardown_mqconnectivity_rules4 0 DELETE configuration/QueueManagerConnection/MQC_RULES4
+
+
+#####setup_mqconnectivity_rules5 0 create QueueManagerConnection Name=MQC_RULES5 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules5 0 POST configuration {"QueueManagerConnection":{"MQC_RULES5":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules5 0 create DestinationMappingRule Name=Rule5mqcr QueueManagerConnection=MQC_RULES5 RuleType=5 Source=${MQKEY}/ISMTopicSubtree/To/MQQueue Destination=${MQKEY}.ISMTopicSubtree.To.MQQueue Enabled=True
+setup_mqconnectivity_rules5 0 POST configuration {"DestinationMappingRule":{"Rule5mqcr":{"QueueManagerConnection":"MQC_RULES5","RuleType":5,"Source":"${MQKEY}/ISMTopicSubtree/To/MQQueue","Destination":"${MQKEY}.ISMTopicSubtree.To.MQQueue","Enabled":true}}}
+#####teardown_mqconnectivity_rules5 0 update DestinationMappingRule Name=Rule5mqcr QueueManagerConnection=MQC_RULES5 RuleType=5 Source=${MQKEY}/ISMTopicSubtree/To/MQQueue Destination=${MQKEY}.ISMTopicSubtree.To.MQQueue Enabled=False
+teardown_mqconnectivity_rules5 0 POST configuration {"DestinationMappingRule":{"Rule5mqcr":{"QueueManagerConnection":"MQC_RULES5","RuleType":5,"Source":"${MQKEY}/ISMTopicSubtree/To/MQQueue","Destination":"${MQKEY}.ISMTopicSubtree.To.MQQueue","Enabled":false}}}
+#####teardown_mqconnectivity_rules5 0 delete DestinationMappingRule Name=Rule5mqcr
+teardown_mqconnectivity_rules5 0 DELETE configuration/DestinationMappingRule/Rule5mqcr
+#####teardown_mqconnectivity_rules5 0 delete QueueManagerConnection Name=MQC_RULES5
+teardown_mqconnectivity_rules5 0 DELETE configuration/QueueManagerConnection/MQC_RULES5
+
+#####setup_mqconnectivity_rules6 0 create QueueManagerConnection Name=MQC_RULES6 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules6 0 POST configuration {"QueueManagerConnection":{"MQC_RULES6":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules6 0 create DestinationMappingRule Name=Rule6mqcr QueueManagerConnection=MQC_RULES6 RuleType=6 Source=${MQKEY}/ISMTopicSubtree/To/MQTopic  Destination=${MQKEY}/ISMTopicSubtree/To/MQTopic Enabled=True
+setup_mqconnectivity_rules6 0 POST configuration {"DestinationMappingRule":{"Rule6mqcr":{"QueueManagerConnection":"MQC_RULES6","RuleType":6,"Source":"${MQKEY}/ISMTopicSubtree/To/MQTopic","Destination":"${MQKEY}/ISMTopicSubtree/To/MQTopic","Enabled":true}}}
+#####teardown_mqconnectivity_rules6 0 update DestinationMappingRule Name=Rule6mqcr QueueManagerConnection=MQC_RULES6 RuleType=6 Source=${MQKEY}/ISMTopicSubtree/To/MQTopic Destination=${MQKEY}/ISMTopicSubtree/To/MQTopic Enabled=False
+teardown_mqconnectivity_rules6 0 POST configuration {"DestinationMappingRule":{"Rule6mqcr":{"QueueManagerConnection":"MQC_RULES6","RuleType":6,"Source":"${MQKEY}/ISMTopicSubtree/To/MQTopic","Destination":"${MQKEY}/ISMTopicSubtree/To/MQTopic","Enabled":false}}}
+#####teardown_mqconnectivity_rules6 0 delete DestinationMappingRule Name=Rule6mqcr
+teardown_mqconnectivity_rules6 0 DELETE configuration/DestinationMappingRule/Rule6mqcr
+#####teardown_mqconnectivity_rules6 0 delete QueueManagerConnection Name=MQC_RULES6
+teardown_mqconnectivity_rules6 0 DELETE configuration/QueueManagerConnection/MQC_RULES6
+
+#####setup_mqconnectivity_rules7 0 create QueueManagerConnection Name=MQC_RULES7 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules7 0 POST configuration {"QueueManagerConnection":{"MQC_RULES7":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules7 0 create DestinationMappingRule Name=Rule7mqcr QueueManagerConnection=MQC_RULES7 RuleType=7 Source=${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree  Destination=${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree  Enabled=True
+setup_mqconnectivity_rules7 0 POST configuration {"DestinationMappingRule":{"Rule7mqcr":{"QueueManagerConnection":"MQC_RULES7","RuleType":7,"Source":"${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree","Destination":"${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree","Enabled":true}}}
+#####teardown_mqconnectivity_rules7 0 update DestinationMappingRule Name=Rule7mqcr QueueManagerConnection=MQC_RULES7 RuleType=7 Source=${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree Destination=${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree Enabled=False
+teardown_mqconnectivity_rules7 0 POST configuration {"DestinationMappingRule":{"Rule7mqcr":{"QueueManagerConnection":"MQC_RULES7","RuleType":7,"Source":"${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree","Destination":"${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree","Enabled":false}}}
+#####teardown_mqconnectivity_rules7 0 delete DestinationMappingRule Name=Rule7mqcr
+teardown_mqconnectivity_rules7 0 DELETE configuration/DestinationMappingRule/Rule7mqcr
+#####teardown_mqconnectivity_rules7 0 delete QueueManagerConnection Name=MQC_RULES7
+teardown_mqconnectivity_rules7 0 DELETE configuration/QueueManagerConnection/MQC_RULES7
+
+#####setup_mqconnectivity_rules8 0 create QueueManagerConnection Name=MQC_RULES8 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules8 0 POST configuration {"QueueManagerConnection":{"MQC_RULES8":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules8 0 create DestinationMappingRule Name=Rule8mqcr QueueManagerConnection=MQC_RULES8 RuleType=8 Source=${MQKEY}/MQTopicSubtree/To/ISMTopic  Destination=${MQKEY}/MQTopicSubtree/To/ISMTopic  Enabled=True
+setup_mqconnectivity_rules8 0 POST configuration {"DestinationMappingRule":{"Rule8mqcr":{"QueueManagerConnection":"MQC_RULES8","RuleType":8,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Enabled":true}}}
+#####toggle_mqconnectivity_rules8 0 update DestinationMappingRule Name=Rule8mqcr QueueManagerConnection=MQC_RULES8 RuleType=8 Source=${MQKEY}/MQTopicSubtree/To/ISMTopic Destination=${MQKEY}/MQTopicSubtree/To/ISMTopic Enabled=False
+toggle_mqconnectivity_rules8 0 POST configuration {"DestinationMappingRule":{"Rule8mqcr":{"QueueManagerConnection":"MQC_RULES8","RuleType":8,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Enabled":false}}}
+#####toggle_mqconnectivity_rules8 0 update DestinationMappingRule Name=Rule8mqcr QueueManagerConnection=MQC_RULES8 RuleType=8 Source=${MQKEY}/MQTopicSubtree/To/ISMTopic Destination=${MQKEY}/MQTopicSubtree/To/ISMTopic Enabled=True
+toggle_mqconnectivity_rules8 0 POST configuration {"DestinationMappingRule":{"Rule8mqcr":{"QueueManagerConnection":"MQC_RULES8","RuleType":8,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Enabled":true}}}
+#####teardown_mqconnectivity_rules8 0 update DestinationMappingRule Name=Rule8mqcr QueueManagerConnection=MQC_RULES8 RuleType=8 Source=${MQKEY}/MQTopicSubtree/To/ISMTopic Destination=${MQKEY}/MQTopicSubtree/To/ISMTopic Enabled=False
+teardown_mqconnectivity_rules8 0 POST configuration {"DestinationMappingRule":{"Rule8mqcr":{"QueueManagerConnection":"MQC_RULES8","RuleType":8,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Enabled":false}}}
+#####teardown_mqconnectivity_rules8 0 delete DestinationMappingRule Name=Rule8mqcr
+teardown_mqconnectivity_rules8 0 DELETE configuration/DestinationMappingRule/Rule8mqcr
+#####teardown_mqconnectivity_rules8 0 delete QueueManagerConnection Name=MQC_RULES8
+teardown_mqconnectivity_rules8 0 DELETE configuration/QueueManagerConnection/MQC_RULES8
+
+#####setup_mqconnectivity_rules9 0 create QueueManagerConnection Name=MQC_RULES9 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules9 0 POST configuration {"QueueManagerConnection":{"MQC_RULES9":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules9 0 create DestinationMappingRule Name=Rule9mqcr QueueManagerConnection=MQC_RULES9 RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree  Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree  Enabled=True
+setup_mqconnectivity_rules9 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr":{"QueueManagerConnection":"MQC_RULES9","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Enabled":true}}}
+#####stop_mqconnectivity_rules9 0 update DestinationMappingRule Name=Rule9mqcr QueueManagerConnection=MQC_RULES9 RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Enabled=False
+stop_mqconnectivity_rules9 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr":{"QueueManagerConnection":"MQC_RULES9","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Enabled":false}}}
+#####start_mqconnectivity_rules9 0 update DestinationMappingRule Name=Rule9mqcr QueueManagerConnection=MQC_RULES9 RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Enabled=True
+start_mqconnectivity_rules9 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr":{"QueueManagerConnection":"MQC_RULES9","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Enabled":true}}}
+#####toggle_mqconnectivity_rules9 0 update DestinationMappingRule Name=Rule9mqcr QueueManagerConnection=MQC_RULES9 RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Enabled=False
+toggle_mqconnectivity_rules9 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr":{"QueueManagerConnection":"MQC_RULES9","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Enabled":false}}}
+#####toggle_mqconnectivity_rules9 0 update DestinationMappingRule Name=Rule9mqcr QueueManagerConnection=MQC_RULES9 RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Enabled=True
+toggle_mqconnectivity_rules9 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr":{"QueueManagerConnection":"MQC_RULES9","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Enabled":true}}}
+#####teardown_mqconnectivity_rules9 0 update DestinationMappingRule Name=Rule9mqcr QueueManagerConnection=MQC_RULES9 RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Enabled=False
+teardown_mqconnectivity_rules9 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr":{"QueueManagerConnection":"MQC_RULES9","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Enabled":false}}}
+#####teardown_mqconnectivity_rules9 0 delete DestinationMappingRule Name=Rule9mqcr
+teardown_mqconnectivity_rules9 0 DELETE configuration/DestinationMappingRule/Rule9mqcr
+#####teardown_mqconnectivity_rules9 0 delete QueueManagerConnection Name=MQC_RULES9
+teardown_mqconnectivity_rules9 0 DELETE configuration/QueueManagerConnection/MQC_RULES9
+
+#####setup_mqconnectivity_rules9tml 0 create QueueManagerConnection Name=MQC_RULES9TML QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules9tml 0 POST configuration {"QueueManagerConnection":{"MQC_RULES9TML":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules9tml 0 create DestinationMappingRule Name=Rule9mqcr_tml QueueManagerConnection=MQC_RULES9TML RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML  Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML  Enabled=True
+setup_mqconnectivity_rules9tml 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr_tml":{"QueueManagerConnection":"MQC_RULES9TML","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Enabled":true}}}
+#####stop_mqconnectivity_rules9tml 0 update DestinationMappingRule Name=Rule9mqcr_tml QueueManagerConnection=MQC_RULES9TML RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Enabled=False
+stop_mqconnectivity_rules9tml 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr_tml":{"QueueManagerConnection":"MQC_RULES9TML","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Enabled":false}}}
+#####start_mqconnectivity_rules9tml 0 update DestinationMappingRule Name=Rule9mqcr_tml QueueManagerConnection=MQC_RULES9TML RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Enabled=True
+start_mqconnectivity_rules9tml 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr_tml":{"QueueManagerConnection":"MQC_RULES9TML","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Enabled":true}}}
+#####toggle_mqconnectivity_rules9tml 0 update DestinationMappingRule Name=Rule9mqcr_tml QueueManagerConnection=MQC_RULES9TML RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Enabled=False
+toggle_mqconnectivity_rules9tml 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr_tml":{"QueueManagerConnection":"MQC_RULES9TML","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Enabled":false}}}
+#####toggle_mqconnectivity_rules9tml 0 update DestinationMappingRule Name=Rule9mqcr_tml QueueManagerConnection=MQC_RULES9TML RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Enabled=True
+toggle_mqconnectivity_rules9tml 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr_tml":{"QueueManagerConnection":"MQC_RULES9TML","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Enabled":true}}}
+#####teardown_mqconnectivity_rules9tml 0 update DestinationMappingRule Name=Rule9mqcr_tml QueueManagerConnection=MQC_RULES9TML RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Enabled=False
+teardown_mqconnectivity_rules9tml 0 POST configuration {"DestinationMappingRule":{"Rule9mqcr_tml":{"QueueManagerConnection":"MQC_RULES9TML","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Enabled":false}}}
+#####teardown_mqconnectivity_rules9tml 0 delete DestinationMappingRule Name=Rule9mqcr_tml
+teardown_mqconnectivity_rules9tml 0 DELETE configuration/DestinationMappingRule/Rule9mqcr_tml
+#####teardown_mqconnectivity_rules9tml 0 delete QueueManagerConnection Name=MQC_RULES9TML
+teardown_mqconnectivity_rules9tml 0 DELETE configuration/QueueManagerConnection/MQC_RULES9TML
+
+#####setup_mqconnectivity_rules10 0 create QueueManagerConnection Name=MQC_RULES10 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules10 0 POST configuration {"QueueManagerConnection":{"MQC_RULES10":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules10 0 create Queue Name=${MQKEY}.ISMQueue.To.MQQueue AllowSend=true MaxMessages=5000 ConcurrentConsumers=True
+setup_mqconnectivity_rules10 0 POST configuration {"Queue":{"${MQKEY}.ISMQueue.To.MQQueue":{"AllowSend":true,"MaxMessages":5000,"ConcurrentConsumers":true}}}
+#####setup_mqconnectivity_rules10 0 create DestinationMappingRule Name=Rule10mqcr QueueManagerConnection=MQC_RULES10 RuleType=10 Source=${MQKEY}.ISMQueue.To.MQQueue Destination=${MQKEY}.ISMQueue.To.MQQueue  Enabled=True
+setup_mqconnectivity_rules10 0 POST configuration {"DestinationMappingRule":{"Rule10mqcr":{"QueueManagerConnection":"MQC_RULES10","RuleType":10,"Source":"${MQKEY}.ISMQueue.To.MQQueue","Destination":"${MQKEY}.ISMQueue.To.MQQueue","Enabled":true}}}
+#####teardown_mqconnectivity_rules10 0 update DestinationMappingRule Name=Rule10mqcr QueueManagerConnection=MQC_RULES10 RuleType=10 Source=${MQKEY}.ISMQueue.To.MQQueue Destination=${MQKEY}.ISMQueue.To.MQQueue  Enabled=False
+teardown_mqconnectivity_rules10 0 POST configuration {"DestinationMappingRule":{"Rule10mqcr":{"QueueManagerConnection":"MQC_RULES10","RuleType":10,"Source":"${MQKEY}.ISMQueue.To.MQQueue","Destination":"${MQKEY}.ISMQueue.To.MQQueue","Enabled":false}}}
+#####teardown_mqconnectivity_rules10 0 delete DestinationMappingRule Name=Rule10mqcr
+teardown_mqconnectivity_rules10 0 DELETE configuration/DestinationMappingRule/Rule10mqcr
+#####teardown_mqconnectivity_rules10 0 delete QueueManagerConnection Name=MQC_RULES10
+teardown_mqconnectivity_rules10 0 DELETE configuration/QueueManagerConnection/MQC_RULES10
+#####teardown_mqconnectivity_rules10 0 delete Queue Name=${MQKEY}.ISMQueue.To.MQQueue DiscardMessages=True
+teardown_mqconnectivity_rules10 0 DELETE configuration/Queue/${MQKEY}.ISMQueue.To.MQQueue?DiscardMessages=true
+
+#####setup_mqconnectivity_rules11 0 create QueueManagerConnection Name=MQC_RULES11 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules11 0 POST configuration {"QueueManagerConnection":{"MQC_RULES11":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules11 0 create Queue Name=${MQKEY}.ISMQueue.To.MQTopic AllowSend=true MaxMessages=5000 ConcurrentConsumers=True
+setup_mqconnectivity_rules11 0 POST configuration {"Queue":{"${MQKEY}.ISMQueue.To.MQTopic":{"AllowSend":true,"MaxMessages":5000,"ConcurrentConsumers":true}}}
+#####setup_mqconnectivity_rules11 0 create DestinationMappingRule Name=Rule11mqcr QueueManagerConnection=MQC_RULES11 RuleType=11 Source=${MQKEY}.ISMQueue.To.MQTopic Destination=${MQKEY}/ISMQueue/To/MQTopic Enabled=True
+setup_mqconnectivity_rules11 0 POST configuration {"DestinationMappingRule":{"Rule11mqcr":{"QueueManagerConnection":"MQC_RULES11","RuleType":11,"Source":"${MQKEY}.ISMQueue.To.MQTopic","Destination":"${MQKEY}/ISMQueue/To/MQTopic","Enabled":true}}}
+#####teardown_mqconnectivity_rules11 0 update DestinationMappingRule Name=Rule11mqcr QueueManagerConnection=MQC_RULES11 RuleType=11 Source=${MQKEY}.ISMQueue.To.MQTopic Destination=${MQKEY}/ISMQueue/To/MQTopic  Enabled=False
+teardown_mqconnectivity_rules11 0 POST configuration {"DestinationMappingRule":{"Rule11mqcr":{"QueueManagerConnection":"MQC_RULES11","RuleType":11,"Source":"${MQKEY}.ISMQueue.To.MQTopic","Destination":"${MQKEY}/ISMQueue/To/MQTopic","Enabled":false}}}
+#####teardown_mqconnectivity_rules11 0 delete DestinationMappingRule Name=Rule11mqcr
+teardown_mqconnectivity_rules11 0 DELETE configuration/DestinationMappingRule/Rule11mqcr
+#####teardown_mqconnectivity_rules11 0 delete QueueManagerConnection Name=MQC_RULES11
+teardown_mqconnectivity_rules11 0 DELETE configuration/QueueManagerConnection/MQC_RULES11
+#####teardown_mqconnectivity_rules11 0 delete Queue Name=${MQKEY}.ISMQueue.To.MQTopic DiscardMessages=True
+teardown_mqconnectivity_rules11 0 DELETE configuration/Queue/${MQKEY}.ISMQueue.To.MQTopic?DiscardMessages=true
+
+#####setup_mqconnectivity_rules12 0 create QueueManagerConnection Name=MQC_RULES12 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules12 0 POST configuration {"QueueManagerConnection":{"MQC_RULES12":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules12 0 create Queue Name=${MQKEY}.MQQueue.To.ISMQueue AllowSend=true MaxMessages=5000 ConcurrentConsumers=True
+setup_mqconnectivity_rules12 0 POST configuration {"Queue":{"${MQKEY}.MQQueue.To.ISMQueue":{"AllowSend":true,"MaxMessages":5000,"ConcurrentConsumers":true}}}
+#####setup_mqconnectivity_rules12 0 create DestinationMappingRule Name=Rule12mqcr QueueManagerConnection=MQC_RULES12 RuleType=12 Source=${MQKEY}.MQQueue.To.ISMQueue Destination=${MQKEY}.MQQueue.To.ISMQueue Enabled=True
+setup_mqconnectivity_rules12 0 POST configuration {"DestinationMappingRule":{"Rule12mqcr":{"QueueManagerConnection":"MQC_RULES12","RuleType":12,"Source":"${MQKEY}.MQQueue.To.ISMQueue","Destination":"${MQKEY}.MQQueue.To.ISMQueue","Enabled":true}}}
+#####teardown_mqconnectivity_rules12 0 update DestinationMappingRule Name=Rule12mqcr QueueManagerConnection=MQC_RULES12 RuleType=12 Source=${MQKEY}.MQQueue.To.ISMQueue Destination=${MQKEY}.MQQueue.To.ISMQueue  Enabled=False
+teardown_mqconnectivity_rules12 0 POST configuration {"DestinationMappingRule":{"Rule12mqcr":{"QueueManagerConnection":"MQC_RULES12","RuleType":12,"Source":"${MQKEY}.MQQueue.To.ISMQueue","Destination":"${MQKEY}.MQQueue.To.ISMQueue","Enabled":false}}}
+#####teardown_mqconnectivity_rules12 0 delete DestinationMappingRule Name=Rule12mqcr
+teardown_mqconnectivity_rules12 0 DELETE configuration/DestinationMappingRule/Rule12mqcr
+#####teardown_mqconnectivity_rules12 0 delete QueueManagerConnection Name=MQC_RULES12
+teardown_mqconnectivity_rules12 0 DELETE configuration/QueueManagerConnection/MQC_RULES12
+#####teardown_mqconnectivity_rules12 0 delete Queue Name=${MQKEY}.MQQueue.To.ISMQueue DiscardMessages=True
+teardown_mqconnectivity_rules12 0 DELETE configuration/Queue/${MQKEY}.MQQueue.To.ISMQueue?DiscardMessages=true
+
+#####setup_mqconnectivity_rules13 0 create QueueManagerConnection Name=MQC_RULES13 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules13 0 POST configuration {"QueueManagerConnection":{"MQC_RULES13":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules13 0 create Queue Name=${MQKEY}.MQTopic.To.ISMQueue AllowSend=true MaxMessages=5000 ConcurrentConsumers=True
+setup_mqconnectivity_rules13 0 POST configuration {"Queue":{"${MQKEY}.MQTopic.To.ISMQueue":{"AllowSend":true,"MaxMessages":5000,"ConcurrentConsumers":true}}}
+#####setup_mqconnectivity_rules13 0 create DestinationMappingRule Name=Rule13mqcr QueueManagerConnection=MQC_RULES13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=True
+setup_mqconnectivity_rules13 0 POST configuration {"DestinationMappingRule":{"Rule13mqcr":{"QueueManagerConnection":"MQC_RULES13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":true}}}
+#####teardown_mqconnectivity_rules13 0 update DestinationMappingRule Name=Rule13mqcr QueueManagerConnection=MQC_RULES13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=False
+teardown_mqconnectivity_rules13 0 POST configuration {"DestinationMappingRule":{"Rule13mqcr":{"QueueManagerConnection":"MQC_RULES13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":false}}}
+#####teardown_mqconnectivity_rules13 0 delete DestinationMappingRule Name=Rule13mqcr
+teardown_mqconnectivity_rules13 0 DELETE configuration/DestinationMappingRule/Rule13mqcr
+#####teardown_mqconnectivity_rules13 0 delete QueueManagerConnection Name=MQC_RULES13
+teardown_mqconnectivity_rules13 0 DELETE configuration/QueueManagerConnection/MQC_RULES13
+#####teardown_mqconnectivity_rules13 0 delete Queue Name=${MQKEY}.MQTopic.To.ISMQueue DiscardMessages=True
+teardown_mqconnectivity_rules13 0 DELETE configuration/Queue/${MQKEY}.MQTopic.To.ISMQueue?DiscardMessages=true
+
+#####setup_mqconnectivity_rules14 0 create QueueManagerConnection Name=MQC_RULES14 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules14 0 POST configuration {"QueueManagerConnection":{"MQC_RULES14":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules14 0 create Queue Name=${MQKEY}.MQTSubtree.To.ISMQueue AllowSend=true MaxMessages=5000 ConcurrentConsumers=True
+setup_mqconnectivity_rules14 0 POST configuration {"Queue":{"${MQKEY}.MQTSubtree.To.ISMQueue":{"AllowSend":true,"MaxMessages":5000,"ConcurrentConsumers":true}}}
+#####setup_mqconnectivity_rules14 0 create DestinationMappingRule Name=Rule14mqcr QueueManagerConnection=MQC_RULES14 RuleType=14 Source=${MQKEY}/MQTSubtree/To/ISMQueue Destination=${MQKEY}.MQTSubtree.To.ISMQueue Enabled=True
+setup_mqconnectivity_rules14 0 POST configuration {"DestinationMappingRule":{"Rule14mqcr":{"QueueManagerConnection":"MQC_RULES14","RuleType":14,"Source":"${MQKEY}/MQTSubtree/To/ISMQueue","Destination":"${MQKEY}.MQTSubtree.To.ISMQueue","Enabled":true}}}
+#####teardown_mqconnectivity_rules14 0 update DestinationMappingRule Name=Rule14mqcr QueueManagerConnection=MQC_RULES14 RuleType=14 Source=${MQKEY}/MQTSubtree/To/ISMQueue Destination=${MQKEY}.MQTSubtree.To.ISMQueue Enabled=False
+teardown_mqconnectivity_rules14 0 POST configuration {"DestinationMappingRule":{"Rule14mqcr":{"QueueManagerConnection":"MQC_RULES14","RuleType":14,"Source":"${MQKEY}/MQTSubtree/To/ISMQueue","Destination":"${MQKEY}.MQTSubtree.To.ISMQueue","Enabled":false}}}
+#####teardown_mqconnectivity_rules14 0 delete DestinationMappingRule Name=Rule14mqcr
+teardown_mqconnectivity_rules14 0 DELETE configuration/DestinationMappingRule/Rule14mqcr
+#####teardown_mqconnectivity_rules14 0 delete QueueManagerConnection Name=MQC_RULES14
+teardown_mqconnectivity_rules14 0 DELETE configuration/QueueManagerConnection/MQC_RULES14
+#####teardown_mqconnectivity_rules14 0 delete Queue Name=${MQKEY}.MQTSubtree.To.ISMQueue DiscardMessages=True
+teardown_mqconnectivity_rules14 0 DELETE configuration/Queue/${MQKEY}.MQTSubtree.To.ISMQueue?DiscardMessages=true
+
+#####setup_mqconnectivity_rules4_long 0 create QueueManagerConnection Name=MQC_RULES4_LONG QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules4_long 0 POST configuration {"QueueManagerConnection":{"MQC_RULES4_LONG":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules4_long 0 create DestinationMappingRule Name=Rule4mqcrLong QueueManagerConnection=MQC_RULES4_LONG RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Enabled=True
+setup_mqconnectivity_rules4_long 0 POST configuration {"DestinationMappingRule":{"Rule4mqcrLong":{"QueueManagerConnection":"MQC_RULES4_LONG","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Enabled":true}}}
+#####teardown_mqconnectivity_rules4_long 0 update DestinationMappingRule Name=Rule4mqcrLong QueueManagerConnection=MQC_RULES4_LONG RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Enabled=False
+teardown_mqconnectivity_rules4_long 0 POST configuration {"DestinationMappingRule":{"Rule4mqcrLong":{"QueueManagerConnection":"MQC_RULES4_LONG","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Enabled":false}}}
+#####teardown_mqconnectivity_rules4_long 0 delete DestinationMappingRule Name=Rule4mqcrLong
+teardown_mqconnectivity_rules4_long 0 DELETE configuration/DestinationMappingRule/Rule4mqcrLong
+#####teardown_mqconnectivity_rules4_long 0 delete QueueManagerConnection Name=MQC_RULES4_LONG
+teardown_mqconnectivity_rules4_long 0 DELETE configuration/QueueManagerConnection/MQC_RULES4_LONG
+
+#####setup_mqconnectivity_rules8_long 0 create QueueManagerConnection Name=MQC_RULES8_LONG QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules8_long 0 POST configuration {"QueueManagerConnection":{"MQC_RULES8_LONG":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules8_long 0 create DestinationMappingRule Name=Rule8mqcrLong QueueManagerConnection=MQC_RULES8_LONG RuleType=8 Source=${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect  Destination=${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect  Enabled=True
+setup_mqconnectivity_rules8_long 0 POST configuration {"DestinationMappingRule":{"Rule8mqcrLong":{"QueueManagerConnection":"MQC_RULES8_LONG","RuleType":8,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Enabled":true}}}
+#####teardown_mqconnectivity_rules8_long 0 update DestinationMappingRule Name=Rule8mqcrLong QueueManagerConnection=MQC_RULES8_LONG RuleType=8 Source=${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Enabled=False
+teardown_mqconnectivity_rules8_long 0 POST configuration {"DestinationMappingRule":{"Rule8mqcrLong":{"QueueManagerConnection":"MQC_RULES8_LONG","RuleType":8,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Enabled":false}}}
+#####teardown_mqconnectivity_rules8_long 0 delete DestinationMappingRule Name=Rule8mqcrLong
+teardown_mqconnectivity_rules8_long 0 DELETE configuration/DestinationMappingRule/Rule8mqcrLong
+#####teardown_mqconnectivity_rules8_long 0 delete QueueManagerConnection Name=MQC_RULES8_LONG
+teardown_mqconnectivity_rules8_long 0 DELETE configuration/QueueManagerConnection/MQC_RULES8_LONG
+
+#####setup_mqconnectivity_rules9_long 0 create QueueManagerConnection Name=MQC_RULES9_LONG QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules9_long 0 POST configuration {"QueueManagerConnection":{"MQC_RULES9_LONG":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules9_long 0 create DestinationMappingRule Name=Rule9mqcrLong QueueManagerConnection=MQC_RULES9_LONG RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect  Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect  Enabled=True
+setup_mqconnectivity_rules9_long 0 POST configuration {"DestinationMappingRule":{"Rule9mqcrLong":{"QueueManagerConnection":"MQC_RULES9_LONG","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect","Enabled":true}}}
+#####teardown_mqconnectivity_rules9_long 0 update DestinationMappingRule Name=Rule9mqcrLong QueueManagerConnection=MQC_RULES9_LONG RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect Enabled=False
+teardown_mqconnectivity_rules9_long 0 POST configuration {"DestinationMappingRule":{"Rule9mqcrLong":{"QueueManagerConnection":"MQC_RULES9_LONG","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect","Enabled":false}}}
+#####teardown_mqconnectivity_rules9_long 0 delete DestinationMappingRule Name=Rule9mqcrLong
+teardown_mqconnectivity_rules9_long 0 DELETE configuration/DestinationMappingRule/Rule9mqcrLong
+#####teardown_mqconnectivity_rules9_long 0 delete QueueManagerConnection Name=MQC_RULES9_LONG
+teardown_mqconnectivity_rules9_long 0 DELETE configuration/QueueManagerConnection/MQC_RULES9_LONG
+
+#####setup_mqconnectivity_rules13_long 0 create QueueManagerConnection Name=MQC_RULES13_LONG QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules13_long 0 POST configuration {"QueueManagerConnection":{"MQC_RULES13_LONG":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules13_long 0 create Queue Name=${MQKEY}.MQTopic.To.ISMQueue.Long AllowSend=true MaxMessages=5000 ConcurrentConsumers=True
+setup_mqconnectivity_rules13_long 0 POST configuration {"Queue":{"${MQKEY}.MQTopic.To.ISMQueue.Long":{"AllowSend":true,"MaxMessages":5000,"ConcurrentConsumers":true}}}
+#####setup_mqconnectivity_rules13_long 0 create DestinationMappingRule Name=Rule13mqcrLong QueueManagerConnection=MQC_RULES13_LONG RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}.MQTopic.To.ISMQueue.Long  Enabled=True
+setup_mqconnectivity_rules13_long 0 POST configuration {"DestinationMappingRule":{"Rule13mqcrLong":{"QueueManagerConnection":"MQC_RULES13_LONG","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}.MQTopic.To.ISMQueue.Long","Enabled":true}}}
+#####teardown_mqconnectivity_rules13_long 0 update DestinationMappingRule Name=Rule13mqcrLong QueueManagerConnection=MQC_RULES13_LONG RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}.MQTopic.To.ISMQueue.Long  Enabled=False
+teardown_mqconnectivity_rules13_long 0 POST configuration {"DestinationMappingRule":{"Rule13mqcrLong":{"QueueManagerConnection":"MQC_RULES13_LONG","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}.MQTopic.To.ISMQueue.Long","Enabled":false}}}
+#####teardown_mqconnectivity_rules13_long 0 delete DestinationMappingRule Name=Rule13mqcrLong
+teardown_mqconnectivity_rules13_long 0 DELETE configuration/DestinationMappingRule/Rule13mqcrLong
+#####teardown_mqconnectivity_rules13_long 0 delete QueueManagerConnection Name=MQC_RULES13_LONG
+teardown_mqconnectivity_rules13_long 0 DELETE configuration/QueueManagerConnection/MQC_RULES13_LONG
+#####teardown_mqconnectivity_rules13_long 0 delete Queue Name=${MQKEY}.MQTopic.To.ISMQueue.Long DiscardMessages=True
+teardown_mqconnectivity_rules13_long 0 DELETE configuration/Queue/${MQKEY}.MQTopic.To.ISMQueue.Long?DiscardMessages=true
+
+#####setup_mqconnectivity_rules14_long 0 create QueueManagerConnection Name=MQC_RULES14_LONG QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_rules14_long 0 POST configuration {"QueueManagerConnection":{"MQC_RULES14_LONG":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_rules14_long 0 create Queue Name=${MQKEY}.MQTSubtree.To.ISMQueue.Long AllowSend=true MaxMessages=5000 ConcurrentConsumers=True
+setup_mqconnectivity_rules14_long 0 POST configuration {"Queue":{"${MQKEY}.MQTSubtree.To.ISMQueue.Long":{"AllowSend":true,"MaxMessages":5000,"ConcurrentConsumers":true}}}
+#####setup_mqconnectivity_rules14_long 0 create DestinationMappingRule Name=Rule14mqcrLong QueueManagerConnection=MQC_RULES14_LONG RuleType=14 Source=${MQKEY}/MQTSubtree/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}.MQTSubtree.To.ISMQueue.Long Enabled=True
+setup_mqconnectivity_rules14_long 0 POST configuration {"DestinationMappingRule":{"Rule14mqcrLong":{"QueueManagerConnection":"MQC_RULES14_LONG","RuleType":14,"Source":"${MQKEY}/MQTSubtree/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}.MQTSubtree.To.ISMQueue.Long","Enabled":true}}}
+#####teardown_mqconnectivity_rules14_long 0 update DestinationMappingRule Name=Rule14mqcrLong QueueManagerConnection=MQC_RULES14_LONG RuleType=14 Source=${MQKEY}/MQTSubtree/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}.MQTSubtree.To.ISMQueue.Long Enabled=False
+teardown_mqconnectivity_rules14_long 0 POST configuration {"DestinationMappingRule":{"Rule14mqcrLong":{"QueueManagerConnection":"MQC_RULES14_LONG","RuleType":14,"Source":"${MQKEY}/MQTSubtree/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}.MQTSubtree.To.ISMQueue.Long","Enabled":false}}}
+#####teardown_mqconnectivity_rules14_long 0 delete DestinationMappingRule Name=Rule14mqcrLong
+teardown_mqconnectivity_rules14_long 0 DELETE configuration/DestinationMappingRule/Rule14mqcrLong
+#####teardown_mqconnectivity_rules14_long 0 delete QueueManagerConnection Name=MQC_RULES14_LONG
+teardown_mqconnectivity_rules14_long 0 DELETE configuration/QueueManagerConnection/MQC_RULES14_LONG
+#####teardown_mqconnectivity_rules14_long 0 delete Queue Name=${MQKEY}.MQTSubtree.To.ISMQueue.Long DiscardMessages=True
+teardown_mqconnectivity_rules14_long 0 DELETE configuration/Queue/${MQKEY}.MQTSubtree.To.ISMQueue.Long?DiscardMessages=true
+
+# for tests that set up bad rules and check that these do not affect good rules
+
+# sets up 2 rules - one on a real QM, one where the QM does not exist. Tests ISMTopic To MQTopic
+# sets up 2 rules - one on a real QM, one where the QM does not exist. Tests ISMTopic To MQTopic
+#####setup_mqconnectivity_bad_rules02 0 create QueueManagerConnection Name=Real_QM QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_bad_rules02 0 POST configuration {"QueueManagerConnection":{"Real_QM":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_bad_rules02 0 create QueueManagerConnection Name=Fake_QM QueueManagerName=DNE "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_bad_rules02 0 POST configuration {"QueueManagerConnection":{"Fake_QM":{"QueueManagerName":"DNE","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_bad_rules02 0 create DestinationMappingRule Name=GoodRule02 QueueManagerConnection=Real_QM RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic  Destination=${MQKEY}/ISMTopic/To/MQTopic  Enabled=True
+setup_mqconnectivity_bad_rules02 0 POST configuration {"DestinationMappingRule":{"GoodRule02":{"QueueManagerConnection":"Real_QM","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":true}}}
+#####setup_mqconnectivity_bad_rules02 0 create DestinationMappingRule Name=BadRule02 QueueManagerConnection=Fake_QM RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic  Destination=${MQKEY}/ISMTopic/To/MQTopic  Enabled=True
+setup_mqconnectivity_bad_rules02 0 POST configuration {"DestinationMappingRule":{"BadRule02":{"QueueManagerConnection":"Fake_QM","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":true}}}
+#####teardown_mqconnectivity_bad_rules02 0 update DestinationMappingRule Name=GoodRule02 QueueManagerConnection=Real_QM RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+teardown_mqconnectivity_bad_rules02 0 POST configuration {"DestinationMappingRule":{"GoodRule02":{"QueueManagerConnection":"Real_QM","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####teardown_mqconnectivity_bad_rules02 0 update DestinationMappingRule Name=BadRule02 QueueManagerConnection=Fake_QM RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+teardown_mqconnectivity_bad_rules02 0 POST configuration {"DestinationMappingRule":{"BadRule02":{"QueueManagerConnection":"Fake_QM","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####teardown_mqconnectivity_bad_rules02 0 delete DestinationMappingRule Name=GoodRule02
+teardown_mqconnectivity_bad_rules02 0 DELETE configuration/DestinationMappingRule/GoodRule02
+#####teardown_mqconnectivity_bad_rules02 0 delete DestinationMappingRule Name=BadRule02
+teardown_mqconnectivity_bad_rules02 0 DELETE configuration/DestinationMappingRule/BadRule02
+#####teardown_mqconnectivity_bad_rules02 0 delete QueueManagerConnection Name=Real_QM
+teardown_mqconnectivity_bad_rules02 0 DELETE configuration/QueueManagerConnection/Real_QM
+#####teardown_mqconnectivity_bad_rules02 0 delete QueueManagerConnection Name=Fake_QM
+teardown_mqconnectivity_bad_rules02 0 DELETE configuration/QueueManagerConnection/Fake_QM
+
+# sets up 2 rules - one on a real QM, one where the QM does not exist. Tests MQTopic To ISMTopic
+#####setup_mqconnectivity_bad_rules04 0 create QueueManagerConnection Name=Real_QM QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_bad_rules04 0 POST configuration {"QueueManagerConnection":{"Real_QM":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_bad_rules04 0 create QueueManagerConnection Name=Fake_QM QueueManagerName=DNE "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_bad_rules04 0 POST configuration {"QueueManagerConnection":{"Fake_QM":{"QueueManagerName":"DNE","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_bad_rules04 0 create DestinationMappingRule Name=GoodRule04 QueueManagerConnection=Real_QM RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic  Destination=${MQKEY}/MQTopic/To/ISMTopic  Enabled=True
+setup_mqconnectivity_bad_rules04 0 POST configuration {"DestinationMappingRule":{"GoodRule04":{"QueueManagerConnection":"Real_QM","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":true}}}
+#####setup_mqconnectivity_bad_rules04 0 create DestinationMappingRule Name=BadRule04 QueueManagerConnection=Fake_QM RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic  Destination=${MQKEY}/MQTopic/To/ISMTopic  Enabled=True
+setup_mqconnectivity_bad_rules04 0 POST configuration {"DestinationMappingRule":{"BadRule04":{"QueueManagerConnection":"Fake_QM","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":true}}}
+#####teardown_mqconnectivity_bad_rules04 0 update DestinationMappingRule Name=GoodRule04 QueueManagerConnection=Real_QM RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+teardown_mqconnectivity_bad_rules04 0 POST configuration {"DestinationMappingRule":{"GoodRule04":{"QueueManagerConnection":"Real_QM","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####teardown_mqconnectivity_bad_rules04 0 update DestinationMappingRule Name=BadRule04 QueueManagerConnection=Fake_QM RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+teardown_mqconnectivity_bad_rules04 0 POST configuration {"DestinationMappingRule":{"BadRule04":{"QueueManagerConnection":"Fake_QM","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####teardown_mqconnectivity_bad_rules04 0 delete DestinationMappingRule Name=GoodRule04
+teardown_mqconnectivity_bad_rules04 0 DELETE configuration/DestinationMappingRule/GoodRule04
+#####teardown_mqconnectivity_bad_rules04 0 delete DestinationMappingRule Name=BadRule04
+teardown_mqconnectivity_bad_rules04 0 DELETE configuration/DestinationMappingRule/BadRule04
+#####teardown_mqconnectivity_bad_rules04 0 delete QueueManagerConnection Name=Real_QM
+teardown_mqconnectivity_bad_rules04 0 DELETE configuration/QueueManagerConnection/Real_QM
+#####teardown_mqconnectivity_bad_rules04 0 delete QueueManagerConnection Name=Fake_QM
+teardown_mqconnectivity_bad_rules04 0 DELETE configuration/QueueManagerConnection/Fake_QM
+#####setup_mqconnectivity_bad_rules13 0 create QueueManagerConnection Name=Real_QM_13 QueueManagerName=QM_MQJMS "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_bad_rules13 0 POST configuration {"QueueManagerConnection":{"Real_QM_13":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_bad_rules13 0 create QueueManagerConnection Name=Fake_QM_13 QueueManagerName=DNE "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=CHNLJMS
+setup_mqconnectivity_bad_rules13 0 POST configuration {"QueueManagerConnection":{"Fake_QM_13":{"QueueManagerName":"DNE","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS"}}}
+#####setup_mqconnectivity_bad_rules13 0 create Queue Name=${MQKEY}.MQTopic.To.ISMQueue AllowSend=true MaxMessages=5000 ConcurrentConsumers=True
+setup_mqconnectivity_bad_rules13 0 POST configuration {"Queue":{"${MQKEY}.MQTopic.To.ISMQueue":{"AllowSend":true,"MaxMessages":5000,"ConcurrentConsumers":true}}}
+#####setup_mqconnectivity_bad_rules13 0 create DestinationMappingRule Name=GoodRule13 QueueManagerConnection=Real_QM_13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=True
+setup_mqconnectivity_bad_rules13 0 POST configuration {"DestinationMappingRule":{"GoodRule13":{"QueueManagerConnection":"Real_QM_13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":true}}}
+#####setup_mqconnectivity_bad_rules13 0 create DestinationMappingRule Name=BadRule13 QueueManagerConnection=Fake_QM_13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=True
+setup_mqconnectivity_bad_rules13 0 POST configuration {"DestinationMappingRule":{"BadRule13":{"QueueManagerConnection":"Fake_QM_13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":true}}}
+#####teardown_mqconnectivity_bad_rules13 0 update DestinationMappingRule Name=GoodRule13 QueueManagerConnection=Real_QM_13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=False
+teardown_mqconnectivity_bad_rules13 0 POST configuration {"DestinationMappingRule":{"GoodRule13":{"QueueManagerConnection":"Real_QM_13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":false}}}
+#####teardown_mqconnectivity_bad_rules13 0 update DestinationMappingRule Name=BadRule13 QueueManagerConnection=Fake_QM_13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=False
+teardown_mqconnectivity_bad_rules13 0 POST configuration {"DestinationMappingRule":{"BadRule13":{"QueueManagerConnection":"Fake_QM_13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":false}}}
+#####teardown_mqconnectivity_bad_rules13 0 delete DestinationMappingRule Name=GoodRule13
+teardown_mqconnectivity_bad_rules13 0 DELETE configuration/DestinationMappingRule/GoodRule13
+#####teardown_mqconnectivity_bad_rules13 0 delete DestinationMappingRule Name=BadRule13
+teardown_mqconnectivity_bad_rules13 0 DELETE configuration/DestinationMappingRule/BadRule13
+#####teardown_mqconnectivity_bad_rules13 0 delete QueueManagerConnection Name=Real_QM_13
+teardown_mqconnectivity_bad_rules13 0 DELETE configuration/QueueManagerConnection/Real_QM_13
+#####teardown_mqconnectivity_bad_rules13 0 delete QueueManagerConnection Name=Fake_QM_13
+teardown_mqconnectivity_bad_rules13 0 DELETE configuration/QueueManagerConnection/Fake_QM_13
+#####teardown_mqconnectivity_bad_rules13 0 delete Queue Name=${MQKEY}.MQTopic.To.ISMQueue DiscardMessages=True
+teardown_mqconnectivity_bad_rules13 0 DELETE configuration/Queue/${MQKEY}.MQTopic.To.ISMQueue?DiscardMessages=true
+
+# sets up message hub and rules to check max messages value of destination mapping rules are adhered to
+
+#create hub
+#####setup_mqconnectivity_boundaries01 0 create MessageHub Name=BoundaryTest01
+setup_mqconnectivity_boundaries01 0 POST configuration {"MessageHub":{"BoundaryTest01":{}}}
+#####setup_mqconnectivity_boundaries01 0 create ConnectionPolicy Name=BoundaryConnPol Protocol=MQTT
+setup_mqconnectivity_boundaries01 0 POST configuration {"ConnectionPolicy":{"BoundaryConnPol":{"Protocol":"MQTT"}}}
+#####setup_mqconnectivity_boundaries01 0 create MessagingPolicy Name=BoundaryMessagingPol DestinationType=Topic "Destination=*" ActionList=Publish,Subscribe MaxMessages=20000000 Protocol=MQTT
+setup_mqconnectivity_boundaries01 0 POST configuration {"TopicPolicy":{"BoundaryMessagingPol":{"Topic":"*","ActionList":"Publish,Subscribe","MaxMessages":20000000,"Protocol":"MQTT"}}}
+#####setup_mqconnectivity_boundaries01 0 create Endpoint Name=BoundaryEndpoint MessageHub=BoundaryTest01 Enabled=True Port=16123 Interface=* Protocol=MQTT MaxMessageSize=4096 ConnectionPolicies=BoundaryConnPol MessagingPolicies=BoundaryMessagingPol 
+setup_mqconnectivity_boundaries01 0 POST configuration {"Endpoint":{"BoundaryEndpoint":{"MessageHub":"BoundaryTest01","Enabled":true,"Port":16123,"Interface":"*","Protocol":"MQTT","MaxMessageSize":"4096","ConnectionPolicies":"BoundaryConnPol","TopicPolicies":"BoundaryMessagingPol","QueuePolicies":"","SubscriptionPolicies":""}}}
+
+#create rules
+#####setup_mqconnectivity_boundaries01 0 create QueueManagerConnection Name=QM_Conn QueueManagerName=Unused "ConnectionName=${MQSERVER1_IP}(1415)" ChannelName=IMA.UNUSED.SVRCONN
+setup_mqconnectivity_boundaries01 0 POST configuration {"QueueManagerConnection":{"QM_Conn":{"QueueManagerName":"Unused","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"IMA.UNUSED.SVRCONN"}}}
+#####setup_mqconnectivity_boundaries01 0 create DestinationMappingRule Name=DM_Rule QueueManagerConnection=QM_Conn RuleType=1 Source=DESTINATIONBOUNDARYTEST Destination=SomeQueue MaxMessages=5000 Enabled=True
+setup_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"QueueManagerConnection":"QM_Conn","RuleType":1,"Source":"DESTINATIONBOUNDARYTEST","Destination":"SomeQueue","MaxMessages":5000,"Enabled":true}}}
+
+#change rules (max messages)
+#####changemaxmessagesto_200_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule Enabled=False
+changemaxmessagesto_200_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"Enabled":false}}}
+#####changemaxmessagesto_200_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule MaxMessages=200
+changemaxmessagesto_200_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"MaxMessages":200}}}
+#####changemaxmessagesto_200_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule Enabled=True
+changemaxmessagesto_200_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"Enabled":true}}}
+#####changemaxmessagesto_20000_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule Enabled=False
+changemaxmessagesto_20000_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"Enabled":false}}}
+#####changemaxmessagesto_20000_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule MaxMessages=20000
+changemaxmessagesto_20000_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"MaxMessages":20000}}}
+#####changemaxmessagesto_20000_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule Enabled=True
+changemaxmessagesto_20000_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"Enabled":true}}}
+#####changemaxmessagesto_5000_mqconnectivity_boundaries01 0 set TraceLevel=9
+changemaxmessagesto_5000_mqconnectivity_boundaries01 0 POST configuration {"TraceLevel":"9"}
+#####changemaxmessagesto_5000_mqconnectivity_boundaries01 - get HelpImTrappedInATraceLog
+changemaxmessagesto_5000_mqconnectivity_boundaries01 - GET configuration/HelpImTrappedInATraceLog
+#####changemaxmessagesto_5000_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule Enabled=False
+changemaxmessagesto_5000_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"Enabled":false}}}
+#####changemaxmessagesto_5000_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule MaxMessages=5000
+changemaxmessagesto_5000_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"MaxMessages":5000}}}
+#####changemaxmessagesto_5000_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule Enabled=True
+changemaxmessagesto_5000_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"Enabled":true}}}
+#####changemaxmessagesto_5000_mqconnectivity_boundaries01 0 set TraceLevel=7
+changemaxmessagesto_5000_mqconnectivity_boundaries01 0 POST configuration {"TraceLevel":"7"}
+
+#delete everything
+#####teardown_mqconnectivity_boundaries01 0 update DestinationMappingRule Name=DM_Rule Enabled=False
+teardown_mqconnectivity_boundaries01 0 POST configuration {"DestinationMappingRule":{"DM_Rule":{"Enabled":false}}}
+#####teardown_mqconnectivity_boundaries01 0 delete DestinationMappingRule Name=DM_Rule
+teardown_mqconnectivity_boundaries01 0 DELETE configuration/DestinationMappingRule/DM_Rule
+#####teardown_mqconnectivity_boundaries01 0 delete QueueManagerConnection Name=QM_Conn
+teardown_mqconnectivity_boundaries01 0 DELETE configuration/QueueManagerConnection/QM_Conn
+#####teardown_mqconnectivity_boundaries01 0 update Endpoint Name=BoundaryEndpoint Enabled=False
+teardown_mqconnectivity_boundaries01 0 POST configuration {"Endpoint":{"BoundaryEndpoint":{"Enabled":false}}}
+#####teardown_mqconnectivity_boundaries01 0 delete Endpoint Name=BoundaryEndpoint
+teardown_mqconnectivity_boundaries01 0 DELETE configuration/Endpoint/BoundaryEndpoint
+#####teardown_mqconnectivity_boundaries01 0 delete MessagingPolicy Name=BoundaryMessagingPol
+teardown_mqconnectivity_boundaries01 0 DELETE configuration/TopicPolicy/BoundaryMessagingPol
+#####teardown_mqconnectivity_boundaries01 0 delete ConnectionPolicy Name=BoundaryConnPol
+teardown_mqconnectivity_boundaries01 0 DELETE configuration/ConnectionPolicy/BoundaryConnPol
+#####teardown_mqconnectivity_boundaries01 0 delete MessageHub Name=BoundaryTest01
+teardown_mqconnectivity_boundaries01 0 DELETE configuration/MessageHub/BoundaryTest01
+#####setup_mqconnectivity_mqssl 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserverMQ.kdb mqimaserver.kdb
+setup_mqconnectivity_mqssl 0 PUT file ${M1_TESTROOT}/common/imaserverMQ.kdb mqimaserver.kdb
+#####setup_mqconnectivity_mqssl 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserverMQ.sth mqimaserver.sth
+setup_mqconnectivity_mqssl 0 PUT file ${M1_TESTROOT}/common/imaserverMQ.sth mqimaserver.sth
+#####setup_mqconnectivity_mqssl 0 imaserver apply Certificate "MQSSLKey=mqimaserver.kdb" "MQStashPassword=mqimaserver.sth" "Overwrite=True"
+#####setup_mqconnectivity_mqssl 0 create QueueManagerConnection Name=MQ_SSL QueueManagerName=QM_MQJMS ConnectionName=${MQSERVER1_IP}(1415) ChannelName=CHNLJMS_SSL SSLCipherSpec=TLS_RSA_WITH_DES_CBC_SHA
+setup_mqconnectivity_mqssl 0 POST configuration {"QueueManagerConnection":{"MQ_SSL":{"QueueManagerName":"QM_MQJMS","ConnectionName":"${MQSERVER1_IP}(1415)","ChannelName":"CHNLJMS_SSL","SSLCipherSpec":"TLS_RSA_WITH_DES_CBC_SHA"}}}
+#####setup_mqconnectivity_mqssl 0 create DestinationMappingRule Name=SSL1 QueueManagerConnection=MQ_SSL RuleType=2 Source=UK/ENGLAND/WINCHESTER Destination=${MQKEY}/UK/SCOTLAND/DUNDEE Enabled=True
+setup_mqconnectivity_mqssl 0 POST configuration {"DestinationMappingRule":{"SSL1":{"QueueManagerConnection":"MQ_SSL","RuleType":2,"Source":"UK/ENGLAND/WINCHESTER","Destination":"${MQKEY}/UK/SCOTLAND/DUNDEE","Enabled":true}}}
+#####teardown_mqconnectivity_mqssl 0 update DestinationMappingRule Name=SSL1 QueueManagerConnection=MQ_SSL RuleType=2 Source=UK/ENGLAND/WINCHESTER Destination=${MQKEY}/UK/SCOTLAND/DUNDEE Enabled=False
+teardown_mqconnectivity_mqssl 0 POST configuration {"DestinationMappingRule":{"SSL1":{"QueueManagerConnection":"MQ_SSL","RuleType":2,"Source":"UK/ENGLAND/WINCHESTER","Destination":"${MQKEY}/UK/SCOTLAND/DUNDEE","Enabled":false}}}
+#####teardown_mqconnectivity_mqssl 0 delete DestinationMappingRule Name=SSL1
+teardown_mqconnectivity_mqssl 0 DELETE configuration/DestinationMappingRule/SSL1
+#####teardown_mqconnectivity_mqssl 0 delete QueueManagerConnection Name=MQ_SSL
+teardown_mqconnectivity_mqssl 0 DELETE configuration/QueueManagerConnection/MQ_SSL
+
+#Final Teardown at the end of fvt suite
+#####final_teardown x set TraceLevel=7
+final_teardown x POST configuration {"TraceLevel":"7"}
+#####final_teardown x update DestinationMappingRule Name=DMR_AJ1 QueueManagerConnection=QMC_AJ RuleType=2 Source=${MQKEY}/FOOTBALL/ARSENAL Destination=${MQKEY}/FOOTBALL/ARSENAL Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"DMR_AJ1":{"QueueManagerConnection":"QMC_AJ","RuleType":2,"Source":"${MQKEY}/FOOTBALL/ARSENAL","Destination":"${MQKEY}/FOOTBALL/ARSENAL","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=DMR_AJ1
+final_teardown x DELETE configuration/DestinationMappingRule/DMR_AJ1
+#####final_teardown x delete QueueManagerConnection Name=QMC_AJ
+final_teardown x DELETE configuration/QueueManagerConnection/QMC_AJ
+#####final_teardown x update DestinationMappingRule Name=MSGCONVERSION1 QueueManagerConnection=MQC_MSGCONVERSION1 RuleType=2 Source=UK/ENGLAND/WINCHESTER Destination=${MQKEY}/UK/SCOTLAND/DUNDEE Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"MSGCONVERSION1":{"QueueManagerConnection":"MQC_MSGCONVERSION1","RuleType":2,"Source":"UK/ENGLAND/WINCHESTER","Destination":"${MQKEY}/UK/SCOTLAND/DUNDEE","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=MSGCONVERSION1
+final_teardown x DELETE configuration/DestinationMappingRule/MSGCONVERSION1
+#####final_teardown x delete QueueManagerConnection Name=MQC_MSGCONVERSION1
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_MSGCONVERSION1
+#####final_teardown x update DestinationMappingRule Name=MSGCONVERSION2 QueueManagerConnection=MQC_MSGCONVERSION2 RuleType=4 Source=${MQKEY}/UK/SCOTLAND/ARGYLL Destination=UK/ENGLAND/AVON Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"MSGCONVERSION2":{"QueueManagerConnection":"MQC_MSGCONVERSION2","RuleType":4,"Source":"${MQKEY}/UK/SCOTLAND/ARGYLL","Destination":"UK/ENGLAND/AVON","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=MSGCONVERSION2
+final_teardown x DELETE configuration/DestinationMappingRule/MSGCONVERSION2
+#####final_teardown x delete QueueManagerConnection Name=MQC_MSGCONVERSION2
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_MSGCONVERSION2
+#####final_teardown x update DestinationMappingRule Name=MSGCONVERSION3 QueueManagerConnection=MQC_MSGCONVERSION3 RuleType=11 Source=UK/ENGLAND/TINTAGEL Destination=${MQKEY}/UK/SCOTLAND/OBAN Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"MSGCONVERSION3":{"QueueManagerConnection":"MQC_MSGCONVERSION3","RuleType":11,"Source":"UK/ENGLAND/TINTAGEL","Destination":"${MQKEY}/UK/SCOTLAND/OBAN","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=MSGCONVERSION3
+final_teardown x DELETE configuration/DestinationMappingRule/MSGCONVERSION3
+#####final_teardown x delete QueueManagerConnection Name=MQC_MSGCONVERSION3
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_MSGCONVERSION3
+#####final_teardown x delete Endpoint Name=MQCONN_JMS_EP1
+final_teardown x DELETE configuration/Endpoint/MQCONN_JMS_EP1
+#####final_teardown x delete MessagingPolicy Name=MQCONN_JMS_MP1
+final_teardown x DELETE configuration/QueuePolicy/MQCONN_JMS_MP1
+#####final_teardown x delete MessagingPolicy Name=MQCONN_JMS_MP2
+final_teardown x DELETE configuration/TopicPolicy/MQCONN_JMS_MP2
+#####final_teardown x delete ConnectionPolicy Name=MQCONN_JMS_CP1
+final_teardown x DELETE configuration/ConnectionPolicy/MQCONN_JMS_CP1
+#####final_teardown x delete MessageHub Name=MQCONN_JMS1
+final_teardown x DELETE configuration/MessageHub/MQCONN_JMS1
+#####final_teardown x delete Queue Name=UK/ENGLAND/TINTAGEL DiscardMessages=True
+final_teardown x DELETE configuration/Queue/UK/ENGLAND/TINTAGEL?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=MSGCONVERSION4 QueueManagerConnection=MQC_MSGCONVERSION4 RuleType=3 Source=${MQKEY}/UK/SCOTLAND/PERTH Destination=UK/ENGLAND/WHITBY Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"MSGCONVERSION4":{"QueueManagerConnection":"MQC_MSGCONVERSION4","RuleType":3,"Source":"${MQKEY}/UK/SCOTLAND/PERTH","Destination":"UK/ENGLAND/WHITBY","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=MSGCONVERSION4
+final_teardown x DELETE configuration/DestinationMappingRule/MSGCONVERSION4
+#####final_teardown x delete QueueManagerConnection Name=MQC_MSGCONVERSION4
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_MSGCONVERSION4
+#####final_teardown x delete Endpoint Name=MQCONN_JMS_EP2
+final_teardown x DELETE configuration/Endpoint/MQCONN_JMS_EP2
+#####final_teardown x delete MessagingPolicy Name=MQCONN_JMS_MP3
+final_teardown x DELETE configuration/QueuePolicy/MQCONN_JMS_MP3
+#####final_teardown x delete MessagingPolicy Name=MQCONN_JMS_MP4
+final_teardown x DELETE configuration/TopicPolicy/MQCONN_JMS_MP4
+#####final_teardown x delete ConnectionPolicy Name=MQCONN_JMS_CP2
+final_teardown x DELETE configuration/ConnectionPolicy/MQCONN_JMS_CP2
+#####final_teardown x delete MessageHub Name=MQCONN_JMS2
+final_teardown x DELETE configuration/MessageHub/MQCONN_JMS2
+#####final_teardown x delete Endpoint Name=RulesQueueEndpoint
+final_teardown x DELETE configuration/Endpoint/RulesQueueEndpoint
+#####final_teardown x delete MessagingPolicy Name=RulesQueueMessagingPolicy
+final_teardown x DELETE configuration/QueuePolicy/RulesQueueMessagingPolicy
+#####final_teardown x delete ConnectionPolicy Name=RulesQueueConnectionPolicy
+final_teardown x DELETE configuration/ConnectionPolicy/RulesQueueConnectionPolicy
+#####final_teardown x delete MessageHub Name=RulesHubQueues
+final_teardown x DELETE configuration/MessageHub/RulesHubQueues
+#####final_teardown x delete Endpoint Name=RulesTopicEndpoint
+final_teardown x DELETE configuration/Endpoint/RulesTopicEndpoint
+#####final_teardown x delete MessagingPolicy Name=RulesTopicMessagingPolicy
+final_teardown x DELETE configuration/TopicPolicy/RulesTopicMessagingPolicy
+#####final_teardown x delete ConnectionPolicy Name=RulesTopicConnectionPolicy
+final_teardown x DELETE configuration/ConnectionPolicy/RulesTopicConnectionPolicy
+#####final_teardown x delete MessageHub Name=RulesHubTopics
+final_teardown x DELETE configuration/MessageHub/RulesHubTopics
+#####final_teardown x update DestinationMappingRule Name=Rule1mqcr QueueManagerConnection=MQC_RULES1 RuleType=1 Source=${MQKEY}/ISMTopic/To/MQQueue Destination=${MQKEY}.ISMTopic.To.MQQueue Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule1mqcr":{"QueueManagerConnection":"MQC_RULES1","RuleType":1,"Source":"${MQKEY}/ISMTopic/To/MQQueue","Destination":"${MQKEY}.ISMTopic.To.MQQueue","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule1mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule1mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES1
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES1
+#####final_teardown x update DestinationMappingRule Name=Rule2mqcr QueueManagerConnection=MQC_RULES2 RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule2mqcr":{"QueueManagerConnection":"MQC_RULES2","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule2mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule2mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES2
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES2
+#####final_teardown x update DestinationMappingRule Name=Rule2mqcrmr2 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics2 Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule2mqcrmr2":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics2","Enabled":false}}}
+#####final_teardown x update DestinationMappingRule Name=Rule2mqcrmr1 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics1 Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule2mqcrmr1":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics1","Enabled":false}}}
+#####final_teardown x update DestinationMappingRule Name=Rule2mqcrmr0 QueueManagerConnection=MQC_RULES2MR RuleType=2 Source=${MQKEY}/ISMTopic/To/MultipleMQTopics Destination=${MQKEY}/ISMTopic/To/MultipleMQTopics0 Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule2mqcrmr0":{"QueueManagerConnection":"MQC_RULES2MR","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MultipleMQTopics","Destination":"${MQKEY}/ISMTopic/To/MultipleMQTopics0","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule2mqcrmr2
+final_teardown x DELETE configuration/DestinationMappingRule/Rule2mqcrmr2
+#####final_teardown x delete DestinationMappingRule Name=Rule2mqcrmr1
+final_teardown x DELETE configuration/DestinationMappingRule/Rule2mqcrmr1
+#####final_teardown x delete DestinationMappingRule Name=Rule2mqcrmr0
+final_teardown x DELETE configuration/DestinationMappingRule/Rule2mqcrmr0
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES2MR
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES2MR
+#####final_teardown x update DestinationMappingRule Name=Rule3mqcr QueueManagerConnection=MQC_RULES3 RuleType=3 Source=${MQKEY}.MQQueue.To.ISMTopic Destination=${MQKEY}/MQQueue/To/ISMTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule3mqcr":{"QueueManagerConnection":"MQC_RULES3","RuleType":3,"Source":"${MQKEY}.MQQueue.To.ISMTopic","Destination":"${MQKEY}/MQQueue/To/ISMTopic","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule3mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule3mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES3
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES3
+#####final_teardown x update DestinationMappingRule Name=Rule4mqcr QueueManagerConnection=MQC_RULES4 RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule4mqcr":{"QueueManagerConnection":"MQC_RULES4","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule4mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule4mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES4
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES4
+#####final_teardown x update DestinationMappingRule Name=Rule5mqcr QueueManagerConnection=MQC_RULES5 RuleType=5 Source=${MQKEY}/ISMTopicSubtree/To/MQQueue Destination=${MQKEY}.ISMTopicSubtree.To.MQQueue Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule5mqcr":{"QueueManagerConnection":"MQC_RULES5","RuleType":5,"Source":"${MQKEY}/ISMTopicSubtree/To/MQQueue","Destination":"${MQKEY}.ISMTopicSubtree.To.MQQueue","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule5mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule5mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES5
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES5
+#####final_teardown x update DestinationMappingRule Name=Rule6mqcr QueueManagerConnection=MQC_RULES6 RuleType=6 Source=${MQKEY}/ISMTopicSubtree/To/MQTopic Destination=${MQKEY}/ISMTopicSubtree/To/MQTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule6mqcr":{"QueueManagerConnection":"MQC_RULES6","RuleType":6,"Source":"${MQKEY}/ISMTopicSubtree/To/MQTopic","Destination":"${MQKEY}/ISMTopicSubtree/To/MQTopic","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule6mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule6mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES6
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES6
+#####final_teardown x update DestinationMappingRule Name=Rule7mqcr QueueManagerConnection=MQC_RULES7 RuleType=7 Source=${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree Destination=${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule7mqcr":{"QueueManagerConnection":"MQC_RULES7","RuleType":7,"Source":"${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree","Destination":"${MQKEY}/ISMTopicSubtree/To/MQTopicSubtree","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule7mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule7mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES7
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES7
+#####final_teardown x update DestinationMappingRule Name=Rule8mqcr QueueManagerConnection=MQC_RULES8 RuleType=8 Source=${MQKEY}/MQTopicSubtree/To/ISMTopic Destination=${MQKEY}/MQTopicSubtree/To/ISMTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule8mqcr":{"QueueManagerConnection":"MQC_RULES8","RuleType":8,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopic","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule8mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule8mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES8
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES8
+#####final_teardown x update DestinationMappingRule Name=Rule9mqcr QueueManagerConnection=MQC_RULES9 RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule9mqcr":{"QueueManagerConnection":"MQC_RULES9","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule9mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule9mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES9
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES9
+#####final_teardown x update DestinationMappingRule Name=Rule9mqcr_tml QueueManagerConnection=MQC_RULES9TML RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule9mqcr_tml":{"QueueManagerConnection":"MQC_RULES9TML","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtreeTML","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule9mqcr_tml
+final_teardown x DELETE configuration/DestinationMappingRule/Rule9mqcr_tml
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES9TML
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES9TML
+#####final_teardown x update DestinationMappingRule Name=Rule10mqcr QueueManagerConnection=MQC_RULES10 RuleType=10 Source=${MQKEY}.ISMQueue.To.MQQueue Destination=${MQKEY}.ISMQueue.To.MQQueue  Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule10mqcr":{"QueueManagerConnection":"MQC_RULES10","RuleType":10,"Source":"${MQKEY}.ISMQueue.To.MQQueue","Destination":"${MQKEY}.ISMQueue.To.MQQueue","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule10mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule10mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES10
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES10
+#####final_teardown x delete Queue Name=${MQKEY}.ISMQueue.To.MQQueue DiscardMessages=True
+final_teardown x DELETE configuration/Queue/${MQKEY}.ISMQueue.To.MQQueue?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=Rule11mqcr QueueManagerConnection=MQC_RULES11 RuleType=11 Source=${MQKEY}.ISMQueue.To.MQTopic Destination=${MQKEY}/ISMQueue/To/MQTopic  Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule11mqcr":{"QueueManagerConnection":"MQC_RULES11","RuleType":11,"Source":"${MQKEY}.ISMQueue.To.MQTopic","Destination":"${MQKEY}/ISMQueue/To/MQTopic","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule11mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule11mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES11
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES11
+#####final_teardown x delete Queue Name=${MQKEY}.ISMQueue.To.MQTopic DiscardMessages=True
+final_teardown x DELETE configuration/Queue/${MQKEY}.ISMQueue.To.MQTopic?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=Rule12mqcr QueueManagerConnection=MQC_RULES12 RuleType=12 Source=${MQKEY}.MQQueue.To.ISMQueue Destination=${MQKEY}.MQQueue.To.ISMQueue  Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule12mqcr":{"QueueManagerConnection":"MQC_RULES12","RuleType":12,"Source":"${MQKEY}.MQQueue.To.ISMQueue","Destination":"${MQKEY}.MQQueue.To.ISMQueue","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule12mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule12mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES12
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES12
+#####final_teardown x delete Queue Name=${MQKEY}.MQQueue.To.ISMQueue DiscardMessages=True
+final_teardown x DELETE configuration/Queue/${MQKEY}.MQQueue.To.ISMQueue?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=Rule13mqcr QueueManagerConnection=MQC_RULES13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule13mqcr":{"QueueManagerConnection":"MQC_RULES13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule13mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule13mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES13
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES13
+#####final_teardown x delete Queue Name=${MQKEY}.MQTopic.To.ISMQueue DiscardMessages=True
+final_teardown x DELETE configuration/Queue/${MQKEY}.MQTopic.To.ISMQueue?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=Rule14mqcr QueueManagerConnection=MQC_RULES14 RuleType=14 Source=${MQKEY}/MQTSubtree/To/ISMQueue Destination=${MQKEY}.MQTSubtree.To.ISMQueue Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule14mqcr":{"QueueManagerConnection":"MQC_RULES14","RuleType":14,"Source":"${MQKEY}/MQTSubtree/To/ISMQueue","Destination":"${MQKEY}.MQTSubtree.To.ISMQueue","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule14mqcr
+final_teardown x DELETE configuration/DestinationMappingRule/Rule14mqcr
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES14
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES14
+#####final_teardown x delete Queue Name=${MQKEY}.MQTSubtree.To.ISMQueue DiscardMessages=True
+final_teardown x DELETE configuration/Queue/${MQKEY}.MQTSubtree.To.ISMQueue?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=Rule4mqcrLong QueueManagerConnection=MQC_RULES4_LONG RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule4mqcrLong":{"QueueManagerConnection":"MQC_RULES4_LONG","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopic/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule4mqcrLong
+final_teardown x DELETE configuration/DestinationMappingRule/Rule4mqcrLong
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES4_LONG
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES4_LONG
+#####final_teardown x update DestinationMappingRule Name=Rule8mqcrLong QueueManagerConnection=MQC_RULES8_LONG RuleType=8 Source=${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule8mqcrLong":{"QueueManagerConnection":"MQC_RULES8_LONG","RuleType":8,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopic/Longer/Topic/String/To/Test/Length/Defect","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule8mqcrLong
+final_teardown x DELETE configuration/DestinationMappingRule/Rule8mqcrLong
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES8_LONG
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES8_LONG
+#####final_teardown x update DestinationMappingRule Name=Rule9mqcrLong QueueManagerConnection=MQC_RULES9_LONG RuleType=9 Source=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule9mqcrLong":{"QueueManagerConnection":"MQC_RULES9_LONG","RuleType":9,"Source":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}/MQTopicSubtree/To/ISMTopicSubtree/Longer/Topic/String/To/Test/Length/Defect","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule9mqcrLong
+final_teardown x DELETE configuration/DestinationMappingRule/Rule9mqcrLong
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES9_LONG
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES9_LONG
+#####final_teardown x update DestinationMappingRule Name=Rule13mqcrLong QueueManagerConnection=MQC_RULES13_LONG RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}.MQTopic.To.ISMQueue.Long  Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule13mqcrLong":{"QueueManagerConnection":"MQC_RULES13_LONG","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}.MQTopic.To.ISMQueue.Long","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule13mqcrLong
+final_teardown x DELETE configuration/DestinationMappingRule/Rule13mqcrLong
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES13_LONG
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES13_LONG
+#####final_teardown x delete Queue Name=${MQKEY}.MQTopic.To.ISMQueue.Long DiscardMessages=True
+final_teardown x DELETE configuration/Queue/${MQKEY}.MQTopic.To.ISMQueue.Long?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=Rule14mqcrLong QueueManagerConnection=MQC_RULES14_LONG RuleType=14 Source=${MQKEY}/MQTSubtree/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect Destination=${MQKEY}.MQTSubtree.To.ISMQueue.Long Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"Rule14mqcrLong":{"QueueManagerConnection":"MQC_RULES14_LONG","RuleType":14,"Source":"${MQKEY}/MQTSubtree/To/ISMQueue/Longer/Topic/String/To/Test/Length/Defect","Destination":"${MQKEY}.MQTSubtree.To.ISMQueue.Long","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=Rule14mqcrLong
+final_teardown x DELETE configuration/DestinationMappingRule/Rule14mqcrLong
+#####final_teardown x delete QueueManagerConnection Name=MQC_RULES14_LONG
+final_teardown x DELETE configuration/QueueManagerConnection/MQC_RULES14_LONG
+#####final_teardown x delete Queue Name=${MQKEY}.MQTSubtree.To.ISMQueue.Long DiscardMessages=True
+final_teardown x DELETE configuration/Queue/${MQKEY}.MQTSubtree.To.ISMQueue.Long?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=GoodRule02 QueueManagerConnection=Real_QM RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"GoodRule02":{"QueueManagerConnection":"Real_QM","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####final_teardown x update DestinationMappingRule Name=BadRule02 QueueManagerConnection=Fake_QM RuleType=2 Source=${MQKEY}/ISMTopic/To/MQTopic Destination=${MQKEY}/ISMTopic/To/MQTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"BadRule02":{"QueueManagerConnection":"Fake_QM","RuleType":2,"Source":"${MQKEY}/ISMTopic/To/MQTopic","Destination":"${MQKEY}/ISMTopic/To/MQTopic","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=GoodRule02
+final_teardown x DELETE configuration/DestinationMappingRule/GoodRule02
+#####final_teardown x delete DestinationMappingRule Name=BadRule02
+final_teardown x DELETE configuration/DestinationMappingRule/BadRule02
+#####final_teardown x delete QueueManagerConnection Name=Real_QM
+final_teardown x DELETE configuration/QueueManagerConnection/Real_QM
+#####final_teardown x delete QueueManagerConnection Name=Fake_QM
+final_teardown x DELETE configuration/QueueManagerConnection/Fake_QM
+#####final_teardown x update DestinationMappingRule Name=GoodRule04 QueueManagerConnection=Real_QM RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"GoodRule04":{"QueueManagerConnection":"Real_QM","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####final_teardown x update DestinationMappingRule Name=BadRule04 QueueManagerConnection=Fake_QM RuleType=4 Source=${MQKEY}/MQTopic/To/ISMTopic Destination=${MQKEY}/MQTopic/To/ISMTopic Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"BadRule04":{"QueueManagerConnection":"Fake_QM","RuleType":4,"Source":"${MQKEY}/MQTopic/To/ISMTopic","Destination":"${MQKEY}/MQTopic/To/ISMTopic","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=GoodRule04
+final_teardown x DELETE configuration/DestinationMappingRule/GoodRule04
+#####final_teardown x delete DestinationMappingRule Name=BadRule04
+final_teardown x DELETE configuration/DestinationMappingRule/BadRule04
+#####final_teardown x delete QueueManagerConnection Name=Real_QM
+final_teardown x DELETE configuration/QueueManagerConnection/Real_QM
+#####final_teardown x delete QueueManagerConnection Name=Fake_QM
+final_teardown x DELETE configuration/QueueManagerConnection/Fake_QM
+#####final_teardown x update DestinationMappingRule Name=GoodRule13 QueueManagerConnection=Real_QM_13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"GoodRule13":{"QueueManagerConnection":"Real_QM_13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":false}}}
+#####final_teardown x update DestinationMappingRule Name=BadRule13 QueueManagerConnection=Fake_QM_13 RuleType=13 Source=${MQKEY}/MQTopic/To/ISMQueue Destination=${MQKEY}.MQTopic.To.ISMQueue  Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"BadRule13":{"QueueManagerConnection":"Fake_QM_13","RuleType":13,"Source":"${MQKEY}/MQTopic/To/ISMQueue","Destination":"${MQKEY}.MQTopic.To.ISMQueue","Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=GoodRule13
+final_teardown x DELETE configuration/DestinationMappingRule/GoodRule13
+#####final_teardown x delete DestinationMappingRule Name=BadRule13
+final_teardown x DELETE configuration/DestinationMappingRule/BadRule13
+#####final_teardown x delete QueueManagerConnection Name=Real_QM_13
+final_teardown x DELETE configuration/QueueManagerConnection/Real_QM_13
+#####final_teardown x delete QueueManagerConnection Name=Fake_QM_13
+final_teardown x DELETE configuration/QueueManagerConnection/Fake_QM_13
+#####final_teardown x delete Queue Name=${MQKEY}.MQTopic.To.ISMQueue DiscardMessages=True
+final_teardown x DELETE configuration/Queue/${MQKEY}.MQTopic.To.ISMQueue?DiscardMessages=true
+#####final_teardown x update DestinationMappingRule Name=DM_Rule Enabled=False
+final_teardown x POST configuration {"DestinationMappingRule":{"DM_Rule":{"Enabled":false}}}
+#####final_teardown x delete DestinationMappingRule Name=DM_Rule
+final_teardown x DELETE configuration/DestinationMappingRule/DM_Rule
+#####final_teardown x delete QueueManagerConnection Name=QM_Conn
+final_teardown x DELETE configuration/QueueManagerConnection/QM_Conn
+#####final_teardown x update Endpoint Name=BoundaryEndpoint Enabled=False
+final_teardown x POST configuration {"Endpoint":{"BoundaryEndpoint":{"Enabled":false}}}
+#####final_teardown x delete Endpoint Name=BoundaryEndpoint
+final_teardown x DELETE configuration/Endpoint/BoundaryEndpoint
+#####final_teardown x delete MessagingPolicy Name=BoundaryMessagingPol
+final_teardown x DELETE configuration/TopicPolicy/BoundaryMessagingPol
+#####final_teardown x delete ConnectionPolicy Name=BoundaryConnPol
+final_teardown x DELETE configuration/ConnectionPolicy/BoundaryConnPol
+#####final_teardown x delete MessageHub Name=BoundaryTest01
+final_teardown x DELETE configuration/MessageHub/BoundaryTest01
+
+
+
+#Setting and resetting trace
+#####settrace 0 set TraceLevel=9
+settrace 0 POST configuration {"TraceLevel":"9"}
+#####resettrace 0 set TraceLevel=5
+resettrace 0 POST configuration {"TraceLevel":"5"}

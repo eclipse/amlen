@@ -1,0 +1,59 @@
+#! /bin/bash
+
+source manualrun_HA_JMS
+
+# PRIMARY - IMA Server variable is sourced above 
+if [ $# -eq 0 ]; then
+  echo "Please provide the Appliance's IP ADDRESS, which IMA Server?"
+  read PRIMARY
+else
+  PRIMARY=$1
+fi
+
+# Eventually make these input parameters $2 and $3
+declare -i APPNUM_START		# index starts - Number of Pub/Sub clients to create
+declare -i APPNUM_END		# index ends   - Number of Pub/Sub clients to create
+
+if [ $# -le 1 ]; then
+  echo "What's ClientID INDEX number of the First Subscription to DELETE on IMA Server ${PRIMARY}?"
+  read APPNUM_START
+else
+  APPNUM_START=${2}
+fi
+
+if [ $# -le 2 ]; then
+  echo "What's ClientID INDEX number of the LAST Subscription to DELETE on IMA Server ${PRIMARY}?"
+  read APPNUM_END
+else
+  APPNUM_END=${3}
+fi
+
+client-name
+set -x
+if [ $# -eq 4 ]; then
+  USERHOST=$4
+fi
+set +x
+
+for id in $(eval echo {${APPNUM_START}..${APPNUM_END}} )
+do
+#  client-name
+  USERCNT=`printf "%03d" ${id}`
+
+
+  declare SUB_USERNAME=c${USERCNT}2${USERHOST}
+  declare PUB_USERNAME=c${USERCNT}3${USERHOST}
+
+  declare PUB_QUEUE_NAME=${QUEUE_APP}"/"${QUEUE_USER}${SUB_USERNAME}
+  declare SUB_QUEUE_NAME=${QUEUE_USER}${SUB_USERNAME}"/"${QUEUE_APP}
+# when not using MDB PUB/SUB Topics need to match -- COMMENT NEXT LINE WHEN USING MDB.
+#  declare PUB_QUEUE_NAME=${SUB_QUEUE_NAME}
+
+set -x
+  ssh admin@${PRIMARY} "imaserver delete Subscription  SubName=subscription1 ClientID=${SUB_USERNAME} "
+#  ssh admin@${PRIMARY} "imaserver delete Subscription  SubName=subscription1 ClientID=${PUB_USERNAME} "
+set +x
+
+done
+
+

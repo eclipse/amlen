@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testproxyV5_rc135" >
+<!--
+    Test MQTT V5 Reason Codes
+    
+    135    0x87    Not authorized     yes    CONNACK, PUBACK, PUBREC, SUBACK, UNSUBACK, DISCONNECT
+	
+NOTE:   ONLY QoS 0 SHOULD see the Server disconnect since there is no PubAck (QoS1) or PubRec (QoS2), others have RC returned in the ACK.
+UPDATE:  PROXY RULEs will cause PUBACK and PUBREL to return rc 144 Invalid Topic Name, not rc 135 Not Authorized (removing those from AF script
+-->
+
+
+<!--  ==========  rc135  ==========  -->
+<!-- NOTE:  CONNACK Not Authorized RC is mapped to 2525 , TD internally checks 135, but does not expose it to test client -->
+
+<!--  ==========  CONNACK  ==========  -->
+    <Action name="rc135connack" type="CompositeAction">
+        <Action name="ConnectV5Connack" type="CreateConnection" rc="1" reason="ISMTEST2525">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:rc135:V5_connack</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:rc135:V5_connack</ApiParameter>
+            <ApiParameter name="password">junk</ApiParameter>
+
+<!-- TODO! if I put reasoncode 1355, it is still successful test case -->
+<!-- NOTE:  Not Authorized RC is mapped to 2525, TD internally checks 135, but does not expose it to test client 
+So none of these work!  :-/   Only test for ISMTEST2502
+-->
+            <ActionParameter name="reasonCode">135</ActionParameter>
+            <ActionParameter name="reason">The operation is not authorized.</ActionParameter>
+            <ApiParameter name="expectedrc">135</ApiParameter>
+            <ApiParameter name="expectedrcV5">135</ApiParameter>
+        </Action>
+    </Action>
+        
+
+<!--  ==========  PUBACK  ==========  -->
+    <Action name="rc135puback" type="CompositeAction">
+        <Action name="ConnectV5PubAck" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:rc135:V5_puback</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">g:org4iot2:gwtype:rc135</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+        </Action>
+        
+        <Action name="CreateMessage1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 1:{ clientId=g:org4iot2:gwtype:rc135, retain:false, QoS:1, topic:iot-2/type/rc135/id/V5_puback/evt/subonly/fmt/rc135 }</ApiParameter>
+        </Action>
+        
+        <Action name="SendMessage1OnSubOnlyTopic" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/rc135/id/V5_puback/evt/subonly/fmt/rc135</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+
+            <ApiParameter name="expectedrc">135</ApiParameter> 
+            <ActionParameter name="waitForAck">true</ActionParameter>
+        </Action>
+        
+        <Action name="CheckConnectAfterPub1" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+        
+<!-- Defect 205633 DISCONNECT was unexpected for QoS1  -->
+		
+        <Action name="CloseConnectionV5PubAck" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+
+
+<!--  ==========  PUBREC  ==========  -->
+    <Action name="rc135pubrec" type="CompositeAction">
+
+        <Action name="ConnectV5PubRec" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:rc135:V5_pubrec</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">g:org4iot2:gwtype:rc135</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+        </Action>
+        
+        <Action name="CreateMessage2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 2:{ clientId=g:org4iot2:gwtype:rc135, retain:false, QoS:2, topic:iot-2/type/rc135/id/V5_pubrec/evt/subonly/fmt/rc135 }</ApiParameter>
+        </Action>
+
+        
+        <Action name="SendMessage2OnSubOnlyTopic" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg2</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/rc135/id/V5_pubrec/evt/subonly/fmt/rc135</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+
+<!-- Times out waiting for ACK when in QoS 2 BECAUSE it will Disconnect and that is where the RC can be queried
+            <ApiParameter name="expectedrc">135</ApiParameter> 
+            <ActionParameter name="waitForAck">true</ActionParameter>  -->
+        </Action>
+        
+        <Action name="CheckConnectionAfterPub2" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">false</ActionParameter>
+            <ApiParameter name="expectedrc">135</ApiParameter> 
+		</Action>   
+        
+<!-- Defect 205633 DISCONNECT is new for QoS2
+        <Action name="CloseConnectionV5PubRec" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+-->
+    </Action>
+		
+
+<!--  ==========  SUBACK, UNSUBACK  ==========   -->
+    <Action name="rc135suback" type="CompositeAction">
+        <Action name="ConnectV5Sub" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">g:org4iot2:gwtype:rc135</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">g:org4iot2:gwtype:rc135</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+        </Action>
+        
+		<!-- in proxy-iot2.acl The device rc135/V5_suback if NOT an allowed member -->
+        <Action name="SubscribeInvalidTopic" type="Subscribe" >    
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/rc135/id/V5_suback/cmd/V5_suback/fmt/rc135</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+<!-- Defect 206419: Proxy MQTTV5 RC135 on SUB to invalid IOT2 topic -  Device Not Registered to GW should have failed  --> 
+            <ApiParameter name="expectedrc">135</ApiParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+        </Action>
+        
+        <Action name="SubscribeUnauthDeviceTopic" type="Subscribe" >    
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/rc135/id/V5_random/cmd/V5_suback/fmt/rc135</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+<!-- Defect 206419: Proxy MQTTV5 RC135 on SUB to invalid IOT2 topic -  Device Not Registered to GW should have failed  --> 
+            <ApiParameter name="expectedrc">135</ApiParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+        </Action>
+
+        <Action name="CheckConnectionAfterSub" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+		
+<!-- Defect 206833 : may not be able to get 135 on UNSUB  -->
+        <Action name="UnSubscribePubOnlyTopic" type="Unsubscribe">  
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/notRegDev/id/notRegID/cmd/rc135/fmt/rc135</ApiParameter>
+
+<!--  Defect 205632 - Did not happen here, adding CheckConnection
+DEFECT 206833  UNSUB will always be RC 0 in MS, but maybe not so in Proxy -->
+            <ApiParameter name="expectedrc">17</ApiParameter> 
+            <ActionParameter name="waitForAck">true</ActionParameter>
+        </Action>
+        
+        <Action name="CheckConnectionAfterUnSub" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+
+        <Action name="CloseConnectionV5Sub" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+        
+        
+
+     </Action>
+
+
+<!--  DISCONNECT 
+There is NO ACK from the SERVER on disconnect, but the Server is correctly flagging the error
+The error is not showing up at Verification, see  Defect 206364 
+
+2018-05-09T21:43:26.546Z tcpiop.0 mqtt.c:915: MQTT receive e0 DISCONNECT connect=35: len=7 00051100 00000a [.......]
+2018-05-09T21:43:26.546Z tcpiop.0 mqtt.c:6847: Session Expiry Interval cannot be changed at disconnect for a connection with a zero Session Expiry Interval at connect.  connect=35 name=samuser:rc135:V5_disconn
+2018-05-09T21:43:26.546Z tcpiop.0 mqtt.c:6419: ism_mqtt_closing: connect=35 client=samuser:rc135:V5_disconn rc=0 clean=1 reason=The connection has completed normally.
+2018-05-09T21:43:26.546Z tcpiop.0 mqtt.c:6563: close MQTT connection: connect=35
+
+
+ A PUBREC 135 is really the DISCONN,  leaving for the defect though
+-->
+    <Action name="rc135disconn" type="CompositeAction">
+        <Action name="ConnectV5Disconn" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:rc135:V5_disconn</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:rc135:V5_disconn</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+        </Action>
+        
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!-- Defect 206364 - not add sessionExpire if not provided on CONNECT -->
+            <ApiParameter name="sessionExpire">10</ApiParameter>
+        </Action>    
+        
+        <Action name="CheckCloseConnect" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">false</ActionParameter>
+            <ActionParameter name="reasonCode">135</ActionParameter>
+            <ApiParameter name="expectedrc">135</ApiParameter> 
+        </Action>    
+		
+    </Action>
+    
+    
+</IsmWSTest>
+                

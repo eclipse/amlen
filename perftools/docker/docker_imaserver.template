@@ -1,0 +1,60 @@
+# Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+FROM %OS_BUILD%
+
+#File author / Maintainer
+MAINTAINER ISM SvtPerf Team
+
+WORKDIR %WORKSPACE_DIR%
+ADD .toprc /root/.toprc
+ADD .bashrc /root/.bashrc
+ADD softlayer/alias.sh /root/alias.sh
+ADD IBMWIoTPMessageGatewayServer*.rpm /root/
+
+RUN echo " build in %WORKSPACE_DIR%"
+
+# Install packages from yum repo. Ensure repo is available
+# EAK - latest docker builds failing due to docker compat breaking change (add yum upgrade temporarily, remove later)
+RUN yum -y upgrade && \
+	yum -y install \
+		gdb-gdbserver \
+		perf \
+		strace \
+		sysstat \
+		procps \
+		tcpdump \
+		telnet \
+		traceroute \ 
+		lsof \
+		libasan \
+		libstdc++ \ 
+		binutils \ 
+		cpio \
+		psmisc && \
+#post setup
+	echo "Installing IBMWIoTPMessageGatewayServer rpm" && \
+ 	yum -y localinstall /root/IBMWIoTPMessageGatewayServer*.rpm && \
+	echo "Setting up perms" && \
+	chmod +x /opt/ibm/imaserver/bin/imaserver && \
+	chmod +x /root/alias.sh && \
+	chmod +x /opt/ibm/imaserver/bin/startServer.sh && \
+	ln -sf /var/messagesight/diag/cores /var/crash && \
+#cleanup build artifacts
+	rm -Rf /seed && \
+	rm /root/IBMWIoTPMessageGatewayServer*rpm
+		
+#change workdir to /root for initial docker exec directory		
+WORKDIR /root
+
+# Set file permissions
+ENTRYPOINT [ "/opt/ibm/imaserver/bin/startServer.sh" ]
+

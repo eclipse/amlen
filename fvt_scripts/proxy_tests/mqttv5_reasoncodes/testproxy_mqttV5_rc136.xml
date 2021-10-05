@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testproxyV5_rc136" >
+<!--
+    Test MQTT V5 Reason Codes
+    
+    136    0x88    Server unavailable    CONNACK
+
+-->
+    
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>testproxyV5_rc136</solution>
+    </SyncClient>
+
+
+
+<!--  ==========  rc136  ==========  -->
+
+    <Action name="rc136" type="CompositeAction">
+        
+        <Action name="SYNCServiceStop" type="SyncComponentAction">
+            <ActionParameter name="component_name">clt1</ActionParameter>
+            <ActionParameter name="component_list">srv1;clt1</ActionParameter>
+            <ActionParameter name="timeout">10000</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnectionV5" type="CreateConnection" rc="1" reason="ISMTEST2502"> 
+<!--  NOTE:   Timing tricky:   dependsOn Interval must be shorter than interval in serverService Composite Action to restart Server.  -->
+<!--            <dependsOn action_id="SYNCServiceStop" interval="1000"/>    -->
+            <dependsOn action_id="SYNCServiceStop" interval="3000"/> 
+<!--            <dependsOn action_id="SYNCServiceStop" interval="15000"/> -->
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>            
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <ApiParameter name="clientId">d:org4iot2:V5_connack:rc136</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:V5_connack:rc136</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+
+<!-- no method of checking seems to be working expect 136 but any value (1366) is ignored -->
+            <ApiParameter name="reasonCode">1366</ApiParameter>
+            <ApiParameter name="reason">Unable to connect to server thrown attempting to connect to tcp://``P1_IPv4_1``:1883</ApiParameter>
+            <ApiParameter name="expectedrc">1366</ApiParameter>            
+            <ApiParameter name="expectedrcv5">1366</ApiParameter>            
+        </Action>
+
+        <Action name="CheckConnectionStatusAfter" type="CheckConnection"  rc="1" reason="ISMTEST1250">  
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+
+<!-- no method of checking seems to be working expect 136 but any value (1366) is ignored -->
+            <ActionParameter name="reasonCode">1366</ActionParameter>
+            <ActionParameter name="reason">Unable to connect to server thrown attempting to connect to tcp://``P1_IPv4_1``:1883.</ActionParameter>
+            <ApiParameter name="expectedrc">1366</ApiParameter>            
+            <ApiParameter name="expectedrcv5">1366</ApiParameter>        
+    
+<!-- TODO:  need to make an include for IP resolution in message 158.85.212.195 now ``P1_IPv4_1``  -->            
+        </Action>
+
+        
+    </Action>
+    
+    
+<!--  Server Service - Independant CompositeAcion to ensure a Restart  -->    
+    <Action name="serverService" type="CompositeAction">
+        
+        <Action name="ServiceStop" type="RestAPI">
+            <ActionParameter name="structureID">service_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/service/stop</ActionParameter>
+            <ActionParameter name="payload">{"Service":"Server"}</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+<!--  Debug Only cause Not really able to do this unless there is a way to expected failure 'Connection Refused' to know the server is stopped
+        <Action name="ServiceStatusBeforeRC136Connect" type="RestAPI" rc="1">
+            <dependsOn action_id="ServiceStop" interval="3000"/> 
+                <ActionParameter name="structureID">service_output</ActionParameter>
+                <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+                <ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+                <ActionParameter name="action">GET</ActionParameter>
+                <ActionParameter name="printResult">true</ActionParameter>
+                <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+-->
+        <Action name="SYNCServiceStop" type="SyncComponentAction">
+            <ActionParameter name="component_name">srv1</ActionParameter>
+            <ActionParameter name="component_list">srv1;clt1</ActionParameter>
+            <ActionParameter name="timeout">10000</ActionParameter>
+        </Action>
+
+        <!-- restart server - can't be with RESTAPI, must use a script -->
+        <!--  THIS dependsOn Interval ** MUST BE LONGER ** than dependsOn interval @ CreateConnectionV5 -->
+
+        <Action name="ServiceRestart" type="ShellAction">
+            <dependsOn action_id="SYNCServiceStop" interval="6000"/> 
+                <ActionParameter name="command">../scripts/serverControl.sh -a startServer -i 1 -t 20</ActionParameter>  
+<!--            <ActionParameter name="command">../common/serverRestart.sh</ActionParameter> -->
+                <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+<!--  Here Debug Only
+        <Action name="ServiceStatusAfterRestart" type="RestAPI" rc="1">
+            <dependsOn action_id="ServiceStop" interval="15000"/> 
+                <ActionParameter name="structureID">service_output</ActionParameter>
+                <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+                <ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+                <ActionParameter name="action">GET</ActionParameter>
+                <ActionParameter name="printResult">true</ActionParameter>
+                <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+-->
+    </Action>
+     
+</IsmWSTest>
+                

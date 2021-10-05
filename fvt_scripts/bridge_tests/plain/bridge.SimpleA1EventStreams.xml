@@ -1,0 +1,434 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="BridgeSimpleA1A2" >
+<!--  MessageSight Bridge
+    Using a basic Bridge Config, a Publisher will send 8 messages to MS:A1 
+    The Bridge should ONLY receive/forward 4 messages that match the Forwarder Topic pattern transform to MS:A2
+    The first two messages are V3-ish and have no Properties, the second two have many V5 Properties
+    and are checked when received from MS:A2 by the subscriber.
+    
+-->
+<!--  ==========  BridgeConfig : Bridge.A1A2.cfg  ==========  -->
+    
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>BridgeSimpleA1A2</solution>
+    </SyncClient>
+ 
+    
+<!--  ==========  A2Subscriber  ==========  -->
+    <Action name="A2Subscriber" type="CompositeAction">
+    
+        <Action name="GetForwarderStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``B1_HOST``:``B1_BRIDGEPORT``</ActionParameter>
+            <ActionParameter name="path">/admin/forwarder</ActionParameter>
+            <ActionParameter name="userID">``B1_REST_USER``</ActionParameter>
+            <ActionParameter name="password">``B1_REST_PW``</ActionParameter>
+            <ActionParameter name="requireSSL">false</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA1ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">A1_Server_Stats</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+        <Action name="GetA2ServerStats" type="RestAPI">
+            <ActionParameter name="structureID">br_Forwarder_Stats</ActionParameter>
+            <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/monitor/Server</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="payload"></ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+    
+       
+
+        <Action name="ConnectEventStreams" type="CreateConnectionKafka">
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <!--ApiParameter name="bootstrap_servers">kafka03-prod02.messagehub.services.eu-gb.bluemix.net:9093,kafka04-prod02.messagehub.services.eu-gb.bluemix.net:9093,kafka05-prod02.messagehub.services.eu-gb.bluemix.net:9093,kafka01-prod02.messagehub.services.eu-gb.bluemix.net:9093,kafka02-prod02.messagehub.services.eu-gb.bluemix.net:9093</ApiParameter>
+            <ApiParameter name="username">IOhEJXXvRRSS3ia4</ApiParameter>
+            <ApiParameter name="password">i7hEPAyjykSFtm1AVJfzJteYtPntTU0U</ApiParameter-->
+
+            <include>../common/EventStreamServers1.xml</include>
+            <include>../common/EventStreamUsername1.xml</include>
+            <include>../common/EventStreamPassword1.xml</include>
+
+            <!--ActionParameter name="bootstrap_servers">``B1_KA``</ActionParameter>
+            <ApiParameter name="username">``B1_KAFKAUSERNAME``</ApiParameter>
+            <ApiParameter name="password">``B1_KAFKAPASSWORD``</ApiParameter>
+            <ApiParameter name="bhost">``B1_HOST``</ApiParameter-->
+
+            <ApiParameter name="servicename">kafka</ApiParameter>
+        </Action>
+
+               
+        
+
+        <Action name="SubscribeEventStreams" type="SubscribeKafka" >
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="topic">test-topic-1</ActionParameter>
+        </Action>
+
+
+
+
+        <Action name="sync_10" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s10</ActionParameter>
+            <ActionParameter name="component_list">s10;p10</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+
+        <Action name="printtime1" type="ShellAction" >
+            <ActionParameter name="command">date</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+
+        <Action name="ReceiveMessageEventStreams_1a" type="ReceiveMessageKafka" >
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="poll_duration">100000</ActionParameter>
+        </Action>
+
+
+
+        <Action name="CheckMessageEventStreams_1a" type="CompareMessageDataKafka">
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="compareValue">MSG :{ clientId:d:x:A1:Pub.SimpleA1A2 , Client:v5}</ActionParameter>
+        </Action>
+
+
+
+        <Action name="sync_1a" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s1a</ActionParameter>
+            <ActionParameter name="component_list">s1a;p1a</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+
+
+        <Action name="ReceiveMessageEventStreams_1b" type="ReceiveMessageKafka" >
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="poll_duration">10000</ActionParameter>
+        </Action>
+
+
+
+        <Action name="CheckMessageEventStreams_1b" type="CompareMessageDataKafka">
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="compareTopic">test-topic-1</ActionParameter>
+            <ActionParameter name="compareValue">MSG :{ clientId:d:x:A1:Pub.SimpleA1A2 , Client:v5}</ActionParameter>
+            <ActionParameter name="compareKey">{"event":"Bridge","qos":"2"}</ActionParameter>
+            <ActionParameter name="comparePartition">0</ActionParameter>
+        </Action>
+
+
+
+        <Action name="sync_1b" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s1b</ActionParameter>
+            <ActionParameter name="component_list">s1b;p1b</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+
+
+        <Action name="ReceiveMessageEventStreams_1c" type="ReceiveMessageKafka" >
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="poll_duration">10000</ActionParameter>
+        </Action>
+
+
+
+        <Action name="CheckMessageEventStreams_1c" type="CompareMessageDataKafka">
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="compareTopic">test-topic-1</ActionParameter>
+            <ActionParameter name="compareValue">{"MSG" :{ "clientId":"d:x:A1:Pub.SimpleA1A2" , "Client":"v5 with Properties"}}</ActionParameter>
+            <ActionParameter name="compareKey">{"replyTo":"reply/to/here/topic","event":"Bridge/fmt/Simple"}</ActionParameter>
+            <ActionParameter name="comparePartition">0</ActionParameter>
+        </Action>
+
+
+
+        <Action name="sync_1c" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s1c</ActionParameter>
+            <ActionParameter name="component_list">s1c;p1c</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+
+
+
+        <Action name="ReceiveMessageEventStreams_1d" type="ReceiveMessageKafka" >
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="poll_duration">10000</ActionParameter>
+        </Action>
+
+
+
+        <Action name="CheckMessageEventStreams_1d" type="CompareMessageDataKafka">
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+            <ActionParameter name="compareTopic">test-topic-1</ActionParameter>
+            <ActionParameter name="compareValue">{"MSG" :{ "clientId":"d:x:A1:Pub.SimpleA1A2" , "Client":"v5 with Properties"}}</ActionParameter>
+            <ActionParameter name="compareKey">{"replyTo":"reply/to/here/topic","event":"Bridge/fmt/Simple"}</ActionParameter>
+            <ActionParameter name="comparePartition">0</ActionParameter>
+        </Action>
+
+
+
+        <Action name="sync_1d" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">s1d</ActionParameter>
+            <ActionParameter name="component_list">s1d;p1d</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+
+
+        
+<!-- -->
+        
+
+
+
+
+
+
+
+        <Action name="DisconnectEventStreams" type="CloseConnectionKafka">
+            <ActionParameter name="connectionID">eventstreams</ActionParameter>
+        </Action>
+               
+    </Action>
+
+
+
+<!--  ==========  A1Publisher  ==========  -->
+    <Action name="A1Publisher" type="CompositeAction">
+    
+        
+        <Action name="ConnectA1Publisher" type="CreateConnection">
+            <ActionParameter name="structure_id">ConA1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <ApiParameter name="port">1883</ApiParameter>
+            <ApiParameter name="clientId">d:x:A1:Pub.SimpleA1A2</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>
+               
+
+        <Action name="CreateMessage_V3ish" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">MSG :{ clientId:d:x:A1:Pub.SimpleA1A2 , Client:v5}</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage_V5" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg5</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"MSG" :{ "clientId":"d:x:A1:Pub.SimpleA1A2" , "Client":"v5 with Properties"}}</ApiParameter>
+            <ApiParameter name="correlationData">69</ApiParameter>
+            <ApiParameter name="payloadFormatIndicator">true</ApiParameter>
+            <ApiParameter name="msgExpire">4294967295</ApiParameter>
+            <ApiParameter name="contentType">json</ApiParameter>
+            <ApiParameter name="responseTopic">reply/to/here/topic</ApiParameter>
+            <ApiParameter name="topicAlias">29</ApiParameter>
+            <ApiParameter name="userprop.0">Name=Value1</ApiParameter>
+            <ApiParameter name="userprop.1">Name=Value2</ApiParameter>
+            <ApiParameter name="userprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage_V5_2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg5_2</ActionParameter>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"MSG" :{ "A V5 message"}}</ApiParameter>
+            <ApiParameter name="correlationData">69</ApiParameter>
+            <ApiParameter name="payloadFormatIndicator">true</ApiParameter>
+            <ApiParameter name="msgExpire">4294967295</ApiParameter>
+            <ApiParameter name="contentType">json</ApiParameter>
+            <ApiParameter name="responseTopic">reply/to/here/topic</ApiParameter>
+            <ApiParameter name="topicAlias">29</ApiParameter>
+            <ApiParameter name="userprop.0">Name=Value1</ApiParameter>
+            <ApiParameter name="userprop.1">Name=Value2</ApiParameter>
+            <ApiParameter name="userprop.2">GVT葛渚噓=Value葛渚噓edibleBeanHappyBeach</ApiParameter>
+        </Action>
+
+
+        <Action name="sync_10" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p10</ActionParameter>
+            <ActionParameter name="component_list">s10;p10</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+
+        <Action name="printtime1" type="ShellAction" >
+            <ActionParameter name="command">date</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+
+
+	<Action type="Sleep">
+	  <ActionParameter name="waitTime">6000</ActionParameter>
+          <ActionParameter name="connection_id">CFA1</ActionParameter>
+	</Action>
+
+           
+        <Action name="SendMessage_1a" type="SendMessage">
+          <dependsOn action_id="CreateMessage_V5" interval="2000"/>
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">wiotp/evt/Bridge/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+        </Action>
+        <Action name="WaitForPendingDelivery_1a" type="WaitPendingDelivery" >
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+
+
+        <Action name="sync_1a" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1a</ActionParameter>
+            <ActionParameter name="component_list">s1a;p1a</ActionParameter>
+            <ActionParameter name="timeout">12000</ActionParameter>
+        </Action>
+           
+        <Action name="SendMessage_1b" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">wiotp/cmd/Bridge/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>
+        <Action name="WaitForPendingDelivery_1b" type="WaitPendingDelivery" >
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+
+        <Action name="sync_1b" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1b</ActionParameter>
+            <ActionParameter name="component_list">s1b;p1b</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+<!-- -->           
+
+
+        <Action name="update_map_1c" type="RestAPI">
+            <ActionParameter name="structureID">diag_output</ActionParameter>
+            <include>../common/bridge1_server.xml</include>
+            <ActionParameter name="path">/admin/config</ActionParameter>
+            <include>../common/bridge1_username.xml</include>
+            <include>../common/bridge1_password.xml</include>
+            <ActionParameter name="requireSSL">false</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"Forwarder": { "evf1": { "Topic": ["wiotp/+/+/+/+"], "Enabled": true, "SourceQoS": 1, "Source": "MqttServer", "Destination": "evst", "Selector": "TRUE                  ", "RoutingRule": {  "test-topic-1": "" }, "KeyMap": "{${JSON:replyTo:_ReplyTo},${JSON:event:Topic2*}}", "PartitionRule": "instance", "KafkaAPIVersion": 2}}}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+
+        <Action name="SendMessage_1c" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg5</ActionParameter>
+            <ActionParameter name="topic">wiotp/cmd/Bridge/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>
+        <Action name="WaitForPendingDelivery_1c" type="WaitPendingDelivery" >
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+
+        <Action name="sync_1c" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1c</ActionParameter>
+            <ActionParameter name="component_list">s1c;p1c</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+
+
+
+
+
+        <Action name="update_map_1d" type="RestAPI">
+            <ActionParameter name="structureID">diag_output</ActionParameter>
+            <include>../common/bridge1_server.xml</include>
+            <ActionParameter name="path">/admin/config</ActionParameter>
+            <include>../common/bridge1_username.xml</include>
+            <include>../common/bridge1_password.xml</include>
+            <ActionParameter name="requireSSL">false</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="payload">{"Forwarder": { "evf1": { "Topic": ["wiotp/+/+/+/+"], "Enabled": true, "SourceQoS": 1, "Source": "MqttServer", "Destination": "evst", "Selector": "false", "RoutingRule": {  "test-topic-1": "false" }, "KeyMap": "{${JSON:replyTo:_ReplyTo},${JSON:event:Topic2*}}", "PartitionRule": "instance", "KafkaAPIVersion": 2}}}</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+            <ActionParameter name="expectedMessageCode"></ActionParameter>
+        </Action>
+
+
+        <Action name="SendMessage_1d" type="SendMessage">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+            <ActionParameter name="message_id">txmsg5</ActionParameter>
+            <ActionParameter name="topic">wiotp/cmd/Bridge/fmt/Simple</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+        </Action>
+        <Action name="WaitForPendingDelivery_1d" type="WaitPendingDelivery" >
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+
+
+
+
+
+        <Action name="sync_1d" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">p1d</ActionParameter>
+            <ActionParameter name="component_list">s1d;p1d</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+
+
+
+
+
+
+
+
+
+        <Action name="DisconnectA1Publisher" type="CloseConnection">
+            <ActionParameter name="connection_id">CFA1</ActionParameter>
+        </Action>
+       
+    </Action>
+
+</IsmWSTest>
+                

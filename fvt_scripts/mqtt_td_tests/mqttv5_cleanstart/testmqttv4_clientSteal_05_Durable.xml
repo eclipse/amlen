@@ -1,0 +1,915 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2016-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqttv4_clientSteal_05_Durable" >
+
+<SyncClient>
+    <server>
+        <include>../common/JMS_syncip.xml</include>
+        <include>../common/JMS_syncport.xml</include>
+    </server>
+    <solution>testmqttv4_clientSteal_05_Durable</solution>
+</SyncClient>
+
+
+<Action name="setupSession" type="CompositeAction">
+    <Action name="syncReset" type="SyncAction">
+            <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+    
+    <!-- Connect as V3 and will get UpGraded with Client Steal -->
+    <Action name="CleanSessionConnection_V3" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+
+	<Action name="CloseCleanSessionConnection_V3" type="CloseConnection">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+	</Action>
+
+	<Action name="Connect_V3Durable" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1</ActionParameter>
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+		<include>../common/ConnectionType.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+	</Action>
+
+    <Action name="DurableSubscription_V3" type="Subscribe">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="topic">mqttv5-04/clientSteal1</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+	   
+	
+	<Action name="sync_00-DurableSubs" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c00</ActionParameter>
+        <ActionParameter name="component_list">c00;v3.00;v5.00</ActionParameter>
+        <ActionParameter name="timeout">10000</ActionParameter>
+    </Action>
+    
+	
+
+    <Action name="CreateFirstMessage_V3" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">sent by the ORIGINAL:  MQTTv3 v5client05-1 to topic: mqttv5-04/clientSteal1</ApiParameter>
+    </Action>
+    <Action name="SendMessage_V3_toQueue" type="SendMessage">
+	  <dependsOn action_id="CreateFirstMessage_V3" interval="250" />
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+    
+    <!-- Initial Client Ready, Wait for thief to Steal -->
+    <Action name="sync_0-ConnectComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c0</ActionParameter>
+        <ActionParameter name="component_list">c0;t0;v3.0;v5.0</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	
+    <Action name="sync_1-ConnectThiefComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c1</ActionParameter>
+        <ActionParameter name="component_list">c1;t1;v3.1;v5.1</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    
+<!-- defect 201394 -->    
+    <Action name="CheckConnectionStolen" type="CheckConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="isConnected">false</ActionParameter>
+<!-- defect 200796 -->
+        <ActionParameter name="reasonCode">142</ActionParameter>
+        <ActionParameter name="reason">The client ID was reused.</ActionParameter>
+    </Action>
+
+<!-- should fail since no connection-->
+    <Action name="Subscribe1" type="Subscribe" rc="1" reason="ISMTEST2503">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="topic">mqttv5-04/clientSteal1</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+	
+<!-- CF1 should fail Defect 202972 ~~ WITH THE PAHO Client RC gets lost:   rc="1" reason="ISMTEST2507"  -->    
+    <Action name="CloseConnection1" type="CloseConnection"  rc="1" reason="ISMTEST2507" >
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+
+    
+    <Action name="sync_2-ConnectStolen" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c2</ActionParameter>
+        <ActionParameter name="component_list">c2;t2;v3.2;v5.2</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+
+    <Action name="sync_3-SubPub" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c3</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3.3;v5.3</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+
+    <Action name="sync_4-UpgradeStealComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c4</ActionParameter>
+        <ActionParameter name="component_list">c4;t4;v3.4;v5.4</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	
+    <!-- Connect as V3 and DownGrade with Client Steal from V5 -->
+    <Action name="StealConnectionBack" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+    </Action>
+	
+
+    <Action name="sync_5-DowngradeSteal" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c5</ActionParameter>
+        <ActionParameter name="component_list">c5;t5;v3.5;v5.5</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	
+
+    <Action name="ReceiveMessageV3" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">5000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV3" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv3 v3client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessageV5Random" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV5Random" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">{"sent_by": "MQTTv5 v5client05-2 to topic: mqttv5-04/clientSteal1"}</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="CreateMessage_V3" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">sent by the ORIGINAL:  MQTTv3 v5client05-1 to topic: mqttv5-04/clientSteal1</ApiParameter>
+    </Action>
+    <Action name="SendMessage_V3" type="SendMessage">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+
+    <Action name="ReceiveMessageV3Thief" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV3Thief" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by the ORIGINAL:  MQTTv3 v5client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+
+	
+
+	<Action name="CloseDurableSessionConnection_V3" type="CloseConnection">
+		<ActionParameter name="connection_id">CF1</ActionParameter>
+	</Action>
+
+    <Action name="CleanDurableSessionConnection_V3" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+
+    <Action name="DisconnectV3" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+
+    
+</Action>
+
+
+<!-- =============== thief =============== -->
+
+<Action name="thief" type="CompositeAction">
+
+    <!-- Wait for Initial Client Ready before Stealing ClientId Session -->
+    <Action name="sync_0-ConnectComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t0</ActionParameter>
+        <ActionParameter name="component_list">c0;t0;v3.0;v5.0</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+<!-- workaround for defect 200829 made this Clientid MQTTV4 PAHO -->
+    <Action name="thiefSessionConnection_1" type="CreateConnection">
+        <ActionParameter name="structure_id">tCon1</ActionParameter>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">15</ApiParameter>
+    </Action>
+
+	
+	<Action name="sync_1-ConnectThiefComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t1</ActionParameter>
+        <ActionParameter name="component_list">c1;t1;v3.1;v5.1</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+	
+    <!-- Stole the ClientId Session -->
+    <Action name="sync_2-ConnectStolen" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t2</ActionParameter>
+        <ActionParameter name="component_list">c2;t2;v3.2;v5.2</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+	
+    <Action name="CreateMessage_V5" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">sent by:  MQTTv5 v5client05-1 to topic: mqttv5-04/clientSteal1</ApiParameter>
+        <ApiParameter name="payloadFormatIndicator">false</ApiParameter>
+        <ApiParameter name="contentType">TEXT</ApiParameter>
+        <ApiParameter name="responseTopic">/iot-2/notify</ApiParameter>
+        <ApiParameter name="correlationData">v3 to v5 ClientId Steal</ApiParameter>
+    </Action>
+    <Action name="SendMessage_V5" type="SendMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+
+
+    <Action name="sync_3-SubPub" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t3</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3.3;v5.3</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+<!--  QUEUED Messages GOT LOST when the Client Steal happened.  The 'setup' PAHO client had received them,
+      but had not delivered them to the MQTT TD Client.  (waiting for ReceiveMessage in setupSession TD Client
+	  
+    <Action name="ReceiveQueuedMessageV5Random" type="ReceiveMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+
+    <Action name="CheckQueuedMessageV5Random" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">{"sent_by": "MQTTv5 v5client05-2 to topic: mqttv5-04/clientSteal1"}</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+        <ApiParameter name="comparePayloadFormatIndicator">true</ApiParameter>
+        <ApiParameter name="compareContentType">JSON</ApiParameter>
+        <ApiParameter name="compareResponseTopic">/iot-2/mon</ApiParameter>
+        <ApiParameter name="compareCorrelationData">random MQTTv5 Publisher</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveQueuedMessageV3setup" type="ReceiveMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+
+    <Action name="CheckQueuedMessageV3setup" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by the ORIGINAL:  MQTTv3 v5client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveQueuedMessageV3" type="ReceiveMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+
+    <Action name="CheckQueuedMessageV3" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv3 v3client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+-->
+    <Action name="ReceiveNewMessageV3" type="ReceiveMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+
+    <Action name="CheckNewMessageV3" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv3 v3client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveNewMessageV5Random" type="ReceiveMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+
+    <Action name="CheckNewMessageV5Random" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">{"sent_by": "MQTTv5 v5client05-2 to topic: mqttv5-04/clientSteal1"}</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+        <ApiParameter name="comparePayloadFormatIndicator">true</ApiParameter>
+        <ApiParameter name="compareContentType">JSON</ApiParameter>
+        <ApiParameter name="compareResponseTopic">/iot-2/mon</ApiParameter>
+        <ApiParameter name="compareCorrelationData">random MQTTv5 Publisher</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessageV5Thief" type="ReceiveMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+
+    <Action name="CheckMessageV5Thief" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv5 v5client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+        <ApiParameter name="comparePayloadFormatIndicator">false</ApiParameter>
+        <ApiParameter name="compareContentType">TEXT</ApiParameter>
+        <ApiParameter name="compareResponseTopic">/iot-2/notify</ApiParameter>
+        <ApiParameter name="compareCorrelationData">v3 to v5 ClientId Steal</ApiParameter>
+    </Action>
+
+	
+    <Action name="sync_4-UpgradeStealComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t4</ActionParameter>
+        <ActionParameter name="component_list">c4;t4;v3.4;v5.4</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+
+    <Action name="sync_5-DowngradeSteal" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t5</ActionParameter>
+        <ActionParameter name="component_list">c5;t5;v3.5;v5.5</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+	
+    <Action name="CheckConnectionStolen" type="CheckConnection">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="isConnected">false</ActionParameter>
+        <ActionParameter name="reasonCode">142</ActionParameter>
+        <ActionParameter name="reason">The client ID was reused.</ActionParameter>
+    </Action>
+
+</Action>
+
+
+<!-- =============== RECEIVEv3 =============== -->
+
+<Action name="receiveV3" type="CompositeAction">
+
+    <Action name="CleanSessionConnection_V3" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV3</ActionParameter>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v3client05-1</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+
+    <Action name="CloseClean_V3" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+    </Action>
+
+    <Action name="ConnectDurableV3" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV3</ActionParameter>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v3client05-1</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+    </Action>
+
+    <Action name="SubscribeV3" type="Subscribe">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ApiParameter name="topic">mqttv5-04/clientSteal1</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+
+	   
+	
+	<Action name="sync_00-DurableSubs" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v3.00</ActionParameter>
+        <ActionParameter name="component_list">c00;v3.00;v5.00</ActionParameter>
+        <ActionParameter name="timeout">10000</ActionParameter>
+    </Action>
+    
+	
+
+    <Action name="SubscriptionMonitorSetupSessions" type="RestAPI">
+      <dependsOn action_id="ConnectDurableV3" interval="5000"/>
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    <Action name="ClientMonitorSetupSessions" type="RestAPI">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=v5client05*%26ResultCount=50%26ConnectionState=connected</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+
+    <!-- TODO:  Somehow need to Verify Clients have NON-Durable Sessions -->
+    <Action name="VerifyNonDurableStart_1" type="CompareREST" >
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client05-1</ActionParameter>
+        <ObjectProperty name="IsConnected" value="true"/>
+        <!-- <ObjectProperty name="ExpiryTime" value="REGEXP: null"/> -->
+    </Action>   
+    
+    <Action name="CreateMessage_v3" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">sent by:  MQTTv3 v3client05-1 to topic: mqttv5-04/clientSteal1</ApiParameter>
+    </Action>
+
+    <Action name="SendFirstMessage_v3_toQueue" type="SendMessage">
+	  <dependsOn action_id="CreateMessage_v3" interval="500" />
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+    </Action>
+
+    
+    <!-- Initial Client Ready, Wait for thief to Steal -->
+    <Action name="sync_0-ConnectComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v3.0</ActionParameter>
+        <ActionParameter name="component_list">c0;t0;v3.0;v5.0</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	   
+	
+	<Action name="sync_1-ConnectThiefComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v3.1</ActionParameter>
+        <ActionParameter name="component_list">c1;t1;v3.1;v5.1</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+	
+
+    <Action name="SendMessage_v3" type="SendMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+    </Action>
+
+    <!-- Initial Client Ready, Wait for thief to Steal -->
+    
+    <Action name="sync_2-ConnectStolen" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v3.2</ActionParameter>
+        <ActionParameter name="component_list">c2;t2;v3.2;v5.2</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+    
+
+
+    <Action name="ReceiveQueuedMessageV5Random" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckQueuedMessageV5Random" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">{"sent_by": "MQTTv5 v5client05-2 to topic: mqttv5-04/clientSteal1"}</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveQueuedMessageV3setup" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckQueuedMessageV3setup" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by the ORIGINAL:  MQTTv3 v5client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveQueuedMessageV3self" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckQueuedMessageV3self" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv3 v3client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessageV3AfterSync_1" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV3AfterSync_1" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv3 v3client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessageV5RandomAfterSync_1" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV5RandomAfterSync_1" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">{"sent_by": "MQTTv5 v5client05-2 to topic: mqttv5-04/clientSteal1"}</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessageV5ThiefAfterSync_2" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV5ThiefAfterSync_2" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv5 v5client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+
+	
+    
+    <Action name="sync_3-SubPub" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v3.3</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3.3;v5.3</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+
+    <Action name="sync_4-UpgradeStealComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v3.4</ActionParameter>
+        <ActionParameter name="component_list">c4;t4;v3.4;v5.4</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+
+    <Action name="sync_5-DowngradeSteal" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v3.5</ActionParameter>
+        <ActionParameter name="component_list">c5;t5;v3.5;v5.5</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	
+    <Action name="ClientMonitorSubscriptionReclaimedV3" type="RestAPI">
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+
+    <Action name="2SendMessage_v3" type="SendMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+    </Action>
+
+    <Action name="2ReceiveMessageV3" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="2CheckMessageV3" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv3 v3client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+    <Action name="2ReceiveMessageV5Random" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="2CheckMessageV5Random" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">{"sent_by": "MQTTv5 v5client05-2 to topic: mqttv5-04/clientSteal1"}</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+
+    <Action name="2ReceiveMessageV3Thief" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="2CheckMessageV3Thief" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by the ORIGINAL:  MQTTv3 v5client05-1 to topic: mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="compareQoS">2</ActionParameter>
+        <ActionParameter name="compareRetain">false</ActionParameter>
+        <ApiParameter name="hasContentType">false</ApiParameter>
+        <ApiParameter name="hasResponseTopic">false</ApiParameter>
+        <ApiParameter name="hasCorrelationData">false</ApiParameter>
+    </Action>
+
+
+
+    <Action name="CloseDurable_V3" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+    </Action>
+
+    <Action name="CleanDurableSession_V3" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV3</ActionParameter>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v3client05-1</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+
+    <Action name="DISCONNECT_V3" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+    </Action>
+
+</Action>
+
+
+<!-- =============== RECEIVEv5 =============== -->
+
+<Action name="receiveV5" type="CompositeAction">
+
+    
+    <Action name="CreateReceiveConnectionV5" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV5</ActionParameter>
+        <ActionParameter name="connection_id">CFV5</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="clientId">v5client05-2</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">15</ApiParameter>
+    </Action>
+
+	
+    <Action name="CreateMessage_V5" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">CFV5</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">{"sent_by": "MQTTv5 v5client05-2 to topic: mqttv5-04/clientSteal1"}</ApiParameter>
+        <ApiParameter name="payloadFormatIndicator">true</ApiParameter>
+        <ApiParameter name="contentType">JSON</ApiParameter>
+        <ApiParameter name="responseTopic">/iot-2/mon</ApiParameter>
+        <ApiParameter name="correlationData">random MQTTv5 Publisher</ApiParameter>
+    </Action>
+	   
+	
+	<Action name="sync_00-DurableSubs" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5.00</ActionParameter>
+        <ActionParameter name="component_list">c00;v3.00;v5.00</ActionParameter>
+        <ActionParameter name="timeout">10000</ActionParameter>
+    </Action>
+    
+	
+
+    <Action name="SendFirstMessage_V5_toQueue" type="SendMessage">
+        <ActionParameter name="connection_id">CFV5</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+    
+    <!-- Initial Client Ready, Wait for thief to Steal -->
+    <Action name="sync_0-ConnectComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5.0</ActionParameter>
+        <ActionParameter name="component_list">c0;t0;v3.0;v5.0</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	
+    <Action name="sync_1-ConnectThiefComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5.1</ActionParameter>
+        <ActionParameter name="component_list">c1;t1;v3.1;v5.1</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	
+    <Action name="SendMessage_V5" type="SendMessage">
+	   <dependsOn action_id="sync_1-ConnectThiefComplete"  interval="1000" />
+        <ActionParameter name="connection_id">CFV5</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+	
+    <Action name="sync_2-ConnectStolen" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5.2</ActionParameter>
+        <ActionParameter name="component_list">c2;t2;v3.2;v5.2</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+
+    <Action name="sync_3-SubPub" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5.3</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3.3;v5.3</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+
+    <Action name="sync_4-UpgradeComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5.4</ActionParameter>
+        <ActionParameter name="component_list">c4;t4;v3.4;v5.4</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+
+    <Action name="sync_5-DowngradeSteal" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5.5</ActionParameter>
+        <ActionParameter name="component_list">c5;t5;v3.5;v5.5</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+	
+    <Action name="2SendMessage_V5" type="SendMessage">
+	   <dependsOn action_id="sync_5-DowngradeSteal"  interval="1000" />
+        <ActionParameter name="connection_id">CFV5</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-04/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+    
+    <Action name="CloseConnectionV5" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV5</ActionParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+    </Action>
+    
+</Action>
+
+
+
+</IsmWSTest>
+                

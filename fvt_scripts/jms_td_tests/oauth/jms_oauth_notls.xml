@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name:  jms_oauth_notls.xml
+
+  Test Category:  JMS OAuth
+  
+  Test Description:
+  	Connect to MessageSight using OAuth for client authentication with a security profile that does not require TLS.
+  	
+  	Change properties around on OAuthProfile and expect failures.
+-->
+<ImaJmsTest name="jms_oauth_notls">
+    <Action name="CreateCF" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+        <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+    <Action name="FillCFProps" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Port" value="21004" type="STRING"/>
+        <ImaProperty name="Protocol" value="tcp" type="STRING"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+
+    <!-- Confirm non-TLS connection works now -->
+    <Action name="GetOAuthAccessToken0" type="GetOAuthAccessToken">
+        <ActionParameter name="clientId">imaclient</ActionParameter>
+        <ActionParameter name="clientSecret">password</ActionParameter>
+        <ActionParameter name="username">admin</ActionParameter>
+        <ActionParameter name="password">admin</ActionParameter>
+        <ActionParameter name="WAS_URI">``LTPAWAS_IP``:9443</ActionParameter>
+    </Action>
+    <Action name="CreateConnection0" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession0" type="CreateSession">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    <Action name="CloseConnection0" type="CloseConnection">
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    
+    <Action name="ChangeTokenPropName" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"OAuthProfile":{"OAuthProfile":{"AuthKey":"garbage"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"OAuthProfile":[{"Name":"OAuthProfile","AuthKey":"garbage"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+	<!--Action name="ChangeTokenPropName" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update OAuthProfile Name=OAuthProfile AuthKey=garbage</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action-->
+
+    <!-- Test a user that does not match the connection policies -->
+    <Action name="GetOAuthAccessToken" type="GetOAuthAccessToken">
+        <ActionParameter name="clientId">imaclient</ActionParameter>
+        <ActionParameter name="clientSecret">password</ActionParameter>
+        <ActionParameter name="username">LTPAUser1</ActionParameter>
+        <ActionParameter name="password">ima4test</ActionParameter>
+        <ActionParameter name="WAS_URI">``LTPAWAS_IP``:9443</ActionParameter>
+    </Action>
+    <Action name="CreateConnection" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession" type="CreateSession" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+	<Action name="ChangeUsernameProp" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"OAuthProfile":{"OAuthProfile":{"AuthKey":"access_token","UserInfoKey":"garbage"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"OAuthProfile":[{"Name":"OAuthProfile","AuthKey":"access_token","UserInfoKey":"garbage"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+	<!--Action name="ChangeUsernameProp" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update OAuthProfile Name=OAuthProfile AuthKey=access_token UserInfoKey=garbage</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action-->
+
+    <!-- Test a username that contains IMA_OAUTH_ACCESS_TOKEN as
+         a substring -->
+    <!--Action name="GetOAuthAccessToken2" type="GetOAuthAccessToken">
+        <ActionParameter name="clientId">imaclient</ActionParameter>
+        <ActionParameter name="clientSecret">password</ActionParameter>
+        <ActionParameter name="username">LTPAUser1</ActionParameter>
+        <ActionParameter name="password">ima4test</ActionParameter>
+        <ActionParameter name="WAS_URI">``LTPAWAS_IP``:9443</ActionParameter>
+    </Action-->
+    <Action name="CreateConnection2" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession2" type="CreateSession" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    
+    <Action name="ChangeResourceURL" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"OAuthProfile":{"OAuthProfile":{"ResourceURL":"https://``A1_IPv4_1``:16102","UserInfoKey":"username"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"OAuthProfile":[{"Name":"OAuthProfile","ResourceURL":"https://``A1_IPv4_1``:16102","UserInfoKey":"username"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <!--Action name="ChangeResourceURL" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update OAuthProfile Name=OAuthProfile ResourceURL=https://``A1_IPv4_1``:16102 UserInfoKey=username</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action-->
+
+    <!-- Test a username that contains IMA_OAUTH_ACCESS_TOKEN as
+         a substring -->
+    <!--Action name="GetOAuthAccessToken3" type="GetOAuthAccessToken">
+        <ActionParameter name="clientId">imaclient</ActionParameter>
+        <ActionParameter name="clientSecret">password</ActionParameter>
+        <ActionParameter name="username">LTPAUser1</ActionParameter>
+        <ActionParameter name="password">ima4test</ActionParameter>
+        <ActionParameter name="WAS_URI">``LTPAWAS_IP``:9443</ActionParameter>
+    </Action-->
+    <Action name="CreateConnection3" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession3" type="CreateSession" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    
+    <Action name="ChangeUserInfoURL" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"OAuthProfile":{"OAuthProfile":{"ResourceURL":"https://``LTPAWAS_IP``:9443/MessageSightOAuth/Home.jsp","UserInfoURL":"https://``A1_IPv4_1``:16102"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"OAuthProfile":[{"Name":"OAuthProfile","ResourceURL":"https://``LTPAWAS_IP``:9443/MessageSightOAuth/Home.jsp","UserInfoURL":"https://``A1_IPv4_1``:16102"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <!--Action name="ChangeUserInfoURL" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update OAuthProfile Name=OAuthProfile ResourceURL=https://``LTPAWAS_IP``:9443/MessageSightOAuth/Home.jsp UserInfoURL=https://``A1_IPv4_1``:16102</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action-->
+
+    <!-- Test a username that contains IMA_OAUTH_ACCESS_TOKEN as
+         a substring -->
+    <!--Action name="GetOAuthAccessToken4" type="GetOAuthAccessToken">
+        <ActionParameter name="clientId">imaclient</ActionParameter>
+        <ActionParameter name="clientSecret">password</ActionParameter>
+        <ActionParameter name="username">LTPAUser1</ActionParameter>
+        <ActionParameter name="password">ima4test</ActionParameter>
+        <ActionParameter name="WAS_URI">``LTPAWAS_IP``:9443</ActionParameter>
+    </Action-->
+    <Action name="CreateConnection4" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession4" type="CreateSession" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    
+    <Action name="ResetOAuthProfile" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"OAuthProfile":{"OAuthProfile":{"UserInfoURL":"https://``LTPAWAS_IP``:9443/MessageSightOAuth/UserInfo.jsp"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"OAuthProfile":[{"Name":"OAuthProfile","UserInfoURL":"https://``LTPAWAS_IP``:9443/MessageSightOAuth/UserInfo.jsp"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <!--Action name="ResetOAuthProfile" type="ShellAction">
+		<ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update OAuthProfile Name=OAuthProfile UserInfoURL=https://``LTPAWAS_IP``:9443/MessageSightOAuth/UserInfo.jsp</ActionParameter>
+		<ActionParameter name="print_result">true</ActionParameter>
+	</Action-->
+	
+    <!-- Tests for toggling TLSEnabled setting in the SecurityProfile -->
+    
+    <!-- Confirm non-TLS connection works now that SecurityProfile is reset to original values -->
+    <Action name="CreateConnection5" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession5" type="CreateSession">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    <Action name="CloseConnection5" type="CloseConnection">
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    
+    <Action name="EnableTLS" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"OAuthSecProfNoTLS":{"TLSEnabled":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"OAuthSecProfNoTLS","TLSEnabled":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <!-- Toggle TLSEnabled to True to require TLS connections -->
+    <!--Action name="EnableTLS" type="ShellAction">
+        <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update SecurityProfile Name=OAuthSecProfNoTLS TLSEnabled=True</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action-->
+    
+    <!-- Confirm non-TLS connection fails becuase TLS is enabled -->
+    <Action name="CreateConnection6" type="CreateConnection" rc="1" reason="CWLNC0022">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <!-- 
+    <Action name="CreateSession6" type="CreateSession" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    -->
+    
+    <Action name="CreateTLS_CF" type="CreateConnectionFactory">
+        <ActionParameter name="structure_id">tlscf</ActionParameter>
+        <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+        <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+    <Action name="FillTLS_CFProps" type="FillIsmProps">
+        <ActionParameter name="structure_id">tlscf</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <ImaProperty name="Port" value="21004" type="STRING"/>
+        <ImaProperty name="Protocol" value="tcps" type="STRING"/>
+        <include>../common/JMS_server.xml</include>
+    </Action>
+    
+    <!-- Confirm TLS connection succeeds because TLS is enabled -->
+    <Action name="CreateConnection7" type="CreateConnection">
+        <ActionParameter name="structure_id">tlsconn</ActionParameter>
+        <ActionParameter name="factory_id">tlscf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession7" type="CreateSession">
+        <ActionParameter name="structure_id">tlssession</ActionParameter>
+        <ActionParameter name="conn_id">tlsconn</ActionParameter>
+    </Action>
+    <Action name="CloseConnection7" type="CloseConnection">
+        <ActionParameter name="conn_id">tlsconn</ActionParameter>
+    </Action>
+    
+    <Action name="DisableTLS" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"OAuthSecProfNoTLS":{"TLSEnabled":false}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"OAuthSecProfNoTLS","TLSEnabled":false}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <!-- Toggle TLSEnabled back to False so that connections must not used TLS -->
+    <!--Action name="DisableTLS" type="ShellAction">
+        <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update SecurityProfile Name=OAuthSecProfNoTLS TLSEnabled=False</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action-->
+    
+    <!-- Confirm TLS connection fails because TLS is disabled -->
+    <Action name="CreateConnection8" type="CreateConnection" rc="1" reason="CWLNC0022">
+        <ActionParameter name="structure_id">tlsconn</ActionParameter>
+        <ActionParameter name="factory_id">tlscf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <!-- 
+    <Action name="CreateSession8" type="CreateSession" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">tlssession</ActionParameter>
+        <ActionParameter name="conn_id">tlsconn</ActionParameter>
+    </Action>
+    -->
+    
+    <!-- Confirm non-TLS connection succeeds becuse TLS is disabled -->
+    <Action name="CreateConnection9" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession9" type="CreateSession">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnection9" type="CloseConnection">
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+    <!-- Confirm non-TLS connection fails for wrong user  -->
+    <Action name="CreateConnection10" type="CreateConnection">
+        <ActionParameter name="structure_id">connection</ActionParameter>
+        <ActionParameter name="factory_id">cf</ActionParameter>
+        <ApiParameter name="user">BAD_IMA_OAUTH_ACCESS_TOKEN</ApiParameter>
+    </Action>
+    <Action name="CreateSession10" type="CreateSession" rc="1" reason="CWLNC0207">
+        <ActionParameter name="structure_id">session</ActionParameter>
+        <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+</ImaJmsTest>

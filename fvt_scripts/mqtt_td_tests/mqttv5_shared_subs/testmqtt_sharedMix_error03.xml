@@ -1,0 +1,717 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<!--
+	This test will subscribing/unsubscribint  to various $share subscriptions 
+	in different orders.   
+	
+	For MQTTv5 $share the topic filter on the subscribe has three parts:
+	
+	It must start with $share to cue ISM that this is a shared subscription.
+	
+	The next element is the Subscription Name. 
+	
+	Then follows the Topic filter to subscriber to.
+	
+	Example: 
+	
+	$share/MySubscriptionName/RiverLevels/RedRiver
+	
+	-->
+<IsmWSTest name="testmqtt_sharedMix_csTF_error03" >
+	
+	<!--  Variation 1.. Sub with CS=T, Sub with CS=F, unsubs CS=F, unsub CS=T --> 
+	<!-- create a non-durable session --> 
+	<Action name="CreateConnectionA_clear_var1" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1A</ActionParameter>
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03T_var1</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<!-- Begin by clearing the clientID's (sessions) with CleanSession=true -->
+	<Action name="CreateConnectionB_clear_var1" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03F_var1</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+   <Action name="CloseConnectionB_clear_var1" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>   		
+
+	<!-- Now create CF1B connection with cleanSession=false so it'll be a durable subscribe -->
+
+	<Action name="CreateConnectionB_var1" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03F_var1</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<!-- do an unsubscribe, just to make sure nothing horrible happens. It should 
+		silently fail. --> 
+	<Action name="Unsubscribe_Consumersingle_var1" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topic">$share/SharedMix03/sharedmix03/var1</ApiParameter>
+	</Action>
+	
+	<Action name="Subscribe_ConsumerA" type="Subscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topics">$share/SharedMix03/sharedmix03/var1</ApiParameter>
+		<ApiParameter name="QoSlist">2</ApiParameter>
+	</Action>
+	
+	<Action name="CheckConnectionGood_var1" type="CheckConnection" >
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ActionParameter name="isConnected">true</ActionParameter>
+	</Action>    		
+	
+	<!-- should exist with one consumer.   --> 
+
+ <Action name="restSubExists_a_var1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var1&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_a_var1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var1</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var1"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+   	<Action name="Subscribe_ConsumerB_var1" type="Subscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topics">$share/SharedMix03/sharedmix03/var1</ApiParameter>
+		<ApiParameter name="QoSlist">1</ApiParameter>
+	</Action>
+	
+	<!-- should exist with 2 consumers now. --> 
+	<Action name="restSubExists_b_var1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var1&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_b_var1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var1</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var1"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+    <Action name="UnSubscribe_ConsumerASubA_var1" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topic">$share/SharedMix03/sharedmix03/var1</ApiParameter>
+	</Action>
+    
+   	<!-- should exist with 1 consumers now. --> 
+	<Action name="restSubExists_c_var1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var1&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_c_var1" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var1</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var1"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>
+        
+	<Action name="UnSubscribe_ConsumerASubB_var1" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topic">$share/SharedMix03/sharedmix03/var1</ApiParameter>
+	</Action>
+	
+  <Action name="restSubDoesntExist_d_var1" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var1&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubDoesntExist_d_var1" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03A/sharedmix03/var1</ActionParameter>
+    </Action>						
+	
+   <Action name="CloseConnectionA_var1" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>
+    
+       <Action name="CloseConnectionB_var1" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>
+    
+		<!--  Variation 2.. Sub with CS=T, Sub with CS=F, unsub CS=T unsub CS=F, --> 
+	<!-- create a non-durable session --> 
+	<Action name="CreateConnectionA_clear_var2" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1A</ActionParameter>
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03T_var2</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<!-- Begin by clearing the clientID's (sessions) with CleanSession=true -->
+	<Action name="CreateConnectionB_clear_var2" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03F_var2</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+   <Action name="CloseConnectionB_clear_var2" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>   		
+
+	<!-- Now create CF1B connection with cleanSession=false so it'll be a durable subscribe -->
+
+	<Action name="CreateConnectionB_var2" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03F_var2</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<Action name="Subscribe_ConsumerA_var2" type="Subscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topics">$share/SharedMix03/sharedmix03/var2</ApiParameter>
+		<ApiParameter name="QoSlist">2</ApiParameter>
+	</Action>
+	
+	<Action name="CheckConnectionGood_var2" type="CheckConnection" >
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ActionParameter name="isConnected">true</ActionParameter>
+	</Action>    		
+	
+	<!-- should exist with one consumer.   --> 
+
+ <Action name="restSubExists_a_var2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var2&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_a_var2" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var2</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var2"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+   	<Action name="Subscribe_ConsumerB_var2" type="Subscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topics">$share/SharedMix03/sharedmix03/var2</ApiParameter>
+		<ApiParameter name="QoSlist">1</ApiParameter>
+	</Action>
+	
+	<!-- should exist with 2 consumers now. --> 
+	<Action name="restSubExists_b_var2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var2&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_b_var2" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var2</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var2"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+    <Action name="UnSubscribe_ConsumerASubB_var2" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topic">$share/SharedMix03/sharedmix03/var2</ApiParameter>
+	</Action>
+    
+   	<!-- should exist with 1 consumers now. --> 
+	<Action name="restSubExists_c_var2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var2&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_c_var2" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var2</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var2"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>
+        
+	<Action name="UnSubscribe_ConsumerASubA_var2" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topic">$share/SharedMix03/sharedmix03/var2</ApiParameter>
+	</Action>
+	
+  <Action name="restSubDoesntExist_d_var2" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var2&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubDoesntExist_d_var2" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03A/sharedmix03/var2</ActionParameter>
+    </Action>						
+	
+   <Action name="CloseConnectionA_var2" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>
+    
+       <Action name="CloseConnectionB_var2" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>
+    
+    <!--  Variation 3.. Sub with CS=T, Sub with CS=F,  unsub CS=F close connection CS=F, --> 
+	<!-- create a non-durable session --> 
+	<Action name="CreateConnectionA_clear_var3" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1A</ActionParameter>
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03T_var3</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<!-- Begin by clearing the clientID's (sessions) with CleanSession=true -->
+	<Action name="CreateConnectionB_clear_var3" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03F_var3</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+   <Action name="CloseConnectionB_clear_var3" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>   		
+
+	<!-- Now create CF1B connection with cleanSession=false so it'll be a durable subscribe -->
+
+	<Action name="CreateConnectionB_var3" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03F_var3</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<Action name="Subscribe_ConsumerA_var3" type="Subscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topics">$share/SharedMix03/sharedmix03/var3</ApiParameter>
+		<ApiParameter name="QoSlist">2</ApiParameter>
+	</Action>
+	
+	<Action name="CheckConnectionGood_var3" type="CheckConnection" >
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ActionParameter name="isConnected">true</ActionParameter>
+	</Action>    		
+	
+	<!-- should exist with one consumer.   --> 
+
+ <Action name="restSubExists_a_var3" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var3&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_a_var3" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var3</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var3"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+   	<Action name="Subscribe_ConsumerB_var3" type="Subscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topics">$share/SharedMix03/sharedmix03/var3</ApiParameter>
+		<ApiParameter name="QoSlist">1</ApiParameter>
+	</Action>
+	
+	<!-- should exist with 2 consumers now. --> 
+	<Action name="restSubExists_b_var3" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var3&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_b_var3" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var3</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var3"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	
+    
+    <Action name="CloseConnectionA_var3" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>		
+
+   	<!-- should exist with 1 consumers now. --> 
+	<Action name="restSubExists_c_var3" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var3&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_c_var3" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var3</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var3"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>
+        
+	<Action name="UnSubscribe_ConsumerBSubA_var3" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topic">$share/SharedMix03/sharedmix03/var3</ApiParameter>
+	</Action>
+	
+  <Action name="restSubDoesntExist_d_var3" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var3&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubDoesntExist_d_var3" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03A/sharedmix03/var3</ActionParameter>
+    </Action>						
+    
+       <Action name="CloseConnectionB_var3" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>
+    
+        <!--  Variation 4.. Sub with CS=T, Sub with CS=F, close connection CS=T, unsub CS=F --> 
+	<!-- create a non-durable session --> 
+	<Action name="CreateConnectionA_clear_var4" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1A</ActionParameter>
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03T_var4</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>
+	
+	<!-- Begin by clearing the clientID's (sessions) with CleanSession=true -->
+	<Action name="CreateConnectionB_clear_var4" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03F_var4</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">true</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+	
+   <Action name="CloseConnectionB_clear_var4" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>   		
+
+	<!-- Now create CF1B connection with cleanSession=false so it'll be a durable subscribe -->
+
+	<Action name="CreateConnectionB_var4" type="CreateConnection">
+		<ActionParameter name="structure_id">Con1B</ActionParameter>
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+		<include>../common/MQTT_server.xml</include>
+		<ApiParameter name="clientId">sharedMix_error03F_var4</ApiParameter>
+        <include>../common/MQTT_port.xml</include>
+		<ApiParameter name="protocol">mqtt</ApiParameter>
+		<ApiParameter name="cleanSession">false</ApiParameter>
+		<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		<!-- ApiParameter name="verbose">true</ApiParameter-->
+	</Action>	
+
+	<Action name="Subscribe_ConsumerA_var4" type="Subscribe">
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ApiParameter name="topics">$share/SharedMix03/sharedmix03/var4</ApiParameter>
+		<ApiParameter name="QoSlist">2</ApiParameter>
+	</Action>
+	
+	<Action name="CheckConnectionGood_var4" type="CheckConnection" >
+		<ActionParameter name="connection_id">CF1A</ActionParameter>
+		<ActionParameter name="isConnected">true</ActionParameter>
+	</Action>    		
+	
+	<!-- should exist with one consumer.   --> 
+
+ <Action name="restSubExists_a_var4" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var4&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_a_var4" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var4</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var4"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>			
+	
+   	<Action name="Subscribe_ConsumerB_var4" type="Subscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topics">$share/SharedMix03/sharedmix03/var4</ApiParameter>
+		<ApiParameter name="QoSlist">1</ApiParameter>
+	</Action>
+	
+	<!-- should exist with 2 consumers now. --> 
+	<Action name="restSubExists_b_var4" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var4&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_b_var4" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var4</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var4"/>
+        <ObjectProperty name="Consumers" value="2"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>	
+    
+    <Action name="CloseConnectionA_var4" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1A</ActionParameter>
+    </Action>		
+
+   	<!-- should exist with 1 consumers now. --> 
+	<Action name="restSubExists_c_var4" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var4&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubExists_c_var4" type="CompareREST">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03/sharedmix03/var4</ActionParameter>
+        <ObjectProperty name="IsShared" value="true"/>
+        <ObjectProperty name="TopicString" value="sharedmix03/var4"/>
+        <ObjectProperty name="Consumers" value="1"/>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>
+        
+	<Action name="UnSubscribe_ConsumerBSubA_var4" type="Unsubscribe">
+		<ActionParameter name="connection_id">CF1B</ActionParameter>
+		<ApiParameter name="topic">$share/SharedMix03/sharedmix03/var4</ApiParameter>
+	</Action>
+	
+  <Action name="restSubDoesntExist_d_var4" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/SharedMix03/sharedmix03/var4&amp;ClientID=__SharedM</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="compareSubDoesntExist_d_var4" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_1</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/SharedMix03A/sharedmix03/var4</ActionParameter>
+    </Action>						
+    
+       <Action name="CloseConnectionB_var4" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1B</ActionParameter>
+    </Action>
+    
+</IsmWSTest>
+                

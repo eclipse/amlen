@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2016-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+Most Basic make an MQTT V5 Connection with PAHO MQTT Client and check CONNACK Fields
+-->
+<IsmWSTest name="testproxy_mqttv5_01b" >
+
+<Action name="Test" type="CompositeAction">
+    <Action name="CreateConnection" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include> 
+        <include>../common/PROXY_port.xml</include> 
+        <ApiParameter name="clientId">v5client_01b</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+
+<!--        <ApiParameter name="sessionExpire">3888001</ApiParameter> -->
+        <include>../common/MQTTv5_durable_session.xml</include> 
+
+        <ApiParameter name="requestProblemInfo">1</ApiParameter>
+        <ApiParameter name="requestResponseInfo">true</ApiParameter>
+        <ApiParameter name="maxPacketSize">4194305</ApiParameter>
+        <ActionParameter name="receiveMax">257</ActionParameter>
+    </Action>
+<!--  
+MQTT receive 10 CONNECT: connect=12: len=45 
+00044d515454 05 02 0023 14 11 00000000 17 01 19 01 21 0101 22 0000 27 00400001  000c 763563 6c69656e 745f3031 62 [..MQTT...#..........!.."..'.@....v5client_01b]
+
+0x11: SessionExpiry, 0x17: RequestProblemInfo, 0x19: RequestResponseInfo, 0x21: Receive Max, 0x22: Topic Alias Max, 0x27 MaxPacketSz
+
+     DEFECT 211155 where did RequestResponseInfo go?
+@ M/S
+MQTT send 10 CONNECT connect=14: len=70 
+00064d51 54547078 05 02 ca 0023 13 22 0000 17 01 26 0008 696d6170726f7879 0001 35 000c 7635636c69656e745f303162 00 00000f42 40000d31 36392e35 332e3134 362e3135 075b 
+[..MQTTpx....#."....&..imaproxy..5..v5client_01b....B@..169.53.146.15.[]
+0x17: RequestProblemInfo, ??0x19: RequestResponseInfo?? , 0x22: Topic Alias Max, 0x26: UserProperty
+
+MQTT receive 20 CONNACK connect=15 inprogress=1: len=17 
+0000 0b 21 0100 22 0008 27 0040 0000 8100 05 [...!.."..'.@.....]
+
+MQTT send 20 CONNACK connect=12: len=14 
+0000 0b 22 0000 21 0100 27 00400000 
+[..."..!..'.@..]
+
+0x21: RecvMax, 0x22: Topic Alias Max, 0x27 MaxPacketSz
+-->
+    <Action name="CheckConnectOptions" type="CheckConnectOptions">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="isConnected">true</ActionParameter>
+
+        <ApiParameter name="hasSessionPresent">true</ApiParameter>  <!-- works - Unnecessary tho -->
+        <ApiParameter name="compareSessionPresent">false</ApiParameter>
+
+        <ApiParameter name="hasSessionExpiryInterval">true</ApiParameter>
+<!-- Defect 211787 Proxy Set MaxSessionExpiryInterval, not returned when less than CONNECT -->
+        <ApiParameter name="compareSessionExpiryInterval">3888000</ApiParameter> 
+
+        <ApiParameter name="compareReceiveMaximum">256</ApiParameter>
+        <ApiParameter name="hasReceiveMaximum">true</ApiParameter>
+
+<!-- Defect 211153, Must set in Proxy CFG to get value returned.  -->
+        <ApiParameter name="compareMaximumPacketSize">4194304</ApiParameter>
+        <ApiParameter name="hasMaximumPacketSize">true</ApiParameter>
+
+        <ApiParameter name="compareTopicAliasMaximum">0</ApiParameter>
+        <ApiParameter name="hasTopicAliasMaximum">true</ApiParameter>
+
+        <ApiParameter name="hasResponseInformation">false</ApiParameter>
+        <ApiParameter name="compareRequestResponseInfo">0</ApiParameter>
+
+        <ApiParameter name="compareRequestProblemInfo">0</ApiParameter>
+        <!-- <ApiParameter name="compareUserName">0</ApiParameter> -->
+        <!-- <ApiParameter name="compareWillDestination">0</ApiParameter> -->
+
+        <ApiParameter name="compareConnectionTimeout">30</ApiParameter>
+        <ApiParameter name="compareMaxReconnectDelay">128000</ApiParameter>
+        <ApiParameter name="hasIsRetainAvailable">true</ApiParameter>
+        <ApiParameter name="hasIsWildcardSubscriptionsAvailable">true</ApiParameter>
+        <ApiParameter name="hasIsSubscriptionIdentifiersAvailable">true</ApiParameter>
+        <ApiParameter name="hasIsSharedSubscriptionsAvailable">true</ApiParameter>
+
+        <ApiParameter name="hasMaximumQoS">false</ApiParameter>
+        <ApiParameter name="compareMaximumQoS">2</ApiParameter>
+
+        <ApiParameter name="hasAssignedClientIdentifier">false</ApiParameter>
+        <ApiParameter name="hasServerKeepAlive">false</ApiParameter>
+        <ApiParameter name="hasAuthenticationMethod">false</ApiParameter>
+        <ApiParameter name="hasReasonString">false</ApiParameter>
+
+        <ApiParameter name="hasServerReference">false</ApiParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+        <dependsOn action_id="CreateConnection" interval="5000"/>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+</Action>
+
+
+</IsmWSTest>
+                

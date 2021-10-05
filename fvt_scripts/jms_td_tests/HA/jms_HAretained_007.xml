@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_HAretained_007
+
+   Test Category:  JMS High Availability
+
+   Test Description:
+   Overall: check to see if retained messages in JMS works correctly during
+   High Availability failover scenarios.
+
+   Things happen.
+  -->
+
+<ImaJmsTest name="jms_HAretained_007">
+
+  <Action name="A" type="CompositeAction">
+
+    <Action name="CreateFactory" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+	  <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_CF" type="FillIsmProps">
+	  <ActionParameter name="structure_id">CF</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="Protocol" value="tcp" />
+	  <include>../common/JMS_serverHA.xml</include>
+	  <ImaProperty name="Port" value="16102" type="STRING"/>
+    </Action>
+
+    <Action name="CreateDest_A" type="CreateDestination">
+      <ActionParameter name="structure_id">destA</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">destA</ApiParameter>
+    </Action>
+
+    <Action name="CreateConnection_con" type="CreateConnection">
+	  <ActionParameter name="structure_id">con</ActionParameter>
+	  <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_sess" type="CreateSession">
+	  <ActionParameter name="conn_id">con</ActionParameter>
+	  <ActionParameter name="structure_id">sess</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_destA" type="CreateProducer">
+      <ActionParameter name="structure_id">prod1</ActionParameter>
+      <ActionParameter name="dest_id">destA</ActionParameter>
+      <ActionParameter name="session_id">sess</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_destA" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons</ActionParameter>
+      <ActionParameter name="dest_id">destA</ActionParameter>
+      <ActionParameter name="session_id">sess</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_con" type="StartConnection">
+      <ActionParameter name="conn_id">con</ActionParameter>
+    </Action>
+
+    <Action name="CreateRetainedMessage_rm1" type="CreateMessage">
+      <ActionParameter name="structure_id">rm1</ActionParameter>
+      <ActionParameter name="session_id">sess</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetMessageRetainedProperty" type="SetMessageProperty">
+      <ActionParameter name="message_id">rm1</ActionParameter>
+      <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+      <ApiParameter name="valueType">Integer</ApiParameter>
+      <ApiParameter name="value">1</ApiParameter>
+    </Action>
+
+
+    <Action name="SendRetainedMessage_rm1" type="SendMessage">
+      <ActionParameter name="producer_id">prod1</ActionParameter>
+      <ActionParameter name="message_id">rm1</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_late" type="CreateConnection">
+      <ActionParameter name="structure_id">con_late</ActionParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_late" type="CreateSession">
+      <ActionParameter name="conn_id">con_late</ActionParameter>
+      <ActionParameter name="structure_id">sess_late</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_destA_late" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_late</ActionParameter>
+      <ActionParameter name="dest_id">destA</ActionParameter>
+      <ActionParameter name="session_id">sess_late</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_con_late" type="StartConnection">
+      <ActionParameter name="conn_id">con_late</ActionParameter>
+    </Action>
+
+    <Action name="RX_rm1_live" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons</ActionParameter>
+      <ActionParameter name="structure_id">rx_rm1</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+
+    <!-- received live, retained should be 0 -->
+    <Action name="GetRetainedFlag_rx_rm1" type="GetMessageProperty">
+      <ActionParameter name="message_id">rx_rm1</ActionParameter>
+      <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+      <ApiParameter name="valueType">Integer</ApiParameter>
+      <ActionParameter name="verifyValue">0</ActionParameter>
+    </Action>
+
+    <Action name="RX_rm1_late" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_late</ActionParameter>
+      <ActionParameter name="structure_id">rx_rm1_late</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+
+    <!-- received late, retained should be 1 -->
+    <Action name="GetRetainedFlag_rx_rm1_late" type="GetMessageProperty">
+      <ActionParameter name="message_id">rx_rm1_late</ActionParameter>
+      <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+      <ApiParameter name="valueType">Integer</ApiParameter>
+      <ActionParameter name="verifyValue">1</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection_con" type="StopConnection">
+      <ActionParameter name="conn_id">con</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_con" type="CloseConnection">
+      <ActionParameter name="conn_id">con</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection_con_late" type="StopConnection">
+      <ActionParameter name="conn_id">con_late</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_con_late" type="CloseConnection">
+      <ActionParameter name="conn_id">con_late</ActionParameter>
+    </Action>
+
+  </Action>
+
+  <Action name="B" type="CompositeAction">
+
+    <Action name="CreateFactory" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+	  <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_CF" type="FillIsmProps">
+	  <ActionParameter name="structure_id">CF</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="Protocol" value="tcp" />
+	  <include>../common/JMS_serverHA.xml</include>
+	  <ImaProperty name="Port" value="16102" type="STRING"/>
+    </Action>
+
+    <Action name="CreateDest_B" type="CreateDestination">
+      <ActionParameter name="structure_id">destB</ActionParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ApiParameter name="name">destB</ApiParameter>
+    </Action>
+
+    <Action name="CreateConnection_con" type="CreateConnection">
+	  <ActionParameter name="structure_id">con</ActionParameter>
+	  <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_sess" type="CreateSession">
+	  <ActionParameter name="conn_id">con</ActionParameter>
+	  <ActionParameter name="structure_id">sess</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_destB" type="CreateProducer">
+      <ActionParameter name="structure_id">prod1</ActionParameter>
+      <ActionParameter name="dest_id">destB</ActionParameter>
+      <ActionParameter name="session_id">sess</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_destB" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons</ActionParameter>
+      <ActionParameter name="dest_id">destB</ActionParameter>
+      <ActionParameter name="session_id">sess</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_con" type="StartConnection">
+      <ActionParameter name="conn_id">con</ActionParameter>
+    </Action>
+
+    <Action name="CreateRetainedMessage_rm1" type="CreateMessage">
+      <ActionParameter name="structure_id">rm1</ActionParameter>
+      <ActionParameter name="session_id">sess</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SetMessageRetainedProperty" type="SetMessageProperty">
+      <ActionParameter name="message_id">rm1</ActionParameter>
+      <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+      <ApiParameter name="valueType">Integer</ApiParameter>
+      <ApiParameter name="value">1</ApiParameter>
+    </Action>
+
+    <Action name="CreateRetainedMessage_rm2np" type="CreateMessage">
+      <ActionParameter name="structure_id">rm2np</ActionParameter>
+      <ActionParameter name="session_id">sess</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+    </Action>
+
+    <Action name="SendRetainedMessage_rm1" type="SendMessage">
+      <ActionParameter name="producer_id">prod1</ActionParameter>
+      <ActionParameter name="message_id">rm1</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_late" type="CreateConnection">
+      <ActionParameter name="structure_id">con_late</ActionParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_late" type="CreateSession">
+      <ActionParameter name="conn_id">con_late</ActionParameter>
+      <ActionParameter name="structure_id">sess_late</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_destB_late" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_late</ActionParameter>
+      <ActionParameter name="dest_id">destB</ActionParameter>
+      <ActionParameter name="session_id">sess_late</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_con_late" type="StartConnection">
+      <ActionParameter name="conn_id">con_late</ActionParameter>
+    </Action>
+
+
+
+    <Action name="CrashServer_1" type="CompositeAction" thread="3">
+      <dependsOn name="StartConnection_con_late" interval="1000"/>
+      <Action name="Stop_A1_Primary" type="ShellAction">
+        <ActionParameter name="command">python ../scripts/haFunctions.py -f jms_HAretained_007.xml.crashA1Primary.1.log -a crashPrimary</ActionParameter>
+        <ActionParameter name="print_result">1</ActionParameter>
+      </Action>
+      <Action name="Start_A1_Standby" type="ShellAction">
+        <ActionParameter name="command">python ../scripts/haFunctions.py -f jms_HAretained_007.xml.startA1Standby.1.log -a startStandby</ActionParameter>
+        <ActionParameter name="print_result">1</ActionParameter>
+      </Action>
+    </Action>
+
+    <!-- Reconnect -->
+
+    <Action name="CreateFactory_re" type="CreateConnectionFactory">
+      <dependsOn name="CrashServer_1"/>
+      <ActionParameter name="structure_id">CF_re</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+	  <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_CF_re" type="FillIsmProps">
+	  <ActionParameter name="structure_id">CF_re</ActionParameter>
+	  <ActionParameter name="validateAll">true</ActionParameter>
+	  <ActionParameter name="validateNoWarn">false</ActionParameter>
+	  <ImaProperty name="Protocol" value="tcp" />
+	  <include>../common/JMS_serverHA.xml</include>
+	  <ImaProperty name="Port" value="16102" type="STRING"/>
+    </Action>
+
+    <Action name="CreateConnection_con_re" type="CreateConnection">
+	  <ActionParameter name="structure_id">con_re</ActionParameter>
+	  <ActionParameter name="factory_id">CF_re</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_sess_re" type="CreateSession">
+	  <ActionParameter name="conn_id">con_re</ActionParameter>
+	  <ActionParameter name="structure_id">sess_re</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_destB_re" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_re</ActionParameter>
+      <ActionParameter name="dest_id">destB</ActionParameter>
+      <ActionParameter name="session_id">sess_re</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_con_re" type="StartConnection">
+      <ActionParameter name="conn_id">con_re</ActionParameter>
+    </Action>
+
+    <Action name="CreateConnection_late_re" type="CreateConnection">
+      <ActionParameter name="structure_id">con_late_re</ActionParameter>
+      <ActionParameter name="factory_id">CF_re</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_late_re" type="CreateSession">
+      <ActionParameter name="conn_id">con_late_re</ActionParameter>
+      <ActionParameter name="structure_id">sess_late_re</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_destB_late_re" type="CreateConsumer">
+      <ActionParameter name="structure_id">cons_late_re</ActionParameter>
+      <ActionParameter name="dest_id">destB</ActionParameter>
+      <ActionParameter name="session_id">sess_late_re</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_con_late_re" type="StartConnection">
+      <ActionParameter name="conn_id">con_late_re</ActionParameter>
+    </Action>
+
+    <Action name="RX_rm1_live_re" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_re</ActionParameter>
+      <ActionParameter name="structure_id">rx_rm1_re</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+    <!-- received live, retained should be 0 -->
+    <Action name="GetRetainedFlag_rx_rm1" type="GetMessageProperty">
+      <ActionParameter name="message_id">rx_rm1_re</ActionParameter>
+      <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+      <ApiParameter name="valueType">Integer</ApiParameter>
+      <ActionParameter name="verifyValue">1</ActionParameter>
+    </Action>
+
+    <Action name="RX_rm1_late" type="ReceiveMessage">
+      <ActionParameter name="consumer_id">cons_late_re</ActionParameter>
+      <ActionParameter name="structure_id">rx_rm1_late_re</ActionParameter>
+      <ApiParameter name="timeout">3000</ApiParameter>
+    </Action>
+
+
+    <!-- received late, retained should be 1 -->
+    <Action name="GetRetainedFlag_rx_rm1_late" type="GetMessageProperty">
+      <ActionParameter name="message_id">rx_rm1_late_re</ActionParameter>
+      <ApiParameter name="propertyName">JMS_IBM_Retain</ApiParameter>
+      <ApiParameter name="valueType">Integer</ApiParameter>
+      <ActionParameter name="verifyValue">1</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection_con_re" type="StopConnection">
+      <ActionParameter name="conn_id">con_re</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_con_re" type="CloseConnection">
+      <ActionParameter name="conn_id">con_re</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection_con_late_re" type="StopConnection">
+      <ActionParameter name="conn_id">con_late_re</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_con_late_re" type="CloseConnection">
+      <ActionParameter name="conn_id">con_late_re</ActionParameter>
+    </Action>
+
+
+    <!-- Make A1 the Primary again, for resetting things -->
+    <Action name="CrashServer_2" type="CompositeAction" thread="3">
+      <dependsOn name="CloseConnection_con_late_re" interval="1000"/>
+      <Action name="Stop_A1_Primary" type="ShellAction">
+        <ActionParameter name="command">python ../scripts/haFunctions.py -f jms_HAretained_007.xml.stopA1Primary.2.log -a stopPrimary</ActionParameter>
+        <ActionParameter name="print_result">1</ActionParameter>
+      </Action>
+      <Action name="Start_A1_Standby" type="ShellAction">
+        <ActionParameter name="command">python ../scripts/haFunctions.py -f jms_HAretained_007.xml.startA1Standby.2.log -a startStandby</ActionParameter>
+        <ActionParameter name="print_result">1</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="DummyAction" type="ShellAction">
+      <dependsOn name="CrashServer_2"/>
+      <ActionParameter name="command">echo hi</ActionParameter>
+    </Action>
+
+  </Action>
+
+</ImaJmsTest>

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testproxyV5_rc139" >
+<!--
+    Test MQTT V5 Disconnect Reason Codes
+    139    0x8B    Server shutting down    Server    The Server is shutting down. 
+-->
+
+
+<!--  ==========  rc139  ==========  -->
+
+    <Action name="rc139" type="CompositeAction">
+        
+        <Action name="CreateConnectionV5" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:V5_disconnect:rc139</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:V5_disconnect:rc139</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage139" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg 1:{ clientId:d:org4iot2:V5_disconnect:rc139, retain:false, expires:10, QoS:1, topic:iot-2/evt/disconnect/fmt/139_V5 }</ApiParameter>
+            <ApiParameter name="msgExpire">10</ApiParameter>
+        </Action>
+
+        <Action name="ServiceRestart" type="RestAPI">
+            <ActionParameter name="structureID">service_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+            <ActionParameter name="path">/ima/v1/service/restart</ActionParameter>
+            <ActionParameter name="payload">{"Service":"Server"}</ActionParameter>
+            <ActionParameter name="action">POST</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+        <Action name="ServiceStatusBeforePub" type="RestAPI">
+            <dependsOn action_id="ServiceRestart" interval="1000"/> 
+                <ActionParameter name="structureID">service_output</ActionParameter>
+                <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+                <ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+                <ActionParameter name="action">GET</ActionParameter>
+                <ActionParameter name="printResult">true</ActionParameter>
+                <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage139" type="SendMessage">
+            <dependsOn action_id="ServiceStatusBeforePub" interval="500"/>  
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/disconnect/fmt/139_V5</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+        
+<!-- To get 139, the server has to GO DARK and THEN I will get 139, that is what the INTERVAL is so large here.
+     THAT could be a timing issue if the server gets faster and start accepting connections -->
+
+        <Action name="CheckConnectionShutDown" type="CheckConnection">
+            <dependsOn action_id="SendMessage139" interval="20000"/>  
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">false</ActionParameter>
+                <ActionParameter name="reasonCode">139</ActionParameter>
+                <ActionParameter name="reason">The connection was closed because the server was shutdown.</ActionParameter>
+        </Action>
+
+        <Action name="ServiceStatusAfterPub" type="RestAPI">
+            <dependsOn action_id="CheckConnectionShutDown" interval="10000"/> 
+                <ActionParameter name="structureID">service_output</ActionParameter>
+                <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+                <ActionParameter name="path">/ima/v1/service/status</ActionParameter>
+                <ActionParameter name="action">GET</ActionParameter>
+                <ActionParameter name="printResult">true</ActionParameter>
+                <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+        
+
+<!-- Connection is to the Proxy, the MS Server is what went down, I am still connected to proxy -->
+        <Action name="CheckConnectionAfterRestarted" type="CheckConnection">
+            <dependsOn action_id="CheckConnectionShutDown" interval="10000"/>
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">false</ActionParameter> 
+        </Action>
+<!--
+         <Action name="SendMessage139again" type="SendMessage" >
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">disconnect/139/V5</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action> 
+-->
+        <Action name="CloseConnection139" type="CloseConnection" rc="1" reason="ISMTEST2507">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>
+
+<!-- verify a second close is not a problem when there was a successful connection --> 
+        <Action name="CloseConnection139again" type="CloseConnection" rc="1" reason="ISMTEST2507" >
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action> 
+
+    </Action>
+    
+    
+</IsmWSTest>
+                

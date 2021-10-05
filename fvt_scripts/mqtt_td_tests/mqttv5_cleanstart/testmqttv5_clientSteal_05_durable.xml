@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2016-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqttv5_clientSteal_05_durable" >
+
+<SyncClient>
+    <server>
+        <include>../common/JMS_syncip.xml</include>
+        <include>../common/JMS_syncport.xml</include>
+    </server>
+    <solution>testmqttv5_clientSteal_05_durable</solution>
+</SyncClient>
+
+
+<!--  ==========  setupSessions  ==========  -->
+
+<Action name="setupSessions" type="CompositeAction">
+    <Action name="syncReset" type="SyncAction">
+            <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+    <Action name="sync_ResetComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c0</ActionParameter>
+        <ActionParameter name="component_list">c0;t0</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+    
+
+    <!-- Clean all Sessions before test starts -->
+    <Action name="CleanSessionConnectionV3" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV3</ActionParameter>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v3client05-1</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <!-- In MQTTv5 cleanSession means cleanStart -->
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <!-- Close Clients to Expire any previous Session -->
+    <Action name="CloseCleanSessionConnectionV3" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+    </Action>
+
+    
+    <Action name="DurableSessionConnectionV5-1" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV5-1</ActionParameter>
+        <ActionParameter name="connection_id">CFV5-1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <!-- In MQTTv5 cleanSession means cleanStart -->
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">300</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="DurableSessionConnectionV5-2" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV5-2</ActionParameter>
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+<!--        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>
+        
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v5client05-2</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <!-- In MQTTv5 cleanSession means cleanStart -->
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">300</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="DurableSessionConnectionV3" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV3</ActionParameter>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v3client05-1</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <!-- In MQTTv5 cleanSession means cleanStart -->
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="SessionPresentV3" type="CheckConnection">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="false" />
+    </Action>
+
+    <!-- No Subscriptions expected -->
+    <Action name="SubscriptionMonitorSetupSessions" type="RestAPI">
+      <dependsOn action_id="DurableSessionConnectionV3" interval="5000"/>
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    <Action name="ClientMonitorSetupSessionV5" type="RestAPI">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=v5client05*%26ResultCount=50%26ConnectionState=connected</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    <Action name="ClientMonitorSetupSessionV3" type="RestAPI">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=v3client05*%26ResultCount=50%26ConnectionState=connected</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+
+    
+    <!-- Initial Client Ready, Wait for thief to Steal v5Client -->
+    <Action name="sync_ConnectComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c1</ActionParameter>
+        <ActionParameter name="component_list">c1;t1</ActionParameter>
+        <ActionParameter name="timeout">90000</ActionParameter>
+    </Action>
+    <Action name="sync_ConnectThiefComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">c1t</ActionParameter>
+        <ActionParameter name="component_list">c1t;t1t</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+<!-- defect 201394 -->    
+    <Action name="CheckConnectionStolenV5-1" type="CheckConnection" >
+        <ActionParameter name="connection_id">CFV5-1</ActionParameter>
+        <ActionParameter name="isConnected">false</ActionParameter>
+<!-- defect 200796 -->
+        <ActionParameter name="reasonCode">142</ActionParameter>
+        <ActionParameter name="reason">The client ID was reused.</ActionParameter>
+    </Action>
+    <Action name="CheckConnectionV5-2" type="CheckConnection" >
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+        <ActionParameter name="isConnected">true</ActionParameter>
+    </Action>
+    <Action name="CheckConnectionV3" type="CheckConnection" >
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="isConnected">true</ActionParameter>
+    </Action>
+    
+<!-- should fail since no connection-->
+    <Action name="SubscribeV5-1" type="Subscribe" rc="1" reason="ISMTEST2503">
+        <ActionParameter name="connection_id">CFV5-1</ActionParameter>
+        <ApiParameter name="topic">mqttv5-05/clientSteal1</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+    <Action name="SubscribeV5-2" type="Subscribe">
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+        <ApiParameter name="topic">mqttv5-05/clientSteal1</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+    <Action name="SubscribeV3" type="Subscribe">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ApiParameter name="topic">mqttv5-05/clientSteal1</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+
+<!-- CFV5 should fail probably some RC that gets lost    rc="1" reason="ISMTEST2507"  WebSockets says -->    
+    <Action name="CloseConnectionV5-1" type="CloseConnection" rc="1" reason="ISMTEST2507" >
+      <dependsOn action_id="SubscribeV3" interval="5000"/>
+        <ActionParameter name="connection_id">CFV5-1</ActionParameter>
+    </Action>
+    <Action name="CloseConnectionV5-2" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+    </Action>
+    <Action name="CloseConnectionV3" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+    </Action>
+
+
+    <Action name="sync_ConnectStolen" type="SyncComponentAction"> 
+      <dependsOn action_id="CloseConnectionV3" interval="50" />
+        <ActionParameter name="component_name">c2</ActionParameter>
+        <ActionParameter name="component_list">c2;t2</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+    
+    
+    <!-- ONE v3 Subscriptions expected -->
+    <Action name="SubscriptionMonitorSetupSessionsV3_Final" type="RestAPI">
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v3client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    <Action name="VerifyDurable-V3Client" type="CompareREST">
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v3client05-1</ActionParameter>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>   
+
+    <!-- ONE v5 Subscriptions expected  (by thief) NOW TWO v5client05-2-->
+    <Action name="SubscriptionMonitorSetupSessionsV5_Final" type="RestAPI">
+      <dependsOn action_id="VerifyDurable-V3Client" interval="2000"/>
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    <Action name="VerifyDurable-V5Client05-1" type="CompareREST">
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client05-1</ActionParameter>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>   
+    <Action name="VerifyDurable-V5Client05-2" type="CompareREST">
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client05-2</ActionParameter>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>   
+
+
+    <Action name="sync_SubPubComplete" type="SyncComponentAction"> 
+      <dependsOn action_id="VerifyDurable-V5Client05-2" interval="50" />
+        <ActionParameter name="component_name">c3</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3r0;v5-1r0;v5-2r0</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+</Action>
+
+
+<!-- =============== THIEF =============== -->
+
+<Action name="thief" type="CompositeAction">
+    <Action name="sync_ResetComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t0</ActionParameter>
+        <ActionParameter name="component_list">c0;t0</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+    <!-- Wait for Initial Client Ready before Stealing ClientId Session -->
+    <Action name="sync_ConnectComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t1</ActionParameter>
+        <ActionParameter name="component_list">c1;t1</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+    <!-- workaround for defect 200829 change ClientId to be unique  -->    
+    <Action name="txSessionConnection-1" type="CreateConnection">
+        <ActionParameter name="structure_id">tCon1</ActionParameter>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <!-- defect 200829  ApiParameter name="clientId">v5client05-1pub</ApiParameter -->
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="SessionPresentCF1" type="CheckConnectOptions">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="false" />
+        <ApiParameter name="compareSessionPresent">true</ApiParameter>
+    </Action>
+
+    <Action name="sync_ConnectThiefComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t1t</ActionParameter>
+        <ActionParameter name="component_list">c1t;t1t</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+
+    <!-- workaround for defect 200829 make a UNIQUE QTTv5 Paho client to steal clientId  
+    
+    <Action name="txSessionConnection-1defect" type="CreateConnection">
+        <ActionParameter name="structure_id">dCon1</ActionParameter>
+        <ActionParameter name="connection_id">dCF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+-->
+    <Action name="sync_ConnectStolen" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t2</ActionParameter>
+        <ActionParameter name="component_list">c2;t2</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+<!-- LEAVE the Subscribe, so this clientId has a SUB before the PUB? -->
+    <Action name="Subscribe1" type="Subscribe">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ApiParameter name="topic">mqttv5-05/clientSteal2</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+
+    <!-- TWO Durable Subscriptions expected NOW THREE, 1-V3 and 2-V5-->
+    <Action name="SubscriptionMonitorThief_v5_BEFORE" type="RestAPI">
+      <dependsOn action_id="Subscribe1" interval="5000"/>
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    <Action name="SubscriptionMonitorThief_v3_BEFORE" type="RestAPI">
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v3client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>    
+
+<!-- ODD this fails, put the subscribe in above just to see a successs -->
+    <Action name="CreateMessage_1" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">sent by:  MQTTv5 Client05-1 to topic: mqttv5-05/clientSteal1</ApiParameter>
+    </Action>
+<!-- defect 201395 -->
+    <Action name="SendMessage_1" type="SendMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+           <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-05/clientSteal1</ActionParameter>
+        <ActionParameter name="QoS">1</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+    <!-- TWO Durable Subscriptions expected NOW THREE, 1-V3 and 2-V5  EXPECT BUFFERED MESSAGES-->
+    <Action name="SubscriptionMonitorThief_v5_AFTER" type="RestAPI">
+      <dependsOn action_id="Subscribe1" interval="5000"/>
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    <Action name="SubscriptionMonitorThief_v3_AFTER" type="RestAPI">
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v3client05*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>    
+
+    
+    <Action name="CloseConnection1" type="CloseConnection">
+      <dependsOn action_id="SendMessage_1" interval="5000"/>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+    </Action>
+
+    <Action name="sync_SubPubComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">t3</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3r0;v5-1r0;v5-2r0</ActionParameter>
+        <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+    
+</Action>
+
+
+<!-- =============== RECEIVEv3 =============== -->
+
+<Action name="receiveV3" type="CompositeAction">
+    <Action name="sync_SubPubComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v3r0</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3r0;v5-1r0;v5-2r0</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+    <Action name="CreateReceiveConnectionV3" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV3</ActionParameter>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v3client05-1</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessageV3" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV3" type="CompareMessageData">
+         <ActionParameter name="structure_id">rxV3msg1</ActionParameter>
+           <ActionParameter name="compareBody">sent by:  MQTTv5 Client05-1 to topic: mqttv5-05/clientSteal1</ActionParameter>
+           <ActionParameter name="compareTopic">mqttv5-05/clientSteal1</ActionParameter>
+           <!-- ActionParameter name="compareQoS">1</ActionParameter-->
+           <ActionParameter name="compareRetain">false</ActionParameter>
+    </Action>
+
+    
+    <Action name="CloseConnectionV3" type="CloseConnection">
+      <dependsOn action_id="CheckMessageV3" interval="5000"/>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+    </Action>
+
+    <Action name="CleanupConnectionV3" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV3</ActionParameter>
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v3client05-1</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="CloseConnectionV3CLEAN" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV3</ActionParameter>
+    </Action>
+
+</Action>
+
+
+<!-- =============== RECEIVEv5-1 =============== -->
+<!-- MUST USE THE THIEF Test Driver structures (NOT CONV5/CFV5-1), since tCON1/tCF1 had the active Connection for the clientIds Duraable Subscription when the message was Published ...OMG!-->
+<Action name="receiveV5-1" type="CompositeAction">
+    <Action name="sync_SubPubComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5-1r0</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3r0;v5-1r0;v5-2r0</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+    <Action name="CreateReceiveConnectionV5" type="CreateConnection">
+        <ActionParameter name="structure_id">tCon1</ActionParameter>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v5client05-1</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <!-- In MQTTv5 cleanSession means cleanStart -->
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="SessionPresent" type="CheckConnectOptions">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="false" />
+        <ApiParameter name="compareSessionPresent">true</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessageV5" type="ReceiveMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV5" type="CompareMessageData">
+         <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+           <ActionParameter name="compareBody">sent by:  MQTTv5 Client05-2 to topic: mqttv5-05/clientSteal2</ActionParameter>
+           <ActionParameter name="compareTopic">mqttv5-05/clientSteal2</ActionParameter>
+           <!-- ActionParameter name="compareQoS">1</ActionParameter-->
+           <ActionParameter name="compareRetain">false</ActionParameter>
+    </Action>
+
+    
+    <Action name="CloseConnectionV5" type="CloseConnection">
+      <dependsOn action_id="CheckMessageV5" interval="5000"/>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+    </Action>
+    
+</Action>
+
+<!-- added for Defect   -->
+<!-- =============== RECEIVEv5-2 =============== -->
+
+<Action name="receiveV5-2" type="CompositeAction">
+    <Action name="sync_SubPubComplete" type="SyncComponentAction"> 
+        <ActionParameter name="component_name">v5-2r0</ActionParameter>
+        <ActionParameter name="component_list">c3;t3;v3r0;v5-1r0;v5-2r0</ActionParameter>
+        <ActionParameter name="timeout">30000</ActionParameter>
+    </Action>
+    
+    <Action name="CreateReceiveConnectionV5-2" type="CreateConnection">
+        <ActionParameter name="structure_id">ConV5-2</ActionParameter>
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+
+<!--        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>
+        
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">v5client05-2</ApiParameter>
+        <ApiParameter name="port">33000</ApiParameter>
+        <!-- In MQTTv5 cleanSession means cleanStart -->
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+<!-- WS not returning Connection Token , use CheckConnection
+    <Action name="SessionPresentV5-2" type="CheckConnectOptions">
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="false" />
+        <ApiParameter name="compareSessionPresent">true</ApiParameter>
+    </Action>
+-->
+    <Action name="SessionPresentV5-2" type="CheckConnection">
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="false" />
+    </Action>
+    <Action name="ReceiveMessageV5-2" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessageV5-2" type="CompareMessageData">
+        <ActionParameter name="structure_id">rxV5msg1</ActionParameter>
+        <ActionParameter name="compareBody">sent by:  MQTTv5 Client05-1 to topic: mqttv5-05/clientSteal1</ActionParameter>
+        <ActionParameter name="compareTopic">mqttv5-05/clientSteal1</ActionParameter>
+        <!-- ActionParameter name="compareQoS">1</ActionParameter-->
+        <ActionParameter name="compareRetain">false</ActionParameter>
+    </Action>
+
+    <Action name="CreateMessage_1" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">sent by:  MQTTv5 Client05-2 to topic: mqttv5-05/clientSteal2</ApiParameter>
+    </Action>
+<!-- defect 201395 -->
+    <Action name="SendMessage_1" type="SendMessage">
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-05/clientSteal2</ActionParameter>
+        <ActionParameter name="QoS">2</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnectionV5-2" type="CloseConnection">
+        <ActionParameter name="connection_id">CFV5-2</ActionParameter>
+    </Action>
+    
+</Action>
+
+</IsmWSTest>
+                

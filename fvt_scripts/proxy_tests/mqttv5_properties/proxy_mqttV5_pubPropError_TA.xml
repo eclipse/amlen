@@ -1,0 +1,543 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="proxy_mqttV5_pubPropError_TA" >
+<!--
+    Test MQTTv5 Spec 3.3.2.3 Publish Properties
+     3.3.2.3.4 - Topic Alias
+Error Paths:
+1. Publish with TopicAlias Greater than TopicAliasMax returned in CONNACK
+2. Publish with TopicAlias ZERO is invalid
+3. DS with Topic Alias, TA last only as long as the connection, not durable
+ -->	
+
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>proxy_mqttV5_pubPropError_TA</solution>
+    </SyncClient>
+    
+
+<!--  ==========  TopicAlias  0x23(+2 bytes)  ==========  -->
+<!--   
+CONNECT TopicAliasMax  0x22 (of Client)
+CONNACK TopicAliasMax  0x22 (of Server)
+PUBLISH TopicAlias     0x23
+
+-->
+    <Action name="TopicAlias_PubGT_Max" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!--            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>			
+			
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:pubProps:TAliasMax</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:pubProps:TAliasMax</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+        </Action>
+<!--
+MQTT send 20 CONNACK connect=20: len=14 
+00 00 0b 21 0100 22 0008 27 00400000 [...!.."..'.@..]
+0x22 TopicAlias Max = 8
+-->
+        
+        <Action name="CreateMessage_PubGT_Max" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg:{ clientId=d:org4iot2:pubProps:TAliasMax, retain:false, topicAlias:9, QoS:0, topic:iot-2/evt/pubPropTopicAlias/fmt/GT_TAMAX }</ApiParameter>
+            <ApiParameter name="topicAlias">9</ApiParameter>
+        </Action>
+<!-- Defect 207414 TopicAlias > TopicAliasMax causes NPE in TD (ANSWER HERE HAS COMMENT ABOUT WaitForAck when QoS 0 and no ACK will happen -->
+<!-- Defect 209174 TopicAlias not able to be set in TD  
+                   TOPIC ALIAS DOES NOT APPEAR TO BE SET!   There is no method in CreateMessage or SendMessage actually
+-->
+<!-- 
+MQTT receive 30 PUBLISH connect=20: len=172 
+   TOPICALIAS got remapped to 0001, not 0009
+00000: 0028696f 742d322f 6576742f 70756250 726f7054 6f706963 416c6961 732f666d  [.(iot-2/evt/pubPropTopicAlias/fm]
+00032: 742f4754 5f54414d 4158  03 23 0001  4d73 673a7b20 636c6965 6e744964 3d643a6f  [t/GT_TAMAX.#..Msg:{ clientId=d:o]
+00064: 72673469 6f74323a 70756250 726f7073 3a54416c 6961732c 20726574 61696e3a  [rg4iot2:pubProps:TAlias, retain:]
+00096: 66616c73 652c2074 6f706963 416c6961 733a392c 20516f53 3a302c20 746f7069  [false, topicAlias:9, QoS:0, topi]
+00128: 633a696f 742d322f 6576742f 70756250 726f7054 6f706963 416c6961 732f666d  [c:iot-2/evt/pubPropTopicAlias/fm]
+00160: 742f4754 5f54414d 4158207d                                               [t/GT_TAMAX }]
+-->
+<!-- Times out Waiting for Ack, but QoS has no ACK and does not disconnect  -->
+        <Action name="SendMessage_PubGT_MaxQoS0" type="SendMessage" rc="1" reason="ISMTEST2509">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/pubPropTopicAlias/fmt/GT_TAMAX</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ApiParameter name="expectedrc">130</ApiParameter>
+        </Action>
+        
+        <Action name="CheckConnectAfterPub_PubGT_MaxQoS0" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+		
+
+        <Action name="SendMessage_PubGT_MaxQoS1" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/pubPropTopicAlias/fmt/GT_TAMAX</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ApiParameter name="expectedrc">130</ApiParameter>
+        </Action>
+        
+        <Action name="CheckConnectAfterPub_PubGT_MaxQoS1" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+		
+
+        <Action name="SendMessage_PubGT_MaxQoS2" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/pubPropTopicAlias/fmt/GT_TAMAX</ActionParameter>
+            <ActionParameter name="QoS">2</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ApiParameter name="expectedrc">130</ApiParameter>
+        </Action>
+        
+        <Action name="CheckConnectAfterPub_PubGT_MaxQoS2" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+		
+		
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+	
+	
+<!--  =========  TopicAlias_Pub TA=zero  ==========  -->
+    <Action name="TopicAlias_Pub_Zero" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+<!--            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter> -->
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <ActionParameter name="mqttVersion">5</ActionParameter>			
+			
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:sub:TA</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="topicAliasIn">10</ApiParameter> 
+            <ApiParameter name="user">a:org4iot2:sub:TA</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+        </Action>
+<!-- 
+MQTT receive 10 CONNECT connect=21 rc=0: len=33 
+00044d51 5454 0502 0023 03 22 000a  0011 613a6f72 6734696f 74323a73 75623a54 41 [..MQTT...#."....a:org4iot2:sub:TA]
+PAHO TopicAliasMax 0x22 is 0x000a (aka 10)
+
+MQTT send 20 CONNACK connect=21: len=14 
+00 00 0b 21 0100 22 0008 27 00400000 [...!.."..'.@..]
+Server's TopciAliasMax 0x22 is still 8, even thought I said PAHO was good with 10
+-->
+		
+        <Action name="CreateMessage_Pub_Zero" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg:{ clientId=a:org4iot2:sub:TA, retain:false, topicAlias:0, QoS:1, topic:iot-2/type/ta/id/notzero/evt/pubPropTopicAlias/fmt/TA_ZERO }</ApiParameter>
+            <ApiParameter name="topicAlias">0</ApiParameter>
+        </Action>
+<!-- Defect 207414 NPE in TD when topicAlias=0 -->
+        <Action name="SendMessage_Pub_Zero" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/type/ta/id/notzero/evt/pubPropTopicAlias/fmt/TA_ZERO</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+            <ActionParameter name="waitForAck">true</ActionParameter>
+            <ApiParameter name="expectedrc">130</ApiParameter>
+        </Action>
+
+<!--
+MQTT receive 32 PUBLISH connect=21: len=201 
+   Property Topic Alias 0x23 0001
+00000: 003a696f 742d322f 74797065 2f74612f 69642f6e 6f747a65 726f2f65 76742f70  [.:iot-2/type/ta/id/notzero/evt/p]
+00032: 75625072 6f70546f 70696341 6c696173 2f666d74 2f54415f 5a45524f 0001 03 23  [ubPropTopicAlias/fmt/TA_ZERO...#]
+00064: 0001 4d73 673a7b20 636c6965 6e744964 3d613a6f 72673469 6f74323a 7375623a  [..Msg:{ clientId=a:org4iot2:sub:]
+00096: 54412c20 72657461 696e3a66 616c7365 2c20746f 70696341 6c696173 3a302c20  [TA, retain:false, topicAlias:0, ]
+00128: 516f533a 312c2074 6f706963 3a696f74 2d322f74 7970652f 74612f69 642f6e6f  [QoS:1, topic:iot-2/type/ta/id/no]
+00160: 747a6572 6f2f6576 742f7075 6250726f 70546f70 6963416c 6961732f 666d742f  [tzero/evt/pubPropTopicAlias/fmt/]
+00192: 54415f5a 45524f20 7d                                                     [TA_ZERO }]
+
+2018-06-21T16:22:32.995Z tcpiop.0 frame.c:290: MQTT send 40 PUBACK connect=21: len=4 00011000  [....]
+-->
+<!-- Defect 209174
+TOPIC ALIAS DOES NOT APPEAR TO BE SET!   There is no method in CreateMessage or SendMessage actually
+-->
+        <Action name="CheckConnectAfterPub" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+	
+	
+<!--  =========  TopicAlias Pub to Durable Session, Broken Connection MidWay  ==========  -->
+    <Action name="TopicAlias_Pub2DS" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:pubProps:TAlias</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:pubProps:TAlias</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+        </Action>
+        
+        <Action name="CreateMessage_1" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg:{ clientId=d:org4iot2:pubProps:TAlias, retain:false, topicAlias:1, QoS:0, topic:iot-2/evt/pubPropTopicAlias/fmt/TA1 }</ApiParameter>
+        </Action>
+        
+        <Action name="CreateMessage_2" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg2</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">Msg:{ clientId=d:org4iot2:pubProps:TAlias, retain:false, topicAlias:2, QoS:1, topic:iot-2/evt/pubPropTopicAlias/fmt/TA2 }</ApiParameter>
+        </Action>
+		
+        <Action name="sync_TA1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">t-TA1</ActionParameter>
+            <ActionParameter name="component_list">t-TA1;r-TA1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_1" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/pubPropTopicAlias/fmt/TA1</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+		
+        <Action name="sync_TA2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">t-TA2</ActionParameter>
+            <ActionParameter name="component_list">t-TA2;r-TA2</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_2" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg2</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/pubPropTopicAlias/fmt/TA2</ActionParameter>
+            <ActionParameter name="QoS">1</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+		
+        <Action name="sync_TA3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">t-TA3</ActionParameter>
+            <ActionParameter name="component_list">t-TA3;r-TA3</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_2again" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg2</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/pubPropTopicAlias/fmt/TA2</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+		
+        <Action name="sync_TA4" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">t-TA4</ActionParameter>
+            <ActionParameter name="component_list">t-TA4;r-TA4</ActionParameter>
+            <ActionParameter name="timeout">4000</ActionParameter>
+        </Action>
+
+        <Action name="SendMessage_1again" type="SendMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="message_id">txmsg1</ActionParameter>
+            <ActionParameter name="topic">iot-2/evt/pubPropTopicAlias/fmt/TA1</ActionParameter>
+            <ActionParameter name="QoS">0</ActionParameter>
+            <ActionParameter name="RETAIN">false</ActionParameter>
+        </Action>
+        
+        <Action name="CheckConnectAfterPubs" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+        </Action>    
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+        </Action>    
+    </Action>
+	
+<!-- ==================  Sub with Durable Session  ================== -->	
+    <Action name="TopicAlias_Sub_DS" type="CompositeAction">
+
+        <Action name="CreateConnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:wildcardsub:TA</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="topicAliasIn">10</ApiParameter>
+            <ApiParameter name="sessionExpire">12</ApiParameter>
+            <ApiParameter name="user">a:org4iot2:wildcardsub:TA</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+        </Action>
+<!--
+    MQTT receive 10 CONNECT: connect=32: len=83 
+00044d51 5454 05 c2 0023 08 11 0000000c 22 000a 0019 613a6f 72673469 6f74323a 77696c64 63617264 7375623a 54410019 613a6f72 6734696f 74323a77 696c6463 61726473 75623a54 410008 
+[..MQTT...#......"....a:org4iot2:wildcardsub:TA..a:org4iot2:wildcardsub:TA..]
+
+0x22 TopicAliasMax at Client 000a
+
+    MQTT receive 20 CONNACK connect=33 inprogress=1: len=17 
+00 00 0b 21 0100 22 0008 27 00400000 8100 05 [...!.."..'.@.....]
+
+0x22 TopicAliasMax at Server 0008
+-->        
+        <Action name="SubscribeWC" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/pubProps/id/TAlias/evt/pubPropTopicAlias/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ApiParameter name="expectedrc">2</ApiParameter>
+        </Action>
+
+		
+        <Action name="sync_TA_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r-TA1</ActionParameter>
+            <ActionParameter name="component_list">t-TA1;r-TA1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveMsg1" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        <Action name="CompareMsg1" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg:{ clientId=d:org4iot2:pubProps:TAlias, retain:false, topicAlias:1, QoS:0, topic:iot-2/evt/pubPropTopicAlias/fmt/TA1 }</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter >
+            <ApiParameter name="compareTopicAlias">1</ApiParameter>
+            <ActionParameter name="compareQoS">0</ActionParameter>
+        </Action>
+<!--
+    MQTT send 30 PUBLISH connect=36: len=181 
+00000: 003b696f 742d322f 74797065 2f707562 50726f70 732f6964 2f54416c 6961732f  [.;iot-2/type/pubProps/id/TAlias/]
+00032: 6576742f 70756250 726f7054 6f706963 416c6961 732f666d 742f5441 31  03 23 00  [evt/pubPropTopicAlias/fmt/TA1.#.]
+00064: 01  4d7367 3a7b2063 6c69656e 7449643d 643a6f72 6734696f 74323a70 75623a54  [.Msg:{ clientId=d:org4iot2:pub:T]
+00096: 416c6961 732c2072 65746169 6e3a6661 6c73652c 20746f70 6963416c 6961733a  [Alias, retain:false, topicAlias:]
+00128: 312c2051 6f533a30 2c20746f 7069633a 696f742d 322f6576 742f7075 6250726f  [1, QoS:0, topic:iot-2/evt/pubPro]
+00160: 70546f70 6963416c 6961732f 666d742f 54413120 7d                          [pTopicAlias/fmt/TA1 }]
+
+0x23 TopicAlias 0001
+-->		
+        <Action name="sync_TA_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r-TA2</ActionParameter>
+            <ActionParameter name="component_list">t-TA2;r-TA2</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveMsg2" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        <Action name="CompareMsg2" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg:{ clientId=d:org4iot2:pubProps:TAlias, retain:false, topicAlias:2, QoS:1, topic:iot-2/evt/pubPropTopicAlias/fmt/TA2 }</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter >
+            <ApiParameter name="compareTopicAlias">2</ApiParameter>
+            <ActionParameter name="compareQoS">1</ActionParameter>
+        </Action>
+<!--
+    MQTT send 30 PUBLISH connect=36: len=181 
+00000: 003b696f 742d322f 74797065 2f707562 50726f70 732f6964 2f54416c 6961732f  [.;iot-2/type/pubProps/id/TAlias/]
+00032: 6576742f 70756250 726f7054 6f706963 416c6961 732f666d 742f5441 32  03 23 00  [evt/pubPropTopicAlias/fmt/TA2.#.]
+00064: 02  4d7367 3a7b2063 6c69656e 7449643d 643a6f72 6734696f 74323a70 75623a54  [.Msg:{ clientId=d:org4iot2:pub:T]
+00096: 416c6961 732c2072 65746169 6e3a6661 6c73652c 20746f70 6963416c 6961733a  [Alias, retain:false, topicAlias:]
+00128: 322c2051 6f533a31 2c20746f 7069633a 696f742d 322f6576 742f7075 6250726f  [2, QoS:1, topic:iot-2/evt/pubPro]
+00160: 70546f70 6963416c 6961732f 666d742f 54413220 7d                          [pTopicAlias/fmt/TA2 }]
+
+0x23 Topic Alias 0002
+-->		
+		<Action name="MonitorMQTTClientBefore" type="RestAPI">
+			<ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+			<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+			<ActionParameter name="path">/ima/v1/monitor/MQTTClient?ResultCount=50%26ConnectionState=connected</ActionParameter>
+			<ActionParameter name="action">GET</ActionParameter>
+			<ActionParameter name="printResult">true</ActionParameter>
+			<ActionParameter name="expectedStatusCode">200</ActionParameter>
+		</Action>
+        <Action name="SubscriptionMonitorBefore" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+<!--            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=V5_publishV5_05*</ActionParameter> -->
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnectionMidWay" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">12</ApiParameter>
+        </Action>    
+
+
+        <Action name="ReonnectionV5" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:wildcardsub:TA</ApiParameter>  
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="topicAliasIn">9</ApiParameter>
+            <ApiParameter name="sessionExpire">12</ApiParameter>
+            <ApiParameter name="user">a:org4iot2:wildcardsub:TA</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+        </Action>
+
+		
+		<Action name="MonitorMQTTClientAfter" type="RestAPI">
+			<ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+			<ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+			<ActionParameter name="path">/ima/v1/monitor/MQTTClient?ResultCount=50%26ConnectionState=connected</ActionParameter>
+			<ActionParameter name="action">GET</ActionParameter>
+			<ActionParameter name="printResult">true</ActionParameter>
+			<ActionParameter name="expectedStatusCode">200</ActionParameter>
+		</Action>
+        <Action name="SubscriptionMonitorAfter" type="RestAPI">
+            <ActionParameter name="structureID">status_output</ActionParameter>
+            <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+<!--            <ActionParameter name="path">/ima/monitor/Subscription?ClientID=V5_publishV5_05*</ActionParameter> -->
+            <ActionParameter name="path">/ima/monitor/Subscription</ActionParameter>
+            <ActionParameter name="action">GET</ActionParameter>
+            <ActionParameter name="printResult">true</ActionParameter>
+            <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        </Action>
+
+		
+        <Action name="sync_TA_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r-TA3</ActionParameter>
+            <ActionParameter name="component_list">t-TA3;r-TA3</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveMsg3" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">4000</ActionParameter>
+        </Action>
+        <Action name="CompareMsg3" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg:{ clientId=d:org4iot2:pubProps:TAlias, retain:false, topicAlias:2, QoS:1, topic:iot-2/evt/pubPropTopicAlias/fmt/TA2 }</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter >
+            <ApiParameter name="compareTopicAlias">1</ApiParameter>
+            <ActionParameter name="compareQoS">0</ActionParameter>
+        </Action>
+<!--
+    MQTT send 30 PUBLISH connect=38: len=181 
+00000: 003b696f 742d322f 74797065 2f707562 50726f70 732f6964 2f54416c 6961732f  [.;iot-2/type/pubProps/id/TAlias/]
+00032: 6576742f 70756250 726f7054 6f706963 416c6961 732f666d 742f5441 32  03 23 00  [evt/pubPropTopicAlias/fmt/TA2.#.]
+00064: 01  4d7367 3a7b2063 6c69656e 7449643d 643a6f72 6734696f 74323a70 75623a54  [.Msg:{ clientId=d:org4iot2:pub:T]
+00096: 416c6961 732c2072 65746169 6e3a6661 6c73652c 20746f70 6963416c 6961733a  [Alias, retain:false, topicAlias:]
+00128: 322c2051 6f533a30 2c20746f 7069633a 696f742d 322f6576 742f7075 6250726f  [2, QoS:0, topic:iot-2/evt/pubPro]
+00160: 70546f70 6963416c 6961732f 666d742f 54413220 7d                          [pTopicAlias/fmt/TA2 }]
+ 
+0x23 Topic Alias 0001 NEWLY REASSIGNED, was TA 0002
+-->
+		
+        <Action name="sync_TA4" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">r-TA4</ActionParameter>
+            <ActionParameter name="component_list">t-TA4;r-TA4</ActionParameter>
+            <ActionParameter name="timeout">2000</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveMsg4" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+        <Action name="CompareMsg4" type="CompareMessageData">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="compareBody">Msg:{ clientId=d:org4iot2:pubProps:TAlias, retain:false, topicAlias:1, QoS:0, topic:iot-2/evt/pubPropTopicAlias/fmt/TA1 }</ActionParameter>
+            <ActionParameter name="mqttMessageVersion">5</ActionParameter >
+            <ApiParameter name="compareTopicAlias">2</ApiParameter>
+            <ActionParameter name="compareQoS">0</ActionParameter>
+        </Action>
+<!--
+
+2018-05-16T23:50:44.033Z tcpiop.2 pxframe.c:142: MQTT send 30 PUBLISH connect=38: len=181 
+00000: 003b696f 742d322f 74797065 2f707562 50726f70 732f6964 2f54416c 6961732f  [.;iot-2/type/pubProps/id/TAlias/]
+00032: 6576742f 70756250 726f7054 6f706963 416c6961 732f666d 742f5441 31  03 23 00  [evt/pubPropTopicAlias/fmt/TA1.#.]
+00064: 02  4d7367 3a7b2063 6c69656e 7449643d 643a6f72 6734696f 74323a70 75623a54  [.Msg:{ clientId=d:org4iot2:pub:T]
+00096: 416c6961 732c2072 65746169 6e3a6661 6c73652c 20746f70 6963416c 6961733a  [Alias, retain:false, topicAlias:]
+00128: 312c2051 6f533a30 2c20746f 7069633a 696f742d 322f6576 742f7075 6250726f  [1, QoS:0, topic:iot-2/evt/pubPro]
+00160: 70546f70 6963416c 6961732f 666d742f 54413120 7d                          [pTopicAlias/fmt/TA1 }]
+
+0x23 Topic Alias 0002  NEWLY REASSIGNED, was TA 0001
+-->
+		
+
+        <Action name="CheckConnectAfterRecvs" type="CheckConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+<!--  FORCE ERROR until compareTopicAlias and hasTopicAlias work.
+            <ActionParameter name="isConnected">true</ActionParameter>
+-->
+        </Action>    
+
+        <Action name="CloseConnectionV5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>
+        </Action>    
+    </Action>
+ 
+    
+</IsmWSTest>
+                

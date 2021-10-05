@@ -1,0 +1,64 @@
+#!/bin/bash
+
+declare app="$0"
+declare params="$@"
+declare -i batch=500
+declare stack="-Xss1024m"
+
+usage() {
+  printf "%s %s     --> invalid parameters <--\n" "$app" "$params"
+  printf "\n"
+  printf "usage:  %s <clients> <id> <minutes>\n" $app
+  printf "where: \n"
+  printf "         <clients>  number of clients to start\n"
+  printf "         <id>       starting client id number, eg. 0\n"
+  printf "         <minutes>  minutes to run\n"
+  printf "\n"
+  printf "example:  %s %s\n" "$app" "500 0 5"
+}
+
+launch() {
+  if [ $# -ne 3 ]; then
+    printf "launch($@) called with invalid parameters\n"
+    exit
+  else
+    set -x
+#    java ${stack} -Djavax.net.ssl.trustStore=/niagara/test/svt_jmqtt/ssl/cacerts.jks -Djavax.net.ssl.trustStorePassword=k1ngf1sh -cp /niagara/application/client_ship/lib/com.ibm.micro.client.mqttv3.jar:/niagara/application/client_ship/lib/fscontext.jar:/niagara/application/client_ship/lib/imaclientjms.jar:/niagara/application/client_ship/lib/imaclientjms_test.jar:/niagara/application/client_ship/lib/ismclientws.jar:/niagara/application/client_ship/lib/javamqttv3samples.jar:/niagara/application/client_ship/lib/jms.jar:/niagara/application/client_ship/lib/jmssamples.jar:/niagara/application/client_ship/lib/porting.jar:/niagara/application/client_ship/lib/providerutil.jar:/niagara/test/lib/selenium-java.jar:/niagara/test/lib/selenium-server-standalone.jar:/niagara/test/lib/android_webdriver_library.jar:/niagara/test/lib/log4j.jar:/niagara/test/lib/mqconnectivity.jar:/niagara/test/lib/com.ibm.mq.jmqi.jar:/niagara/test/lib/com.ibm.automation.core.jar:/niagara/test/lib/DriverSync.jar:/niagara/test/lib/GuiTest.jar:/niagara/test/lib/javasample.jar:/niagara/test/lib/jmssample.jar:/niagara/test/lib/JMSTestDriver.jar:/niagara/test/lib/MqttTest.jar:/niagara/application/client_ship/lib/org.eclipse.paho.client.mqttv3.jar:/niagara/application/client_ship/lib/org.eclipse.paho.sample.mqttv3app.jar:/niagara/test/lib/svtAutomotiveTelematics.jar:/niagara/test/lib/svt_jssamples.jar:/niagara/test/lib/WSTestDriver.jar:/niagara/test/lib/xrscada.jar:/niagara/test/lib/cli-test-utils.jar:/niagara/test/lib/commons-cli-1.2.jar:/niagara/test/lib/commons-lang3-3.1.jar:/niagara/test/lib/SuperCSV-1.52.jar:/niagara/test/lib/jsch-0.1.49.jar svt.mqtt.mq.MqttSample -a subscribe -t "/APP/#"  -s tcp://10.10.10.10:16999 -N -1 -v -q 1 > /dev/null &
+
+ismserver=10.10.10.10
+port=16102
+qos=1
+
+java svt.mqtt.mq.MqttSample -a subscribe -t "/APP/#"  -s tcp://${ismserver}:${port} -N -1 -q ${qos} -c false > /dev/null &
+
+    set +x
+    sleep 30s
+  fi
+}
+
+run() {
+  div=$(($1/${batch}))
+  rem=$(($1%${batch}))
+  id=$2
+  minutes=$3
+
+  if [ ${div} -gt 0 ]; then
+    for i in $(eval echo {1..${div}}); do
+      printf -v user "c%07d\n" ${id}
+      ((id+=${batch}))
+      launch ${batch} ${user} ${minutes}
+    done
+  fi
+
+  if [ ${rem} -gt 0 ]; then
+   printf -v user "c%07d\n" ${id}
+   ((id+=rem))
+   launch ${rem} ${user} ${minutes}
+  fi
+}
+
+if [ $# -ne 3 ]; then
+  usage
+else
+  run $@
+fi

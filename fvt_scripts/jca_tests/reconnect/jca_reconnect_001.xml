@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jca_reconnect_001
+
+   Test Category:  JCA Reconnect Tests
+
+   Test Description:
+     Create durable subscription to replyTopic_DurableCMTR
+     Create durable subscription to logTopic
+     Publish 500 messages to sendTopic_DurableCMTR
+     Consume the reply messages from the durable subscription (Up to 500)
+     While consuming, restart MessageSight
+     Reconnect and resubscribe
+     Continue consuming the reply messages (Up to 500)
+     Consume the log messages (500)
+     
+     TestProps #0400
+
+  -->
+<ImaJcaTest name="jca_reconnect_001">
+
+  <include>../common/jms_jndi_ldap.xml</include>
+
+  <Action name="Cluster" type="CompositeAction">
+    <!-- Retrieve the foreign connection factory from JNDI -->
+    <Action name="GetCF" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">cf</ActionParameter>
+      <ActionParameter name="jndiName">jndi_JMS_BASE_CF</ActionParameter>
+    </Action>
+
+    <Action name="SetProps_JCA_TCF" type="FillIsmProps">
+        <ActionParameter name="structure_id">cf</ActionParameter>
+        <ActionParameter name="validateAll">true</ActionParameter>
+        <ActionParameter name="validateNoWarn">false</ActionParameter>
+        <include>../common/JMS_serverHA.xml</include>
+        <ImaProperty name="ClientID" value="reconnect_001"/>
+    </Action>
+
+    <Action name="CreateConnection" type="CreateConnection">
+      <ActionParameter name="structure_id">connection</ActionParameter>
+      <ActionParameter name="factory_id">cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession1" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session1</ActionParameter>
+    </Action>
+
+    <!-- log topic -->
+    <Action name="Create_log_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">logDest</ActionParameter>
+      <ApiParameter name="name">/log/Topic/400</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+    </Action>
+
+    <!-- log consumer -->
+    <Action name="CreateConsumerLog" type="CreateDurableSubscriber">
+      <ActionParameter name="structure_id">logConsumer</ActionParameter>
+      <ActionParameter name="dest_id">logDest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+      <ApiParameter name="durableName">logSub</ApiParameter>
+    </Action>
+
+    <!--  Retrieve the replyTo topic from jndi.
+          Messages received by the MDB will be forwarded to this topic. -->
+    <Action name="Create_dest" type="CreateDestination">
+      <ActionParameter name="structure_id">dest</ActionParameter>
+      <ActionParameter name="jndiName">replyTopic_DurableCMTR</ActionParameter>
+    </Action>
+
+    <Action name="Create_dest1" type="CreateDestination">
+      <ActionParameter name="structure_id">dest1</ActionParameter>
+      <ActionParameter name="jndiName">sendTopic_DurableCMTR</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer1" type="CreateDurableSubscriber">
+      <ActionParameter name="structure_id">consumer</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+      <ApiParameter name="durableName">replyDurableSub</ApiParameter>
+    </Action>
+
+    <Action name="CreateProducer1" type="CreateProducer">
+      <ActionParameter name="structure_id">producer</ActionParameter>
+      <ActionParameter name="dest_id">dest1</ActionParameter>
+      <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <Action name="CreateTestPropsMessage" type="CreateTestPropsMessage">
+        <ActionParameter name="structure_id">message</ActionParameter>
+        <ApiParameter name="msgParam">0400</ApiParameter>
+        <ActionParameter name="session_id">session1</ActionParameter>
+    </Action>
+
+    <Action name="SetReplyToProperty" type="SetMessageProperty">
+        <ActionParameter name="message_id">message</ActionParameter>
+        <ApiParameter name="propertyType">ReplyTo</ApiParameter>
+        <ApiParameter name="value">dest</ApiParameter>
+    </Action>
+
+    <!-- Connected to primary server. Consumer on reply dest and log dest.
+         Producer on send dest. -->
+
+    <Action name="StartConnection" type="StartConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <!-- Receive any number of messages until we fail. -->
+
+    <Action name="Recv" type="CompositeAction" repeat="150">
+      <Action name="RcvObjMessage0001_consumer1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+
+      <Action name="GetTestProps0001" type="GetTestPropsMsg">
+        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+        <ActionParameter name="verifyValue">0400</ActionParameter>
+      </Action>
+    </Action>
+
+    <Action name="CloseConsumerBeforeCrash" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+    </Action>
+
+    <!-- Send messages on different thread -->
+
+    <Action name="SendMessage" type="SendMessage" repeat="500" thread="2">
+        <dependsOn name="StartConnection" />
+        <ActionParameter name="producer_id">producer</ActionParameter>
+        <ActionParameter name="message_id">message</ActionParameter>
+    </Action>
+
+    <!-- Once sending is complete, crash MessageSight. -->
+
+	<Action name="CrashServer" type="ShellAction" thread="2">
+        <dependsOn name="SendMessage" />
+        <dependsOn name="CloseConsumerBeforeCrash" interval="1000"/>
+        <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>
+
+    <!-- Reconnect to the server. -->
+
+    <Action name="CreateConnectionReconnect" type="CreateConnection">
+      <dependsOn name="CrashServer" interval="8000" />
+      <ActionParameter name="structure_id">connection</ActionParameter>
+      <ActionParameter name="factory_id">cf</ActionParameter>
+    </Action>
+
+    <Action name="CreateSessionReconnect" type="CreateSession">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+      <ActionParameter name="structure_id">session</ActionParameter>
+    </Action>
+
+    <!-- log consumer -->
+    <Action name="CreateConsumerLogReconnect" type="CreateDurableSubscriber">
+      <ActionParameter name="structure_id">logConsumer</ActionParameter>
+      <ActionParameter name="dest_id">logDest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+      <ApiParameter name="durableName">logSub</ApiParameter>
+    </Action>
+
+    <Action name="CreateConsumerReconnect" type="CreateDurableSubscriber">
+      <ActionParameter name="structure_id">consumer</ActionParameter>
+      <ActionParameter name="dest_id">dest</ActionParameter>
+      <ActionParameter name="session_id">session</ActionParameter>
+      <ApiParameter name="durableName">replyDurableSub</ApiParameter>
+    </Action>
+
+    <Action name="StartConnectionReconnect" type="StartConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <!-- Continue receiving messages. Allow enough time incase MDB's don't reconnect
+    right away. -->
+
+    <Action name="RecvReconnect" type="CompositeAction" repeat="350">
+      <Action name="RcvObjMessage0001_consumer1" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">180000</ApiParameter>
+      </Action>
+
+      <Action name="GetTestProps0001" type="GetTestPropsMsg">
+        <ActionParameter name="message_id">rx_obj_msg1</ActionParameter>
+        <ActionParameter name="verifyValue">0400</ActionParameter>
+      </Action>
+    </Action>
+
+    <!-- Aattempt to receive 3 more messages but don't fail if we don't. -->
+    <Action name="RX_extra" type="ReceiveMessage" repeat="3" continueOnFailure="1">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+    
+    <!-- Now there really should be no more messages -->
+    <Action name="RX_extra_done" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+        <ActionParameter name="structure_id">rx_obj_msg1</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+    <Action name="RX_and_Check_Log_Msgs" type="CompositeAction" repeat="500">
+      <Action name="RX_Log" type="ReceiveMessage">
+        <ActionParameter name="consumer_id">logConsumer</ActionParameter>
+        <ActionParameter name="structure_id">log_msg</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+      </Action>
+
+      <Action name="ShowLogs" type="GetMessageText">
+        <ActionParameter name="message_id">log_msg</ActionParameter>
+      </Action>
+    </Action>
+    
+    <!--  Non-deterministic. If the server dies after the MDB sends a reply, but before it exits onMessage,
+    then there is a chance that we will get more than 1 log message / reply message for at least 1
+    message. In a clustered environment with 3 servers, this means there can be up to 3 messages in this
+    state of processing. -->
+    
+    <!-- So, attempt to receive 3 but don't fail if we don't. -->
+    <Action name="RX_Log_extra" type="ReceiveMessage" repeat="3" continueOnFailure="1">
+        <ActionParameter name="consumer_id">logConsumer</ActionParameter>
+        <ActionParameter name="structure_id">log_msg</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+    
+    <!-- Now there really should be no more messages -->
+    <Action name="RX_Log_done" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+        <ActionParameter name="consumer_id">logConsumer</ActionParameter>
+        <ActionParameter name="structure_id">log_msg</ActionParameter>
+        <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+    <Action name="CloseLogConsumer" type="CloseConsumer">
+        <ActionParameter name="consumer_id">logConsumer</ActionParameter>
+    </Action>
+
+    <Action name="CloseConsumer" type="CloseConsumer">
+        <ActionParameter name="consumer_id">consumer</ActionParameter>
+    </Action>
+
+    <Action name="unscribeLogConsumer" type="Unsubscribe">
+        <ApiParameter name="durableName">logSub</ApiParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="unscribeConsumer" type="Unsubscribe">
+        <ApiParameter name="durableName">replyDurableSub</ApiParameter>
+        <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="CloseSession" type="CloseSession">
+      <ActionParameter name="session_id">session</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+      <ActionParameter name="conn_id">connection</ActionParameter>
+    </Action>
+  </Action>
+</ImaJcaTest>

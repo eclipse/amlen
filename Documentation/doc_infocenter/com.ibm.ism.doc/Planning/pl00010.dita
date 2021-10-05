@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN"
+ "reference.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<reference id="messageplanning" xml:lang="en-us">
+<title>Messaging planning</title>
+<shortdesc>Key points to consider when you plan the messaging aspects
+of your <ph conref="../TextEntities.dita#TextEntities/ISMappliance"></ph> solution.</shortdesc>
+<refbody>
+<section><title>Protocols</title><p><ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> natively provides support for
+MQTT and JMS, and can convert between the two protocols. <!--You can also install your own protocol by using the protocol plug-in.-->You
+must consider which protocols are appropriate for your business needs.
+For more information about the supported protocols, see <xref
+format="dita" href="../Overview/ov00050.dita" scope="local"
+type="concept">Supported protocols</xref>. For more information about
+converting between the protocols, see <xref format="dita"
+href="pl00005.dita" scope="local" type="concept">Conversion between
+MQTT and JMS</xref>. </p><p>MQTT and JMS support different qualities
+of service. In general, higher qualities of service are slower than
+lower qualities of service. For more information about the way MQTT
+and JMS handle the delivery of messages, see <xref format="dita"
+href="ov00102_.dita" scope="local" type="concept">Message delivery</xref>.</p></section>
+<section><title>Message size</title><p>If you send large messages
+with a high quality of service level, the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> server cannot
+store many messages before the available storage is filled. Consider
+the volume and size of the messages you want to send, and whether
+the messages must be persistent. These decisions affect the number
+of messages that <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> can
+handle.</p><p>You can limit the message size that is allowed to be
+sent through the <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> by
+using the <codeph>maximum message size</codeph> attribute of an endpoint.
+For more information about endpoints, see <xref format="dita"
+href="../Overview/ov00060.dita" scope="local" type="concept"></xref>.</p></section>
+<section><title>Message count</title><p>For publish/subscribe messaging,
+you can configure how many messages the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> server stores,
+by setting the <codeph>Max Messages</codeph> attribute of a messaging
+policy. The server stores the messages until the messages are received
+by subscribers at the reliability level required. If a subscriber
+that requires an exactly once level of reliability cannot be reached,
+the message is stored.</p><p>You can choose what happens when the
+maximum message count is reached by using the <codeph>Max Messages
+Behavior</codeph> attribute of a messaging policy. You can either
+reject new messages, or you can discard a percentage of old messages
+that are stored on the server. If you choose to reject new messages,
+and the maximum message count is reached, messages cannot be sent.
+If you choose to discard old messages, and the maximum message count
+is reached, old messages are removed from the server. Any messages
+that are being delivered, that is, messages that are sent but not
+yet acknowledged, are not removed. If a retained message is one of
+the old messages, it is removed. The quality of service, persistence,
+and priority of the messages does not prevent the messages from being
+removed. Therefore, if all messages must be received in order for
+your applications to function correctly, you cannot set the max messages
+behavior to discard old messages. You must consider which behavior
+to use, based on your messaging requirements.</p><p>For more information
+about messaging policies, see <xref format="dita"
+href="../Security/se00004_.dita" scope="local" type="concept"></xref>.</p></section>
+<section><title>Max Messages Behavior </title><p>You can choose what
+happens when the maximum message count is reached by using the <codeph>Max
+Messages Behavior</codeph> attribute of a messaging policy. You can
+either reject new messages, or you can discard a percentage of old
+messages that are stored on the server. If you choose to reject new
+messages, and the maximum message count is reached, messages cannot
+be sent. If you choose to discard old messages, and the maximum message
+count is reached, old messages are removed from the server. Any messages
+that are being delivered, that is, messages that are sent but not
+yet acknowledged, are not removed. If a retained message is one of
+the old messages, it is removed. The quality of service, persistence,
+and priority of the messages does not prevent the messages from being
+removed. Therefore, if all messages must be received in order for
+your applications to function correctly, you cannot set the max messages
+behavior to discard old messages. You must consider which behavior
+to use, based on your messaging requirements.</p><p>The value of Max Messages Behavior is determined by the messaging policy that is associated with the subscription. To determine the messaging policy that is associated with the subscription, you can either use the <uicontrol>Monitoring</uicontrol> page in the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"
+/>, or the REST API GET method with the following <ph conref="../TextEntities.dita#TextEntities/ISM"/> URI:<codeblock>http://&lt;admin-endpoint-IP:Port>/ima/v1/monitor/Subscription</codeblock><ul>
+<li>For non-durable shared subscriptions, <codeph>Max Messages Behavior</codeph> is determined by the value set for the subscriber that created the shared subscription. The setting applies to all subsequent subscribers, regardless of their own setting of <codeph>Max Messages Behavior</codeph>. If the subscription is deleted, perhaps because all subscribers disconnected, and then is re-created by a different subscriber, the subscription might have a different setting for <codeph>Max Messages Behavior</codeph>.</li>
+<li>For durable shared subscriptions, <codeph>Max Messages Behavior</codeph> is determined by the value set for the subscriber that created the durable shared subscription. </li>
+<li>For global-shared durable subscriptions, <codeph>Max Messages Behavior</codeph> is determined by the value set on the messaging policy with a type of <codeph>Subscription</codeph> for the subscriber that created the global-shared durable subscription. </li>
+<li>For all types of subscriptions, you can update <codeph>Max Messages Behavior</codeph> on the associated messaging policy; all subscriptions that are associated with that messaging policy are then updated to use the new value.</li>
+</ul></p><p>The use of wildcard characters is significant. A number
+of different subscriptions that are using different messaging policies
+with different values of <codeph>Max Messages Behavior</codeph> can
+subscribe to the same topic at the same time; they are part of the
+same topic community. It is the value of the <codeph>Max Messages
+Behavior</codeph> attribute of the subscription the buffer of which
+is full at the time of a publish that dictates the behavior for the
+entire topic community. A subscription that is using a messaging policy
+with a value of <codeph>Reject New Messages</codeph> in the <codeph>Max
+Messages Behavior</codeph> attribute causes publish requests to fail
+when its buffer becomes full. Even if other subscriptions in the topic
+community are using messaging policies with a value of <codeph>Discard
+Old Messages</codeph> in the <codeph>Max Messages Behavior</codeph> attribute,
+their publish requests fail.</p><p>Consider the following example
+scenarios:<ol>
+<li><p>There are a number of subscriptions to the topic <codeph>/RiverGauges/*</codeph>;
+note the use of the wildcard. The buffer of one of these subscriptions
+becomes full. It is using a messaging policy with a <codeph>Max Messages
+Behavior</codeph> attribute set to <codeph>Reject New Messages</codeph>.
+All publish requests to any topic in the <codeph>/RiverGauges/*</codeph> topic
+community fail. Even if other subscriptions are using messaging policies
+with a <codeph>Max Messages Behavior</codeph> attribute set to <codeph>Discard
+Old Messages</codeph>, publish requests fail. Publish requests continue
+to fail until the subscriber with the full buffer starts to receive
+messages and space is created in its buffer.</p><p>If, however, the
+setting of the <codeph>Max Messages Behavior</codeph> attribute of
+the subscription to the topic <codeph>/RiverGauges/*</codeph> is set
+to <codeph>Discard Old Messages</codeph>, and its buffer becomes full,
+other subscriptions are not affected. Messages are deleted from the
+buffer of the subscriber with the full buffer. Gaps in the incoming
+message stream might be experienced as a result of messages being
+deleted from its buffer.</p><?Pub Caret -2?></li>
+<li><p>There are a number of subscriptions to the <codeph>/RiverGauges/Mississippi</codeph> topic.
+The buffer of one of these subscriptions becomes full. It is using
+a messaging policy with a <codeph>Max Messages Behavior</codeph> attribute
+set to <codeph>Reject New Messages</codeph>. All publish requests
+to the <codeph>/RiverGauges/Mississippi</codeph> topic fail. Even
+if subscriptions are using messaging policies with a <codeph>Max Messages
+Behavior</codeph> attribute set to <codeph>Discard Old Messages</codeph>,
+publish requests fail. All subscriptions to the <codeph>/RiverGauges/Mississippi</codeph> topic
+cannot receive any new messages. Subscriptions to the <codeph>/RiverGauges/*</codeph> topic
+community continue to receive messages for all topics except for messages
+for the <codeph>/RiverGauges/Mississippi</codeph> topic. Publish requests
+continue to fail until the subscriber with the full buffer starts
+to receive messages and space is created in its buffer.</p><p>If,
+however, the setting of the <codeph>Max Messages Behavior</codeph> attribute
+of the subscriber to the topic <codeph>/RiverGauges/Mississippi</codeph> is
+set to <codeph>Discard Old Messages</codeph>, and its buffer becomes
+full, other subscriptions are not affected. Messages are deleted from
+the buffer of the subscriber with the full buffer. Gaps in the incoming
+message stream might be experienced as a result of messages being
+deleted from its buffer.</p></li>
+</ol> </p><p>If you choose to discard old messages, the quality of
+service, persistence, priority, expiry status, and reliability of
+the messages are not considered and do not prevent the messages from
+being removed.</p><p>To be published successfully, MQTT messages with
+QoS of 1 or 2, or JMS messages with the equivalent qualities of service,
+must be sent to all subscriptions in the topic community. If a subscription
+has a full buffer and a <codeph>Max Messages Behavior</codeph> attribute
+set to <codeph>Discard Old Messages</codeph>, the message is always
+accepted and then, if necessary, messages in the buffer are discarded.
+If the <codeph>Max Messages Behavior</codeph> attribute is set to <codeph>Reject
+New Messages</codeph>, the publish request fails for all subscriptions
+in the topic community.</p><p>If MQTT messages with QoS of 0, or JMS
+messages with the equivalent quality of service, are sent to a subscription
+that has a full buffer and a <codeph>Max Messages Behavior</codeph> attribute
+set to <codeph>Discard Old Messages</codeph>, the publish request
+succeeds but some existing messages are discarded from the buffer. If
+the <codeph>Max Messages Behavior</codeph> attribute is set to <codeph>Reject
+New Messages</codeph>, the publish request succeeds but other incoming
+messages are rejected.</p></section>
+<section><title>Message order</title><p>If the message arrival order
+is important to your solution, you must configure your solution to
+ensure that message order is preserved. To preserve the message order,
+your solution must meet the following requirements:<ul>
+<li>The producer or publisher must be single threaded.</li>
+<li>Messages must be exchanged with the same quality of service.</li>
+<li>If you are using <ph
+conref="../TextEntities.dita#TextEntities/mqBridge"></ph>, you must
+map to a single queue manager.</li>
+<li>For publish/subscribe systems, the messages must be published
+to a single topic.</li>
+</ul></p></section>
+<section><title>Topic Namespace</title><p></p><dl><dlentry>
+<dt>Maximum number of topic levels</dt>
+<dd><ph conref="../TextEntities.dita#TextEntities/ISM"></ph> limits
+topic strings to 32 levels. Therefore, you must consider your publish/subscribe
+topology to ensure that the number of topic levels does not exceed
+32.</dd>
+</dlentry><dlentry>
+<dt>Topic string name restrictions</dt>
+<dd><codeph>${UserID}</codeph>, <codeph>${GroupID}</codeph>, <codeph>${ClientID}</codeph>,
+and <codeph>${CommonName}</codeph> are reserved for variable substitution
+in messaging policies and cannot be used in a topic string.</dd>
+</dlentry></dl></section>
+<section><title>Retained messages</title><p>You can use retained messages
+to send the most recent message to subscribers that subscribe after
+that message was published.</p><p>Only one message is retained for
+each topic, so existing retained messages are deleted when a new retained
+message is published to the topic. The deletion of the existing message
+might not occur synchronously with the arrival of the new retained
+message. In the case where more than one publisher publishes retained
+messages to a single topic, it is not possible to know which message
+is stored. It is possible that an earlier message sent by one publisher
+is stored as the retained message, rather than a later message sent
+by another publisher. Therefore, where possible, have no more than
+one publisher sending retained messages to a topic.</p><p>Messages
+are not retained after <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> is
+restarted if the messages are not sent as persistent retained messages.
+Consider sending retained messages as persistent messages so that
+the messages continue to be available to new subscribers even if <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> is restarted.</p></section>
+<section><title>Messaging users and groups</title><p>When you create messaging policies and connection policies, you can restrict access based on messaging user ID and messaging group membership. You can use an LDAP server connection to provide the details of the users and groups. You can connect only one LDAP server to <ph
+conref="../TextEntities.dita#TextEntities/ISM"
+/>. Therefore, you must consider how your existing infrastructure might be used for messaging users and groups.</p><p>When you use the <codeph>${GroupID}</codeph> variable
+in your messaging policies, ensure that, where the same user ID is
+being used in more than one group with the same group ID and the user
+ID is referring to different users, you consider having unique group IDs.
+Unique group IDs help to ensure that access is restricted to only
+those users that are intended to have access. For more information
+about using variable substitution, see <xref format="dita"
+href="../Security/se00018.dita" scope="local" type="concept"></xref>.</p></section>
+<section><title>Expired messages</title><p>If it is important that subscribing client applications do not process expired messages, it is
+    good practice for the subscribing client application to check the expiry time of messages that
+    they receive from the client. The subscribing client application can then discard those messages
+    that have expired. If the subscribing client application needs to perform this check of expiry
+    time, it is important that the subscriber host clock is synchronized with the <ph
+     conref="../TextEntities.dita#TextEntities/ISM"/> server host clock. Synchronization of the
+    clocks is required for the expiration check to work correctly. Use a network time protocol (NTP)
+    server to keep the clocks synchronized. </p></section>
+<section><title>LTPA or OAuth authentication</title><p>For clients that depend on LTPA or OAuth authentication, it is important that <ph
+     conref="../TextEntities.dita#TextEntities/ISM"/> server time is synchronized with the LTPA
+    token provider or OAuth token provider. The authentication request from the <ph
+     conref="../TextEntities.dita#TextEntities/ISM"/> client might fail because of the expiry of the
+    LTPA token or OAuth token if the clocks are not synchronized. </p></section>
+</refbody>
+</reference>
+<?Pub *0000016903?>

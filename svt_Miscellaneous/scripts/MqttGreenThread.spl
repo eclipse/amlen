@@ -1,0 +1,68 @@
+use com.ibm.streams.messaging.mqtt::* ;
+
+composite MqttGreenThread
+{
+	param
+		expression<rstring> $serverUri : getSubmissionTimeValue("serverUri") ;
+	type
+		PersonSchema = int32 id, rstring fname, rstring lname, int32 age,
+			rstring gender, float32 score, float64 total ;
+	graph
+		stream<PersonSchema> InputData = Beacon()
+		{
+			param
+				initDelay : 5.0 ;
+//				iterations : 100000u ;
+//				period : 0.1 ;
+
+			output
+				InputData : id =(int32) IterationCount(), fname = "Cristiana", lname =
+					"Chitic", age = 30, gender = "F", score =(float32) 93.2, total = 664.4 ;
+		}
+		/** Convert input data to blob in csv format.		
+		*/
+		(stream<blob msg> CsvMsg) as FormatMsg = Format(InputData)
+		{
+			param
+				format : csv ;
+			output
+				CsvMsg : msg = Output() ;
+		}
+
+		() as MQTTSink_6 = MQTTSink(CsvMsg as inPort0Alias)
+		{
+			param
+				serverURI : $serverUri ;
+				topic : "Person" ;
+				format : block ;
+		}
+
+		stream<blob receivePersonData> MyMessageStream = MQTTSource()
+		{
+			param
+				serverURI : $serverUri ;
+				topics : [ "Person" ] ;
+				format : block ;
+		}
+
+		/*
+		 * Parse the csv format blob message data to csv data.
+		 */
+		stream<PersonSchema> ParsedMsg = Parse(MyMessageStream)
+		{
+			param
+				format : csv ;
+		}
+
+		/*
+		 * Write the csv data to the data file
+		 */
+		() as MyMessageSink = FileSink(ParsedMsg)
+		{
+			param
+				file : "actual.csv" ;
+				format : csv ;
+				flush : 1u ;
+		}
+
+}

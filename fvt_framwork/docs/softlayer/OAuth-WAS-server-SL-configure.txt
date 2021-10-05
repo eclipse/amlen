@@ -1,0 +1,137 @@
+Configuring the WAS server that acts as the OAuth/LTPA host in automation (right now, that is AFtools2)
+
+1.  Install WAS normally and create the normal profile (AppSrv01).  After I reprovisioned AFtools2 from a SoftLayer image template, WAS was already installed (and it looked like it was fully configured, but it was not).
+
+2.  Change the default node keystore from whatever it is currently, to ibm.jks (password is "password").  You may also need to import this jks keystore into WAS's jre keystore at /opt/IBM/WebSphere/AppSrv01/java/jre/lib/security/cacerts (this is a jks file, password is "changeit", by default).
+
+a) Copy the ibm.jks to /opt/IBM/WebSphere/AppServer/profiles/AppSrv01/config/cells/AFtools2Node01Cell/nodes/AFtools2Node01
+b) In the Admin Console under "Security" --> "SSL certificate and key management" --> "Key stores and certificates".  Click on "NodeDefaultKeyStore" and edit the path and set it to:
+
+${CONFIG_ROOT}/cells/AFtools2Node01Cell/nodes/AFtools2Node01/ibm.jks
+
+Password is "password".  Apply and save to the master config and restart WAS.
+
+3.  Setup global security so it authenticates users via LDAP.  It looks like you are supposed to select the type as Tivoli Directory Server, even though we are using Openldap server. 
+
+Settings:
+
+(After logging in to the WAS console on AFtools2 at http://<ip>:9060/ibm/console -- user: admin, password: admin -- and going to "Security" --> "Global security")
+
+Under User account repository, select "Standalone LDAP Repository" and click the "Configure" button.
+
+Under "Primary administrative user name", put "admin"
+Host: <harness_ip_address> (although this may change over time)
+Port: 389
+Base distinguished name (DN): ou=LTPATest,o=jndiTest
+
+Keep the rest of the defaults.  We do not actually specify a Bind DN or password (so we are doing anonymous LDAP binds, which is fine if security isn't cranked down in LDAP)
+
+After configuring this, I expected this all to work; however, it was still failing, claiming it couldn't find the adminstrative user id in the registry (ie, LDAP).  After trying to search against this user manually, eg:
+
+ldapsearch -x -H "ldap://localhost:389" -b o=jndiTest -s sub objectclass=* dn 
+
+You can also search this remotely with:
+
+ldapsearch -x -H "ldap://<ldapserver_ip>:389" -b o=jndiTest -s sub uid=admin dn
+
+eg:
+
+# ldapsearch -x -H "ldap://<harness_ip_address>:389" -b o=jndiTest -s sub uid=admin dn
+# extended LDIF
+#
+# LDAPv3
+# base <o=jndiTest> with scope subtree
+# filter: uid=admin
+# requesting: dn 
+#
+
+# admin, users, LTPATest, jndiTest
+dn: uid=admin,ou=users,ou=LTPATest,o=jndiTest
+
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 2
+# numEntries: 1
+
+You should see output like that above.
+
+When I was configuring this, I found that this admin id did in fact exist.  That implies that the filter WAS was using to identify a user had to be wrong (and it was).  Go to Advanced Settings at the bottom (see next step)
+
+Advanced Settings:
+
+The WAS defaults for the params under General Properties are:
+
+User filter: (&(uid=%v)(objectclass=ePerson))
+Group filter: (&(cn=%v)(|(objectclass=groupOfNames)(objectclass=groupOfUniqueNames)))
+User ID map: *:uid
+Group ID map: *:cn
+Group member ID map: ibm-allGroups:member;ibm-allGroups:uniqueMember;groupOfNames:member;groupOfUniqueNames:uniqueMember
+
+However, this does not work. The admin user (located in the jmsjndi.and.ltpa.ldif file you can find in RTC) looks like this:
+
+dn: uid=admin,ou=users,ou=LTPATest,o=jndiTest
+uid: admin
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+userPassword: admin
+sn: LTPA
+cn: admin
+mail: admin@test.austin.ibm.com
+
+As you can see in the default "User filter", WAS only looks for users with the ePerson auxiliary objectclass. But the admin user in this tree doesn't have that objectclass.  So I copied the User filter used in Austin AF (see below):
+
+User filter: (&(|(uid=%v)(mail=%v))(|(objectclass=ePerson)(objectclass=inetOrgPerson)))
+
+This looks for either the ePerson objectclass or the inetOrgPerson objectclass (which admin user does have).  Once those are all set, there are several validation steps:
+
+a) apply the changes and save to the master configuration
+b) Select "Standalone LDAP registry" in "Available realm definitions" drop-down and click the "Configure..." button
+c) If the config passes validation, it will allow you to save to the master configuration
+d) restart WAS server: ./stopServer.sh server1 -user admin -password admin
+e) ./startServer.sh server1
+
+4. Installing MessageSight OAuth sample app:
+
+In RTC, right-click on the folder testTools_OAuthSample and select "Export" and export into an ear file.  Copy this to the WAS server (eg: AFtools2).
+
+Install this ear file and call it MessageSightOAuth.  I took all the defaults.  
+
+Next, after installing the app, click on the app and go to "Security fole to user/group mapping" and check the box "All Role" and click the "Map Users ..." button.  In the resulting panel, click the "Search" button and select all user entries that appear and click the arrow to move them to the "Selected" panel.  The list returned should look like this:
+
+uid=LTPAUser1,ou=users,ou=LTPATest,o=jndiTest
+uid=LTPAUser2,ou=users,ou=LTPATest,o=jndiTest
+uid=LTPAUser3,ou=users,ou=LTPATest,o=jndiTest
+mail=ltpauser4@test.austin.ibm.com,ou=users,ou=LTPATest,o=jndiTest
+uid=admin,ou=users,ou=LTPATest,o=jndiTest
+
+If none of these are returned, you probably don't have LDAP enabled correctly in Global security.
+
+Once those are configured and saved to the master config, start the MessageSight OAuth app in WAS via the GUI.
+
+You can test that the app is working by visiting https://[WAS_SERVER_IP]:[https_port]/MessageSightOAuth
+
+In this case, that was: https://10.10.10.10:9443/MessageSightOAuth
+
+If everything is working, you should see a URL that displays the following (more or less):
+
+
+MessageSight OAuth Application
+
+To generate an access token for MessageSight, please go to:
+Generate Access Token
+
+Use the following to configure an OAuthProfile in MessageSight to use this application:
+imaserver create OAuthProfile Name=OAuthProfile KeyFileName=
+ResourceURL=https://[WAS_SERVER_IP]:[PORT]/MessageSightOAuth/Home.jsp TokenNameProperty=access_token
+UserInfoURL=https://[WAS_SERVER_IP]:[PORT]/MessageSightOAuth/UserInfo.jsp UsernameProperty=username
+
+Home.jsp and UserInfo.jsp are protected resources and require an access_token to view.
+
+5.  You also need to install the OAuth components in WAS:
+
+cd /opt/IBM/WebSphere/AppSrv/bin
+./wsadmin.sh -conntype NONE -f installOAuth2Service.py install <nodename> -profileName AppSrv01  # FVTOpenLDAPNode01?

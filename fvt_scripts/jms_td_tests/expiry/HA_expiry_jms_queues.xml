@@ -1,0 +1,435 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name:  HA_expiry_jms_queues
+
+  Test Category:  JMS/MQTT High Availability
+
+  Test Description:
+    Start JMS TestDriver
+
+    (JMS TestDriver component 1)
+    Send a lot of messages that expire in different ways:
+            Send from JMS with ttl set on the message (10 seconds)
+            Send from JMS with ttl set on messaging policy (30 seconds)
+            Send from JMS with ttl set on message that is > ttl set on messaging policy (60/10)
+            Send from JMS with ttl set on message that is < ttl set on messaging policy (60/10)
+            Send from JMS with no ttl set on the message (Never expires)
+            Send from JMS with ttl set but not expiring any time soon (240 seconds set on message)
+            Send from JMS with ttl set but not expiring any time soon (240 seconds set on policy)
+
+            300 to PolicyNotSet, 100 expire fast, 100 slow, 100 don't
+            100 to PolicySet, expire in 30sec
+            100 to PolicySetHigher, expire in 60sec
+            100 to PolicySetLower, expire in 60sec
+            100 to PolicySetLong, expire in 240sec
+
+    (JMS TestDriver component 1)
+    Get stats for server and queue
+
+    (JMS TestDriver component 1)
+    Crash imaserver
+    Get stats for server and queue
+    Wait 20 seconds
+    Get stats for server and queue
+    Wait 20 seconds
+    Get stats for server and queue
+    Wait 20 seconds
+    Get stats for server and queue
+
+    Connect subscribers and consume what is left on the queue
+
+    (JMS TestDriver component 1)
+    Verify:
+            Admin set ttl's were synchronized and still followed after failover.
+            Expired message statistics are correct.
+            Receive all non-expired messages.
+
+	Wait 30 seconds
+    Get stats for server and queue
+
+    Cleanup
+
+    TEST COMPLETE
+
+    By the end of the test, there should be 300 regular messages left
+    on the to be consumed.
+    100 with no expiration set, sent by JMS
+    100 with 240sec expiration set, sent by JMS (set on message)
+    100 with 240sec expiration set, sent by JMS (set on policy)
+
+    The other 400 messages should have expired.
+
+*****************************************************************************/
+-->
+<ImaJmsTest name="HA_expiry_jms_queues">
+
+    <Action name="jms" type="CompositeAction">
+        <Action name="Create_CF" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">CF</ActionParameter>
+        </Action>
+
+        <Action name="Fill_CF_Props" type="FillIsmProps">
+            <ActionParameter name="structure_id">CF</ActionParameter>
+            <ActionParameter name="validateAll">true</ActionParameter>
+            <ActionParameter name="validateNoWarn">false</ActionParameter>
+            <!-- TODO: Update these values -->
+            <ImaProperty name="ClientID" value="HA_Expiry_JMS_Queues" />
+            <ImaProperty name="Port" value="20022" />
+            <include>../common/JMS_serverHA.xml</include>
+        </Action>
+
+        <Action name="Create_Conn" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn</ActionParameter>
+            <ActionParameter name="factory_id">CF</ActionParameter>
+        </Action>
+
+        <Action name="Create_Session" type="CreateSession">
+            <ActionParameter name="structure_id">Session</ActionParameter>
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+
+        <!-- Create JMS Destinations for the various topics we will
+             publish and subscribe to -->
+
+        <Action name="Create_Dest_PublishPolicySet" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicySet</ActionParameter>
+            <ActionParameter name="type">queue</ActionParameter>
+            <ApiParameter name="name">HAEXP.Expiry.PolicySet</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_PublishPolicySetHigher" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicySetHigher</ActionParameter>
+            <ActionParameter name="type">queue</ActionParameter>
+            <ApiParameter name="name">HAEXP.Expiry.PolicySetHigher</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_PublishPolicySetLower" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicySetLower</ActionParameter>
+            <ActionParameter name="type">queue</ActionParameter>
+            <ApiParameter name="name">HAEXP.Expiry.PolicySetLower</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_PublishPolicyNotSet" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicyNotSet</ActionParameter>
+            <ActionParameter name="type">queue</ActionParameter>
+            <ApiParameter name="name">HAEXP.Expiry.PolicyNotSet</ApiParameter>
+        </Action>
+
+        <Action name="Create_Dest_PublishPolicySetLong" type="CreateDestination">
+            <ActionParameter name="structure_id">Dest_PublishPolicySetLong</ActionParameter>
+            <ActionParameter name="type">queue</ActionParameter>
+            <ApiParameter name="name">HAEXP.Expiry.PolicySetLong</ApiParameter>
+        </Action>
+
+        <Action name="Create_Pub" type="CreateProducer">
+            <ActionParameter name="structure_id">Pub</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+        </Action>
+
+        <!-- Send messages with various forms of ttl set -->
+
+        <!-- Create message -->
+
+        <Action name="CreateMessageRegular" type="CreateMessage">
+            <ActionParameter name="structure_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>
+
+        <Action name="SetTextRegular" type="SetMessageText">
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ApiParameter name="value">TEXT: HA Expiry Regular message</ApiParameter>
+        </Action>
+
+        <!-- ttl Set directly on the JMS message -->
+        <Action name="Send_Message_ttl_A" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicyNotSet</ActionParameter>
+            <ApiParameter name="ttl">10000</ApiParameter>
+        </Action>
+
+        <!-- ttl Set on messaging policy only -->
+        <Action name="Send_Message_ttl_B" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySet</ActionParameter>
+        </Action>
+
+        <!-- ttl Set on messaging policy greater than ttl on message -->
+        <Action name="Send_Message_ttl_C" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySetHigher</ActionParameter>
+            <ApiParameter name="ttl">10000</ApiParameter>
+        </Action>
+
+        <!-- ttl Set on messaging policy less than ttl on message -->
+        <Action name="Send_Message_ttl_D" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySetLower</ActionParameter>
+            <ApiParameter name="ttl">60000</ApiParameter>
+        </Action>
+
+        <!-- ttl not set anywhere -->
+        <Action name="Send_Message_ttl_E" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicyNotSet</ActionParameter>
+        </Action>
+
+        <!-- ttl Set on message but not expiring anytime soon -->
+        <Action name="Send_Message_ttl_F" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicyNotSet</ActionParameter>
+            <ApiParameter name="ttl">240000</ApiParameter>
+        </Action>
+        
+        <!-- ttl Set on policy but not expiring anytime soon -->
+        <Action name="Send_Message_ttl_G" type="SendMessage" repeat="100">
+            <ActionParameter name="producer_id">Pub</ActionParameter>
+            <ActionParameter name="message_id">TextMessageRegular</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySetLong</ActionParameter>
+        </Action>
+        
+        <!-- Collect some server stats after we have sent everything -->
+
+        <Action name="Stats_Sub_A" type="RestAPI">
+            <dependsOn name="Send_Message_ttl_G" interval="1000"/>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Queue</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_A" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+       
+        <!-- Crash the primary server-->
+        <Action name="Crash_Server" type="ShellAction">
+<!--            <ActionParameter name="command">bash ../common/serverRestart.sh</ActionParameter>-->
+            <ActionParameter name="command">python ../scripts/haFunctions.py -a crashPrimary -f crashPrimary.log</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+
+        <!-- Collect more server stats immediately after the restart -->
+        <Action name="Stats_Sub_C" type="RestAPI">
+            <dependsOn name="Crash_Server" interval="15000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Queue</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_C" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Sub_D" type="RestAPI">
+            <dependsOn name="Stats_Server_C" interval="20000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Queue</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_D" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Sub_E" type="RestAPI">
+            <dependsOn name="Stats_Server_D" interval="20000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Queue</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_E" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Sub_F" type="RestAPI">
+            <dependsOn name="Stats_Server_E" interval="20000"/>
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Queue</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_F" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <!-- Reconnect -->
+        <Action name="Create_Conn_Reconnect" type="CreateConnection">
+            <ActionParameter name="structure_id">Conn</ActionParameter>
+            <ActionParameter name="factory_id">CF</ActionParameter>
+        </Action>
+
+        <Action name="Create_Session_Reconnect" type="CreateSession">
+            <ActionParameter name="structure_id">Session</ActionParameter>
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+
+        <!-- Verification -->
+
+        <Action name="CreateConsumerPolicySet" type="CreateConsumer">
+            <ActionParameter name="structure_id">policyset_consumer</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySet</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumerPolicyNotSet" type="CreateConsumer">
+            <ActionParameter name="structure_id">policynotset_consumer</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicyNotSet</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumerPolicySetHigher" type="CreateConsumer">
+            <ActionParameter name="structure_id">policysethigher_consumer</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySetHigher</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumerPolicySetLower" type="CreateConsumer">
+            <ActionParameter name="structure_id">policysetlower_consumer</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySetLower</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+        </Action>
+
+        <Action name="CreateConsumerPolicySetLong" type="CreateConsumer">
+            <ActionParameter name="structure_id">policysetlong_consumer</ActionParameter>
+            <ActionParameter name="dest_id">Dest_PublishPolicySetLong</ActionParameter>
+            <ActionParameter name="session_id">Session</ActionParameter>
+        </Action>
+
+        <Action name="StartConnection" type="StartConnection">
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+        <!-- Do receives -->
+
+        <Action name="ReceivePolicySet" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="consumer_id">policyset_consumer</ActionParameter>
+            <ApiParameter name="timeout">2000</ApiParameter>
+        </Action>
+
+        <Action name="ReceivePolicyNotSet" type="ReceiveMessage" repeat="200">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="consumer_id">policynotset_consumer</ActionParameter>
+            <ApiParameter name="timeout">2000</ApiParameter>
+        </Action>
+
+        <Action name="ReceivePolicySetHigher" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="consumer_id">policysethigher_consumer</ActionParameter>
+            <ApiParameter name="timeout">2000</ApiParameter>
+        </Action>
+
+        <Action name="ReceivePolicySetLower" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="consumer_id">policysetlower_consumer</ActionParameter>
+            <ApiParameter name="timeout">2000</ApiParameter>
+        </Action>
+
+        <Action name="ReceivePolicySetLong" type="ReceiveMessage" repeat="100">
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="consumer_id">policysetlong_consumer</ActionParameter>
+            <ApiParameter name="timeout">2000</ApiParameter>
+        </Action>
+
+        <!-- Collect some more server stats after a short period of time after restart
+             This delay also provides some time to consume non-expired messages that
+             are available after reconnecting -->
+
+        <Action name="Stats_Sub_G" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Queue</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Stats_Server_G" type="RestAPI">
+	        <ActionParameter name="server">``A2_HOST``:``A2_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Server</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    	</Action>
+
+        <Action name="Close_Conn" type="CloseConnection">
+            <ActionParameter name="conn_id">Conn</ActionParameter>
+        </Action>
+
+        <Action name="StartStandby" type="ShellAction">
+            <ActionParameter name="command">python ../scripts/haFunctions.py -a startStandby -f HA_expiry_jms_queues.startStandby.log</ActionParameter>
+            <ActionParameter name="print_result">true</ActionParameter>
+        </Action>
+    </Action>
+</ImaJmsTest>

@@ -1,0 +1,155 @@
+# Policy configuration file for OAuth testing
+# Ports used:
+#  20004 - Open policies, just uses ssl and oauth
+#  20005 - Group restrictions on policies
+#  20006 - OAuth Client certificate
+#  20007
+#  21004 - OAuth without TLS
+
+# setupLDAP 0 create LDAP "URL=ldap://${LDAP_URI}:389" "BaseDN=ou=LTPATest,o=jndiTest" "UserIdMap=uid" "GroupIdMap=cn" "GroupMemberIdMap=member" "UserSuffix=ou=users,ou=LTPATest,o=jndiTest" "GroupSuffix=ou=groups,ou=LTPATest,o=jndiTest" "Enabled=true" "NestedGroupSearch=false"
+# setupLDAP 0 POST service/restart {"Service":"Server"}
+#setup 0 stop
+#setup 0 start
+
+# OAuth Key
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaclient.pem oauth.pem
+
+# Server Certificates
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem oauth.imaserver-key.pem
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem oauth.imaserver-crt.pem 
+setup 0 apply Certificate CertFileName=oauth.imaserver-crt.pem CertFilePassword= KeyFileName=oauth.imaserver-key.pem KeyFilePassword=
+
+setup 0 create CertificateProfile Name=OAuthCertProf Certificate=oauth.imaserver-crt.pem Key=oauth.imaserver-key.pem
+
+setup 0 create OAuthProfile Name=OAuthProfileCert ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName=oauth.pem
+setup 0 create OAuthProfile Name=OAuthProfile ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName= 
+setup 0 create OAuthProfile Name=OAuthProfileCommaGood ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp UserInfoKey=username KeyFileName= GroupInfoKey=group
+setup 0 create OAuthProfile Name=OAuthProfileAnon ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token KeyFileName=
+
+setup 0 create SecurityProfile Name=OAuthSecProfCert MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileCert
+setup 0 create SecurityProfile Name=OAuthSecProf MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfile
+setup 0 create SecurityProfile Name=OAuthSecProfAnon MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileAnon
+setup 0 create SecurityProfile Name=OAuthSecProfNoTLS TLSEnabled=False MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfile
+setup 0 create SecurityProfile Name=OAuthSecProfCommaGood MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileCommaGood
+
+setup 0 create ConnectionPolicy Name=OAuthCP Protocol=MQTT ExpectedMessageRate=Max
+setup 0 create ConnectionPolicy Name=OAuthCPGroup Protocol=MQTT GroupID=LTPAGroup1 ExpectedMessageRate=Max
+setup 0 create ConnectionPolicy Name=OAuthCPUser Protocol=MQTT UserID=LTPAUser3 ExpectedMessageRate=Max
+setup 0 create ConnectionPolicy Name=OAuthCPGroupInfo Protocol=MQTT GroupID=LTPAGroup4 ExpectedMessageRate=Max
+setup 0 create ConnectionPolicy Name=OAuthCPCommaGroup Protocol=MQTT GroupID=Comma,Group ExpectedMessageRate=Max
+setup 0 create ConnectionPolicy Name=OAuthCPCommaGood Protocol=MQTT GroupID=Comma ExpectedMessageRate=Max
+
+setup 0 create TopicPolicy Name=OAuthMP Topic=* Protocol=MQTT ActionList=Publish,Subscribe MaxMessages=20000000
+setup 0 create TopicPolicy Name=OAuthMPGroup Topic=/group/oauth Protocol=MQTT GroupID=LTPAGroup1 ActionList=Publish,Subscribe MaxMessages=20000000
+setup 0 create TopicPolicy Name=OAuthMPUser Topic=/user/oauth Protocol=MQTT UserID=LTPAUser3 ActionList=Publish,Subscribe MaxMessages=20000000
+setup 0 create TopicPolicy Name=OAuthMPCommaGood Topic=/oauth/${GroupID}/topic GroupID=Comma Protocol=MQTT ActionList=Publish,Subscribe MaxMessages=20000000
+
+setup 0 create MessageHub Name=OAuthHub
+
+setup 0 create Endpoint Name=OAuthEndpoint Port=20004 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProf MessageHub=OAuthHub
+setup 0 create Endpoint Name=OAuthEndpointGroup Port=20005 ConnectionPolicies=OAuthCPGroup,OAuthCPUser,OAuthCPGroupInfo,OAuthCPCommaGroup MessagingPolicies=OAuthMPGroup,OAuthMPUser SecurityProfile=OAuthSecProf MessageHub=OAuthHub
+setup 0 create Endpoint Name=OAuthEndpointCert Port=20006 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfCert MessageHub=OAuthHub
+setup 0 create Endpoint Name=OAuthEndpointAnon Port=20007 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfAnon MessageHub=OAuthHub
+setup 0 create Endpoint Name=OAuthEndpointNoTLS Port=21004 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfNoTLS MessageHub=OAuthHub
+setup 0 create Endpoint Name=OAuthEndpointCommaGood Port=20008 ConnectionPolicies=OAuthCPCommaGood MessagingPolicies=OAuthMPCommaGood SecurityProfile=OAuthSecProfCommaGood MessageHub=OAuthHub
+
+cleanup x delete Endpoint Name=OAuthEndpoint
+cleanup x delete Endpoint Name=OAuthEndpointCommaGood
+cleanup x delete Endpoint Name=OAuthEndpointGroup
+cleanup x delete Endpoint Name=OAuthEndpointCert
+cleanup x delete Endpoint Name=OAuthEndpointAnon
+cleanup x delete Endpoint Name=OAuthEndpointNoTLS
+cleanup x delete TopicPolicy Name=OAuthMP
+cleanup x delete TopicPolicy Name=OAuthMPCommaGood
+cleanup x delete TopicPolicy Name=OAuthMPGroup
+cleanup x delete TopicPolicy Name=OAuthMPUser
+cleanup x delete ConnectionPolicy Name=OAuthCP
+cleanup x delete ConnectionPolicy Name=OAuthCPCommaGood
+cleanup x delete ConnectionPolicy Name=OAuthCPGroup
+cleanup x delete ConnectionPolicy Name=OAuthCPGroupInfo
+cleanup x delete ConnectionPolicy Name=OAuthCPUser
+cleanup x delete ConnectionPolicy Name=OAuthCPCommaGroup
+cleanup x delete MessageHub Name=OAuthHub
+cleanup x delete SecurityProfile Name=OAuthSecProf
+cleanup x delete SecurityProfile Name=OAuthSecProfCommaGood
+cleanup x delete SecurityProfile Name=OAuthSecProfAnon
+cleanup x delete SecurityProfile Name=OAuthSecProfCert
+cleanup x delete SecurityProfile Name=OAuthSecProfNoTLS
+cleanup x delete CertificateProfile Name=OAuthCertProf
+cleanup x delete OAuthProfile Name=OAuthProfile
+cleanup x delete OAuthProfile Name=OAuthProfileCommaGood
+cleanup x delete OAuthProfile Name=OAuthProfileAnon
+cleanup x delete OAuthProfile Name=OAuthProfileCert
+# cleanup 0 delete LDAP
+# cleanup 0 POST service/restart {"Service":"Server"}
+#cleanup 0 stop
+#cleanup 0 start
+
+# invalid resource url
+oauthcli 1 create OAuthProfile Name=OAuthProfile ResourceURL=abcdef AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName=
+# invalid userinfo url
+oauthcli 1 create OAuthProfile Name=OAuthProfile ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=abcdef UserInfoKey=username KeyFileName=
+# no properties set
+oauthcli 1 create OAuthProfile Name=OAuthProfile
+# no resource url or userinfo url
+oauthcli 1 create OAuthProfile Name=OAuthProfile AuthKey=access_token UserInfoKey=username KeyFileName=
+# no resource url
+oauthcli 1 create OAuthProfile Name=OAuthProfile AuthKey=access_token UserInfoKey=username UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp
+# no token name
+oauthcli 1 create OAuthProfile Name=OAuthProfile UserInfoKey=username UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp
+
+# HA setup / cleanup - same as setup/cleanup just no LDAP
+setupHA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaclient.pem oauth.pem
+setupHA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem oauth.imaserver-key.pem
+setupHA 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem oauth.imaserver-crt.pem 
+setupHA 0 apply Certificate CertFileName=oauth.imaserver-crt.pem CertFilePassword= KeyFileName=oauth.imaserver-key.pem KeyFilePassword=
+setupHA 0 create CertificateProfile Name=OAuthCertProf Certificate=oauth.imaserver-crt.pem Key=oauth.imaserver-key.pem
+setupHA 0 create OAuthProfile Name=OAuthProfileCert ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName=oauth.pem
+setupHA 0 create OAuthProfile Name=OAuthProfile ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/UserInfo.jsp UserInfoKey=username KeyFileName= 
+setupHA 0 create OAuthProfile Name=OAuthProfileAnon ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/Home.jsp AuthKey=access_token KeyFileName=
+setupHA 0 create SecurityProfile Name=OAuthSecProfCert MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileCert
+setupHA 0 create SecurityProfile Name=OAuthSecProf MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfile
+setupHA 0 create SecurityProfile Name=OAuthSecProfAnon MinimumProtocolMethod=TLSv1 UsePasswordAuthentication=True CertificateProfile=OAuthCertProf OAuthProfile=OAuthProfileAnon
+setupHA 0 create ConnectionPolicy Name=OAuthCP Protocol=MQTT ExpectedMessageRate=Max
+setupHA 0 create ConnectionPolicy Name=OAuthCPGroup Protocol=MQTT GroupID=LTPAGroup1 ExpectedMessageRate=Max
+setupHA 0 create ConnectionPolicy Name=OAuthCPGroupInfo Protocol=MQTT GroupID=LTPAGroup4 ExpectedMessageRate=Max
+setupHA 0 create ConnectionPolicy Name=OAuthCPUser Protocol=MQTT UserID=LTPAUser3 ExpectedMessageRate=Max
+setupHA 0 create ConnectionPolicy Name=OAuthCPCommaGroup Protocol=MQTT GroupID=Comma,Group ExpectedMessageRate=Max
+setupHA 0 create TopicPolicy Name=OAuthMP Destination=* Protocol=MQTT ActionList=Publish,Subscribe MaxMessages=20000000
+setupHA 0 create TopicPolicy Name=OAuthMPGroup Destination=/group/oauth Protocol=MQTT GroupID=LTPAGroup1 ActionList=Publish,Subscribe MaxMessages=20000000
+setupHA 0 create TopicPolicy Name=OAuthMPUser Destination=/user/oauth Protocol=MQTT UserID=LTPAUser3 ActionList=Publish,Subscribe MaxMessages=20000000
+setupHA 0 create MessageHub Name=OAuthHub
+setupHA 0 create Endpoint Name=OAuthEndpoint Port=20004 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProf MessageHub=OAuthHub
+setupHA 0 create Endpoint Name=OAuthEndpointGroup Port=20005 ConnectionPolicies=OAuthCPGroup,OAuthCPUser,OAuthCPGroupInfo,OAuthCPCommaGroup MessagingPolicies=OAuthMPGroup,OAuthMPUser SecurityProfile=OAuthSecProf MessageHub=OAuthHub
+setupHA 0 create Endpoint Name=OAuthEndpointCert Port=20006 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfCert MessageHub=OAuthHub
+setupHA 0 create Endpoint Name=OAuthEndpointAnon Port=20007 ConnectionPolicies=OAuthCP MessagingPolicies=OAuthMP SecurityProfile=OAuthSecProfAnon MessageHub=OAuthHub
+
+cleanupHA x delete Endpoint Name=OAuthEndpoint
+cleanupHA x delete Endpoint Name=OAuthEndpointGroup
+cleanupHA x delete Endpoint Name=OAuthEndpointCert
+cleanupHA x delete Endpoint Name=OAuthEndpointAnon
+cleanupHA x delete MessagingPolicy Name=OAuthMP
+cleanupHA x delete MessagingPolicy Name=OAuthMPGroup
+cleanupHA x delete MessagingPolicy Name=OAuthMPUser
+cleanupHA x delete ConnectionPolicy Name=OAuthCP
+cleanupHA x delete ConnectionPolicy Name=OAuthCPGroup
+cleanupHA x delete ConnectionPolicy Name=OAuthCPGroupInfo
+cleanupHA x delete ConnectionPolicy Name=OAuthCPCommaGroup
+cleanupHA x delete ConnectionPolicy Name=OAuthCPUser
+cleanupHA x delete MessageHub Name=OAuthHub
+cleanupHA x delete SecurityProfile Name=OAuthSecProf
+cleanupHA x delete SecurityProfile Name=OAuthSecProfAnon
+cleanupHA x delete SecurityProfile Name=OAuthSecProfCert
+cleanupHA x delete CertificateProfile Name=OAuthCertProf
+cleanupHA x delete OAuthProfile Name=OAuthProfile
+cleanupHA x delete OAuthProfile Name=OAuthProfileAnon
+cleanupHA x delete OAuthProfile Name=OAuthProfileCert
+
+#disableLDAP 0 update OAuthProfile Name=OAuthProfile GroupInfoKey=group UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp
+#disableLDAP 0 update OAuthProfile Name=OAuthProfileCert GroupInfoKey=group UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp
+#disableLDAP 0 update LDAP Enabled=False
+#disableLDAP 0 POST service/restart {"Service":"Server"}
+#disableLDAP 0 stop
+#disableLDAP 0 start
+
+sameURL 0 update OAuthProfile Name=OAuthProfile ResourceURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp UserInfoURL=https://${LTPAWAS_IP}:9443/MessageSightOAuth/GroupInfo.jsp

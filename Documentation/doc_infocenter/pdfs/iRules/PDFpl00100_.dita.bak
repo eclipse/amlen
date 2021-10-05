@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE concept PUBLIC  "-//OASIS//DTD DITA Concept//EN"
+ "concept.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<concept id="pl00100_" xml:lang="en-us">
+<title> Using F5 BIG-IP with IBM MessageSight</title>
+<conbody>
+<p>Here on IBM MessageSight, we've been trying out using F5 BIG-IP. You can configure BIG-IP using iRules, to route connections and load balance across a set of MessageSight servers. We created some <b>sample</b> iRules to configure F5 BIG-IP to extract an MQTT client ID from an MQTT CONNECT message, perform a server map lookup, and route the connection to the appropriate IBM® MessageSight server. This blog describes using the samples and shares some useful information so that you can:</p>
+<section>
+<ul>
+<li>Use an F5 BIG-IP iRule to extract an MQTT client ID from an MQTT CONNECT message.</li>
+<li>Perform a server map lookup, and route the connection to the appropriate IBM MessageSight.</li>
+<li>Update the server map via the iFile mechanism in BigIP and learn how the configuration is synchronized to a STANDBY BIG-IP server.</li>
+<li>Terminate TLS connections on BIG-IP, and forward the device connection to one of multiple IBM MessageSight Servers.</li>
+<li>Configure a virtual server in BIG-IP which uses the sample iRule.</li>
+</ul>
+<p>Why not try this out for yourself?</p>
+</section>
+<section> <title>F5 BIG-IP </title> <p>You can use F5 BIG-IP and iRules to control the route of incoming messages to servers in the private VLAN (server side). <image
+alt="F5 BIG-IP shown as a Proxy between a public and private VLAN" href="PDFUntitled.jpg"
+scalefit="yes" scale="50" width="400" height="150"/></p> <p>You can configure BIG-IP using iRules, to route connections and load balance across a set of MessageSight servers in the private VLAN. The set of servers can be standalone or pairs of MessageSight servers in an HA configuration.</p>
+<p>The public VLAN is the network where client devices connect to BIG-IP, and the private VLAN is the network on which BIG-IP connects to IBM MessageSight servers. Typically the devices will terminate TLS connections on BIG-IP and the communication between BIG-IP and MessageSight servers will be over non-TLS TCP connections.</p> </section>
+<section>
+<title>iRules</title>
+<p>You can write iRules by using the F5 iRule Editor, an integrated code editor, which performs basic syntax checking and provides bidirectional synchronization of iRule updates with BIG-IP.</p>
+<p>Two sample iRules are shown here, one for devices which require TLS communications, and the other for devices which do not require TLS communications (i.e. plain TCP), for example:<ul>
+<li>mqttTCP - associated with the public VLAN in BIG-IP TCP connections</li>
+<li>mqttTLS - associated with the private VLAN in BIG-IP TLS connections</li>
+</ul></p>
+<p>Both rules have virtually identical code, the primary difference being the client side iRule events which are specified, for example, CLIENTSSL_DATA as opposed to CLIENT_DATA. The sample mqttTCP contains 215 lines of Tool Command Language (Tcl) code. The bulk of the logic is in CLIENT_DATA where the MQTT CONNECT message is processed. Both iRules can parse the MQTT connect message and extract the client ID and clean session flag.</p>
+<ul>
+<li>Minimum message length checked (or return and wait for more data on the client connection)</li>
+<li>Parse MQTT fixed header and read variable length field, reject connection immediately if not MQTT CONNECT message</li>
+<li>Client ID field extracted </li>
+<li>Clean Session field extracted </li>
+<li>Perform a lookup in the server map and match the MQTT client ID against a table of regular expressions. Route the device to MessageSight server corresponding the first matching regular expression. </li>
+<li>If the first MessageSight server in the list is down, then try the next server in the list. If all servers in the list are down, then close the device connection.</li>
+</ul>
+<?Pub Caret -1?>
+</section>
+<section>
+<title>Using an iFile to load the server from</title>
+<p>The example uses an iFile which is read in the RULE_INIT iRule event to create an in-memory map of client IDs to destination server(s). You can use the iFile across an HA pair of BIG-IP servers to maintain consistency, without needing to manually synchronize between the BIG-IP servers. To change the client affinity you can then upload the new iFile and update the iRule to load the updated affinity map iFile on the active BIG-IP server. </p>
+<p>As an alternative to an iFile, you can create an iRule to administer another iRule by using a RESTful interface. Take a look here to find out more, <xref
+href="https://devcentral.f5.com/articles/restful-access-to-big-ip-subtables" format="html"
+scope="external">Restful Access to BIG-IP Subtables</xref></p>
+</section>
+<section>
+<title>Introduction to configuring F5 BIG-IP Virtual Edition</title>
+      <p>Here's a link to a YouTube video about Configuring BIG-IP, <xref
+href="https://www.youtube.com/watch?v=Li9WO2M2YLY%20" scope="external" importance="default"
+format="html"/> </p>
+<p>And a link to a YouTube video about Configuring High Availability in F5 BIG-IP LTM 11.x Config Sync Failover Trafficgroup, <xref
+href="https://www.youtube.com/watch?v=tI2m2qYfLqY" format="html"/>.</p>
+<p>You can find out more at the F5 website here, <xref href="https://devcentral.f5.com/irules"
+format="html"/>.</p>
+</section>
+<section>
+<title>Configuring a virtual server to use an iRule</title>
+<p>From <b>Local Traffic &gt; Virtual Servers &gt; Virtual Server List </b>create a virtual server that devices will connect to. When configuring the virtual server, from the <b>Resources</b> tab, select the sample iRule to associate with the virtual server.</p>
+</section>
+</conbody>
+<?tm 1413223986 8?>
+</concept>
+<?Pub *0000004710?>

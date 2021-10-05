@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="pvt" default="buildpvt" basedir=".">
+	<property name="build.dir" value="${basedir}"/>
+	<echo/>
+	<echo/>
+	<echo>==== invoking ant build for pvt ====</echo>
+	<echo message="os.name = ${os.name}" />
+	<echo message="os.arch = ${os.arch}" />
+	<echo message="os.version = ${os.version}" />
+	
+	<property name="pvt.build.dir" value="${basedir}"/>
+	
+	<!-- load pvt properties -->
+	<property file="${pvt.build.dir}/pvt_build.properties"/>
+	<property name="pvt.workspace" value="${pvt.build.dir}/.."/> 
+	
+	<!-- set environment variable pvt.workspace -->
+	<property environment="env"/>
+	<property name="env.pvt.workspace" value="${pvt.workspace}"/>
+	
+	<property name="pvt.ship.dir" value="${pvt.workspace}/pvt_ship"/>
+	<property name="pvt.ship.pvt_perftools.dir" value="${pvt.ship.dir}/pvt_perftools"/>
+	
+	
+	<!-- if buildToolKit can be found, set jazz.build flag -->
+	<condition property="do.jazz.build">
+	    <available file="${buildToolkit}" type="dir"/>
+	</condition>
+	<!-- else if buildToolKit can NOT be found, set manual.build flag -->
+	<condition property="do.manual.build">
+		<not>
+			<available file="${buildToolkit}" type="dir"/>
+		</not>
+	</condition>
+	
+	
+	<!-- build entire pvt project -->
+		<!--
+			The root target of pvt build. 
+		-->
+		<target name="buildpvt" depends="pvt_clean, pvt_init, jazz_build, manual-build">
+			<echo/>
+			<echo>==== Start pvt build ====</echo>
+		</target>
+		
+		<target name="jazz_build" if="do.jazz.build">
+			<antcall target="build-perftools"/>
+			<!-- add more projects here -->
+		</target>
+		
+		<target name="manual-build" if="do.manual.build">
+			<antcall target="manual-build-perftools"/>
+			<!-- add more projects here -->
+		</target>
+	
+		<target name="build-perftools" if="do.jazz.build">
+			<echo>==== invoking ant build other projects ====</echo>
+
+			
+			<!-- temporary copy test binraries to ship tree -->
+			<antcall target="tmp_copy" />
+	    	
+		</target>
+		
+		<target name="manual-build-perftools">
+			<echo>==== invoking ant build other projects outside JAZZ build environment ====</echo>
+
+    	
+			<!-- temprary copy test binraries to ship tree -->
+			<antcall target="tmp_copy" />
+
+		</target>
+	
+
+	<!-- Copy the files so they can be accessed from the publish script. -->
+	<target name="tmp_copy">
+		<copy todir="${pvt.ship.pvt_perftools.dir}">
+			<fileset dir="${pvt.workspace}/perftools"/>
+		</copy>
+		<!-- sort out line endings -->
+		<fixcrlf eol="unix" srcdir="${pvt.ship.pvt_perftools.dir}" includes="**/*.sh" />
+		<fixcrlf eol="unix" srcdir="${pvt.ship.pvt_perftools.dir}" includes="**/*.pl" />
+		<fixcrlf eol="unix" srcdir="${pvt.ship.pvt_perftools.dir}" includes="**/*.py" />
+		<fixcrlf eol="unix" srcdir="${pvt.ship.pvt_perftools.dir}" includes="**/ifup-local" />
+		
+		<chmod dir="${pvt.ship.pvt_perftools.dir}" perm="755" includes="**/*.sh"/>
+		<chmod dir="${pvt.ship.pvt_perftools.dir}" perm="755" includes="**/*.pl"/>
+		<chmod dir="${pvt.ship.pvt_perftools.dir}" perm="755" includes="**/*.py"/>
+		<chmod dir="${pvt.ship.pvt_perftools.dir}" perm="755" includes="**/ifup-local"/>
+	</target>
+
+	<!-- Initialize the build environment -->
+	<target name="pvt_init">
+		<echo>==== init pvt build environment ====</echo>
+		<mkdir dir="${pvt.ship.dir}"/>
+		<mkdir dir="${pvt.ship.pvt_perftools.dir}"/>
+	    
+    	<!-- remove all build_logs then create new log dir -->
+    	<!-- delete dir="${pvt.workspace}/build_log" quiet="true"/-->
+    	<mkdir dir="${pvt.workspace}/build_log"/>
+		
+	</target>
+	
+	<target name="pvt_clean">
+		<echo> ==  clean pvt build ================ </echo>
+		<delete dir="${pvt.ship.pvt_perftools.dir}"/>
+		<delete dir="${pvt.ship.dir}"/>
+	</target>
+</project>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="server_proxy_br" default="buildall" basedir=".">
+	<target name="buildall">
+	        <antcall target="build-srv-proxy-br"/>
+	</target>
+
+	<!-- Build in $BROOT rather than the source tree (sroot) if $BROOT is set -->
+	<condition property="broot" value="${env.BROOT}" else="${workspace}">
+		<isset property="env.BROOT" />
+	</condition>
+
+	<condition property="separate.broot">
+		<not>
+			<equals arg1="${broot}" arg2="${workspace}" />
+		</not>
+	</condition>
+
+	<target name="setupBroot" if="separate.broot">
+		<echo>Copying files needed by bridge to broot</echo>
+		<copy todir="${broot}/server_proxy_br">
+			<fileset dir=".">
+				<include name="keystore/**"/>
+				<include name="config/**"/>
+				<include name="http/**"/>
+				<include name="scripts/**"/>
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="build-srv-proxy-br" depends="setupBroot">
+        <!-- Set name, paths etc.-->
+        <exec executable="python3">
+           <arg value="${basedir}/../server_build/path_parser.py"/>
+           <arg value="-mdirreplace"/>
+           <arg value="-i${broot}/server_proxy_br/scripts"/>
+           <arg value="-o${broot}/server_proxy_br/scripts"/>
+           <arg value="-sinfo"/>
+        </exec>
+        <exec executable="python3">
+           <arg value="${basedir}/../server_build/path_parser.py"/>
+           <arg value="-mdirreplace"/>
+           <arg value="-i${broot}/server_proxy_br/config"/>
+           <arg value="-o${broot}/server_proxy_br/config"/>
+           <arg value="-sinfo"/>
+        </exec>
+        <!-- Do the build -->
+        <exec dir="${basedir}"
+        	executable="${build.dir}/build.sh"
+        	resultproperty="retcode"
+        	resolveexecutable="true"
+        	failonerror="false">
+            <env key="BUILD_LABEL" value="${buildLabel}" />
+        	<env key="ISM_VERSION" value="${MQTT_BRIDGE_VERSION_ID}" />
+        </exec>
+    	<condition property="errcode">
+    	    <not>
+    	        <equals arg1="${retcode}" arg2="0"/>
+    	    </not>
+    	</condition>
+    	<antcall target="log_returncode"/>
+	</target>
+
+	<target name="cunit-srv-proxy-br">
+	        <exec dir="${basedir}"
+	                executable="${build.dir}/build.sh"
+	                resultproperty="retcode"
+	                resolveexecutable="true"
+	                failonerror="true">
+	            <arg value="cunit"/>
+	        	<env key="BLD_TYPE" value="${buildType}" />
+	        </exec>
+	        <condition property="errcode">
+	            <not>
+	                <equals arg1="${retcode}" arg2="0"/>
+	            </not>
+	        </condition>
+	        <antcall target="log_returncode"/>
+	</target>
+
+	<target name="clean-srv-proxy-br">
+	        <exec dir="${basedir}"
+	                executable="${build.dir}/build.sh"
+	                resultproperty="retcode"
+	                resolveexecutable="true"
+	                failonerror="false">
+	            <arg value="clean"/>
+	        	<env key="BLD_TYPE" value="${buildType}" />
+	        </exec>
+	        <condition property="errcode">
+	            <not>
+	                <equals arg1="${retcode}" arg2="0"/>
+	            </not>
+	        </condition>
+	        <antcall target="log_returncode"/>
+	</target>
+
+	<target name="log_returncode" if="errcode">
+        <echo>==== server_proxy_br (MQTT bridge) build failed ====</echo>
+        <echo file="${workspace}/build_log/server_proxy_br.errorcode"
+              message="server_proxy_br (MQTT bridge) build failed with exit code ${retcode} from C compiler"/>
+	</target>
+</project>

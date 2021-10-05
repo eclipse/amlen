@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: JMS_Queues_012
+
+  Test Category:  JMS Queues
+  
+ 
+-->
+<ImaJmsTest name="jms_queues_012">
+
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>queues012</solution>
+    </SyncClient>
+
+    <include>../common/jms_jndi_ldap.xml</include>
+
+    <Action name="rmdt" type="CompositeAction">
+    
+
+        <Action name="CreateTx_cf1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">tx_cf1</ActionParameter>
+            <ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>
+        </Action>
+        
+        <Action name="CreateConnectionTx_cf1" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_tx_cf1</ActionParameter>
+            <ActionParameter name="factory_id">tx_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1Tx_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+            <ActionParameter name="structure_id">session1_tx_cf1</ActionParameter>
+        </Action>
+
+        <Action name="CreateTx_dest1" type="CreateDestination">
+            <ActionParameter name="structure_id">tx_dest1</ActionParameter>
+            <ActionParameter name="jndiName">jndi_queue012</ActionParameter>
+        </Action>
+
+        <Action name="CreateProducer1Tx_dest1" type="CreateProducer">
+            <ActionParameter name="structure_id">producer1_queue012</ActionParameter>
+            <ActionParameter name="dest_id">tx_dest1</ActionParameter>
+            <ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+            <ApiParameter name="deliveryMode">1</ApiParameter>
+        </Action>
+        
+        <Action name="StartConnectionTx_cf1" type="StartConnection">
+            <ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+        </Action>
+        
+        <!-- PRODUCER: Create messages -->
+        
+        <Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+            <ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+            <ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+        </Action>	
+        
+        <!-- PRODUCER: Set message content -->                
+        <Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+            <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+            <ApiParameter name="value">TEXT: From my JNDI Factory objects in jms_queues_012</ApiParameter>
+        </Action>	
+        
+        <Action name="SetMessageProperty" type="SetMessageProperty">
+            <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+            <ApiParameter name="propertyName">ID</ApiParameter>
+            <ApiParameter name="propertyType">Common</ApiParameter>
+            <ApiParameter name="valueType">Integer</ApiParameter>
+            <ApiParameter name="value">1</ApiParameter>
+        </Action>
+        
+        <Action name="StartConnection_cf1" type="StartConnection">
+            <ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="SendBytesMessage_prod_queue012" type="SendMessage" repeat_interval="0" repeat="5000" interval="0" >
+            <ActionParameter name="producer_id">producer1_queue012</ActionParameter>
+            <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+            <ActionParameter name="incrID">1</ActionParameter>
+        </Action>
+        
+        <Action name="sync_components_tx1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rx2</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+    
+        <Action name="SendMoreBytesMessage_prod_queue012" type="SendMessage" repeat_interval="0" repeat="12500" interval="0" >
+            <ActionParameter name="producer_id">producer1_queue012</ActionParameter>
+            <ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+            <ActionParameter name="incrID">1</ActionParameter>
+        </Action>	
+        
+        <Action name="CloseConnectionTx_cf1" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_tx_cf1</ActionParameter>
+        </Action>
+    </Action>
+
+    <Action name="rmdr" type="CompositeAction">
+        
+        <Action name="Create_qcf1" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">qcf1</ActionParameter>
+            <ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>    	
+        </Action>
+        
+        <Action name="CreateConnection_cf1" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf1</ActionParameter>
+            <ActionParameter name="factory_id">qcf1</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession1rx_conn_cf1" type="CreateSession">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+            <ActionParameter name="structure_id">sessionArx_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="Create_queue012" type="CreateDestination">
+            <ActionParameter name="structure_id">queue012</ActionParameter>
+            <ActionParameter name="jndiName">jndi_queue012</ActionParameter>
+        </Action>
+    
+        <Action name="CreateConsumerA_queue012" type="CreateConsumer">
+            <dependsOn name="Create_queue012"/>    
+            <ActionParameter name="structure_id">consumerA_queue012</ActionParameter>
+            <ActionParameter name="dest_id">queue012</ActionParameter>
+            <ActionParameter name="session_id">sessionArx_cf1</ActionParameter>
+        </Action>
+        
+        <Action name="sync_components_rx1" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">rx1</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rx2</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>	
+        
+        <Action name="StartConnection_cf1" type="StartConnection">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+            
+        <Action name="CompositeConsume" type="CompositeAction" repeat="5000" repeat_interval="0">
+            <Action name="RcvTextMessage_consumerA" type="ReceiveMessage" interval="0" >
+                <ActionParameter name="consumer_id">consumerA_queue012</ActionParameter>
+                <ActionParameter name="structure_id">rx_txt_msgA</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>            
+        </Action>
+        
+        <Action name="sync_components_rx1a" type="SyncComponentAction"> 	
+            <ActionParameter name="component_name">rx1a</ActionParameter>
+            <ActionParameter name="component_list">rx1a;rx2a</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>	
+        
+        <Action name="CloseConnection_cf1" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf1</ActionParameter>
+        </Action>
+    </Action>   <!-- End of rmdr -->
+    
+    
+    <Action name="rmdr2" type="CompositeAction">
+
+        <Action name="Create_qcf2" type="CreateConnectionFactory">
+            <ActionParameter name="structure_id">qcf2</ActionParameter>
+            <ActionParameter name="jndiName">jndi_qcf1</ActionParameter>
+            <ActionParameter name="loglevel">9</ActionParameter>
+            <ActionParameter name="logfile">stdout</ActionParameter>    	
+        </Action>
+        
+        <Action name="CreateConnection_cf2" type="CreateConnection">
+            <ActionParameter name="structure_id">connection_cf2</ActionParameter>
+            <ActionParameter name="factory_id">qcf2</ActionParameter>
+        </Action>
+        
+        <Action name="CreateSession2rx_conn_cf" type="CreateSession">
+            <dependsOn name="CreateConnection_cf2"/>
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+            <ActionParameter name="structure_id">sessionBrx_cf2</ActionParameter>
+        </Action>
+        
+        <Action name="Create_queueB" type="CreateDestination">
+            <ActionParameter name="structure_id">queueB</ActionParameter>
+            <ActionParameter name="jndiName">jndi_queue012</ActionParameter>
+        </Action>
+    
+        <Action name="CreateConsumerB_queue" type="CreateConsumer">
+            <dependsOn name="Create_queueB"/>    
+            <ActionParameter name="structure_id">consumerB_queue012</ActionParameter>
+            <ActionParameter name="dest_id">queueB</ActionParameter>
+            <ActionParameter name="session_id">sessionBrx_cf2</ActionParameter>
+        </Action>
+         
+        <Action name="StartConnection_cf2" type="StartConnection">
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+        </Action>
+        
+        <Action name="sync_components_rx2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rx2</ActionParameter>
+            <ActionParameter name="component_list">tx1;rx1;rx2</ActionParameter>
+            <ActionParameter name="timeout">45000</ActionParameter>
+        </Action>        
+        
+        <Action name="ConsumeB1" type="CompositeAction" repeat="5000" repeat_interval="0" >
+            <Action name="RcvTextMessage_consumerB" type="ReceiveMessage" interval="0" >
+                <ActionParameter name="consumer_id">consumerB_queue012</ActionParameter>
+                <ActionParameter name="structure_id">rx_txt_msgB</ActionParameter>
+                <ApiParameter name="timeout">5000</ApiParameter>
+            </Action>            
+        </Action>	    
+        
+        <Action name="ReceiveRestofConsB" type="ReceiveMessageLoop">
+            <dependsOn name="ConsumeB1" interval="0"/>
+            <ActionParameter name="consumer_id">consumerB_queue012</ActionParameter>
+            <ActionParameter name="messageIDS">messages</ActionParameter>
+            <ActionParameter name="maxID">17500</ActionParameter>    	
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>
+        
+        <!-- Consumer should have no more messages  -->
+        <Action name="RcvMessage_consumerBfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumerB_queue012</ActionParameter>
+            <ActionParameter name="structure_id">rx_txt_msgB</ActionParameter>
+            <ApiParameter name="timeout">500</ApiParameter>
+        </Action>
+        
+        <Action name="sync_components_rx2a" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rx2a</ActionParameter>
+            <ActionParameter name="component_list">rx1a;rx2a</ActionParameter>
+            <ActionParameter name="timeout">75000</ActionParameter>
+        </Action>	
+        
+        <Action name="ReceiveRestofConsBfromConsA" type="ReceiveMessageLoop">
+            <ActionParameter name="consumer_id">consumerB_queue012</ActionParameter>
+            <ActionParameter name="messageIDS">messages</ActionParameter>
+            <ActionParameter name="maxID">17500</ActionParameter>    	
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>	
+        
+        <Action name="RcvMessage_consumerBstillfail" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+            <ActionParameter name="consumer_id">consumerB_queue012</ActionParameter>
+            <ActionParameter name="structure_id">rx_txt_msgB</ActionParameter>
+            <ApiParameter name="timeout">5000</ApiParameter>
+        </Action>        
+        
+        <Action name="CloseConnection_cf2" type="CloseConnection">
+            <ActionParameter name="conn_id">connection_cf2</ActionParameter>
+        </Action>
+
+    </Action>	
+</ImaJmsTest>

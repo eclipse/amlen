@@ -1,0 +1,772 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2016-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testproxy_mqttv5_pubsub_03_durableSession" >
+
+
+<!-- =============  setupSessions  ========================== -->
+
+
+<Action name="setupSessions" type="CompositeAction">
+    <!-- Clean all Sessions, later Establish ODD# Client Sessions before test starts -->
+    <Action name="CleanSessionConnection-1" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_1</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="CleanSessionConnection-2" type="CreateConnection">
+        <ActionParameter name="structure_id">Con2</ActionParameter>
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_2</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="CleanSessionConnection-3" type="CreateConnection">
+        <ActionParameter name="structure_id">Con3</ActionParameter>
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_3</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="CleanSessionConnection-4" type="CreateConnection">
+        <ActionParameter name="structure_id">Con4</ActionParameter>
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_4</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    
+    <!-- Close the ODD# Client to Expire any previous Session -->
+    <Action name="CloseCleanSessionConnection1" type="CloseConnection">
+        <dependsOn action_id="CleanSessionConnection-1" interval="2000"/>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+
+    <Action name="CloseCleanSessionConnection3" type="CloseConnection">
+        <dependsOn action_id="CleanSessionConnection-3" interval="2000"/>
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+    </Action>
+
+    
+    <!-- Reopen the ODD# Client to have a Durable Session for 300 seconds  
+         Do I need in each connect?
+        <ActionParameter name="persistenceDirectory">v5client03_#</ActionParameter>
+    -->
+    
+    <Action name="DurableSessionConnection-1" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_1</ApiParameter>
+
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">300</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="DurableSessionConnection-3" type="CreateConnection">
+        <ActionParameter name="structure_id">Con3</ActionParameter>
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_3</ApiParameter>
+
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">300</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+
+    <Action name="SubscriptionMonitorSetupSessions" type="RestAPI">
+        <dependsOn action_id="DurableSessionConnection-3" interval="5000"/>
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client03*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    <!-- expect 4 isConnected Clients, check later --> 
+    <Action name="ClientMonitorSetupSessions" type="RestAPI">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=v5client03*%26ResultCount=50%26ConnectionState=connected</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection1" type="CloseConnection">
+        <dependsOn action_id="ClientMonitorSetupSessions" interval="2000"/>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    <Action name="CloseConnection2" type="CloseConnection">
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+    </Action>
+    <Action name="CloseConnection3" type="CloseConnection">
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+    </Action>
+    <Action name="CloseConnection4" type="CloseConnection">
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+    </Action>
+
+    
+    <Action name="SubscriptionMonitorTestCleanState" type="RestAPI">
+        <dependsOn action_id="CloseConnection4" interval="5000"/>
+        <ActionParameter name="structureID">status_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client03*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+
+    <Action name="ClientMonitorTestCleanState" type="RestAPI">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=v5client03*%26ResultCount=50%26ConnectionState=all</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+
+    <!-- Verify EVEN# Clients have NON-Durable Sessions -->
+    <Action name="VerifyNonDurableStart-2" type="CompareREST" rc="1" reason="ISMTEST3410">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_2</ActionParameter>
+        <ObjectProperty name="ExpiryTime" value="null"/>
+    </Action>   
+    <Action name="VerifyNonDurableStart-4" type="CompareREST" rc="1" reason="ISMTEST3410">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_4</ActionParameter>
+        <ObjectProperty name="ExpiryTime" value="null"/>
+    </Action>   
+
+
+    <!-- Verify ODD# Clients have Durable Sessions -->
+    <Action name="VerifyDurableCreated-1" type="CompareREST">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_1</ActionParameter>
+        <ObjectProperty name="IsConnected" value="false"/>
+        <ObjectProperty name="LastConnectedTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)"/>
+        <ObjectProperty name="ExpiryTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)"/>
+    </Action>   
+    <Action name="VerifyDurableCreated-3" type="CompareREST">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_3</ActionParameter>
+        <ObjectProperty name="IsConnected" value="false"/>
+        <ObjectProperty name="LastConnectedTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)"/>
+        <ObjectProperty name="ExpiryTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)"/>
+    </Action>   
+
+
+</Action>
+
+
+
+<!-- =============  Subscribe  ========================== -->
+
+
+
+<Action name="Subscribe" type="CompositeAction">
+    <!-- Durable Session is thrown away, new session is durable    -->
+    <Action name="CreateConnection-1" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_1</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <!-- become Durable Session-->
+    <Action name="CreateConnection-2" type="CreateConnection">
+        <ActionParameter name="structure_id">Con2</ActionParameter>
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_2</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <!-- Durable Session existed-->
+    <Action name="CreateConnection-3" type="CreateConnection">
+        <ActionParameter name="structure_id">Con3</ActionParameter>
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_3</ApiParameter>
+
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <!-- become Durable Session-->
+    <Action name="CreateConnection-4" type="CreateConnection">
+        <ActionParameter name="structure_id">Con4</ActionParameter>
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_4</ApiParameter>
+
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+
+<!--   VERIFY THE CONNACK SessionPresent Flag - Defect 206814
+-->
+    <Action name="TestSessionPresent-1" type="CheckConnectOptions">
+    <dependsOn action_id="CreateConnection-4" internal="2000" />
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="true" />
+        <ApiParameter name="compareSessionPresent">false</ApiParameter>
+        <ObjectProperty name="Expiry" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)" />
+    </Action>
+<!--	
+    MQTT send 20 CONNACK connect=121: len=9 
+00 00 06 22 0000 21 0100 [..."..!..]
+-->
+    <Action name="TestSessionPresent-2" type="CheckConnectOptions">
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="true" />
+        <ApiParameter name="compareSessionPresent">false</ApiParameter>
+        <ObjectProperty name="Expiry" value="null" />
+    </Action>
+<!--
+   MQTT send 20 CONNACK connect=123: len=9 
+00 00 06 22 0000 21 0100 [..."..!..]
+-->
+    <Action name="TestSessionPresent-3" type="CheckConnectOptions">
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="false" />
+        <ApiParameter name="compareSessionPresent">true</ApiParameter>
+        <ObjectProperty name="Expiry" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)" />
+    </Action>
+<!--
+    MQTT send 20 CONNACK connect=125: len=9 
+01 00 06 22 0000 21 0100 [..."..!..]
+01 -> Session PRESENT!
+-->
+    <Action name="TestSessionPresent-4" type="CheckConnectOptions">
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+        <ObjectProperty name="isCleanSession" value="false" />
+        <ApiParameter name="compareSessionPresent">false</ApiParameter>
+        <ObjectProperty name="Expiry" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)" />
+    </Action>
+<!--
+    MQTT send 20 CONNACK connect=127: len=9 
+00 00 06 22 0000 21 0100 [..."..!..]
+-->
+
+    <Action name="Subscribe1" type="Subscribe">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ApiParameter name="topic">mqttv5-02/cleanStart1</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+
+    <Action name="Subscribe2" type="Subscribe">
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ApiParameter name="topic">mqttv5-02/cleanStart2</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+
+    <Action name="Subscribe3" type="Subscribe">
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+        <ApiParameter name="topic">mqttv5-02/cleanStart3</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+
+    <Action name="Subscribe4" type="Subscribe">
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+        <ApiParameter name="topic">mqttv5-02/cleanStart4</ApiParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+
+
+
+
+    <Action name="SubscriptionMonitorVerifyDurable" type="RestAPI">
+        <dependsOn action_id="Subscribe4" interval="5000"/>
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/monitor/Subscription?ClientID=v5client03*</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+
+    <Action name="VerifyDurable-1" type="CompareREST">
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_1</ActionParameter>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action>   
+
+    <Action name="VerifyDurable-2" type="CompareREST">
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_2</ActionParameter>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action> 
+    <Action name="VerifyDurable-3" type="CompareREST">
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_3</ActionParameter>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action> 
+    <Action name="VerifyDurable-4" type="CompareREST">
+        <ActionParameter name="structureID">submonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_4</ActionParameter>
+        <ObjectProperty name="IsDurable" value="true"/>
+    </Action> 
+    
+
+    
+    <Action name="ClientMonitorVerifyDurable" type="RestAPI">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=v5client03*%26ResultCount=50%26ConnectionState=connected</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    
+    <Action name="CloseConnection1" type="CloseConnection">
+        <dependsOn action_id="ClientMonitorVerifyDurable" interval="5000"/>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    <Action name="CloseConnection2" type="CloseConnection">
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+    </Action>
+    <Action name="CloseConnection3" type="CloseConnection">
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+    </Action>
+    <Action name="CloseConnection4" type="CloseConnection">
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+    </Action>
+
+</Action>
+
+
+<!-- =============== PUBLISH =============== -->
+
+<Action name="Publish" type="CompositeAction">
+  
+    <Action name="txSessionConnection-1" type="CreateConnection">
+        <ActionParameter name="structure_id">tCon1</ActionParameter>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_1pub</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="txSessionConnection-2" type="CreateConnection">
+        <ActionParameter name="structure_id">tCon2</ActionParameter>
+        <ActionParameter name="connection_id">tCF2</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_2pub</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="txSessionConnection-3" type="CreateConnection">
+        <ActionParameter name="structure_id">tCon3</ActionParameter>
+        <ActionParameter name="connection_id">tCF3</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_3pub</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+    <Action name="txSessionConnection-4" type="CreateConnection">
+        <ActionParameter name="structure_id">tCon4</ActionParameter>
+        <ActionParameter name="connection_id">tCF4</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_4pub</ApiParameter>
+
+        <ApiParameter name="cleanSession">true</ApiParameter>
+        <ApiParameter name="sessionExpire">0</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="CreateMessage_1" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">MQTTv5 Client02-1 </ApiParameter>
+    </Action>
+    <Action name="SendMessage_1" type="SendMessage">
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+           <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">mqttv5-02/cleanStart1</ActionParameter>
+        <ActionParameter name="QoS">1</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+      <Action name="CreateMessage_2" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg2</ActionParameter>
+        <ActionParameter name="connection_id">tCF2</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">MQTTv5 Client02-2 </ApiParameter>
+    </Action>
+    <Action name="SendMessage_2" type="SendMessage">
+        <ActionParameter name="connection_id">tCF2</ActionParameter>
+           <ActionParameter name="message_id">txmsg2</ActionParameter>
+        <ActionParameter name="topic">mqttv5-02/cleanStart2</ActionParameter>
+        <ActionParameter name="QoS">1</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+      <Action name="CreateMessage_3" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg3</ActionParameter>
+        <ActionParameter name="connection_id">tCF3</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">MQTTv5 Client02-3 </ApiParameter>
+    </Action>
+    <Action name="SendMessage_3" type="SendMessage">
+        <ActionParameter name="connection_id">tCF3</ActionParameter>
+           <ActionParameter name="message_id">txmsg3</ActionParameter>
+        <ActionParameter name="topic">mqttv5-02/cleanStart3</ActionParameter>
+        <ActionParameter name="QoS">1</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+      <Action name="CreateMessage_4" type="CreateMessage">
+        <ActionParameter name="structure_id">txmsg4</ActionParameter>
+        <ActionParameter name="connection_id">tCF4</ActionParameter>
+        <ApiParameter name="msgType">TEXT</ApiParameter>
+        <ApiParameter name="payload">MQTTv5 Client02-4 </ApiParameter>
+    </Action>
+    <Action name="SendMessage_4" type="SendMessage">
+        <ActionParameter name="connection_id">tCF4</ActionParameter>
+           <ActionParameter name="message_id">txmsg4</ActionParameter>
+        <ActionParameter name="topic">mqttv5-02/cleanStart4</ActionParameter>
+        <ActionParameter name="QoS">1</ActionParameter>
+        <ActionParameter name="RETAIN">false</ActionParameter>
+       </Action>
+
+    
+    <Action name="CloseConnection1" type="CloseConnection">
+        <dependsOn action_id="SendMessage_4" interval="5000"/>
+        <ActionParameter name="connection_id">tCF1</ActionParameter>
+    </Action>
+    <Action name="CloseConnection2" type="CloseConnection">
+        <ActionParameter name="connection_id">tCF2</ActionParameter>
+    </Action>
+    <Action name="CloseConnection3" type="CloseConnection">
+        <ActionParameter name="connection_id">tCF3</ActionParameter>
+    </Action>
+    <Action name="CloseConnection4" type="CloseConnection">
+        <ActionParameter name="connection_id">tCF4</ActionParameter>
+    </Action>
+
+</Action>
+
+
+    <!-- =============== RECEIVE =============== -->
+
+<Action name="Receive" type="CompositeAction">
+    <Action name="CreateConnection-1" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_1</ApiParameter>
+
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">10</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <!-- NonDurable -->
+    <Action name="CreateConnection-2" type="CreateConnection">
+        <ActionParameter name="structure_id">Con2</ActionParameter>
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_2</ApiParameter>
+
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">10</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <!-- Durable Session -->
+    <Action name="CreateConnection-3" type="CreateConnection">
+        <ActionParameter name="structure_id">Con3</ActionParameter>
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_3</ApiParameter>
+
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <!-- become Durable Session-->
+    <Action name="CreateConnection-4" type="CreateConnection">
+        <ActionParameter name="structure_id">Con4</ActionParameter>
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+        <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <include>../common/PROXY_port.xml</include>
+        <ApiParameter name="clientId">v5client03_4</ApiParameter>
+
+        <ApiParameter name="cleanSession">false</ApiParameter>
+        <ApiParameter name="sessionExpire">30</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+    </Action>
+
+    <Action name="ReceiveMessage_1" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessage_1" type="CompareMessageData">
+         <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+           <ActionParameter name="compareBody">MQTTv5 Client02-1 </ActionParameter>
+           <ActionParameter name="compareTopic">mqttv5-02/cleanStart1</ActionParameter>
+           <!-- ActionParameter name="compareQoS">1</ActionParameter-->
+           <ActionParameter name="compareRetain">false</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveMessage_2" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessage_2" type="CompareMessageData">
+         <ActionParameter name="structure_id">rxmsg2</ActionParameter>
+           <ActionParameter name="compareBody">MQTTv5 Client02-2 </ActionParameter>
+           <ActionParameter name="compareTopic">mqttv5-02/cleanStart2</ActionParameter>
+           <!-- ActionParameter name="compareQoS">1</ActionParameter-->
+           <ActionParameter name="compareRetain">false</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveMessage_3" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+        <ActionParameter name="structure_id">rxmsg3</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessage_3" type="CompareMessageData">
+         <ActionParameter name="structure_id">rxmsg3</ActionParameter>
+           <ActionParameter name="compareBody">MQTTv5 Client02-3 </ActionParameter>
+           <ActionParameter name="compareTopic">mqttv5-02/cleanStart3</ActionParameter>
+           <!-- ActionParameter name="compareQoS">1</ActionParameter-->
+           <ActionParameter name="compareRetain">false</ActionParameter>
+    </Action>
+
+    <Action name="ReceiveMessage_4" type="ReceiveMessage">
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+        <ActionParameter name="structure_id">rxmsg4</ActionParameter>
+        <ActionParameter name="waitTime">3000</ActionParameter>
+    </Action>
+    <Action name="CheckMessage_4" type="CompareMessageData">
+         <ActionParameter name="structure_id">rxmsg4</ActionParameter>
+           <ActionParameter name="compareBody">MQTTv5 Client02-4 </ActionParameter>
+           <ActionParameter name="compareTopic">mqttv5-02/cleanStart4</ActionParameter>
+           <!-- ActionParameter name="compareQoS">1</ActionParameter-->
+           <ActionParameter name="compareRetain">false</ActionParameter>
+    </Action>
+
+
+    <!-- CleanStart=False, Expiry=30, session saved for Expiry seconds -->
+    <Action name="CloseConnection1" type="CloseConnection">
+        <dependsOn action_id="CheckMessage_4" interval="5000"/>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    <!-- CleanStart=False, Expiry=30, session saved for Expiry seconds -->
+    <Action name="CloseConnection2" type="CloseConnection">
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+    </Action>
+
+    <!-- Durable Session : CleanStart=False, Expiry=30, session saved for Expiry seconds -->
+    <Action name="CloseConnection3" type="CloseConnection">
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+    </Action>
+    <!-- CleanStart=False, Expiry=30, session saved for Expiry seconds -->
+    <Action name="CloseConnection4" type="CloseConnection">
+        <ActionParameter name="connection_id">CF4</ActionParameter>
+    </Action>
+
+
+
+
+
+    <Action name="ClientMonitor-after10s" type="RestAPI">
+        <dependsOn action_id="CloseConnection4" interval="10000"/>
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=v5client03*%26ResultCount=50%26ConnectionState=All</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+    
+    <!-- Expiry=0 or unset, all expire on disconnect and are not listed -->
+    <Action name="VerifyClient-1-NotPersistAfter10s" type="CompareREST" rc="1" reason="ISMTEST3410">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_1</ActionParameter>
+        <ObjectProperty name="ExpiryTime" value="null"/>
+    </Action>   
+    <Action name="VerifyClient-2-NotPersistAfter10s" type="CompareREST" rc="1" reason="ISMTEST3410">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_2</ActionParameter>
+        <ObjectProperty name="ExpiryTime" value="null"/>
+    </Action>   
+    <Action name="VerifyClient-3-PersistAfter10s" type="CompareREST">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_3</ActionParameter>
+        <ObjectProperty name="IsConnected" value="false"/>
+        <ObjectProperty name="LastConnectedTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)" />
+        <ObjectProperty name="ExpiryTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)" />
+    </Action>   
+    <Action name="VerifyClient-4-PersistAfter10s" type="CompareREST">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_4</ActionParameter>
+        <ObjectProperty name="IsConnected" value="false"/>
+        <ObjectProperty name="ExpiryTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)" />
+        <ObjectProperty name="LastConnectedTime" value="REGEXP: \d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)" />
+    </Action>   
+
+    
+    <Action name="ClientMonitor-after40s" type="RestAPI">
+        <dependsOn action_id="VerifyClient-4-PersistAfter10s" interval="40000"/>
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/MQTTClient?ClientID=v5client03*%26ResultCount=50%26ConnectionState=All</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+    </Action>
+
+    <!-- ALL Sessions Expired, so actaully TD RC is 3416 and only need to check once 
+    <Action name="VerifyClient-3-PersistAfter40s" type="CompareREST" rc="1" reason="ISMTEST3410">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_3</ActionParameter>
+        <ObjectProperty name="IsConnected" value="false"/>
+    </Action>  
+-->
+    <Action name="VerifyClient-4-PersistAfter40s" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">clientmonitor_output</ActionParameter>
+        <ActionParameter name="topLevelKey">MQTTClient</ActionParameter>
+        <ActionParameter name="subObjectKey">ClientID</ActionParameter>
+        <ActionParameter name="subObjectName">v5client03_4</ActionParameter>
+        <ObjectProperty name="IsConnected" value="false"/>
+    </Action>  
+    
+    
+</Action>
+
+</IsmWSTest>
+                

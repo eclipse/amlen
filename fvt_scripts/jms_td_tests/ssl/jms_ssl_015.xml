@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_ssl_015
+
+  Test Category:  JMS SSL
+  
+  Test Description:
+	consumer = M1
+	producer = M2
+
+        consumer can subscribe to IPtopic because it is connecting 
+        from IP=M1_IPv4_1
+
+        consumer cannot publish or subscribe to badIPtopic because it is not 
+        connecting from 9.9.9.9 or 255.255.255.255
+
+        producer can publish to IPtopic because it is connecting
+        from IP=M2_IPv4_1
+
+        producer cannot publish or subscribe to badIPtopic because it is not 
+        connecting from 9.9.9.9 or 255.255.255.255
+
+        Connection Policies:
+        JMSCPm1 - allow connections from IP=M1_IPv4_1 on JMS protocol
+        JMSCPm2 - allow connections from IP=M2_IPv4_1 on JMS protocol
+        JMSCPipLow - allow connections from IP=9.9.9.9 on JMS protocol
+        JMSCPipHigh - allow connections from IP=255.255.255.255 on JMS protocol
+
+        MessagingPolicies:
+        JMSMPm1 - allow pub/sub from IP=M1_IPv4_1
+        JMSMPm2 - allow pub/sub from IP=M2_IPv4_1
+        JMSMPipLow - allow pub/sub from IP=9.9.9.9
+        JMSMPipHigh - allow pub/sub from IP=255.255.255.255
+
+        Endpoint:
+        JMSEndpointIP - Port 18477, JMSCPm1, JMSCPm2, JMSMPm1, JMSMPm2,
+                        JMSMPipLow, JMSMPipHigh
+        JMSEndpointIPinvalid - Port 18478, JMSCPipHigh, JMSCPipLow,
+                               JMSMPipLow, JMSMPipHigh
+
+*****************************************************************************/
+-->
+<ImaJmsTest name="jms_ssl_015" >
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_ssl_015</solution>
+	</SyncClient>
+
+	<!-- This component tries to connect from IP=M1_IPv4_1
+	     It will fail to connect because it does not match 9.9.9.9
+	     or 255.255.255.255 
+	     This is to verify that some IP higher than the IP specified in
+	     the policy is not allowed, or some IP lower than the IP specified
+	     in the policy. -->
+	<Action name="invalidIPClient" type="CompositeAction">
+		<Action name="CreateFactory_RX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener_RX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps_RX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="invalid_SSL015_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="18478" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_RX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_RX" type="CreateSession" rc="1" reason="CWLNC0207">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_RX1" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+	</Action>
+	
+	<Action name="consumer" type="CompositeAction">
+		<!-- This side runs on machine 1! -->
+		<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+		<Action name="syncReset" type="SyncAction">
+			<ActionParameter name="request">reset</ActionParameter>
+		</Action>
+
+		<!-- Initialize the SyncDriver values -->
+
+		<Action name="syncInit1" type="SyncAction">
+			<ActionParameter name="request">init</ActionParameter>
+			<ActionParameter name="condition">syncPoint</ActionParameter>
+		</Action>
+
+		<Action name="CreateFactory_RX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener_RX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<!-- Connect to endpoint JMSEndpointIP
+		     This will succeed because the endpoint allows connections
+		     from IP=M1_IPv4_1 -->
+		<Action name="SetFactoryProps_RX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx_SSL015_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="18477" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_RX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_RX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_RX" type="CreateDestination">
+			<ApiParameter name="name">IPtopic</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRX</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestinationBad_RX" type="CreateDestination">
+			<ApiParameter name="name">badIPtopic</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destRXbad</ActionParameter>
+		</Action>
+
+		<!-- Create a consumer on topic IPtopic.
+		     This will succeed because messaging policy JMSMPm1 allows
+		     IP=M1_IPv4_1 to publish and subscribe to IPtopic -->
+		<Action name="CreateConsumer1" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<!-- Create a producer on topic IPtopic.
+		     This will fail because messaging policy JMSMPm1 only allows
+		     IP=M1_IPv4_1 to subscribe to IPtopic -->
+		<Action name="CreateProducer" type="CreateProducer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="dest_id">destRX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+	
+		<!-- Create a consumer on badIPtopic.
+		     This will fail because our IP does not match 9.9.9.9 or 255.255.255.255
+		     Also, verifying that some IP above or below that specified in the policy
+		     is not allowed. -->
+		<Action name="CreateConsumerBad" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">destRXbad</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+	
+		<!-- Create a producer on badIPtopic.
+		     This will fail because our IP does not match 9.9.9.9 or 255.255.255.255
+		     Also, verifying that some IP above or below that specified in the policy
+		     is not allowed. -->
+		<Action name="CreateProducerBad" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">producer2</ActionParameter>
+			<ActionParameter name="dest_id">destRXbad</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+	
+		<Action name="StartConnection_RX1" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+	
+		<Action name="sync_components_RX" type="SyncComponentAction"> 
+		        <ActionParameter name="component_name">rx1</ActionParameter>
+		        <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+	        	<ActionParameter name="timeout">25000</ActionParameter>
+	 	</Action>
+
+		<Action name="sync_components_RX1" type="SyncComponentAction"> 
+		        <ActionParameter name="component_name">rx1a</ActionParameter>
+		        <ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+	        	<ActionParameter name="timeout">25000</ActionParameter>
+	 	</Action>
+	 	
+		<Action name="CompositeRcv" type="CompositeAction" expected="90" repeat_interval="0" interval="0"> 
+			<Action name="ReceiveMessage1-1" type="ReceiveMessage">
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes" type="GetMessageText">
+				<dependsOn name="ReceiveMessage1-1" interval="0"/>
+				<ActionParameter name="message_id">rxmsg1</ActionParameter>
+				<ActionParameter name="verifyValue">This is a test string message</ActionParameter>
+			</Action>
+
+			<Action name="ReceiveMessage2" type="ReceiveMessage">
+				<dependsOn name="GetMessageBytes" interval="0"/>
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg2</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageText2" type="GetMessageText">
+				<dependsOn name="ReceiveMessage2" interval="0"/>
+				<ActionParameter name="message_id">rxmsg2</ActionParameter>
+				<ActionParameter name="verifyValue">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ActionParameter>
+			</Action>
+
+			<Action name="ReceiveMessage3" type="ReceiveMessage">
+				<dependsOn name="GetMessageText2" interval="0"/>
+				<ActionParameter name="consumer_id">consumer1</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg3</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>
+
+			<Action name="GetMessageBytes3" type="GetMessageText">
+				<dependsOn name="ReceiveMessage3" interval="0"/>
+				<ActionParameter name="message_id">rxmsg3</ActionParameter>
+				<ActionParameter name="verifyValue">symbol=MSFT|bid=27.09|ask=30.19</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="CloseSession_RX2" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection_RX1" type="StopConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_RX1" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+		</Action>
+
+	</Action>
+  
+	<Action name="producer" type="CompositeAction">
+		<!-- This side runs on machine 2! -->
+		<Action name="CreateFactory_TX" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener_TX" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<!-- Connect to endpoint JMSEndpointIP
+		     This will succeed because the endpoint allows connections
+		     from IP=M1_IPv4_1 -->
+		<Action name="SetFactoryProps_TX" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="tx_SSL015_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="18477" type="STRING"/>
+		</Action>
+
+		<Action name="CreateConnection_TX" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+
+		<Action name="CreateSession_TX" type="CreateSession">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		 	<ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestination_TX" type="CreateDestination">
+			<ApiParameter name="name">IPtopic</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTX</ActionParameter>
+		</Action>
+
+		<Action name="CreateDestinationBad_TX" type="CreateDestination">
+			<ApiParameter name="name">badIPtopic</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+		 	<ActionParameter name="structure_id">destTXbad</ActionParameter>
+		</Action>
+
+		<!-- Create a producer on topic IPtopic.
+		     This will succeed because messaging policy JMSMPm2 allows
+		     IP=M2_IPv4_1 to publish and subscribe to IPtopic -->
+		<Action name="CreateProducer" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1</ActionParameter>
+			<ActionParameter name="dest_id">destTX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<!-- Create a consumer on topic IPtopic.
+		     This will fail because messaging policy JMSMPm2 only allows
+		     IP=M2_IPv4_1 to publish to IPtopic -->
+		<Action name="CreateConsumer" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer1</ActionParameter>
+			<ActionParameter name="dest_id">destTX</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+	
+		<!-- Create a consumer on badIPtopic.
+		     This will fail because our IP does not match 9.9.9.9 or 255.255.255.255
+		     Also, verifying that some IP above or below that specified in the policy
+		     is not allowed. -->
+		<Action name="CreateConsumerBad" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">consumer2</ActionParameter>
+			<ActionParameter name="dest_id">destTXbad</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+	
+		<!-- Create a producer on badIPtopic.
+		     This will fail because our IP does not match 9.9.9.9 or 255.255.255.255
+		     Also, verifying that some IP above or below that specified in the policy
+		     is not allowed. -->
+		<Action name="CreateProducerBad" type="CreateConsumer" rc="1" reason="CWLNC0207">
+			<ActionParameter name="structure_id">producer2</ActionParameter>
+			<ActionParameter name="dest_id">destTXbad</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+	
+		<Action name="StartConnection_TX" type="StartConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+	
+		<Action name="CreateMessage1" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg1</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage1Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg1</ActionParameter>
+			<ApiParameter name="value">This is a test string message</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage2" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg2</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="msgParam">&lt;quote&gt;&lt;symbol&gt;IBM&lt;/symbol&gt;&lt;bid&gt;100.00&lt;/bid&gt;&lt;ask&gt;105.20&lt;/ask&gt;&lt;/quote&gt;</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage3" type="CreateMessage">
+			<ActionParameter name="structure_id">txmsg3</ActionParameter>
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+
+		<Action name="SetMessage3Text" type="SetMessageText">
+			<ActionParameter name="message_id">txmsg3</ActionParameter>
+			<ApiParameter name="value">symbol=MSFT|bid=27.09|ask=30.19</ApiParameter>
+		</Action>
+
+		<Action name="sync_components_TX" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>
+
+		<Action name="CompositeSnd" type="CompositeAction" repeat="90" repeat_interval="0" interval="0"> 
+			<Action name="SendMessage1" type="SendMessage">
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg1</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage2" type="SendMessage">
+				<dependsOn name="SendMessage1" interval="0"/>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg2</ActionParameter>
+			</Action>
+
+			<Action name="SendMessage3" type="SendMessage">
+				<dependsOn name="SendMessage2" interval="0"/>
+				<ActionParameter name="producer_id">producer1</ActionParameter>
+				<ActionParameter name="message_id">txmsg3</ActionParameter>
+			</Action>
+		</Action>
+
+		<Action name="sync_components_TX1" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>
+
+		<Action name="CloseSession_TX" type="CloseSession">
+			<ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection_TX" type="StopConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+
+		<Action name="CloseConnection_TX" type="CloseConnection">
+			<ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+		</Action>
+	</Action>
+</ImaJmsTest>

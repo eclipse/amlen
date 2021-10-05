@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: JMS_queues_014b
+
+   Test Category:  JMS Queues
+   
+   Test Description:
+   Test sending (async) and receiving (sync) messages using queues,
+   with two consumers.
+   The producer will send messages with 2 different selectors: each consumer
+   listening to a specific one so we can account for all the messages.
+   The consumers and producer are all on their own sessions.
+   The producer is NOT ACTUALLY Asynchronous, since this is not in a transaction.
+
+-->
+<ImaJmsTest name="jms_queues_014b">
+
+  <include>../common/jms_jndi_ldap.xml</include>
+
+  <Action name="Create_qcfasync" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">qcfasync</ActionParameter>
+    <ActionParameter name="jndiName">jndi_qcfasync</ActionParameter>
+	<ActionParameter name="loglevel">9</ActionParameter>
+	<ActionParameter name="logfile">stdout</ActionParameter>
+  </Action>
+
+  <Action name="CheckProps_qcfasync" type="CheckIsmProps">
+    <ActionParameter name="structure_id">qcfasync</ActionParameter>
+    <ChkImaProperty name="Port" value="18458" method="getString"/>
+    <ChkImaProperty name="AsyncTransactionSend" value="true" method="getBoolean"/>
+  </Action>
+
+  <Action name="CreateConnection_qcfasync" type="CreateConnection">
+    <ActionParameter name="structure_id">conn_qcfasync</ActionParameter>
+    <ActionParameter name="factory_id">qcfasync</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession_prod" type="CreateSession">
+    <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    <ActionParameter name="structure_id">sess_prod</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession_cons1" type="CreateSession">
+    <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    <ActionParameter name="structure_id">sess_cons1</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession_cons2" type="CreateSession">
+    <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+    <ActionParameter name="structure_id">sess_cons2</ActionParameter>
+  </Action>
+
+  <Action name="Create_Q1" type="CreateDestination">
+    <ActionParameter name="structure_id">Q1</ActionParameter>
+    <ActionParameter name="jndiName">jndi_queue014</ActionParameter>
+  </Action>
+
+  <Action name="CheckProps_Q1" type="CheckIsmProps">
+    <ActionParameter name="structure_id">Q1</ActionParameter>
+    <ChkImaProperty name="name" value="JMSQueue014"/>
+  </Action>
+
+  <Action name="Create_TX" type="CreateProducer">
+    <ActionParameter name="structure_id">prod</ActionParameter>
+    <ActionParameter name="dest_id">Q1</ActionParameter>
+    <ActionParameter name="session_id">sess_prod</ActionParameter>
+    <ApiParameter name="deliveryMode">1</ApiParameter>
+  </Action>
+
+  <Action name="Create_RX_1" type="CreateConsumer">
+    <ActionParameter name="structure_id">cons1</ActionParameter>
+    <ActionParameter name="dest_id">Q1</ActionParameter>
+    <ActionParameter name="session_id">sess_cons1</ActionParameter>
+    <ApiParameter name="selector">TestProperty='alphas'</ApiParameter>
+  </Action>
+
+  <Action name="Create_RX_2" type="CreateConsumer">
+    <ActionParameter name="structure_id">cons2</ActionParameter>
+    <ActionParameter name="dest_id">Q1</ActionParameter>
+    <ActionParameter name="session_id">sess_cons2</ActionParameter>
+    <ApiParameter name="selector">TestProperty='betas'</ApiParameter>
+  </Action>
+  
+  <Action name="CreateTxtMessage_A" type="CreateMessage">
+    <ActionParameter name="structure_id">msg_a</ActionParameter>
+    <ActionParameter name="session_id">sess_prod</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+  </Action>
+
+  <Action name="SetMsg_A" type="SetMessageText">
+    <ActionParameter name="message_id">msg_a</ActionParameter>
+    <ApiParameter name="value">A simple message.</ApiParameter>
+  </Action>
+
+  <Action name="SetMessage_A_Prop" type="SetMessageProperty">
+	<ActionParameter name="message_id">msg_a</ActionParameter>
+	<ApiParameter name="propertyName">TestProperty</ApiParameter>
+	<ApiParameter name="propertyType">Common</ApiParameter>
+	<ApiParameter name="value">alphas</ApiParameter>
+  </Action>
+
+  <Action name="CreateTxtMessage_B" type="CreateMessage">
+    <ActionParameter name="structure_id">msg_b</ActionParameter>
+    <ActionParameter name="session_id">sess_prod</ActionParameter>
+    <ApiParameter name="msgType">TEXT</ApiParameter>
+  </Action>
+
+  <Action name="SetMsg_B" type="SetMessageText">
+    <ActionParameter name="message_id">msg_b</ActionParameter>
+    <ApiParameter name="value">Another trivial note!</ApiParameter>
+  </Action>
+
+  <Action name="SetMessage_B_Prop" type="SetMessageProperty">
+	<ActionParameter name="message_id">msg_b</ActionParameter>
+	<ApiParameter name="propertyName">TestProperty</ApiParameter>
+	<ApiParameter name="propertyType">Common</ApiParameter>
+	<ApiParameter name="value">betas</ApiParameter>
+  </Action>
+
+  <Action name="StartConnection_qcfasync" type="StartConnection">
+    <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+  </Action>
+
+
+  <!-- send 100 each of A & B, 4 times, for 400 total of each -->
+  <Action name="CompositeSend" type="CompositeAction" repeat="4" repeat_interval="0">
+    <Action name="SendMsg_A" type="SendMessage" repeat="100" repeat_interval="0" interval="0">
+      <ActionParameter name="producer_id">prod</ActionParameter>
+      <ActionParameter name="message_id">msg_a</ActionParameter>
+    </Action>
+
+    <Action name="SendMsg_B" type="SendMessage" repeat="100" repeat_interval="0" interval="0">
+      <ActionParameter name="producer_id">prod</ActionParameter>
+      <ActionParameter name="message_id">msg_b</ActionParameter>    
+    </Action>
+  </Action>
+
+  <!-- receive all the messages, alternating consumers -->
+  <Action name="CompositeConsume" type="CompositeAction" repeat="400" repeat_interval="0">
+    <Action name="RCV_msg_a" type="ReceiveMessage" interval="0">
+      <ActionParameter name="consumer_id">cons1</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_a</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+    <Action name="GetMsgText_cons_a" type="GetMessageText" interval="0">
+      <ActionParameter name="message_id">rxd_msg_a</ActionParameter>
+      <ActionParameter name="verifyValue">A simple message.</ActionParameter>
+    </Action>
+
+    <Action name="RCV_msg_b" type="ReceiveMessage" interval="0">
+      <ActionParameter name="consumer_id">cons2</ActionParameter>
+      <ActionParameter name="structure_id">rxd_msg_b</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+    <Action name="GetMsgText_cons_b" type="GetMessageText" interval="0">
+      <ActionParameter name="message_id">rxd_msg_b</ActionParameter>
+      <ActionParameter name="verifyValue">Another trivial note!</ActionParameter>
+    </Action>
+
+  </Action>
+
+  <Action name="CloseSession_prod" type="CloseSession">
+    <ActionParameter name="session_id">sess_prod</ActionParameter>
+  </Action>
+
+  <Action name="CloseSession_cons1" type="CloseSession">
+    <ActionParameter name="session_id">sess_cons1</ActionParameter>
+  </Action>
+
+  <Action name="CloseSession_cons2" type="CloseSession">
+    <ActionParameter name="session_id">sess_cons2</ActionParameter>
+  </Action>
+
+  <Action name="StopConnection_qcfasync" type="CloseConnection">
+    <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_qcfasync" type="CloseConnection">
+    <ActionParameter name="conn_id">conn_qcfasync</ActionParameter>
+  </Action>
+
+</ImaJmsTest>

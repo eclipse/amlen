@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+   TestCase Name: jms_ssl_018
+
+   Test Category:  JMS SSL
+
+   Test Description:
+     See what happens when we create groups within groups.
+     Security Regression tests:
+
+
+
+   JMSGroup5a
+     JMSGroup5b
+       JMSGroup5c
+         JMSGroup5d
+
+   JMSUser8a -> JMSGroup5a
+   JMSUser8b -> JMSGroup5b
+   JMSUser8c -> JMSGroup5c
+   JMSUser8d -> JMSGroup5d
+
+
+  ConnectionPolicy9 initially allows JMSGroup5b (and 5c & 5d) (5a is NOT allowed)
+  expect allowed: JMSUser8b, JMSUser8c, JMSUser8d
+  expect denied: JMSUser8
+
+
+  -->
+<ImaJmsTest name="jms_ssl_018">
+
+
+  <Action name="rmdx" type="CompositeAction">
+
+    <Action name="Create_CF" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF</ActionParameter>
+      <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+          <ActionParameter name="keyStorePassword">password</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+      <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="SetPropsFail_CF" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <ImaProperty name="Protocol" value="tcps"/>
+          <include>../common/JMS_server.xml</include>
+          <ImaProperty name="Port" value="18481"/> <!-- JMSSSLEndpoint9 (JMSSSLConnectionPolicy10) -->
+    </Action>
+
+
+    <!-- 8a is not in 5b -->
+    <Action name="CreateConnection_8a" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_8a</ActionParameter>
+      <ApiParameter name="user">JMSUser8a</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_8a" type="CreateSession" rc="1" reason="CWLNC0207">
+      <ActionParameter name="conn_id">conn_8a</ActionParameter>
+      <ActionParameter name="structure_id">sess_8a</ActionParameter>
+    </Action>
+
+
+    <!-- 8b is in 5b, which is the group listed in the CP -->
+    <Action name="CreateConnection_8b" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_8b</ActionParameter>
+      <ApiParameter name="user">JMSUser8b</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_8b" type="CreateSession">
+      <ActionParameter name="conn_id">conn_8b</ActionParameter>
+      <ActionParameter name="structure_id">sess_8b</ActionParameter>
+    </Action>
+
+
+    <Action name="StartConnection_8b" type="StartConnection">
+      <ActionParameter name="conn_id">conn_8b</ActionParameter>
+    </Action>
+
+
+    <!-- 8c is in 5c, which is in 5b, which is the group listed on the CP -->
+    <Action name="CreateConnection_8c" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_8c</ActionParameter>
+      <ApiParameter name="user">JMSUser8c</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_8c" type="CreateSession">
+      <ActionParameter name="conn_id">conn_8c</ActionParameter>
+      <ActionParameter name="structure_id">sess_8c</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_8c" type="StartConnection">
+      <ActionParameter name="conn_id">conn_8c</ActionParameter>
+    </Action>
+
+
+    <!-- 8d is in 5d, which is in the group of 5c, which is the group listed on the CP -->
+    <!-- DEFECT 28382 (fixed)  -->
+    <Action name="CreateConnection_8d" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_8d</ActionParameter>
+      <ApiParameter name="user">JMSUser8d</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_8d" type="CreateSession">
+      <ActionParameter name="conn_id">conn_8d</ActionParameter>
+      <ActionParameter name="structure_id">sess_8d</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_8d" type="StartConnection">
+      <ActionParameter name="conn_id">conn_8d</ActionParameter>
+    </Action>
+
+
+	<Action name="UpdateNestedGroup" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"JMSSSLConnectionPolicy10":{"GroupID":"JMSGroup5c"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"ConnectionPolicy":[{"Name":"UpdateNestedGroup","GroupID":"JMSGroup5c"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <!--Action name="UpdateNestedGroup" type="ShellAction">
+      <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update ConnectionPolicy Name=JMSSSLConnectionPolicy10 Protocol=JMS GroupID=JMSGroup5c</ActionParameter>
+    </Action-->
+
+
+
+
+    <!-- connect again 8a -->
+    <Action name="CreateConnection_8a2" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_8a2</ActionParameter>
+      <ApiParameter name="user">JMSUser8a</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_8a2" type="CreateSession" rc="1" reason="CWLNC0207">
+      <ActionParameter name="conn_id">conn_8a2</ActionParameter>
+      <ActionParameter name="structure_id">sess_8a2</ActionParameter>
+    </Action>
+
+
+
+    <!-- connect again 8b SHOULD NOW NOT BE ABLE TO CONNECT -->
+    <Action name="CreateConnection_8b2" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_8b2</ActionParameter>
+      <ApiParameter name="user">JMSUser8b</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_8b2" type="CreateSession" rc="1" reason="CWLNC0207">
+      <ActionParameter name="conn_id">conn_8b2</ActionParameter>
+      <ActionParameter name="structure_id">sess_8b2</ActionParameter>
+    </Action>
+
+
+
+    <!-- connect again 8c -->
+    <Action name="CreateConnection_8c2" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_8c2</ActionParameter>
+      <ApiParameter name="user">JMSUser8c</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_8c2" type="CreateSession">
+      <ActionParameter name="conn_id">conn_8c2</ActionParameter>
+      <ActionParameter name="structure_id">sess_8c2</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_8c2" type="StartConnection">
+      <ActionParameter name="conn_id">conn_8c2</ActionParameter>
+    </Action>
+
+
+    <!-- connect again 8d -->
+    <Action name="CreateConnection_8d2" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_8d2</ActionParameter>
+      <ApiParameter name="user">JMSUser8d</ApiParameter>
+      <ApiParameter name="passwd">test</ApiParameter>
+      <ActionParameter name="factory_id">CF</ActionParameter>
+    </Action>
+
+    <Action name="CreateSession_8d2" type="CreateSession">
+      <ActionParameter name="conn_id">conn_8d2</ActionParameter>
+      <ActionParameter name="structure_id">sess_8d2</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_8d2" type="StartConnection">
+      <ActionParameter name="conn_id">conn_8d2</ActionParameter>
+    </Action>
+
+
+
+
+
+
+
+    <!-- close the three original successfull connections -->
+    <Action name="CloseConnection_conn_8b" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_8b</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_conn_8c" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_8c</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_conn_8d" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_8d</ActionParameter>
+    </Action>
+
+
+    <!-- close the two new connections -->
+    <Action name="CloseConnection_conn_8c2" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_8c2</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_conn_8d2" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_8d2</ActionParameter>
+    </Action>
+
+	<Action name="ResetNestedGroup" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"UpdateNestedGroup":{"GroupID":"JMSGroup5b"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"ConnectionPolicy":[{"Name":"UpdateNestedGroup","GroupID":"JMSGroup5b"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    <!--Action name="ResetNestedGroup" type="ShellAction">
+      <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver update ConnectionPolicy Name=JMSSSLConnectionPolicy10 Protocol=JMS GroupID=JMSGroup5b</ActionParameter>
+    </Action-->
+
+  </Action>
+
+</ImaJmsTest>

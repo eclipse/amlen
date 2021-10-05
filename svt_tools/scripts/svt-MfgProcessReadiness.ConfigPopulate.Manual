@@ -1,0 +1,276 @@
+Name:  svt-MfgProcessReadiness.ConfigPopulate.Manual
+There are a series of tests that need to be run as part of the Manufacturing process to verify a machine is ready for customer usage.
+The file is one step of the check list: svt-MfgProcessReadinessChecklist.txt.
+
+Prerequisites:
+A. PXE Install the SHIP READY Driver has completed successfully.
+(PXE First because you will remove PXE as boot option in uEFI Verification)
+
+B. svt-MfgProcessReadiness.UEFI.Manual has been run to configure the HW for ISM Performance.
+
+-------------------------------------------------------------------------------
+Steps: 
+
+1. First Login page after PXE 
+As it is booting, verify "Change to your Product Name Here" text says:  'IBM Internet Scale Messaging Server' 
+  --  Login prompt is:  "(none) login:"   Log in as:  admin/admin 
+  --  Complete first ethernet interface configuration for mgt0 for 9.3.17y.xxx/24;gw=9.3.17y.1
+  --  Should see the LICENSE PROMPT at the end of the startup.xml wizard for first ethernet-interface configuration
+  
+  NEW For 10Gb Ethernet - Configure 1Gb mgt0, IMM, with 10Gb eth20 and eth21 instead of with eth0 and/or mgt1 
+  At the Bedrock Console prompt:
+  -- Run:  edit ethernet-interface eth20   (This will act as your Intranet NIC)
+    -- Type:  ip press Enter, then type:  address 10.10.3.yyy/23
+    -- Type:  exit  until you get error about mode=Auto
+    -- Type:  mode 10000baseTx-FD
+    -- Type:  exit   and hopefully you are back at the bedrock Console prompt.
+  -- Repeat for eth21, This will act as your Internet NIC.
+    -- Run:  edit ethernet-interface eth21
+    -- Type:  ip press Enter, then type:  address 10.10.1.yyy/23
+    -- Type:  exit  until you get error about mode=Auto
+    -- Type:  mode 10000baseTx-FD
+    -- Type:  exit   and hopefully you are back at the bedrock Console prompt.
+
+2. @http://9.3.17y.xx:9080/ISMWebUI: Change the password for ADMIN in ISMWebUI
+  --  Accept the License Agreement the first time.
+  --  Change the password for ADMIN in ISMWebUI
+  For 1Gb (mgt1-eth0/1)  (OLD, use 10Gb now) 
+  --  Configure the second ethernet-interface  (i.e. eth0  10.10.0.xxx/21), you can Test Connection
+  For 10Gb (eth20-eth21)
+  --  Verify the 10Gb ethernet-interface  (i.e. eth20  10.10.3.xxx/23), you can Test Connection
+  --  Verify the 10Gb ethernet-interface  (i.e. eth21  10.10.1.xxx/23), you can Test Connection  --  Save and Close First Steps, Logout
+  --  Verify the password was changed by logging out and logging in on GUI.
+  --  Verify the password was changed by logging out and logging in on CLI.
+
+3. @Bedrock Console CLI:  Create Security Profile and Policy
+   If encounter syntax errors in following commands, the syntax may have been updated after this testcase
+   Refer to:  Project: svt_tools  File: common_src/SVT_ISM_environment.cli
+   
+   -- Setup Passwordless SSH on IMA Appliance  (Assumes: Client have already been setup for passwordless ssh)
+user sshkey add scp://root@10.10.10.10:/root/.ssh/authorized_keys
+file get scp://root@10.10.10.10:/root/.ssh/id_sample_harness_sshkey identity
+imaserver apply identity identity
+
+   -- Create IMA Security Profile
+file get "scp://root@10.10.10.10:/niagara/test/JavaSamples/ssl/ismserver-crt.pem"   .
+file get "scp://root@10.10.10.10:/niagara/test/JavaSamples/ssl/ismserver-key.pem"   .
+imaserver apply Certificate "CertFileName=ismserver-crt.pem"  "KeyFileName=ismserver-key.pem" "CertFilePassword=" "KeyFilePassword="
+imaserver create CertificateProfile "Name=SVTCertProf"  "Certificate=ismserver-crt.pem"  "Key=ismserver-key.pem" 
+imaserver create SecurityProfile    "Name=SVTSecProf"  "MinimumProtocolMethod=SSLv3"  "UseClientCertificate=False"  "Ciphers=Medium"  "CertificateProfile=SVTCertProf"
+
+   -- Create IMA Messaging Hubs and Policies
+imaserver create MessageHub  "Name=SVTAutoTeleHub"  "Description=SVT Automotive Telematics Hub"
+imaserver create MessagingPolicy  "Name=SVTSubMsgPol-car"  "DestinationType=Topic"  "Destination=/CAR/*"   "ActionList=Subscribe"  "Protocol=MQTT,JMS"
+imaserver create MessagingPolicy  "Name=SVTSubMsgPol-app"  "DestinationType=Topic"  "Destination=/APP/*"   "ActionList=Subscribe"  "Protocol=MQTT,JMS"
+imaserver create MessagingPolicy  "Name=SVTSubMsgPol-user" "DestinationType=Topic"  "Destination=/USER/*"  "ActionList=Subscribe"  "Protocol=MQTT,JMS"
+imaserver create MessagingPolicy  "Name=SVTPubMsgPol-car"  "DestinationType=Topic"  "Destination=/CAR/*"   "ActionList=Publish"  "Protocol=MQTT,JMS"
+imaserver create MessagingPolicy  "Name=SVTPubMsgPol-app"  "DestinationType=Topic"  "Destination=/APP/*"   "ActionList=Publish"  "Protocol=MQTT,JMS"
+imaserver create MessagingPolicy  "Name=SVTPubMsgPol-user" "DestinationType=Topic"  "Destination=/USER/*"  "ActionList=Publish"  "Protocol=MQTT,JMS"
+imaserver create ConnectionPolicy "Name=SVTInternetConnectPolicy"  "Protocol=MQTT,JMS"  "Description=SVTSecureConnectionPolicyForTestAutomation"    
+imaserver create ConnectionPolicy "Name=SVTIntranetConnectPolicy"  "Protocol=MQTT,JMS"  "Description=SVTUnsecureConnectionPolicyForTestAutomation" 
+	(make INTERFACE IPs match your environment)
+	For mgt0 and eth0 use:  1GB eth
+imaserver create Endpoint   "Name=SVT-InternetEndpoint" "Enabled=True" "Port=16111" "MessageHub=SVTAutoTeleHub" "Interface=10.10.10.10" "MaxMessageSize=256MB" "ConnectionPolicies=SVTInternetConnectPolicy" "MessagingPolicies=SVTPubMsgPol-app,SVTSubMsgPol-car,SVTSubMsgPol-user"  "SecurityProfile=SVTSecProf" 
+imaserver create Endpoint   "Name=SVT-IntranetEndpoint" "Enabled=True" "Port=16999" "MessageHub=SVTAutoTeleHub" "Interface=10.10.1.91" "MaxMessageSize=256MB" "ConnectionPolicies=SVTIntranetConnectPolicy" "MessagingPolicies=SVTSubMsgPol-app,SVTPubMsgPol-car,SVTPubMsgPol-user"
+	For eth6 and eth7 use:  40GB eth
+imaserver create Endpoint   "Name=SVT-InternetEndpoint" "Enabled=True" "Port=16111" "MessageHub=SVTAutoTeleHub" "Interface=10.10.10.91" "MaxMessageSize=256MB" "ConnectionPolicies=SVTInternetConnectPolicy" "MessagingPolicies=SVTPubMsgPol-app,SVTSubMsgPol-car,SVTSubMsgPol-user"  "SecurityProfile=SVTSecProf"
+imaserver create Endpoint   "Name=SVT-IntranetEndpoint" "Enabled=True" "Port=16999" "MessageHub=SVTAutoTeleHub" "Interface=10.10.11.91" "MaxMessageSize=256MB" "ConnectionPolicies=SVTIntranetConnectPolicy" "MessagingPolicies=SVTSubMsgPol-app,SVTPubMsgPol-car,SVTPubMsgPol-user"
+
+imaserver  create MessageHub  "Name=SVTStockHub"  "Description=SVTStockHub"
+imaserver  create MessagingPolicy  "Name=SVTPubStockMsgPol" "DestinationType=Topic"  "Destination=/topic/*"  "ActionList=Publish" "Protocol=MQTT,JMS"
+imaserver  create MessagingPolicy  "Name=SVTSubStockMsgPol" "DestinationType=Topic"  "Destination=/topic/*"  "ActionList=Subscribe" "Protocol=MQTT,JMS"
+imaserver  create ConnectionPolicy "Name=SVTUnsecureStockConnectPolicy" "Protocol=MQTT,JMS" "Description=SVTUnsecureStockConnectionPolicy"
+imaserver  create ConnectionPolicy "Name=SVTSecureStockConnectPolicy"   "Protocol=MQTT,JMS" "Description=SVTSecureStockConnectionPolicy"
+	(make INTERFACE IPs match your environment)
+	For mgt0 and eth0 use:  1GB eth
+imaserver  create Endpoint   "Name=SVTSecureStockEndpoint"   "Enabled=True" "Port=16666" "MessageHub=SVTStockHub" "Interface=10.10.10.10" "MaxMessageSize=256MB" "ConnectionPolicies=SVTSecureStockConnectPolicy"   "MessagingPolicies=SVTPubStockMsgPol,SVTSubStockMsgPol"   "SecurityProfile=SVTSecProf" 
+imaserver  create Endpoint   "Name=SVTUnsecureStockEndpoint" "Enabled=True" "Port=16555" "MessageHub=SVTStockHub" "Interface=10.10.1.91" "MaxMessageSize=256MB" "ConnectionPolicies=SVTUnsecureStockConnectPolicy" "MessagingPolicies=SVTPubStockMsgPol,SVTSubStockMsgPol" 
+	For eth6 and eth7 use:  40GB eth
+imaserver  create Endpoint   "Name=SVTSecureStockEndpoint"   "Enabled=True" "Port=16666" "MessageHub=SVTStockHub" "Interface=10.10.10.91" "MaxMessageSize=256MB" "ConnectionPolicies=SVTSecureStockConnectPolicy"   "MessagingPolicies=SVTPubStockMsgPol,SVTSubStockMsgPol"   "SecurityProfile=SVTSecProf" 
+imaserver  create Endpoint   "Name=SVTUnsecureStockEndpoint" "Enabled=True" "Port=16555" "MessageHub=SVTStockHub" "Interface=10.10.11.91" "MaxMessageSize=256MB" "ConnectionPolicies=SVTUnsecureStockConnectPolicy" "MessagingPolicies=SVTPubStockMsgPol,SVTSubStockMsgPol" 
+
+   -- MQConnectivity Config
+   (make Connection Name IP match your environment)
+imaserver create QueueManagerConnection "Name=QM1" "QueueManagerName=SVTBRIDGE.QUEUE.MANAGER" "ConnectionName=10.10.10.10(1414)" "ChannelName=SVTBRIDGE.CHANNEL"
+imaserver create DestinationMappingRule "Name=Rule1" "QueueManagerConnection=QM1" "RuleType=7" "Source=/APP"  "Destination=/APP"  "Enabled=True"
+imaserver create DestinationMappingRule "Name=Rule2" "QueueManagerConnection=QM1" "RuleType=9" "Source=/CAR"  "Destination=/CAR"  "Enabled=True"
+imaserver create DestinationMappingRule "Name=Rule3" "QueueManagerConnection=QM1" "RuleType=9" "Source=/USER" "Destination=/USER" "Enabled=True"	
+
+
+4. @ISMWebUI: Establish data in config files:  server_dynamic.cfg, mqconnect_dynamic, ...
+ -- Select: Appliance >> User
+    -- Create Users: admin is the only user defined by default.
+       (make pswds same as username)
+       -- super - Member: SysAdmin, MsgAdmin, Users  
+       -- user - Member: Users 
+       -- msgAdmin - Member: MsgAdmin, Users
+       -- sysAdmin - Member: SysAdmin, Users
+       
+ -- Select: Appliance >> Network Settings
+    -- Verify ethernet-interfaces mgt0 9.3.17y.xxx/24' gw=9.3.17y.1 (from Step 1) is active (GREEN UP arrow).
+    -- Verify ethernet-interface eth0 for 10.10.0.xxx/22  (from Step 2) is active (GREEN UP arrow).
+    -- (Opt.) edit ethernet-interface mgt1 for 10.10.5.xxx/21
+	For eth20 and eth21 use:
+    -- Verify ethernet-interface eth20 for 10.10.3.xxx/23
+    -- Verify ethernet-interface eth21 for 10.10.1.xxx/23
+    -- Provide a DNS: "test.example.com"
+    -- Provide a Search Domains: "test.example.com"
+ 
+ -- Select: Appliance >> Locale, Date Time
+    The banner will say: The server locale is English (United States).   The server time is 3:53:41 PM UTC. 
+    -- Set Server Locale: English(United States)
+    -- Set Server time zone: Central Time (CST6CDT)  
+    -- Verify banner changes to (CST6CDT) 
+    -- Verify NTP Servers:  No items to display
+    -- Set Date, Time: is what current for CST6CDT 
+    
+ -- Select:  Appliance >> Security Settings  (set by CLI commands in Step 3)
+    -- Verify System-wide Security Settings is unchecked
+    -- Verify Certificate Profiles: SVTCertProf
+    -- Verify SecurityPolicies: SVTSecProf
+
+ -- Select: Appliance >> System Control
+    -- 'Edit' Node name:  (i.e. hostname)
+    -- Set Log level: "Critical"
+
+
+5. @ISMWebUI: Create a test Group and testuser as member of test Group
+ -- Select:  Messaging >> Users and Groups: 
+    -- Add Messaging Group: testgroup
+    -- Add Messaging User: testuser (uid/pswd), member of testgroup
+ 
+ -- Select:  Messaging >> Message Hub  (set by CLI commands in Step 4)
+    -- Verify exists: DemoHub         1 Endpoint
+    -- Verify exists: SVTAutoTeleHub  2 Endpoints
+    -- Verify exists: SVTStockHub     2 Endpoints
+
+ -- Select:  Messaging >>MQConnectivity
+    -- Verify Queue Manager Connection Properties
+       -- Name:  QM1
+       -- Queue Manager:  SVTBRIDGE.QUEUE.MANAGER
+       -- Connection Name:  10.10.10.10(1414)
+       -- Channel Name:  SVTBRIDGE.CHANNEL
+    -- Verify Destination Mapping
+       -- Name: Rule1
+       -- Rule Type: ISM topic subtree to MQ topic subtree
+       -- Source: /APP
+       -- Destination: /APP
+       -- Enabled: Green Up arrow
+       -- Associations: 1
+    -- Verify Destination Mapping
+       -- Name: Rule2
+       -- Rule Type: MQ topic subtree to ISM topic subtree
+       -- Source: /CAR 
+       -- Destination: /CAR
+       -- Enabled: Green Up arrow
+       -- Associations: 1
+    -- Verify Destination Mapping
+       -- Name: Rule3
+       -- Rule Type: MQ topic subtree to ISM topic subtree
+       -- Source: /USER 
+       -- Destination: /USER
+       -- Enabled: Green Up arrow
+       -- Associations: 1
+       
+    -- Make a new Destination Mapping
+       -- Name: AnyTopic2Topic
+       -- Rule Type: ISM Topic to MQ Topic
+       -- Source: * 
+       -- Destination: *
+       -- Enabled: check
+       -- Associated queue manager connections: check QM1
+       
+
+6. Set Values for some CLI only parameters:
+
+imaserver get LogLevel
+   Should be set to CRIT in the GUI. If it was not, do it now:
+imaserver set LogLevel=CRIT
+
+imaserver set ConnectionLog=MAX
+imaserver set SecurityLog=MAX
+imaserver set AdminLog=MAX
+imaserver set TraceLevel=9
+imaserver set AuditLogControl=2
+imaserver set ConfigPolicy Name=testConfigPolicy PolicyType=Configuration ID=testuser Description=test ActionList=publish,subscribe
+
+		Console> imaserver set LogLevel=CRIT
+		The requested configuration change has completed successfully.
+
+		Console> imaserver set ConnectionLog=MAX
+		The requested configuration change has completed successfully.
+
+		Console> imaserver set SecurityLog=MAX
+		The requested configuration change has completed successfully.
+
+		Console> imaserver set AdminLog=MAX
+		The requested configuration change has completed successfully.
+
+		Console> imaserver set TraceLevel=9
+		The requested configuration change has completed successfully.
+
+		Console> imaserver set AuditLogControl=2
+		The requested configuration change has completed successfully.
+
+		Console> imaserver set ConfigPolicy Name=testConfigPolicy PolicyType=Configuration ID=testuser Description=test ActionList=publish,subscribe
+		The requested configuration change has completed successfully.
+
+-- Verify they were changed
+
+imaserver get LogLevel
+imaserver get TraceLevel
+imaserver get TraceFilter
+imaserver get ConnectionLog
+imaserver get SecurityLog
+imaserver get AdminLog
+imaserver get AuditLogControl
+imaserver get ConfigPolicy
+
+	LogLevel = CRIT
+	TraceLevel = 9
+	The requested item is not found
+	ConnectionLog = MAX
+	SecurityLog = MAX
+	AdminLog = MAX
+	AuditLogControl = 2
+ 	Name = testConfigPolicy
+ 	 PolicyType = Configuration
+	 ID = testuser
+	 Description = test
+	 ActionList = publish,subscribe		
+	 
+7. Using MQTT Sample application, try to connect with invalid uid/password to generate audit and security log.
+   verify imaserver-audit.log and imaserver-security.log exist in list.
+
+show log list
+   
+   Console> show log list
+   collect-pd-before-the-last-fwug.txt
+   default-log
+   default-trace
+   shutdown-log
+   imaserver-default.log
+   imaserver-connection.log
+   imaserver-security.log
+   imaserver-admin.log
+
+show log imaserver-audit.log
+show log imaserver-security.log
+ 
+ Contents of these logs should be minimal (10-20 lines would be fine)
+ 
+ 8. RUN: Publish message into the message store   
+   -- Run:  
+For mgt0:
+java svt.mqtt.mq.MqttSample -a subscribe -q 2 -t /topic/A -s tcp://10.10.10.10:16102 -u testuser -p testuser -i subClient -c false -vv
+For eth21:
+java svt.mqtt.mq.MqttSample -a subscribe -q 2 -t /topic/A -s tcp://10.10.3.yyy:16102 -u testuser -p testuser -i subClient -c false -vv
+
+   -- Stop the subscriber, this has established a session for this client on the message store.
+      Pub some messages in the store for connection test later on
+   -- Run:
+For mgt0:
+java svt.mqtt.mq.MqttSample -a publish   -q 2 -t /topic/A -s tcp://10.10.10.10:16102 -n 100 -m "100 storeMessages from java pubstore" -u testuser -p testuser -i pubstore -c false -r store
+For eth20:
+java svt.mqtt.mq.MqttSample -a publish   -q 2 -t /topic/A -s tcp://10.10.1.yyy:16102 -n 100 -m "100 storeMessages from java pubstore" -u testuser -p testuser -i pubstore -c false -r store
+ 

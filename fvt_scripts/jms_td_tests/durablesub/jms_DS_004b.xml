@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name:  JMS_DS_004b
+
+   Test Category:  JMS Durable Subscription
+
+   Test Description:
+   Receive some more messages on the durable subscription that had its topic
+   name changed in the life of another connection (jms_DS_003 and jsm_DS_004).
+   Then delete this durable subscription. (part 3 of 3)
+
+
+   *****************************************************************************/
+  -->
+<ImaJmsTest name="jms_durablesub_004b" >
+
+  <SyncClient>
+        <server>
+          <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_durablesub_004b</solution>
+  </SyncClient>
+
+  <Action name="rmdr" type="CompositeAction">
+    <Action name="syncReset" type="SyncAction">
+          <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+        <Action name="syncInit1" type="SyncAction">
+          <ActionParameter name="request">init</ActionParameter>
+          <ActionParameter name="condition">syncPoint</ActionParameter>
+        </Action>
+
+
+        <Action name="CreateFactory_RX" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+      <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+      <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+        </Action>
+
+        <Action name="CreateListener_RX" type="CreateExceptionListener">
+          <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_RX" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF1_Rx</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <ImaProperty name="ClientID" value="rx_DS003_clientid" type="STRING"/>
+          <include>../common/JMS_server.xml</include>
+          <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_RX" type="CreateConnection">
+          <ActionParameter name="structure_id">Con1_Rx</ActionParameter>
+          <ActionParameter name="factory_id">CF1_Rx</ActionParameter>
+          <ApiParameter name="user">JMSUser2</ApiParameter>
+          <ApiParameter name="passwd">test</ApiParameter>
+          <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession" type="CreateSession">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+          <ActionParameter name="structure_id">Ses1_Rx</ActionParameter>
+        </Action>
+
+    <Action name="CreateDestination_lucky" type="CreateDestination">
+      <ApiParameter name="name">jmsDS-03-lucky-newtopic</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ActionParameter name="structure_id">dest_rx_lucky</ActionParameter>
+    </Action>
+
+    <Action name="CreateConsumer_lucky" type="CreateDurableSubscriber">
+      <ActionParameter name="structure_id">cons_lucky</ActionParameter>
+      <ActionParameter name="dest_id">dest_rx_lucky</ActionParameter>
+      <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+      <ApiParameter name="durableName">durable_sub3_lucky</ApiParameter>
+      <ApiParameter name="selector">null</ApiParameter>
+    </Action>
+
+        <Action name="StartConnection_RX1" type="StartConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+    <Action name="sync_before_receive" type="SyncComponentAction">
+          <ActionParameter name="component_name">rx1</ActionParameter>
+          <ActionParameter name="component_list">rx1;tx1</ActionParameter>
+          <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+    <Action name="ReceiveMessageLucky" type="ReceiveMessage" repeat="100" repeat_interval="0">
+      <ActionParameter name="consumer_id">cons_lucky</ActionParameter>
+      <ActionParameter name="structure_id">rxmsglucky</ActionParameter>
+      <ApiParameter name="timeout">5000</ApiParameter>
+    </Action>
+
+        <Action name="CloseConsumerLucky" type="CloseConsumer">
+          <ActionParameter name="consumer_id">cons_lucky</ActionParameter>
+        </Action>
+
+        <Action name="unsubscribe_lucky" type="Unsubscribe">
+          <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+          <ApiParameter name="durableName">durable_sub3_lucky</ApiParameter>
+        </Action>
+
+        <Action name="CloseSession_RX1" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="StopConnection_RX2" type="StopConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+        <Action name="CloseConnection_RX2" type="CloseConnection">
+          <ActionParameter name="conn_id">Con1_Rx</ActionParameter>
+        </Action>
+
+  </Action>
+
+
+  <Action name="rmdt" type="CompositeAction">
+        <Action name="CreateFactory_TX" type="CreateConnectionFactory">
+          <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+      <!-- <ActionParameter name="loglevel">9</ActionParameter> -->
+      <!-- <ActionParameter name="logfile">stdout</ActionParameter> -->
+        </Action>
+
+    <Action name="CreateListener" type="CreateExceptionListener">
+          <ActionParameter name="structure_id">listener1</ActionParameter>
+        </Action>
+
+        <Action name="SetFactoryProps_TX" type="FillIsmProps">
+          <ActionParameter name="structure_id">CF1_Tx</ActionParameter>
+          <ActionParameter name="validateAll">true</ActionParameter>
+          <ActionParameter name="validateNoWarn">false</ActionParameter>
+          <ImaProperty name="ClientID" value="tx_DS003_clientid" type="STRING"/>
+          <include>../common/JMS_server.xml</include>
+          <ImaProperty name="Port" value="16102" type="STRING"/>
+        </Action>
+
+        <Action name="CreateConnection_TX" type="CreateConnection">
+          <ActionParameter name="structure_id">Con1_Tx</ActionParameter>
+          <ActionParameter name="factory_id">CF1_Tx</ActionParameter>
+          <ApiParameter name="user">JMSUser1</ApiParameter>
+          <ApiParameter name="passwd">test</ApiParameter>
+          <ApiParameter name="exceptionListener">listener1</ApiParameter>
+        </Action>
+
+        <Action name="CreateSession_TX" type="CreateSession">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+          <ActionParameter name="structure_id">Ses1_Tx</ActionParameter>
+        </Action>
+
+
+    <Action name="CreateDestination_TX_lucky" type="CreateDestination">
+      <ApiParameter name="name">jmsDS-03-lucky-newtopic</ApiParameter>
+      <ActionParameter name="type">topic</ActionParameter>
+      <ActionParameter name="structure_id">dest_rx_lucky</ActionParameter>
+    </Action>
+
+    <Action name="CreateProducer_lucky" type="CreateProducer">
+      <ActionParameter name="structure_id">prod_lucky_newtopic</ActionParameter>
+      <ActionParameter name="dest_id">dest_rx_lucky</ActionParameter>
+      <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection" type="StartConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+    </Action>
+
+    <Action name="CreateMessageLucky" type="CreateMessage">
+      <ActionParameter name="structure_id">txmsglucky</ActionParameter>
+      <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+      <ApiParameter name="msgType">TEXT</ApiParameter>
+      <ApiParameter name="msgParam">This is some very lucky text</ApiParameter>
+    </Action>
+
+    <Action name="sync_before_send" type="SyncComponentAction">
+      <ActionParameter name="component_name">tx1</ActionParameter>
+      <ActionParameter name="component_list">tx1;rx1</ActionParameter>
+      <ActionParameter name="timeout">15000</ActionParameter>
+    </Action>
+
+    <Action name="SendMessageLucky" type="SendMessage" repeat="100" repeat_interval="0">
+      <ActionParameter name="producer_id">prod_lucky_newtopic</ActionParameter>
+      <ActionParameter name="message_id">txmsglucky</ActionParameter>
+    </Action>
+
+    <Action name="CloseSession" type="CloseSession">
+          <ActionParameter name="session_id">Ses1_Tx</ActionParameter>
+    </Action>
+
+    <Action name="StopConnection" type="StopConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection" type="CloseConnection">
+          <ActionParameter name="conn_id">Con1_Tx</ActionParameter>
+    </Action>
+
+  </Action>
+
+</ImaJmsTest>

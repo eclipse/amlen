@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2016-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="testmqtt_tls05_ProxyDfltStore_CltCrtNoMatch" >
+<!--
+	TLS connection succeeds when proxy default cert and correctly signed client cert are in store.  Neither client CN nor SAN store match client ID.
+        Proxy cert is required and client cert is optional.
+
+	TLS connection fails when partial CN/SAN match is required  with client ID
+	where proxy default cert and correctly signed client cert are in store.  Neither client CN nor SAN store match client ID.
+        Proxy cert is required and client cert is optional.
+
+	TLS connection fails when exact CN/SAN match is required with Client ID
+	where proxy default cert and correctly signed client cert are in store.  Neither client CN nor SAN store match client ID.
+        Proxy cert is required and client cert is optional.
+-->
+    <Action name="CreateSSLProps" type="CreateSSLProperties">
+        <ActionParameter name="props_id">SSLProps</ActionParameter>
+        <ActionParameter name="com.ibm.ssl.keyStore">tls_certs/ibma.jks</ActionParameter>
+        <ActionParameter name="com.ibm.ssl.trustStore">tls_certs/ibma.jks</ActionParameter>
+        <ActionParameter name="com.ibm.ssl.keyStorePassword">password</ActionParameter>
+        <ActionParameter name="com.ibm.ssl.trustStorePassword">password</ActionParameter>
+        <ActionParameter name="com.ibm.ssl.protocol">TLSv1.2</ActionParameter>
+        <ActionParameter name="com.ibm.ssl.servername">SG.org.com</ActionParameter>
+    </Action>
+    <Action name="CreateConnection" type="CreateConnection">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <ApiParameter name="clientId">d:SG:dtype:d1</ApiParameter>
+        <!-- Include "remote" user (not in proxy cfg) to show connection succeeds -->
+        <ApiParameter name="user">user</ApiParameter>
+        <ApiParameter name="password">password</ApiParameter>
+        <ApiParameter name="port">28883</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ActionParameter name="SSL">true</ActionParameter>
+        <ApiParameter name="SSLProperties">SSLProps</ApiParameter>
+    </Action>
+    <Action name="Subscribe_abc" type="Subscribe">
+   		<ActionParameter name="connection_id">CF1</ActionParameter>
+  		<ApiParameter name="topic">/a/b/c</ApiParameter>
+  		<ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+    <Action name="CreateRandomMessage" type="CreateRandomMessage">
+        <ActionParameter name="structure_id">txmsg1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="length">190</ActionParameter>
+        <ActionParameter name="incrementing">true</ActionParameter>
+        <ApiParameter name="QoS">0</ApiParameter>
+    </Action>
+    <Action name="SendMessage_abc0" type="SendMessage">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">/a/b/c</ActionParameter>
+    </Action>
+    <Action name="SendMessage_abc1" type="SendMessage">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">/a/b/c</ActionParameter>
+        <ApiParameter name="QoS">1</ApiParameter>
+    </Action>
+    <Action name="SendMessage_abc2" type="SendMessage">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="message_id">txmsg1</ActionParameter>
+        <ActionParameter name="topic">/a/b/c</ActionParameter>
+        <ApiParameter name="QoS">2</ApiParameter>
+    </Action>
+    <Action name="CompositeRcv" type="CompositeAction" repeat="3">
+ 	<dependsOn action_id="CreateRandomMessage"/>
+        <Action name="ReceiveMessage" type="ReceiveMessage">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+            <ActionParameter name="waitTime">2000</ActionParameter>
+        </Action>
+	<Action name="checkTopic" type="CompareMessageData">
+		<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+		<ActionParameter name="compareTopic">/a/b/c</ActionParameter>
+	</Action>
+    </Action>
+    <Action name="CloseConnection" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+<!--
+	TLS connection fails when partial CN/SAN match is required  with client ID
+	where proxy default cert and correctly signed client cert are in store.  Neither client CN nor SAN store match client ID.
+        Proxy cert is required and client cert is optional.
+-->
+    <Action name="CreateConnection2" type="CreateConnection" rc="1" reason="ISMTEST2525">
+        <ActionParameter name="structure_id">Con2</ActionParameter>
+        <ActionParameter name="connection_id">CF2</ActionParameter>
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <ApiParameter name="clientId">d:SG:dtype:d1</ApiParameter>
+        <!-- Specify match as user ID to trigger check for partial match between CN/SAN and client ID -->
+        <ApiParameter name="user">match</ApiParameter>
+        <ApiParameter name="password">password</ApiParameter>
+        <ApiParameter name="port">28883</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ActionParameter name="SSL">true</ActionParameter>
+        <ApiParameter name="SSLProperties">SSLProps</ApiParameter>
+    </Action>
+<!--
+	TLS connection fails when exact CN/SAN match is required with Client ID
+	where proxy default cert and correctly signed client cert are in store.  Neither client CN nor SAN store match client ID.
+        Proxy cert is required and client cert is optional.
+-->
+    <Action name="CreateConnection3" type="CreateConnection" rc="1" reason="ISMTEST2525">
+        <ActionParameter name="structure_id">Con3</ActionParameter>
+        <ActionParameter name="connection_id">CF3</ActionParameter>
+        <ActionParameter name="connectionType">WS-MQTT-bin</ActionParameter>
+        <include>../common/PROXY_server.xml</include>
+        <ApiParameter name="clientId">d:SG:dtype:d1</ApiParameter>
+        <!-- Specify exactMatch as user ID to trigger check for exact match between CN/SAN and client ID -->
+        <ApiParameter name="user">exactMatch</ApiParameter>
+        <ApiParameter name="password">password</ApiParameter>
+        <ApiParameter name="port">28883</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ActionParameter name="SSL">true</ActionParameter>
+        <ApiParameter name="SSLProperties">SSLProps</ApiParameter>
+    </Action>
+</IsmWSTest>
+                

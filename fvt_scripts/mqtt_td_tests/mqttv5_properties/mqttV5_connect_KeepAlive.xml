@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="mqttV5_connect_KeepAlive" >
+<!--
+    Test MQTTv5 Spec 
+	3.1.2.10 CONNECT Properties - Keep Alive
+	3.2.2.3.14  CONNACK Properties - Server Keep Alive
+    0x19 - Server Keep Alive  -  Default Server Keep Alive is 0x0023 = 35 sec.
+	
+KA:Lesser will have CONNECT Keep Alive less than Server's Default
+KA:Greater will have CONNECT Keep Alive greater than Server's Default
+KA:ZERO will have CONNECT Keep Alive=0, which means never disconnect
+KA:MAX will have CONNECT Keep Alive=0xffff (65535 secs aka 18.204167 hours) - just test the CONNACK here.
+
+This only tests the CONNACK response, not testing if the KeepAlive heartbeat expiring would cause a DISCONNECT 
+ -->    
+<!--  ==========  Server Keep Alive  0x19(+2 bytes)  ==========  -->
+<!-- 
+-->
+    <Action name="KA_lessThanServerKeepAlive" type="CompositeAction">
+
+        <Action name="CreateConnectionKALess" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:KA_less</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+            <ApiParameter name="keepAlive">6</ApiParameter>    
+        </Action>
+        
+<!--
+MQTT receive 10 CONNECT connect=40 rc=0: len=49 
+00044d515454 05 02 0006 08 11 00000006 22 0000 001c 643a6f 72673469 6f74323a 636f6e6e 50726f70 733a4b41 5f6c6573 73 
+[..MQTT.........."....d:org4iot2:connProps:KA_less]
+0x0006 sec KeepAlive
+
+MQTT send 20 CONNACK connect=40: len=14 
+0000 0b 21 0100 22 0008 27 00400000 
+[...!.."..'.@..]
+(Server accepts 6 sec Keep Alive, no 0x13 Property)
+-->
+        <Action name="CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">6</ApiParameter>  
+        </Action>    
+        
+<!-- if no PINGREQ or packet in 1.5x's KeepAlive the Session Should be terminated : NEED Test Driver Client to do that
+        <Action name="CheckCONNACK_KA_Expire" type="CheckConnectOptions">
+		  <dependsOn action_id="CheckCONNACK_KA" interval="10" />
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">false</ActionParameter>
+        </Action>    
+-->
+        <Action name="CloseConnection" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>
+
+	
+<!--  KA_Greater  -->
+    <Action name="KA_greaterThanServerKeepAlive" type="CompositeAction">
+
+        <Action name="CreateConnectionKAGreater" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:KA_greater</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">64</ApiParameter>  
+            <ApiParameter name="keepAlive">64</ApiParameter>  
+        </Action>
+<!--
+MQTT receive 10 CONNECT connect=41 rc=0: len=52 
+00044d515454 05 02 0040 08 11 00000040 22 0000  001f 643a6f 72673469 6f74323a 636f6e6e 50726f70 733a4b41 5f677265 61746572  
+[..MQTT...@.....@"....d:org4iot2:connProps:KA_greater]
+0x0040 64 sec KeepAlive
+
+MQTT send 20 CONNACK connect=41: len=19 
+0000 10 21 0100 22 0008 2700100000 11 0000001e 
+[...!.."..'.........]
+(Server accepts 64 sec Keep Alive, no 0x13 Property)
+-->        
+        <Action name="CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">64</ApiParameter>  
+        </Action>    
+
+        <Action name="CloseConnectionKAGreater" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>    
+	
+	
+<!--  KA_ZERO  -->
+    <Action name="KA_ZERO" type="CompositeAction">
+
+        <Action name="CreateConnectionKAZero" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:KA_ZERO</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">0</ApiParameter>  
+        </Action>
+<!-- 
+MQTT receive 10 CONNECT connect=42 rc=0: len=49 
+00044d515454 0502 0000 08 11 fffffff0 22 0000  001c 643a6f 72673469 6f74323a 636f6e6e 50726f70 733a4b41 5f5a4552 4f 
+[..MQTT.........."....d:org4iot2:connProps:KA_ZERO]
+ServerKeepAlive 0x000
+
+MQTT send 20 CONNACK connect=42: len=14 
+0000 0b 21 0100 22 0008 27 00400000 
+[...!.."..'.@..]
+No 0x013, Server Keep Alive ZERO was accepted
+-->
+        
+        <Action name="CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">0</ApiParameter>  
+        </Action>    
+
+        <Action name="CloseConnectionKAZero" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+	</Action>
+
+<!--  KA_MAX  -->
+    <Action name="KA_MAX" type="CompositeAction">
+
+        <Action name="CreateConnectionKAMAX" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/MQTT_server.xml</include>
+            <include>../common/MQTT_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:KA_MAX</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="sessionExpire">4294967280</ApiParameter>  
+            <ApiParameter name="keepAlive">65535</ApiParameter>  
+        </Action>
+<!-- 
+MQTT receive 10 CONNECT connect=43 rc=0: len=48 
+00044d515454 0502 ffff 08 11 fffffff0 22 0000  001b 643a6f 72673469 6f74323a 636f6e6e 50726f70 733a4b41 5f4d4158  
+[..MQTT.........."....d:org4iot2:connProps:KA_MAX]
+0xffff MAX value for KeepAlive 65535
+
+MQTT send 20 CONNACK connect=43: len=19 
+0000 10 21 0100 22 0008 27 00100000 11 0000001e 
+[...!.."..'.........]
+(no 0x13 Server KeepAlive, so MAX was accepted)
+-->
+        
+        <Action name="CheckCONNACK_KA" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareServerKeepAlive">65535</ApiParameter>  
+        </Action>    
+
+        <Action name="CloseConnectionKAMAX" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+
+	</Action>
+    
+</IsmWSTest>
+                

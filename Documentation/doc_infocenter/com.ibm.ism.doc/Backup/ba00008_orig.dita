@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN"
+ "task.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<task id="ba00008_" xml:lang="en-us">
+<title>Restoring the high availability environment </title>
+<shortdesc>System administrators can restore the high availability
+(HA) environment in <ph conref="../TextEntities.dita#TextEntities/ISM"></ph> by
+using the backup file that was created on the standby appliance. </shortdesc>
+<taskbody>
+<prereq><ul>
+<li> You can restore only to an appliance with a firmware level that
+is greater than, or equal to, the firmware level that the file was
+created with. That is, you cannot use a restore file that was created
+with a later version of <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> to restore to
+an appliance that is running an earlier version.</li>
+<li>The file that you use to restore the system must be created by
+the <cmdname>imaserver backup</cmdname> command. </li>
+<li>Do not edit the compressed file that contains the backup. If the
+file is edited, the system cannot be restored from that file.</li>
+<li>You must be the system administrator <codeph>admin</codeph> to
+restore the configuration data. This user is the only user authorized
+to restore the data.</li>
+<li>As part of the restore process, you must clean the store unless
+you are using a backup of the store for this operation. Cleaning the
+store deletes all persistent data, including messages, subscriptions,
+and client states.</li>
+<li>User IDs that existed at the time of the backup operation are
+restored during the restore operation. It is good practice to review
+restored user IDs. User IDs that are created after the backup operation
+must be re-created during the restore operation.</li>
+<li>MQTT quality of service levels of message delivery cannot be guaranteed.</li>
+<li>If you restore the store from a backed up version, consider that:<ul>
+<li>All messages that were buffered in the store after the store was
+backed up are lost. </li>
+<li>Retained messages that were sent after the store was backed up
+are lost.</li>
+<li>Messages that were in store buffers when the store was backed
+up, and which were sent later and discarded from the store, are restored
+and resent when subscribers reconnect. They are not marked as duplicate
+messages for JMS and MQTT.</li>
+<li>Retained messages that were replaced after the store was backed
+up are restored. The messages that replaced the retained messages
+are lost.</li>
+</ul></li>
+<li>If you experience problems when you log in to the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph> after you
+restore the system, you must restart the web UI. For more information
+about how to restart the <ph
+conref="../TextEntities.dita#TextEntities/ISMgui"></ph>, see <xref
+href="../Administering/ad00194_.dita"></xref>.</li>
+<li>The commands must be capitalized as shown, and must use the double
+quotation marks as shown.</li>
+<li>Ensure that the backup file that you created in the procedure
+that is described in <xref href="ba00007_.dita"></xref> is available
+to the primary appliance in the HA pair.</li>
+<li>The primary and standby appliances are in maintenance mode for
+this procedure. You must make appropriate plans for your operation
+because messaging services are not available during the restore procedure.</li>
+<li>Decide which appliance is to be the primary appliance after the
+restore procedure.</li>
+</ul></prereq>
+<steps>
+<step><cmd>Check that the current standby server is running by entering
+the following command:</cmd><info><p><codeph>imaserver status</codeph></p></info>
+</step>
+<step><cmd>Set the standby server to maintenance mode by entering
+the following commands:</cmd><info><p><codeblock>imaserver runmode maintenance
+imaserver stop
+imaserver start</codeblock></p></info></step>
+<step><cmd>Check that the current primary server is running by entering
+the following command:</cmd><info><p><codeph>imaserver status</codeph></p></info>
+</step>
+<step><cmd>Set the current primary server to maintenance mode by entering
+the following commands:</cmd><info><p><codeblock>imaserver runmode maintenance
+imaserver stop
+imaserver start</codeblock></p><note>Both appliances are now in maintenance
+mode.</note></info></step>
+<step><cmd>On the designated primary appliance, retrieve the backup
+file by entering the following command:</cmd><info><p><codeph>file
+get <varname>fileURL</varname> <varname>filename</varname></codeph></p>Where:<dl>
+<dlentry>
+<dt><varname>fileURL</varname></dt>
+<dd>Specifies the location of the backup file. </dd>
+<dd>You cannot specify the <ph
+conref="../TextEntities.dita#TextEntities/ISM"></ph> IP address as
+the host name.</dd>
+</dlentry><dlentry>
+<dt><varname>filename</varname></dt>
+<dd>Specifies the name to use for the backup file when it is uploaded
+to <ph conref="../TextEntities.dita#TextEntities/ISM"></ph>. </dd>
+<dd>The name cannot include any path elements.</dd>
+<dd>You can use a period (.) to specify that the name of the file,
+when it is uploaded to <ph conref="../TextEntities.dita#TextEntities/ISM"></ph>,
+is the same name as the file on remote server.</dd>
+</dlentry></dl></info></step>
+<step><cmd>Restore the data, including the appliance configuration
+information, and, optionally, the store data on the designated primary
+appliance by entering the following command:</cmd><info><p><ph
+conref="../TextEntities.dita#TextEntities/imaservercmd"></ph> <cmdname>restore
+"</cmdname><cmdname>Name=</cmdname><varname>backup_filename</varname><cmdname>"</cmdname><cmdname> "Password=</cmdname><varname>backup_password</varname><cmdname>"</cmdname><cmdname> "Appliance=False"</cmdname><cmdname> [
+"StoreSourceURL=</cmdname><varname>url</varname><cmdname>" ]</cmdname><cmdname> [
+"StoreSourceUserID=</cmdname><varname>userid</varname><cmdname>" ]</cmdname><cmdname> [
+"StoreSourcePassword=</cmdname><varname>storesourcePassword</varname><cmdname>"
+]</cmdname></p>Where:<dl><dlentry>
+<dt><varname>backup_filename</varname></dt>
+<dd>Specifies the name of the compressed file that contains the backup
+data. </dd>
+</dlentry><dlentry>
+<dt><varname>backup_password</varname></dt>
+<dd>Specifies the password that you assigned to the compressed file
+that contains the backup data.</dd>
+</dlentry><dlentry>
+<dt><varname>url</varname></dt>
+<dd>Specifies the remote location of the store backup file. <p>The
+URL has the following format:<codeblock>protocol://ipAddress:/filepath/filename</codeblock></p><p>where</p><p><ul>
+<li><dl><dlentry>
+<dt>protocol</dt>
+<dd>scp or ftp</dd>
+</dlentry></dl></li>
+<li><dl><dlentry>
+<dt>ipAddress</dt>
+<dd>Remote IP address or host name of the remote location of the store
+backup file.</dd>
+</dlentry></dl></li>
+<li><dl><dlentry>
+<dt>filepath</dt>
+<dd>Path for the remote file.</dd>
+</dlentry></dl></li>
+<li><dl><dlentry>
+<dt>filename</dt>
+<dd>Name of the remote file. You must include the file name.</dd>
+</dlentry></dl></li>
+</ul></p> </dd>
+</dlentry><dlentry>
+<dt><varname>userid</varname></dt>
+<dd>Specifies the user ID with which to access the remote location
+of the store backup file.</dd>
+</dlentry><dlentry>
+<dt><varname>storesourcePassword</varname></dt>
+<dd>Specifies the password with which to access the remote location
+of the store backup file.</dd>
+</dlentry></dl><note>If you need to restore the network interfaces
+from the backup file, specify <codeph>Appliance=True</codeph>.</note></info>
+</step>
+<step><cmd>This step is required only if you are not restoring the
+store data. On the restored primary appliance, clean the store to
+ensure that the store contents remain synchronized by entering the
+following command:</cmd><info><p><codeph>imaserver runmode clean_store</codeph></p><p><codeph>imaserver
+stop</codeph></p><p><codeph>imaserver start</codeph></p></info></step>
+<step><cmd>Restart the restored primary appliance to complete the
+appliance configuration updates by entering the following commands:</cmd>
+<info><p><codeph>device restart</codeph></p></info></step>
+<step><cmd>When the restored primary appliance is running, and if
+you have specified <codeph>Appliance=False</codeph>, verify that all
+network settings are correct. </cmd><info>For more information, see <xref
+href="ba00009_.dita"></xref>.</info></step>
+<step><cmd>Clean the store on the designated standby appliance by
+entering the following commands:</cmd><info><p><codeph>imaserver runmode
+clean_store</codeph></p><p><codeph>imaserver stop</codeph></p><p><codeph>imaserver
+start</codeph></p></info></step>
+<step id="restartprimary"><cmd>Both appliances are now ready to be
+brought back into production mode. You must restart the restored primary
+appliance first to ensure that the restored configuration is applied.
+Set the restored primary appliance to production mode by entering
+the following commands:</cmd><info><p><codeph>imaserver runmode production</codeph></p><p><codeph>imaserver
+stop</codeph></p><p><codeph>imaserver start</codeph></p></info></step>
+<step id="restartstandby"><cmd>Restart the designated standby appliance
+and resynchronize it with the new primary appliance by entering the
+following commands:</cmd><info><p><codeph>imaserver runmode production</codeph></p><p><codeph>imaserver
+stop</codeph></p><p><codeph>imaserver start</codeph></p><note type="tip">If
+you have configured your HA environment to use auto-detect mode, you
+must perform this step immediately after step <xref format="dita"
+href="ba00008_.dita#ba00008_/restartprimary" scope="local" type="step"></xref> so
+that the HA pair can be successfully reestablished. A discovery timeout
+might occur if there is significant delay between steps <xref
+format="dita" href="ba00008_.dita#ba00008_/restartprimary" scope="local"
+type="step"></xref> and <xref format="dita"
+href="ba00008_.dita#ba00008_/restartstandby" scope="local" type="step"></xref>.
+For more information about the discovery timeout, see <xref format="dita"
+href="../Administering/ad00400_.dita" scope="local" type="concept"></xref>.</note></info>
+</step>
+</steps>
+<example>The following example shows restoring a backup file with
+the password <codeph>adminback0213</codeph>:<p>Set the current standby server to maintenance mode:<screen>admin@standby> imaserver status
+Status = Standby
+ServerUpTime = 0 days 0 hours 31 minutes 47 seconds
+HARole = STANDBY
+
+admin@standby> imaserver runmode maintenance
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is currently in "production" mode.
+When it is restarted, it will be in "maintenance" mode.
+
+admin@standby> imaserver stop
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is stopping.
+Check the <ph conref="../TextEntities.dita#TextEntities/ISM"/> server status using "status imaserver" command.
+
+admin@standby> imaserver start
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is starting.
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is in "maintenance" mode.
+
+admin@standby> imaserver status
+Status = Running (maintenance)
+ServerUpTime = 0 days 0 hours 0 minutes 14 seconds
+
+</screen></p><p>Set the current primary server to maintenance mode:<screen>admin@primary> imaserver status
+Status = Running (production)
+ServerUpTime = 0 days 0 hours 33 minutes 23 seconds
+HARole = PRIMARY
+
+admin@primary> imaserver runmode maintenance
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is currently in "production" mode.
+When it is restarted, it will be in "maintenance" mode.
+
+admin@primary> imaserver stop
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is stopping.
+Check the <ph conref="../TextEntities.dita#TextEntities/ISM"/> server status using "status imaserver" command.
+
+admin@primary> imaserver start
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is starting.
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is in "maintenance" mode.
+
+admin@primary> imaserver status
+Status = Running (maintenance)
+ServerUpTime = 0 days 0 hours 0 minutes 14 seconds
+</screen></p><p>On the designated primary appliance, upload and locate
+the backup file:<screen>admin@primary> file get scp://admin@example.com:/backups/imaBackup.160148-
+02272013 .
+imaBackup.160148-02272013                   100% 2016KB   2.0MB/s   00:00
+Wrote 2016477 bytes to local storage
+
+admin@primary> file list
+imaBackup.160148-02272013 100363 bytes created Feb 27, 2013 4:01:50 PM
+</screen></p><p>Restore from the backup file:<screen>admin@primary> imaserver restore "Name=imaBackup.160148-02272013" 
+"Password=adminback0213" "Appliance=False"
+Successfully restored <ph conref="../TextEntities.dita#TextEntities/ISM"/> configuration using imaBackup.160148-02272013.</screen></p><p>Restore from the backup file and restore the store data:<screen>admin@primary>  imaserver restore Name=imaBackup.160148-02272013 "Password=admin" "Appliance=False" 
+"StoreSourceURL=scp://example.com:/home/store_backup.gz" "StoreSourceUserID=admin" 
+"StoreSourcePassword=password"
+The store processing step will take more than 2 minutes.
+The store has been transferred successfully.
+The store is being restored from file.
+The store has been restored successfully.
+The store dump file scp://example.com:/home/store_backup.gz has been restored successfully.
+Successfully restored <ph conref="../TextEntities.dita#TextEntities/ISM"/> configuration using imaBackup.160148-02272013.
+Check all restored endpoints to ensure that the Interface value
+matches the configured interface on the system.
+admin@primary></screen><?Pub Caret 575?></p><p>Clean the store of the designated primary appliance only if you are restoring from the backup file without restoring the store data:<screen>admin@primary> imaserver runmode clean_store
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is currently in "maintenance" mode with 
+"clean_store" action pending.
+When it is restarted, it will be in "maintenance" mode.
+
+admin@primary> imaserver stop forcemaintenance
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is in the process of restarting. When the server 
+starts, it will be in maintenance mode
+</screen></p><p>Restart the restored primary appliance:<screen>admin@primary> device restart
+Ok
+admin@primary></screen><note>Wait until the appliance restarts before
+you perform any further steps on the primary appliance.</note></p><p>Clean the store on the designated standby:<screen>admin@standby> imaserver runmode clean_store
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is currently in "maintenance" mode with 
+"clean_store" action pending.
+When it is restarted, it will be in "maintenance" mode.
+
+admin@standby> imaserver stop forcemaintenance
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is in the process of restarting. When the server 
+starts, it will be in maintenance mode.
+</screen></p><p>Set the restored primary to production mode:<screen>admin@primary> imaserver runmode production
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is currently in "maintenance" mode.
+When it is restarted, it will be in "production" mode.
+
+admin@primary> imaserver stop
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is stopping.
+Check the <ph conref="../TextEntities.dita#TextEntities/ISM"/> server status using "status imaserver" command.
+
+admin@primary> imaserver start
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is starting.
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is in "production" mode.
+</screen></p><p>Set the standby appliance to production mode:<screen>admin@standby> imaserver runmode prodcution
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is currently in "maintenance" mode.
+When it is restarted, it will be in "production" mode.
+
+admin@standby> imaserver stop
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is stopping.
+Check the <ph conref="../TextEntities.dita#TextEntities/ISM"/> server status using "status imaserver" command.
+
+admin@standby> imaserver start
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is starting.
+The <ph conref="../TextEntities.dita#TextEntities/ISM"/> server is in "production" mode.
+</screen></p><p></p></example>
+</taskbody>
+<related-links>
+<link format="dita" href="ba00007_.dita" scope="local" type="task">
+</link>
+</related-links>
+<?tm 1413224015 0?>
+</task>
+<?Pub *0000015469?>

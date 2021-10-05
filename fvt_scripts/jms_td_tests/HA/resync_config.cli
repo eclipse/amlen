@@ -1,0 +1,75 @@
+####################################################
+#
+# Converted to use all restapis January 2019
+#
+# (Completed, all items migrated)
+#
+#
+####################################################
+#######################
+# SSL Certificate Setup
+#######################
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem imaserver-crt.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-crt.pem imaserver-crt.pem
+######setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem imaserver-key.pem
+setup 0 PUT file ${M1_TESTROOT}/common/imaserver-key.pem imaserver-key.pem
+######setup 0 apply Certificate CertFileName=imaserver-crt.pem "CertFilePassword=" KeyFileName=imaserver-key.pem "KeyFilePassword=" Overwrite=True
+
+############################################
+# SSL Certificate and Security Profile Setup
+############################################
+######setup 0 create CertificateProfile Name=JMSResyncCertProf1 Certificate=imaserver-crt.pem Key=imaserver-key.pem
+setup 0 POST configuration {"CertificateProfile":{"JMSResyncCertProf1":{"Certificate":"imaserver-crt.pem","Key":"imaserver-key.pem"}}}
+######setup 0 create SecurityProfile Name=JMSResyncSecureProf1 MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=JMSResyncCertProf1 UsePasswordAuthentication=False
+setup 0 POST configuration {"SecurityProfile":{"JMSResyncSecureProf1":{"MinimumProtocolMethod":"TLSv1","UseClientCertificate":false,"Ciphers":"Fast","CertificateProfile":"JMSResyncCertProf1","UsePasswordAuthentication":false}}}
+
+##################################
+# Message Hub for Resync Endpoints
+##################################
+######setup 0 create MessageHub Name=JMSResyncHub Description=JMSResyncHub
+setup 0 POST configuration {"MessageHub":{"JMSResyncHub":{"Description":"JMSResyncHub"}}}
+
+#######################################
+# Connection Policies for SSL Endpoints
+#######################################
+######setup 0 create ConnectionPolicy Name=JMSResyncConPol ClientID=Car* Protocol=JMS
+setup 0 POST configuration {"ConnectionPolicy":{"JMSResyncConPol":{"ClientID":"Car*","Protocol":"JMS"}}}
+
+######################################
+# Messaging Policies for SSL Endpoints (Test 1-8)
+######################################
+######setup 0 create MessagingPolicy Name=JMSResyncPubPol Destination=/app/car/* DestinationType=Topic MaxMessages=1000000 "ActionList=Publish" Protocol=JMS
+setup 0 POST configuration {"TopicPolicy":{"JMSResyncPubPol":{"Topic":"/app/car/*","MaxMessages":1000000,"ActionList":"Publish","Protocol":"JMS"}}}
+######setup 0 create MessagingPolicy Name=JMSResyncSubPol Destination=/app/car/* DestinationType=Topic MaxMessages=1000000 "ActionList=Subscribe" Protocol=JMS
+setup 0 POST configuration  {"TopicPolicy":{"JMSResyncSubPol":{"Topic":"/app/car/*","MaxMessages":1000000,"ActionList":"Subscribe","Protocol":"JMS"}}}
+
+################
+# Basic Endpoint
+################
+######setup 0 create Endpoint Name=JMSResyncEndpointPub Enabled=True SecurityProfile=JMSResyncSecureProf1 Port=18475 ConnectionPolicies=JMSResyncConPol MessagingPolicies=JMSResyncPubPol MaxMessageSize=4MB MessageHub=JMSResyncHub
+setup 0 POST configuration {"Endpoint":{"JMSResyncEndpointPub":{"Enabled":true,"SecurityProfile":"JMSResyncSecureProf1","Port":18475,"ConnectionPolicies":"JMSResyncConPol","TopicPolicies":"JMSResyncPubPol","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSResyncHub"}}}
+######setup 0 create Endpoint Name=JMSResyncEndpointSub Enabled=True SecurityProfile=JMSResyncSecureProf1 Port=18476 ConnectionPolicies=JMSResyncConPol MessagingPolicies=JMSResyncSubPol MaxMessageSize=4MB MessageHub=JMSResyncHub
+setup 0 POST configuration {"Endpoint":{"JMSResyncEndpointSub":{"Enabled":true,"SecurityProfile":"JMSResyncSecureProf1","Port":18476,"ConnectionPolicies":"JMSResyncConPol","TopicPolicies":"JMSResyncSubPol","QueuePolicies":"","SubscriptionPolicies":"","MaxMessageSize":"4MB","MessageHub":"JMSResyncHub"}}}
+
+
+
+#####################################
+# Resync Policy Cleanup Configuration
+#####################################
+#####cleanup 0 delete Endpoint Name=JMSResyncEndpointPub
+cleanup 0 DELETE configuration/Endpoint/JMSResyncEndpointPub
+#####cleanup 0 delete Endpoint Name=JMSResyncEndpointSub
+cleanup 0 DELETE configuration/Endpoint/JMSResyncEndpointSub
+#####cleanup 0 delete SecurityProfile Name=JMSResyncSecureProf1
+cleanup 0 DELETE configuration/SecurityProfile/JMSResyncSecureProf1
+#####cleanup 0 delete CertificateProfile Name=JMSResyncCertProf1
+cleanup 0 DELETE configuration/CertificateProfile/JMSResyncCertProf1
+#####cleanup 0 delete ConnectionPolicy Name=JMSResyncConPol
+cleanup 0 DELETE configuration/ConnectionPolicy/JMSResyncConPol
+#####cleanup 0 delete MessagingPolicy Name=JMSResyncPubPol
+cleanup 0 DELETE configuration/TopicPolicy/JMSResyncPubPol
+#####cleanup 0 delete MessagingPolicy Name=JMSResyncSubPol
+cleanup 0 DELETE configuration/TopicPolicy/JMSResyncSubPol
+#####cleanup 0 delete MessageHub Name=JMSResyncHub
+cleanup 0 DELETE configuration/MessageHub/JMSResyncHub
+

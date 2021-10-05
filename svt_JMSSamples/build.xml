@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="svt_jms" default="build_svt_jms"  basedir=".">
+	<property name="svt.jms.src.dir" location="${basedir}/src" />
+	<property name="svt.jms.bin.dir" location="${basedir}/bin" />
+	<property name="svt.jms.lib.dir" location="${svt.jms.bin.dir}/lib" />
+	<property name="client.ship.lib.dir" value="${basedir}/../client_ship/lib"/>
+	<property name="svt.ship.dir"  location="${basedir}/../svt_ship"/>
+    <property environment="env"/>
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+
+    <property name="testTools.lib.dir" location="../testTools_MQ_MQTTClient/lib"/>
+
+	<!-- define svt_jms jar file name -->
+	<property name="jmssample.jar" location="${svt.jms.lib.dir}/jmssample.jar"/>
+
+	<property name="svtScripts.build.dir" value="${basedir}/scripts"/>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+      <pathelement location="${client.deps.dir}/jms.jar" />
+      <pathelement location="${client.ship.lib.dir}/imaclientjms.jar" />
+      <pathelement location="${client.deps.dir}/j2ee.jar" />
+      <pathelement location="${client.deps.dir}/com.ibm.automation.core.selenium.jar" />
+      <pathelement location="${client.deps.dir}/com.ibm.automation.core.jar" />
+      <pathelement location="${client.deps.dir}/log4j.jar" />
+      <pathelement location="${client.deps.dir}/selenium-java.jar" />
+   </path>
+
+	<property name="compile_classpath" refid="compile.classpath"/>
+	<echo message="compile.classpath = ${compile_classpath}"/>
+
+   <!--path id="test.classpath">
+      <path refid="compile.classpath" />
+   	  <pathelement location="/opt/apache-ant/lib" />
+      <pathelement location="${svt.jms.bin.dir}" />
+      <pathelement location="${jms.jar.dir}" />
+   </path-->
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${svt.jms.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="jms_publish">
+		<echo> ==  jms_publish called (TBD) ================ </echo>
+                <echo> ==  Copy files to svt_ship tree ================ </echo>
+	            <fixcrlf eol="unix" srcdir="${svtScripts.build.dir}" includes="**/*" excludes="**/*.jks **/*.pkcs12"/>
+                <copy file="${jmssample.jar}" todir="${svt.ship.dir}/lib" preservelastmodified="yes" verbose="true"/>
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, package"  -->
+	<target name="build_svt_jms"  depends="build_jms_jar, jms_publish">
+		<echo> ==  Invoking ant for svt_jms build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_jms_jar" depends="jms_compile" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${svt.jms.src.dir}/META-INF/MANIFEST.MF" todir="${svt.jms.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${svt.jms.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${svt.jms.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${jmssample.jar}">
+			<!--fileset dir="${svt.jms.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/*" /-->
+			<fileset dir="${svt.jms.bin.dir}" includes="**/*.class" />
+			<!--fileset dir="${svt.jms.bin.dir}/test" includes="**/*.class" /-->
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${jmssample.jar}" manifest="${svt.jms.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!--Compile the project-->
+	<target name="jms_compile" depends="svt_jms_init">
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac source="1.7" target="1.7" srcdir="${svt.jms.src.dir}" destdir="${svt.jms.bin.dir}" deprecation="no"
+             includeAntRuntime="no"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${svt.jms.src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+        <copy todir="${svt.jms.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${svt.jms.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+    <!-- Initialize the build environment -->
+	<target name="svt_jms_init">
+		<mkdir dir="${svt.jms.lib.dir}"/>
+	</target>
+</project>

@@ -1,0 +1,342 @@
+#!/bin/bash
+
+
+ACTION=$1
+ID=${2-""}
+SERVER=10.10.10.10:16104
+S=1000000
+T=5000000
+R=10000000
+#D=9000000 # DELAY in between server processing for each customer id.
+W=10000000 # Work time. Average amount of time each agent works on a request
+D=0 # DELAY in between server processing for each customer id.
+QOS=1
+VERBOSE=1
+MAXAGENT=1000 # helps know for sure how many possible AGENT confirmations there might be.
+
+if [ "$ACTION" == "MONITOR" ] ;then # monitor the distribution of calls to the agents.
+    while ((1)); do 
+        find logs.agent.id.* -maxdepth 0 | xargs -i echo "echo -n \"test {} \" ; find {} |wc -l | awk '{printf(\"\t%8d\t\", \$1);}'; if [ -e {}/status ]; then tail -n 1 {}/status | awk '{print \$0}' ; else echo \"\";  fi  " |sh;  
+        sleep 1; 
+        date; 
+    done
+elif [ "$ACTION" == "STAT" ] ;then
+    echo "/REQUEST status:"
+    mqttsample_array -s $SERVER -n 1 -q $QOS -t /REQUEST -a subscribe -x unsubscribe=0 -x retainedMsgCounted=1 -v -v | grep "received on"
+    echo "/REPLY status:"
+    mqttsample_array -s $SERVER -n 1 -q $QOS -t /REPLY   -a subscribe -x unsubscribe=0 -x retainedMsgCounted=1 -v -v | grep "received on"
+    echo "/CONFIRM status:"
+    mqttsample_array -s $SERVER -n $MAXAGENT -q $QOS -t "/CONFIRM/#" -a subscribe -x unsubscribe=0 -x retainedMsgCounted=1 -v -v | grep "received on"
+    
+elif [ "$ACTION" == "SERVER" ] ;then
+    rm -rf logs.SERVER
+    mkdir logs.SERVER
+    #----------------------------
+    # to make things easy for now, if you restart the server it clears out all the old state
+    # Additional Exercise: make server recover and continue with old state.
+    #----------------------------
+    if (($VERBOSE>0)); then 
+        echo -n "1" # STATUS
+    fi
+    mqttsample_array -s $SERVER -n 1 -q $QOS -t /REQUEST -a publish -x unsubscribe=0 -i agent.server.1 -c false -v -v -x msgFile=NULLMSG -x retainedFlag=1 > /dev/null
+
+id=1;
+while((1)); do
+    rm -rf logs.server/log.messageid.$id
+    mkdir -p logs.server/log.messageid.$id
+    echo ""
+    echo "`date` `date +%s.%N` Start working on customer id: $id"
+    #----------------------------
+    # At the start of processing each customer request /CONFIRM and /REPLY should always be empty
+    #----------------------------
+    if (($VERBOSE>0)); then 
+        echo -n "2" # STATUS
+    fi
+    mqttsample_array -s $SERVER -n 1 -q $QOS -t /REPLY -a publish -x unsubscribe=0 -i agent.server.1 -c false -v -v -x msgFile=NULLMSG -x retainedFlag=1 > /dev/null
+    if (($VERBOSE>0)); then 
+        echo -n "4" # STATUS
+    fi
+    subid=1;
+    msgflowcomplete=0 
+    while((1)); do
+        msg=" Message_id: $id subid: $subid `date` "
+        data=`mqttsample_array -s $SERVER -n 1 -q $QOS -t /REQUEST -a publish -x unsubscribe=0 -i agent.server.1 -c false -v -v -m "$msg" -x retainedFlag=1 2>&1 | tee -a log.SERVER.pub`
+        if (($VERBOSE>1)); then 
+            echo "-----------------------------------"
+            echo "step 1 : $data"
+            echo "-----------------------------------"
+        elif (($VERBOSE>0)); then 
+            echo -n "p" # STATUS
+        fi
+
+        replystart=`date +%s%N`
+        while((1)); do
+            curtime=`date +%s%N`
+            let deltatime=($curtime-$replystart)
+            if (($deltatime>$T)); then
+                if (($VERBOSE>0)); then 
+                    echo -n "z" # STATUS
+                fi
+                break; # retry republish same message
+            fi
+            if (($VERBOSE>0)); then 
+                echo -n "S"
+            fi
+            data=`mqttsample_array -s $SERVER -n 1 -q $QOS -t /REPLY -a subscribe -x unsubscribe=0 -x retainedMsgCounted=1 -x msgTimeoutAfterSub=$T -i agent.server.1 -c false -v -v 2>&1 | tee -a log.SERVER.reply`
+            if (($VERBOSE>1)); then 
+                echo "-----------------------------------"
+                echo "step 2: $data"
+                echo "-----------------------------------"
+            elif (($VERBOSE>0)); then 
+                echo -n "s"
+            fi
+            replyid=`echo "$data" | grep -oE ' Message_id: .*' | awk '{print $2}'`
+            replysubid=`echo "$data" | grep -oE ' subid: .*' | awk '{print $2}'`
+            agentid=`echo "$data" | grep -oE ' Agent_id: .*' | awk '{print $2}'`
+            mesg="CONFIRMED BY SERVER "
+            mesg+=`echo "$data" | grep "received on" | grep -oE ' m: .*' `
+            #echo "reply id is: $replyid"
+            #echo "data is : "
+            #echo "$data" | grep "received on"
+            if [ -z "$replyid" -o -z "$replysubid" -o -z "$agentid" ] ;then
+                if (($VERBOSE>1)); then 
+                    echo "Empty var recieved: replyid:$replyid replysubid:$replysubid or agentid:$agentid"
+                else
+                    echo -n "e"
+                fi
+                continue
+            elif [ "$replyid" == "$id" ] ;then
+                echo -n "R" ; # send confirmation. From this point on the application is required to handle all recovery.
+                data=`mqttsample_array -s $SERVER -n 1 -q $QOS -t /CONFIRM/${agentid} -a publish -x unsubscribe=0 -i agent.server.1 -c false -v -v -m "$mesg" -x retainedFlag=1 2>&1 | tee -a log.SERVER.confirm`
+                if (($VERBOSE>1)); then 
+                    echo "-----------------------------------"
+                    echo "step 3: confirmed: $data"
+                    echo "-----------------------------------"
+                fi
+                msgflowcomplete=1
+                echo -n "C" # STATUS
+                break;
+            else
+                regexp="[0-9]+"
+                if [  -n "$agentid" -a -n "$replyid" -a -n "$replysubid" ] ;then
+                    if [[ $agentid =~ regexp ]] ;then
+                        mesg="DECLINED BY SERVER "
+                        mesg+=`echo "$data" | grep "received on" | grep -oE ' m: .*' `
+                        data=`mqttsample_array -s $SERVER -n 1 -q $QOS -t /CONFIRM/${agentid} -a publish -x unsubscribe=0 -i agent.server.1 -c false -v -v -m "$mesg" -x retainedFlag=1 2>&1 | tee -a log.SERVER.confirm`
+                        if (($VERBOSE>1)); then 
+                            echo "-----------------------------------"
+                            echo "step 3: declined: $data"
+                            echo "-----------------------------------"
+                        fi
+                        echo -n "D" # STATUS
+                    else
+                        echo "A) Unexpected input recieved on server: $data"
+                    fi
+                else
+                    echo "B) Unexpected input recieved on server: $data"
+                fi
+            fi
+
+    done
+    if [ "$msgflowcomplete" == "1" ] ;then
+        echo -n "E" # STATUS
+        break;
+    fi
+ 
+  let subid=$subid+1 ; #process next customer in queue
+  done
+  #exit 1;
+  mv log.SERVER.* logs.server/log.messageid.$id
+  rm -rf log.SERVER.*
+  let id=$id+1 ; #process next customer in queue
+
+echo ============================================================
+echo ============================================================
+echo ============================================================
+echo "`date` : start usleep $D "
+usleep $D
+echo "`date` : done  usleep $D "
+done
+
+elif [ "$ACTION" == "AGENT" ] ;then
+
+    if [ -z "$ID" ] ;then
+        echo "ERROR: must specify a unique id number for agent to use"
+        exit 1;
+    fi
+
+    rm -rf logs.agent.id.$ID
+    mkdir logs.agent.id.$ID
+
+    echo "INIT" > logs.agent.id.$ID/status
+
+    mqttsample_array -s $SERVER -n 1 -q $QOS -t /CONFIRM/$ID -a publish -x unsubscribe=0 -i agent.client.$ID -c false -v -v -x msgFile=NULLMSG -x retainedFlag=1 > /dev/null
+    if (($VERBOSE>0)); then 
+        echo -n "3" # STATUS: Clear out this agents confirm message before starting each message flow
+    fi
+    while((1)); do
+
+        echo "WAIT_REQUEST" > logs.agent.id.$ID/status
+        data=`mqttsample_array -s $SERVER -n 1 -q $QOS -t /REQUEST -a subscribe -x unsubscribe=0 -x retainedMsgCounted=1 -x sharedSubscription=AGENTQ -i agent.client.$ID -c false -x msgTimeoutAfterSub=$S -v -v 2>&1 | tee -a log.agent.$ID.request`
+
+        echo "RECV_REQUEST" > logs.agent.id.$ID/status
+        replyid=`echo "$data" | grep -oE ' Message_id: .*' | awk '{print $2}'`
+        if [ -z "$replyid" ] ;then
+            echo "EMPTY_REQUEST" > logs.agent.id.$ID/status
+            echo "Got no message "
+            continue;
+        fi
+
+        echo "START_REPLY $replyid" > logs.agent.id.$ID/status
+        echo "$data"
+        mesg="REPLY TO: Agent_id: $ID "
+        mesg+=`echo "$data" | grep "received on" | grep -oE ' m: .*' `
+
+        if [ -n "$AGENT_UNEXPECTED" -a "$AGENT_UNEXPECTED" == 1 ] ;then
+            echo "AGENT_UNEXPECTED :$AGENT_UNEXPECTED specified performing unexpected exit for replyid:$replyid"
+            exit 1;
+        fi
+
+        echo ============================================================
+        echo ============================================================
+        echo ============================================================
+        echo ============================================================
+        echo ============================================================
+        echo ============================================================
+        echo "msg is \"$mesg\""
+        echo ============================================================
+        echo ============================================================
+        echo ============================================================
+        echo ============================================================
+        echo ============================================================
+
+        data=`mqttsample_array -s $SERVER -n 1 -q $QOS -t /REPLY -a publish -x unsubscribe=0 -i agent.client.$ID -c false -v -v -m "$mesg" -x retainedFlag=1 2>&1 | tee -a log.agent.$ID.reply`
+        echo "$data"
+
+        echo "REPLIED id:$replyid" > logs.agent.id.$ID/status
+        if [ -n "$AGENT_UNEXPECTED" -a "$AGENT_UNEXPECTED" == 2 ] ;then
+            echo "AGENT_UNEXPECTED :$AGENT_UNEXPECTED specified performing unexpected exit for replyid:$replyid"
+            exit 1;
+        fi
+        confirmed=0
+        while((1));do
+            echo "CHECK_CONFIRM id:$replyid" > logs.agent.id.$ID/status
+            data=`mqttsample_array -s $SERVER -n 1 -q $QOS -t /CONFIRM/$ID -a subscribe -x unsubscribe=0 -x retainedMsgCounted=1 -i agent.client.$ID -c true -v -v 2>&1 | tee -a log.agent.$ID.confirm`
+            echo "$data"
+    
+            if [ -n "$AGENT_UNEXPECTED" -a "$AGENT_UNEXPECTED" == 3 ] ;then
+                echo "AGENT_UNEXPECTED :$AGENT_UNEXPECTED specified performing unexpected exit for replyid:$replyid"
+                exit 1; 
+            fi
+            if [ -z "$data" ] ;then
+                echo "Got empty message "
+                continue;
+            fi
+    
+            if echo "$data" | grep "DECLINED BY SERVER" > /dev/null ;then
+                echo "-------------------------------------------------------"
+                echo "-------------------------------------------------------"
+                echo "-------------------------------------------------------"
+                echo "-------------------------------------------------------"
+                echo "Server declined to allow processing for this message"
+                echo "-------------------------------------------------------"
+                echo "-------------------------------------------------------"
+                echo "-------------------------------------------------------"
+                echo "-------------------------------------------------------"
+                break; 
+            elif echo "$data" | grep "CONFIRMED BY SERVER" > /dev/null ;then
+                echo "RCVD_CONFIRM id:$replyid" > logs.agent.id.$ID/status
+                confirmid=`echo "$data" | grep -oE ' Message_id: .*' | awk '{print $2}'`
+                if [ -z "$confirmid" ] ;then
+                    echo "EMPTY_CONFIRM id:$replyid" > logs.agent.id.$ID/status
+                    echo "Got no message "
+                    continue;
+                fi
+        
+                if [ "$confirmid" == "$replyid" ] ;then
+                    echo "CONFIRMED id:$replyid" > logs.agent.id.$ID/status
+                    echo "-------------------------------------------------------"
+                    echo "-------------------------------------------------------"
+                    echo "-------------------------------------------------------"
+                    echo "-------------------------------------------------------"
+                    echo "-------------------------------------------------------"
+                    echo "Server confirmed that we are solely responsible to process this message. Do the work."
+                    echo "optionally there could be some timeout if the server does not respond in a certain amount of time to go back to the start of the line"
+                    echo "-------------------------------------------------------"
+                    echo "-------------------------------------------------------"
+                    echo "-------------------------------------------------------"
+                    echo "-------------------------------------------------------"
+                    echo "-------------------------------------------------------"
+                    confirmed=1;
+                    break; 
+                else
+                    echo "ERROR: Unexpected scenario, got confirmation for id that we are not processing currently."
+                    exit 1;
+                fi
+            else
+                echo "ERROR: Unexpected scenario, got unexpected data from server: \"$data\" "
+                exit 1;
+            fi
+        done
+
+        if [ -n "$AGENT_UNEXPECTED" -a "$AGENT_UNEXPECTED" == 4 ] ;then
+             echo "AGENT_UNEXPECTED :$AGENT_UNEXPECTED specified performing unexpected exit for replyid:$replyid"
+             exit 1; 
+        fi
+
+        if [ "$confirmed" == "1" ] ;then
+            echo "WORKING id:$replyid" > logs.agent.id.$ID/status
+            echo ============================================================
+            echo =======DOING WORK ==========================================
+            echo ============================================================
+            echo "`date` : start usleep $W"
+            usleep $W
+            echo "`date` : done  usleep $W"
+            echo "DONE WORKING id:$replyid" > logs.agent.id.$ID/status
+        else
+            echo ============================================================
+            echo do not do any work on $replyid, server declined our reply 
+            echo "Do not do any work, put agent back in the line for a message to process" 
+            echo ============================================================
+        fi
+    
+        mkdir logs.agent.id.$ID/logs.messageid.$replyid
+        mv log.agent.$ID.* logs.agent.id.$ID/logs.messageid.$replyid
+        rm -rf log.agent.$ID.*
+
+echo "CLEANUP" > logs.agent.id.$ID/status
+    mqttsample_array -s $SERVER -n 1 -q $QOS -t /CONFIRM/$ID -a publish -x unsubscribe=0 -i agent.client.$ID -c false -v -v -x msgFile=NULLMSG -x retainedFlag=1 > /dev/null
+    if (($VERBOSE>0)); then 
+        echo -n "3" # STATUS: Clear out this agents confirm message before starting each message flow
+    fi
+
+echo "SLEEP" > logs.agent.id.$ID/status
+
+echo ============================================================
+echo ============================================================
+echo ============================================================
+echo "`date` : start usleep $(($S*2))"
+usleep $(($S*2))
+#usleep $(($S+$R))
+#usleep  1000
+echo "`date` : done  usleep $(($S*2))"
+echo "READY" > logs.agent.id.$ID/status
+
+done
+
+elif [ "$ACTION" == "BADAGENT1" ] ;then
+    shift
+    AGENT_UNEXPECTED=1 $0 AGENT $@
+elif [ "$ACTION" == "BADAGENT2" ] ;then
+    shift
+    AGENT_UNEXPECTED=2 $0 AGENT $@
+elif [ "$ACTION" == "BADAGENT3" ] ;then
+    shift
+    AGENT_UNEXPECTED=3 $0 AGENT $@
+elif [ "$ACTION" == "BADAGENT4" ] ;then
+    shift
+    AGENT_UNEXPECTED=4 $0 AGENT $@
+elif [ "$ACTION" == "BADAGENT5" ] ;then
+    shift
+    AGENT_UNEXPECTED=5 $0 AGENT $@
+fi

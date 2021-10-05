@@ -1,0 +1,157 @@
+==================================================================================================================
+JMS JNDI and LTPA LDAP Setup
+==================================================================================================================
+
+To setup LDAP for JMS JNDI repository and LTPA user repository (Done on testEnv.sh:LDAP_URI machine):
+  Install the openldap rpm's from mar145:/gsacache/tools/openldap/
+  
+  Make sure nss package is also updated.
+  
+	[~] $ rpm -q openldap
+	openldap-2.4.23-34.el6_5.1.x86_64
+	[~] $ rpm -q nss
+	nss-3.16.1-7.el6_5.x86_64
+
+  Copy fvt_scripts/jms_td_tests/ldap/jmsjndi.and.ltpa.slapd.conf to /etc/openldap
+  Copy fvt_scripts/jms_td_tests/ldap/jmsjndi.and.ltpa.ldif to the machine
+
+  Start slapd with "slapd -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d"
+  RootDN = cn=Manager,o=jndiTest
+  RootDN password = secret
+
+  Run "ldapadd -x -f ./jmsjndi.and.ltpa.ldif -D "cn=Manager,o=jndiTest" -w secret"
+
+    [root@mar474 ~]# ldapadd -x -f jmsjndi.and.ltpa.ldif -D "cn=Manager,o=jndiTest" -w secret
+
+  Verify stuff was added to LDAP
+  
+    [root@mar474 ~]# ldapsearch -xLLL -b "o=jndiTest"
+    dn: o=jndiTest
+    objectClass: organization
+    o: jndiTest
+
+    dn: cn=Manager,o=jndiTest
+    objectClass: organizationalRole
+    cn: Manager
+    ...
+
+  To configure this as MessageSight external LDAP:
+        Enabled = true
+        URL = ldap://${LDAP_URI}:389
+        Certificate =
+        IgnoreCase = true
+        BaseDN = ou=LTPATest,o=jndiTest
+        BindDN = cn=Manager,o=jndiTest
+        UserSuffix = ou=users,ou=LTPATest,o=jndiTest
+        GroupSuffix = ou=groups,ou=LTPATest,o=jndiTest
+        UserIdMap = uid
+        GroupIdMap = cn
+        GroupMemberIdMap = member
+        EnableCache = true
+        CacheTimeout = 10
+        GroupCacheTimeout = 300
+        Timeout = 10
+        MaxConnections = 10
+        NestedGroupSearch = false
+        
+==================================================================================================================
+External LDAP Setup
+==================================================================================================================
+
+To setup LDAP for external LDAP tests (done on each linux client machine):
+  Install the openldap rpm's from mar145:/gsacache/tools/openldap/
+
+  Copy fvt_scripts/jms_td_tests/ldap/external.ldap.slapd.conf to /etc/openldap
+  Copy fvt_scripts/jms_td_tests/ldap/external.ldap.ldif to the machine
+
+  Start slapd with "slapd -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d"
+  RootDN = cn=Manager,o=IBM
+  RootDN password = secret
+
+  Run "ldapadd -x -f ./external.ldap.ldif -D "cn=Manager,o=IBM" -w secret"
+
+    [root@mar474 ~]# ldapadd -x -f ./external.ldap.ldif -D "cn=Manager,o=IBM" -w secret
+
+  Verify stuff was added to LDAP
+  
+    [root@mar474 ~]# ldapsearch -xLLL -b "o=IBM"
+    ...
+    
+  To configure this as MessageSight external LDAP:
+        Enabled = true
+        URL = ldap://${M1_IPv4_1}:389
+        Certificate =
+        IgnoreCase = true
+        BaseDN = ou=MessageSight,o=IBM
+        BindDN = cn=Manager,o=IBM
+        UserSuffix = ou=users,ou=MessageSight,o=IBM
+        GroupSuffix = ou=groups,ou=MessageSight,o=IBM
+        UserIdMap = uid
+        GroupIdMap = cn
+        GroupMemberIdMap = member
+        EnableCache = true
+        CacheTimeout = 10
+        GroupCacheTimeout = 300
+        Timeout = 10
+        MaxConnections = 10
+        NestedGroupSearch = false
+        
+        
+==================================================================================================================
+External LDAP notes and such
+==================================================================================================================
+URL = ldap://${M1_IPv4_1}:389
+IgnoreCase = true
+BaseDN = ou=MessageSight,o=IBM
+BindDN = cn=Manager,o=IBM
+BindPassword = secret
+UserIdMap = uid
+GroupIdMap = cn
+GroupMemberIdMap = member
+Timeout = 60
+CacheTTL = 10
+GroupCacheTTL = 300
+MaxConnections = 10
+Enabled = true
+UserSuffix = ou=users,ou=MessageSight,o=IBM
+GroupSuffix = ou=groups,ou=MessageSight,o=IBM
+
+CompositeAction names from external_ldap_001.xml:
+user1
+user2_mail
+user3
+user1Fail
+user1Fail_mail
+user2Fail
+user2Fail_password
+user3Fail
+
+imaserver create LDAP Enabled=True URL=ldap://10.10.0.80:5389 BindDN=cn=root BindPassword=ima4test Timeout=60 BaseDN=ou=AIM,o=IBM BaseDN=ou=AIM,o=IBM,c=US UserSuffix=ou=users,ou=AIM,o=IBM,c=US GroupSuffix=ou=groups,ou=AIM,o=IBM,c=US UserIdMap=uid GroupIdMap=cn GroupMemberIdMap=member
+
+group001
+    user001 - pw = ima4test, mail=user001@test.example.com
+    group002
+        user002 - pw = ima4test, mail=user002@test.example.com
+        group003
+            user003 - pw = ima4test, mail=user003@test.example.com
+            
+-b = base search domain
+-D = bind dn
+-w = bind dn password
+-xLLL = simple authentication with ldif format
+-H = URI
+
+$ ldapsearch -xLLL -b "uid=user001,ou=users,ou=MessageSight,o=IBM" -H ldap://localhost:389 -D "cn=Manager,o=IBM" "mail=user001@mar080.test.example.com" -w secret
+dn: uid=user001,ou=users,ou=MessageSight,o=IBM
+uid: user001
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+sn: user001
+cn: user001
+userPassword:: aW1hNHRlc3Q=
+mail: user001@test.example.com
+
+To allow login with email:
+imaserver update LDAP "UserSuffix=False" UserIdMap=mail

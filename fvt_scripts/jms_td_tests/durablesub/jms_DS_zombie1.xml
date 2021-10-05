@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: JMS_DS_zombie_001
+
+  Test Category:  JMS DS
+  
+  Test Description:
+    Testing that a Durable Subscriber that is silently disconnected (no tcp disconnect)
+    will be detected by the server and the connection closed. Then that the DurableSubscriber
+    can be reconnected and successfully receive messages. 
+    
+    NOTE: This test runs with a Test Hook, DisableTimeout=-30, which signals to client and 
+    server to not perform some of the under ver checking to detect whether each other is 
+    still alive. This enables us to simulate the silent disconnect that is occasionally seen
+    on some networks. 
+-->
+<ImaJmsTest name="jms_DS_zombie_001">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_DS_zombie_001</solution>
+	</SyncClient>
+	
+	
+	<Action name="rmdr" type="CompositeAction">
+	
+			<!-- This side runs on machine 1! -->
+		<!-- Reset this SyncDriver solution to clean up any existing values that might conflict -->
+		<Action name="syncReset" type="SyncAction">
+			<ActionParameter name="request">reset</ActionParameter>
+		</Action>
+
+		<!-- Initialize the SyncDriver values -->
+
+		<Action name="syncInit1" type="SyncAction">
+			<ActionParameter name="request">init</ActionParameter>
+			<ActionParameter name="condition">syncPoint</ActionParameter>
+		</Action>
+	
+		<Action name="CreateFactory" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Rx1</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>			
+		</Action>
+
+		<Action name="CreateListener" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Rx1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="DS_Zombie1_RXclientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+		
+		<!-- disable the client ping and client ping response -->
+		<!-- uses a hidden TestHook. -->
+		<Action name="SetProps_qcf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Rx1</ActionParameter>
+			<ActionParameter name="validateAll">false</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="DisableTimeout" value="-30" type="INT"/>
+		</Action>
+		
+		<Action name="CreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Rx1</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+		
+		<Action name="CreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="Create_Dest1" type="CreateDestination">
+			<ApiParameter name="name">DS_Zombie1_Topic1</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">ds1</ActionParameter>
+		</Action>
+	
+		<Action name="Create_Dest2" type="CreateDestination">
+			<ApiParameter name="name">DS_Zombie1_Topic2</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">ds2</ActionParameter>
+		</Action>
+
+		<Action name="StartConnection_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>		
+
+		<Action name="CreateZombieConsumer1" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">zombie1</ActionParameter>
+			<ActionParameter name="dest_id">ds1</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">ZombieSub1</ApiParameter>
+		</Action>
+	
+		<Action name="CreateZombieConsumer2" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">zombie2</ActionParameter>
+			<ActionParameter name="dest_id">ds2</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">ZombieSub2</ApiParameter>
+		</Action>
+		
+		<Action name="sync_components" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx1</ActionParameter>
+			<ActionParameter name="component_list">tx1;rx1</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>
+		
+		<!-- make sure we are set up and able to receive.. before turning into a zombie -->
+		<Action name="CompositeConsume_1" type="CompositeAction" repeat="50" repeat_interval="0">
+			<Action name="RcvTextMessage_consumer1" type="ReceiveMessage" interval="0" >
+				<ActionParameter name="consumer_id">zombie1</ActionParameter>
+				<ActionParameter name="structure_id">rx_txt_msg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>					
+		</Action>	
+		
+		<!-- during this long wait, the server will think that this process has silently disconnected
+		(without a tcp disconnect.). It will close the connection. -->
+
+		<Action name="DoNotRcvTextMessage_consumer1" type="ReceiveMessage" rc="1" reason="CWLNC0010">
+			<dependsOn name="CompositeConsume_1" interval="120000"/>
+			<ActionParameter name="consumer_id">zombie1</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msg1</ActionParameter>
+			<ApiParameter name="timeout">1000</ApiParameter>
+		</Action>
+		
+		<Action name="DoNotRcvTextMessage_consumer2" type="ReceiveMessage" rc="1" reason="CWLNC0010">
+			<ActionParameter name="consumer_id">zombie2</ActionParameter>
+			<ActionParameter name="structure_id">rx_txt_msg1</ActionParameter>
+			<ApiParameter name="timeout">1000</ApiParameter>
+		</Action>
+				
+		<!-- if we get this far, we were successfully identified as a zombie, and reaped. --> 
+					
+		<!--   restart.. reconnect.. and make sure the DurableSubscription, clientID, etc are ok. -->
+
+		<Action name="sync_componentsA" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">rx1a</ActionParameter>
+			<ActionParameter name="component_list">tx1a;rx1a</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>				
+		
+		<Action name="ReStartConnection_cf1" type="StartConnection" rc="1" reason="CWLNC0008">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>		
+		
+		<Action name="ReCreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Rx1</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+		
+		<Action name="ReCreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>	
+		
+		<Action name="ReCreate_Dest1" type="CreateDestination">
+			<ApiParameter name="name">DS_Zombie1_Topic1</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">ds1</ActionParameter>
+		</Action>
+	
+		<Action name="ReCreate_Dest2" type="CreateDestination">
+			<ApiParameter name="name">DS_Zombie1_Topic2</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">ds2</ActionParameter>
+		</Action>		
+		
+		<Action name="ReCreateZombieConsumer1" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">zombie1a</ActionParameter>
+			<ActionParameter name="dest_id">ds1</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">ZombieSub1</ApiParameter>
+		</Action>
+	
+		<Action name="ReCreateZombieConsumer2" type="CreateDurableSubscriber">
+			<ActionParameter name="structure_id">zombie2a</ActionParameter>
+			<ActionParameter name="dest_id">ds2</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">ZombieSub2</ApiParameter>
+		</Action>
+		
+		<Action name="StartNewConnection_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>				
+		<!-- make sure we are set up and able to receive.. after restarting -->
+		
+		<Action name="CompositeConsume_1Again" type="CompositeAction" repeat="50" repeat_interval="0">
+			<Action name="RcvTextMessage_consumer1Again" type="ReceiveMessage" interval="0" >
+				<ActionParameter name="consumer_id">zombie1a</ActionParameter>
+				<ActionParameter name="structure_id">rx_txt_msg1</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>					
+		</Action>
+		
+		<Action name="CompositeConsume_2" type="CompositeAction" repeat="55" repeat_interval="0">
+			<Action name="RcvTextMessage_consumer2" type="ReceiveMessage" interval="0" >
+				<ActionParameter name="consumer_id">zombie2a</ActionParameter>
+				<ActionParameter name="structure_id">rx_txt_msg2</ActionParameter>
+				<ApiParameter name="timeout">5000</ApiParameter>
+			</Action>					
+		</Action>	
+			
+		<Action name="CloseConsumer1" type="CloseConsumer">
+			<ActionParameter name="consumer_id">zombie1a</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConsumer2" type="CloseConsumer">
+			<ActionParameter name="consumer_id">zombie2a</ActionParameter>
+		</Action>		
+
+		<Action name="Unsubscribe1" type="Unsubscribe">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">ZombieSub1</ApiParameter>
+		</Action>
+
+		<Action name="Unsubscribe2" type="Unsubscribe">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="durableName">ZombieSub2</ApiParameter>
+		</Action>	
+	
+		<Action name="CloseSession" type="CloseSession">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+
+		<Action name="StopConnection" type="StopConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+
+
+	</Action>
+	
+
+	<Action name="rmdt" type="CompositeAction">
+	
+		<Action name="CreateFactory" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">CF1_Tx1</ActionParameter>
+			<ActionParameter name="loglevel">9</ActionParameter>
+			<ActionParameter name="logfile">stdout</ActionParameter>
+		</Action>
+
+		<Action name="CreateListener" type="CreateExceptionListener">
+			<ActionParameter name="structure_id">listener1</ActionParameter>
+		</Action>
+
+		<Action name="SetFactoryProps" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Tx1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="DS_Zombie1_TXclientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>	
+		
+		<!-- disable the client ping and client ping response this is a test hook -->
+		<!-- uses a hidden TestHook. -->
+		<Action name="SetProps_qcf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">CF1_Tx1</ActionParameter>
+			<ActionParameter name="validateAll">false</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="DisableTimeout" value="-30" type="INT"/>
+		</Action>
+		n>
+		
+		<Action name="CreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Tx1</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+		
+		<Action name="CreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateSession2_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session2_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="Create_Dest1" type="CreateDestination">
+			<ApiParameter name="name">DS_Zombie1_Topic1</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">ds1</ActionParameter>
+		</Action>
+	
+		<Action name="Create_Dest2" type="CreateDestination">
+			<ApiParameter name="name">DS_Zombie1_Topic2</ApiParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ActionParameter name="structure_id">ds2</ActionParameter>
+		</Action>
+	
+		<Action name="CreateProducer1_DS1" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_zombie1</ActionParameter>
+			<ActionParameter name="dest_id">ds1</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateProducer1_DS2" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_zombie2</ActionParameter>
+			<ActionParameter name="dest_id">ds2</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>	
+		
+		<Action name="CreateTxtMessage_prod_dest2" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_txt_msg2</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>	
+		
+		<!-- PRODUCER: Set message content -->				
+		<Action name="WriteBytesMessage_prod_dest1" type="SetMessageText">
+			<ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+			<ApiParameter name="value">TEXT: I am being sent from a producer who will turn into a zombie! </ApiParameter>
+		</Action>	
+		
+		<Action name="WriteBytesMessage_prod_dest2" type="SetMessageText">
+			<ActionParameter name="message_id">tx_txt_msg2</ActionParameter>
+			<ApiParameter name="value">TEXT: I am being sent from another producer who will turn into a zombie! </ApiParameter>
+		</Action>	
+		
+		<Action name="StartConnection_cf1" type="StartConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="sync_components" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1</ActionParameter>
+			<ActionParameter name="component_list">rx1;tx1</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>		
+		
+		<Action name="SendBytesMessage_prod_ds1" type="SendMessage" repeat="50" repeat_interval="0" interval="0" >
+			<ActionParameter name="producer_id">producer1_zombie1</ActionParameter>
+			<ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+		</Action>
+		
+		<Action name="SendBytesMessage_prod_ds2" type="SendMessage" repeat="5" repeat_interval="0" interval="0" >
+			<ActionParameter name="producer_id">producer1_zombie2</ActionParameter>
+			<ActionParameter name="message_id">tx_txt_msg2</ActionParameter>
+		</Action>		
+		
+		<!-- DisableTimeout is in testmode (set to negative 30).. So the server
+			 should have detected this as a zombie, and disconnect it. -->
+		<Action name="TryToSendBytesMessage_prod_ds1" type="SendMessage" rc="1" reason="CWLNC0011">
+			<dependsOn name="SendBytesMessage_prod_ds1" interval="120000"/>
+			<ActionParameter name="producer_id">producer1_zombie1</ActionParameter>
+			<ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+		</Action>
+		
+		<Action name="TryToSendBytesMessage_prod_qds2" type="SendMessage" rc="1" reason="CWLNC0011">
+			<dependsOn name="SendBytesMessage_prod_ds1"/>
+			<ActionParameter name="producer_id">producer1_zombie2</ActionParameter>
+			<ActionParameter name="message_id">tx_txt_msg2</ActionParameter>
+		</Action>
+		
+		
+<!-- Close, reconnect and send  again.  -->
+		<!-- old connection should be unusable. An opportunity to check for IllegalStateException -->
+		<Action name="ReStartConnection_cf1" type="StartConnection" rc="1" reason="CWLNC0008">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+		
+		<!-- Recreate everything.. -->
+		<Action name="ReCreateConnection_cf1" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="factory_id">CF1_Tx1</ActionParameter>
+		 	<ApiParameter name="exceptionListener">listener1</ApiParameter>
+		</Action>
+		
+		<Action name="ReCreateSession1_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="ReCreateSession2_conn_cf1" type="CreateSession">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		 	<ActionParameter name="structure_id">session2_cf1</ActionParameter>
+		</Action>
+				
+		<Action name="ReCreateProducer1_DS1" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_zombie1</ActionParameter>
+			<ActionParameter name="dest_id">ds1</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="ReCreateProducer1_DS2" type="CreateProducer">
+			<ActionParameter name="structure_id">producer1_zombie2</ActionParameter>
+			<ActionParameter name="dest_id">ds2</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+		</Action>	
+		
+		<Action name="ReCreateTxtMessage_prod_dest1" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>	
+		
+		<Action name="ReCreateTxtMessage_prod_dest2" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_txt_msg2</ActionParameter>
+			<ActionParameter name="session_id">session2_cf1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+		</Action>	
+		
+		<!-- PRODUCER: Set message content -->				
+		<Action name="ReWriteBytesMessage_prod_dest1" type="SetMessageText">
+			<ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+			<ApiParameter name="value">TEXT: I am being sent from a producer who will turn into a zombie! </ApiParameter>
+		</Action>	
+		
+		<Action name="ReWriteBytesMessage_prod_dest2" type="SetMessageText">
+			<ActionParameter name="message_id">tx_txt_msg2</ActionParameter>
+			<ApiParameter name="value">TEXT: I am being sent from another producer who will turn into a zombie! </ApiParameter>
+		</Action>	
+		
+		<Action name="sync_componentsA" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">tx1a</ActionParameter>
+			<ActionParameter name="component_list">rx1a;tx1a</ActionParameter>
+			<ActionParameter name="timeout">15000</ActionParameter>
+		</Action>		
+		
+		<Action name="SendBytesMessage_prod_ds1a" type="SendMessage" repeat="50" repeat_interval="0" interval="0" >
+			<ActionParameter name="producer_id">producer1_zombie1</ActionParameter>
+			<ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+		</Action>		
+		
+		<Action name="SendBytesMessage_prod_ds2a" type="SendMessage" repeat="50" repeat_interval="0" interval="0" >
+			<ActionParameter name="producer_id">producer1_zombie2</ActionParameter>
+			<ActionParameter name="message_id">tx_txt_msg2</ActionParameter>
+		</Action>		
+
+		<Action name="CloseSession" type="CloseSession">
+			<ActionParameter name="session_id">session1_cf1</ActionParameter>
+		</Action>
+	
+		<Action name="StopConnection" type="StopConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>
+		
+		<Action name="CloseConnection" type="CloseConnection">
+			<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+		</Action>	
+	
+	</Action>
+
+</ImaJmsTest>

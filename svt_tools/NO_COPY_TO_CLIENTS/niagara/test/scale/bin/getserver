@@ -1,0 +1,70 @@
+#!/bin/bash
+
+/niagara/test/scripts/ISMsetup.cfg
+source /niagara/test/scripts/ISMsetup.sh
+
+declare t
+declare primary=false
+declare standby=false
+
+if [ ! -z $1 ] ; then
+  if [ "$1" == "-p" ] ; then
+    primary=true
+  elif [ "$1" == "-s" ] ; then
+    standby=true
+  elif [ ! -z $2 ] ; then
+    one=$2
+  fi
+
+  if [ -z ${one} ]; then
+    if [ ! -z $2 ] ; then
+      one=$2
+    else 
+      one=10
+    fi
+  fi
+fi
+
+if [ "${primary}" == "true" ]; then
+  t=`getprimary ${one}`
+elif [ "${standby}" == "true" ]; then
+  t=`getstandby ${one}`
+elif [[ "${svt_server}" != "" && -f /niagara/test/scripts/ISMsetup.sh ]]; then
+  out=`grep ${svt_server} /niagara/test/scripts/ISMsetup.sh| cut -f2 -d' '`
+
+  if [[ ${out:0:2} =~ [A] ]]; then
+    AP_HOST=$(eval echo \$\{${out}_HOST\})
+    AP_IPv4_1=$(eval echo \$\{${out}_IPv4_1\})
+    AP_IPv4_2=$(eval echo \$\{${out}_IPv4_2\})
+  
+    t=`echo ${AP_HOST} | grep "$one"`
+    if [ -z ${t} ]; then
+      t=`echo ${AP_IPv4_1} | grep "$one"`
+    fi
+    if [ -z ${t} ]; then
+      t=`echo ${AP_IPv4_2} | grep "$one"`
+    fi
+    if [ -z ${t} ]; then
+      t=${AP_HOST}
+    fi
+  else
+#    printf "svt_server=%s not consistent with ISMsetup.sh\n" ${svt_server}
+#    exit
+     t=${svt_server}
+  fi
+fi
+  
+if [ "${t}" == "" ]; then
+  t=`echo ${A1_HOST} | grep "$one"`
+  if [ -z ${t} ]; then
+    t=`echo ${A1_IPv4_1} | grep "$one"`
+  fi
+  if [ -z ${t} ]; then
+    t=`echo ${A1_IPv4_2} | grep "$one"`
+  fi
+  if [ -z ${t} ]; then
+    t=${A1_HOST}
+  fi
+fi
+  
+echo ${t}

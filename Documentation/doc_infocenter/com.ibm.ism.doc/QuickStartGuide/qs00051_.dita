@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="qs00051_" xml:lang="en-us">
+<title>Building and running the <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> messaging server Docker image </title>
+<!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+<!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+<!--Put your short description next; used for first paragraph and abstract.-->
+<shortdesc>Build and deploy the <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> messaging server Docker image and start the <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> messaging server Docker container. The <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> messaging server handles connected clients and devices, and processes messages.</shortdesc>
+<!--To optimize PDF retrievability, add prolog and indexing tags that help crystalize why users should be looking up this topic (purpose, task, and what they will learn)-->
+<!--<prolog><metadata><keywords><indexterm></indexterm></keywords></metadata></prolog>-->
+<taskbody>
+<prereq>
+<ul>
+<li>Ensure that you have access to a yum repository so that you can use the Dockerfile in the .tz file to build the Docker image.</li>
+<li>Ensure that core files can be redirected to a known location. For more information about how to redirect core files, see <xref
+href="../Planning/pl00070.dita"/>.</li>
+</ul>
+</prereq>
+<steps>
+<step>
+<cmd>Build the messaging server Docker image.</cmd>
+<substeps>
+<substep>
+<cmd>In the <filepath>imaserver</filepath> subdirectory, rename the <filepath>EclipseAmlenServer-&lt;<varname>build_info</varname>>.rpm</filepath> file to <filepath>imaserver.rpm</filepath> by entering the following command:</cmd>
+                        <info>
+                            <codeblock>mv EclipseAmlenServer-&lt;<varname>build_info</varname>>.rpm imaserver.rpm</codeblock>
+                        </info>
+                    </substep>
+<substep id="sudostep">
+<cmd>If you are not logged in as the root user, enter the following command:</cmd>
+<info><codeblock>sudo sh</codeblock>Issuing this command enables you to run subsequent commands without having to specify <codeph>sudo</codeph></info>
+</substep>
+                    <substep>
+                        <cmd>If your host OS is Red Hat, you need to modify the Dockerfile.</cmd>
+                        <info>Change "<filepath>FROM centos:latest</filepath>" to "<filepath>FROM rhel:latest</filepath>".</info>
+                    </substep>
+<substep>
+                        <cmd>Build the <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+                            imaserver Docker image by entering the following command:</cmd>
+                        <info><codeblock>docker build --force-rm=true -t imaserver:<varname>&lt;version></varname> .</codeblock>Ensure
+that you include the period at the end of the command.<p>This command builds the Docker container by
+using the Dockerfile, installs the imaserver.rpm, applies additional RPMs to the container, and
+updates any existing RPMs in the container. Successful completion of the command is indicated by
+output that is similar to the following line:<codeblock>Successfully built 3017eae88d88</codeblock>
+</p></info>
+                    </substep>
+<substep>
+                        <cmd>Confirm that the <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+                            imaserver Docker image has been built successfully by entering the
+                            following command:</cmd>
+                        <info><codeblock>docker images</codeblock>and look for output that is
+similar to the following
+line:<codeblock>imaserver     0.1    0952b6b30178    2 seconds ago</codeblock></info>
+                    </substep>
+</substeps>
+</step>
+<step>
+                <cmd>Create a .tar file of the image so that you can deploy the <ph
+                        conref="../TextEntities.dita#TextEntities/ISM"/> messaging server on other
+                    hosts by entering the following command:</cmd>
+                <info>
+                    <codeblock>docker save -o ./imaserver-<varname>&lt;version></varname>-dockerimage.tar imaserver:<varname>&lt;version></varname></codeblock>
+                </info>
+            </step>
+<step>
+<cmd>Start the <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> messaging server by entering the following command:</cmd>
+<info><codeblock>docker run --cap-add SYS_ADMIN --net=host -P -it --name IMA --env-file=imaserver-docker -m <varname>&lt;memory_size></varname> 
+-v <varname>&lt;data_volume></varname> -d imaserver:<varname>&lt;version></varname></codeblock>where:<dl>
+<dlentry>
+<dt><varname>&lt;memory_size></varname></dt>
+<dd>The amount of memory available to the container. The minimum value is 4 GB. You can, however,
+specify a value that is as high as the available memory on the host. </dd>
+</dlentry>
+<dlentry>
+<dt><varname>&lt;data_volume></varname></dt>
+<dd>The external data volume to which the <filepath>/var/messagesight</filepath> directory is to be
+mapped. Mapping the directory to an external data volume is required so that data can be persisted
+over container updates. For information about using data volumes in Docker, see <xref
+href="https://docs.docker.com/engine/admin/volumes/" scope="external" format="html">Managing data in
+containers</xref>.</dd>
+</dlentry>
+<dlentry>
+<dt><varname>&lt;version></varname></dt>
+<dd>The version of the software being installed for example 0.1.0.0-20210809.0852</dd>
+</dlentry>
+</dl>
+<p>This command creates and starts the <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+messaging server Docker container.</p><p>The following table shows the environment variables that
+are in the <filepath>imaserver-docker.env</filepath> file. You can set the environment variables and
+include them in the <filepath>imaserver-docker.env</filepath> file and include the file in the
+<codeph>docker run</codeph> command or you can specify them separately in the command by using the
+<codeph>-e</codeph> argument on the command.<table frame="all" id="table_acx_2s1_3s"><title><ph
+conref="../TextEntities.dita#TextEntities/ISM"/> messaging server container environment
+variables</title><tgroup cols="3">
+<colspec colname="c1" colnum="1" colwidth="3.15*"/>
+<colspec colname="c2" colnum="2" colwidth="1*"/>
+<colspec colname="c3" colnum="3" colwidth="2.28*"/>
+<thead>
+<row>
+<entry>Environment variable name</entry>
+<entry>Required?</entry>
+<entry>Description</entry>
+</row>
+</thead>
+<tbody>
+<row>
+<entry>MESSAGESIGHT_ADMIN_HOST</entry>
+<entry>Optional</entry>
+<entry>IP address of the admin endpoint. The default is <codeph>All</codeph></entry>
+</row>
+<row>
+<entry>MESSAGESIGHT_ADMIN_PORT</entry>
+<entry>Optional</entry>
+<entry>Port number of the admin endpoint. The default is 9089.</entry>
+</row>
+</tbody>
+</tgroup></table></p></info>
+</step>
+<step>
+<cmd>Verify that the <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> messaging server container is running by entering the following command:</cmd>
+<info>
+<codeblock>docker ps</codeblock>
+</info>
+                <substeps>
+                    <substep importance="optional">
+                        <cmd>To reconfirm that your browser has access to the messaging server container, load this URL in your web browser:</cmd>
+                        <info>
+                            <codeblock>https://&lt;IP_Address>:9089></codeblock>
+                            <p>where <varname>IP_Address</varname> is the IP address of the host
+                                where the server is installed. </p>
+                        </info>
+                    </substep>
+                </substeps>
+</step>
+<step>
+<cmd>If you are not logged in as the root user, enter the following command to exit from the sudo shell that you created at step <xref
+format="dita" href="qs00051_.dita#qs00051_/sudostep" scope="local" type="substep"/>:</cmd>
+<info>
+<codeblock>exit</codeblock>
+</info>
+</step>
+            <step>
+                <cmd>Set the licensed usage and accept the license agreement. For more information about using a REST Administration API to set the licensed usage and accept the license agreement, see <xref
+                    format="dita" href="../Administering/ad00793_.dita" scope="local" type="task"
+                    />.</cmd>
+            </step>
+</steps>
+<postreq>You can create and run an <ph conref="../TextEntities.dita#TextEntities/ISMgui"
+            /> Docker image that you can use to administer the <ph
+            conref="../TextEntities.dita#TextEntities/ISM"
+            /> messaging server. For more information, see <xref href="qs00052_.dita"/>. </postreq>
+</taskbody>
+</task>

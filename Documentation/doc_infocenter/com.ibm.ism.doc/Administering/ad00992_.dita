@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="ad00992_" xml:lang="en-us">
+<title>Configuring <ph conref="../TextEntities.dita#TextEntities/ISMappliance"
+/> servers as an HA pair by using <ph conref="../TextEntities.dita#TextEntities/RESTAPIs"/></title>
+<!--To optimize search results, add tags that clarify product name, target platform, or other contexts. To enable the tags, right-click, select Refactoring > Toggle Comment.-->
+<!--<titlealts><navtitle></navtitle><searchtitle></searchtitle></titlealts>-->
+<!--Put your short description next; used for first paragraph and abstract.-->
+<shortdesc>In this scenario, an <ph conref="../TextEntities.dita#TextEntities/ISMappliance"
+/> server that has high availability (HA) disabled is now paired with another <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"
+/> server to act as its backup. System administrators can configure a pair of servers for high availability by using <ph
+conref="../TextEntities.dita#TextEntities/RESTAPIs"/>.</shortdesc>
+<!--To optimize PDF retrievability, add prolog and indexing tags that help crystalize why users should be looking up this topic (purpose, task, and what they will learn)-->
+<!--<prolog><metadata><keywords><indexterm></indexterm></keywords></metadata></prolog>-->
+<taskbody>
+<context>
+<p>You can configure <ph conref="../TextEntities.dita#TextEntities/ISMappliance"
+/> servers for high availability by using <ph conref="../TextEntities.dita#TextEntities/RESTAPIs"
+/> or by using the <ph conref="../TextEntities.dita#TextEntities/ISMgui"
+/>. For more information about using the <ph conref="../TextEntities.dita#TextEntities/ISMgui"
+/> to configure servers for HA, see <xref href="ad00401_.dita"/>.</p>
+<p>In this scenario, Server A is the primary node and Server B is the standby node in the HA pair. Server A can be a server that has data on it. Any data on Server B will be destroyed. </p>
+<note otherprops="delete" type="important"><!--28438-->The following scenario describes changing one server from standby to primary if one of the server is stopped.<ul>
+<li>An HA pair of <ph conref="../TextEntities.dita#TextEntities/ISMappliance"
+/> servers are identified as HA1 and HA2. Both are configured <codeph>StartupMode: "AutoDetect"</codeph>. <sl>
+<sli>HA1 is active and is the standby server</sli>
+<sli>HA2 is active and is the primary server</sli>
+</sl></li>
+<li>HA2 is stopped. So, now HA1 is active and is the standby server.</li>
+<li>Next, you stop HA1. Now both HA1 and HA2 are stopped.</li>
+<li>If you restart HA1, you will get a message saying it can't determine the true HA status because HA2 is still down.</li>
+<li>In order to bring HA1 up as the primary with HA2 still stopped, you need to update <codeph>StartupMode: "StandAlone"</codeph></li>
+</ul><!--28455--><p>Do <i>not</i> start a node as <codeph>StartupMode: "StandAlone"</codeph> if another node is already running and is acting as a primary. Doing so could create a split-brain condition, where both nodes act as primary nodes. In this instance, both nodes will go into maintenance mode. </p></note>
+</context>
+<steps>
+<step>
+<cmd>On Server A, configure the primary server for HA by using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method. </cmd>
+<substeps>
+<substep>
+<cmd>Use the following <ph conref="../TextEntities.dita#TextEntities/ISM"/> configuration URI:</cmd>
+<info>
+<p><codeph>http://&lt;admin-endpoint-IP:Port>/ima/v1/configuration/</codeph></p>
+</info>
+</substep>
+<substep>
+<cmd>Provide HighAvailability object configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>. Ensure that capitalization and double quotation marks are used as shown. </cmd>
+<info><codeblock>
+{    
+   "HighAvailability": {
+      "Group": "string",
+      "EnableHA": true,
+      "StartupMode": "AutoDetect",
+      "RemoteDiscoveryNIC": "string",
+      "LocalReplicationNIC": "string",
+      "LocalDiscoveryNIC": "string",
+      "DiscoveryTimeout": integer,
+      "HeartbeatTimeout": integer,
+      "PreferredPrimary": true          
+    }
+}</codeblock><?Pub Caret 283?>Where:<dl>
+<dlentry>
+<dt>Group</dt>
+<dd>The group name of the HA pair. The value must be the same on both servers in the pair. </dd>
+</dlentry>
+<dlentry>
+<dt>RemoteDiscoveryNIC</dt>
+<dd>Specifies the IP address of the NIC that is used for HA discovery on the remote (standby) node in the HA pair.</dd>
+</dlentry>
+<dlentry>
+<dt>LocalDiscoveryNIC</dt>
+<dd>Specifies the IP address of the NIC that is used for HA discovery on the local (primary) node in the HA pair.</dd>
+</dlentry>
+<dlentry>
+<dt>LocalReplicationNIC</dt>
+<dd>Specifies the IP address of the NIC that is used for HA discovery on the local (primary) node in the HA pair.</dd>
+</dlentry>
+<dlentry>
+<dt>DiscoveryTimeout</dt>
+<dd>Specifies the time in seconds that the node attempts to discover the HA pair node.</dd>
+<dd>The value must be in the range 10-2147483647.</dd>
+<dd>The default value is 600.</dd>
+</dlentry>
+<dlentry>
+<dt>HeartbeatTimeout</dt>
+<dd>Specifies the time in seconds to detect that the other node in the HA pair has failed.</dd>
+<dd>The value must be in the range 1-2147483647.</dd>
+<dd>The default value is 10.</dd>
+</dlentry>
+</dl></info>
+</substep>
+</substeps>
+</step>
+<step importance="optional">
+        <cmd>If Server B is a newly installed server, you do not need to perform this step. If
+          Server B is not a newly installed server and has been used for messaging services, you
+          must delete any JMS queues that exist on the server and then clean the store. </cmd>
+        <info>
+          <p>For more information about deleting message queues, see <xref href="ad00356_.dita"
+            />.</p>
+          <p>For more information about cleaning the store, see <xref href="ad00282_.dita"/>.</p>
+        </info>
+      </step>
+<step>
+<cmd>On Server B, configure the standby server for HA by using the <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method. </cmd>
+<substeps>
+<substep>
+<cmd>Use the following <ph conref="../TextEntities.dita#TextEntities/ISM"/> configuration URI:</cmd>
+<info>
+<p><codeph>http://&lt;admin-endpoint-IP:Port>/ima/v1/configuration/</codeph></p>
+</info>
+</substep>
+<substep>
+<cmd>Provide HighAvailability object configuration data in the payload of the POST method by using the following schema. <parmname>Content-type</parmname> is set to <userinput>application/json</userinput>. Ensure that capitalization and double quotation marks are used as shown. </cmd>
+<info>
+<codeblock>
+{    
+   "HighAvailability": {
+      "Group": "string",
+      "EnableHA": true,
+      "StartupMode": "AutoDetect",
+      "RemoteDiscoveryNIC": "string",
+      "LocalReplicationNIC": "string",
+      "LocalDiscoveryNIC": "string",
+      "DiscoveryTimeout": integer,
+      "HeartbeatTimeout": integer,
+      "PreferredPrimary": false          
+    }
+}</codeblock>
+</info>
+</substep>
+</substeps>
+</step>
+<step>
+<cmd>Stop and then restart both <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> servers. Ensure that you restart server B in production mode.</cmd>
+<substeps>
+<substep>
+<cmd>Use the <ph conref="../TextEntities.dita#TextEntities/ISM"
+/> REST API POST method with the following <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> configuration URI: </cmd>
+<info><codeblock><codeph>http://&lt;admin-endpoint-IP:port>/ima/v1/service/restart</codeph></codeblock>Provide configuration data in the payload of the POST method by using the following schema.  Ensure that capitalization and double quotation marks are used as shown.<codeblock>
+{    
+  "Service": "Server"      
+}</codeblock></info>
+</substep>
+</substeps>
+<info>
+<note type="tip"
+>As a best practice, restart the standby server first. Then restart the primary to limit the amount of time that the primary spends waiting for the standby to become available.</note>
+</info>
+</step>
+</steps>
+<postreq>
+<p>You can view HA configuration details of the <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"/> server by using the <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"/> REST API GET method with the following <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"
+/> configuration URI:<codeblock>http://&lt;admin-endpoint-IP:Port>/ima/v1/configuration/HighAvailability</codeblock></p>
+<p>You can view information about the HA role of the <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"/> server by using the <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"/> REST API GET method with the following <ph
+conref="../TextEntities.dita#TextEntities/ISMappliance"
+/> configuration URI:<codeblock>http://&lt;admin-endpoint-IP:Port>/ima/v1/service/status/HighAvailability</codeblock></p>
+</postreq>
+</taskbody>
+<related-links>
+<link format="dita" href="../Troubleshooting/tr00013_.dita" scope="local" type="task"/>
+<link format="dita" href="../Troubleshooting/tr00007_.dita" scope="local" type="task"/>
+<link format="dita" href="ad00280_.dita" scope="local" type="concept"/>
+<link format="dita" href="ad00921_.dita" scope="local" type="task"/>
+</related-links>
+</task>

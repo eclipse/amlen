@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Arbortext, Inc., 1988-2011, v.4002-->
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN"
+ "task.dtd">
+<?Pub Sty _display FontColor="red"?>
+<?Pub Inc?>
+<task id="ad01327_" xml:lang="en-us">
+  <title>Creating and updating a CRL profile by using <ph
+      conref="../TextEntities.dita#TextEntities/RESTAPIs"/></title>
+  <shortdesc>System administrators can create and update a CRL profile by using <ph
+      conref="../TextEntities.dita#TextEntities/RESTAPIs"/>.</shortdesc>
+  <taskbody>
+    <prereq>
+      <p>Only one CRL can exist inside a CRL profile. Before you can use a CRL profile, you must set
+        the <parmname>UseClientCertificate</parmname> property to <userinput>true</userinput> in the
+        security profile that you want to associate with this CRLProfile. When you set
+          <parmname>UseClientCertificate</parmname> to <userinput>true</userinput>, you must also
+        ensure that at least one trusted certificate is associated with the security profile. For
+        more information about configuring a security profile, see <xref href="ad00740_.dita"/>. For
+        more information about configuring trusted certificates, see <xref href="ad00728_.dita"
+        />.</p>
+    </prereq>
+    <steps>
+      <step>
+        <cmd>To create a CRL profile, use the <ph
+            conref="../TextEntities.dita#TextEntities/ISM"/> REST API POST method
+          with the following <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+          configuration URI:</cmd>
+        <info>
+          <p><codeph>http://&lt;admin-endpoint-IP:Port>/ima/v1/configuration/</codeph></p>
+        </info>
+      </step>
+      <step>
+        <cmd>Provide object configuration data in the payload of the POST method by using the
+          following schema. <parmname>Content-type</parmname> is set to
+            <userinput>application/json</userinput>. Ensure that capitalization and double quotation
+          marks are used as shown. </cmd>
+        <info><codeblock>
+{  
+  "CRLProfile":{
+    "&lt;CRLProfName>":{ 
+      "CRLSource": "String",  
+      "UpdateInterval": integer,
+      "RevalidateConnection": true|false,   
+      "Overwrite": true|false
+      }
+   }
+} 
+  </codeblock><?Pub Caret 283?>Where:<dl>
+            <dlentry>
+              <dt><varname>CRLProfName</varname></dt>
+              <dd>Required.</dd>
+              <dd>Specifies the name of the CRL profile. </dd>
+              <dd>Before you can use a  CRL profile, you must set
+                  <parmname>UseClientCertificate</parmname> to <userinput>true</userinput> in the
+                security profile that you want to associate with the CRL profile. When you set
+                  <parmname>UseClientCertificate</parmname> to <userinput>true</userinput>, ensure
+                that at least one trusted certificate is associated with the security profile. </dd>
+              <dd>The name can be a maximum of 256 alphanumeric characters. </dd>
+              <dd>The name must not have leading or trailing spaces and cannot contain control
+                characters, commas, double quotation marks, backslashes, or equal signs.  </dd>
+            </dlentry>
+            <dlentry>
+              <dt>CRLSource</dt>
+              <dd>Required.</dd>
+              <dd>Specifies the source of CRL file.</dd>
+              <dd>The source can be a file that has been uploaded to the server or the source can be
+                a URL string.</dd>
+              <dd>If the source is a URL, the format of the URL must be
+                  <codeph>http://&lt;IPaddress>/&lt;path to CRLfilename></codeph>. Only HTTP is
+                supported.</dd>
+              <dd>Only one CRL file can exist inside a CRL profile. </dd>
+              <dd>The maximum length is 2048.</dd>
+<dd>
+<p>
+<note>If the file that contains the CRLs is larger than 4 MB, and is not available as a remote URL,
+you can copy the file to <codeph>/tmp/userfiles</codeph> on <ph
+conref="../TextEntities.dita#TextEntities/ISM"/> before you upload the file to the server. If the
+server is running in a container, you use the docker cp command <codeph>cp /tmp/psk.csv
+/tmp/userfiles</codeph> to copy the file to <ph conref="../TextEntities.dita#TextEntities/ISM"/>.
+<p>You can then import the <codeph>.psk</codeph> file to the server by using the following
+command:<codeblock>curl -X POST http://localhost:9089/ima/v1/configuration -d '{"PreSharedKey":"psk.csv"}</codeblock>Do
+not provide a full path to the <codeph>.psk</codeph> file in the payload. All file paths specified
+in the payload are relative to <filepath>/tmp/userfiles</filepath>. Verify that the pre-shared key
+file is uploaded by using the following
+command:<codeblock>curl -X GET http://localhost:9089/ima/v1/configuration/PreSharedKey {"Version":"v1", "PreSharedKey":"psk.csv"}</codeblock>
+</p></note>
+</p>
+</dd>
+            </dlentry>
+            <dlentry>
+              <dt>UpdateInterval</dt>
+              <dd>Specifies the interval in minutes to download a new copy of  the CRL if
+                  <parmname>CRLSource</parmname> is an URL.</dd>
+              <dd>The default value is 60 minutes.</dd>
+            </dlentry>
+            <dlentry>
+              <dt>RevalidateConnection: true|false</dt>
+              <dd>Specifies whether all connections that are authorized by using the security
+                profile are re-validated when a new CRL file is uploaded or downloaded from
+                specified URL.</dd>
+              <dd>The default value is false.</dd>
+            </dlentry>
+            <dlentry>
+              <dt>Overwrite: true|false</dt>
+              <dd>Specifies whether an existing certificate is overwritten.</dd>
+              <dd>If you want to use a different source file or URL path, you must set this property
+                to true. </dd>
+            </dlentry>
+          </dl></info>
+      </step>
+    </steps>
+    <example>
+      <p>The following example shows a POST method to create a CRL profile by using cURL:</p>
+      <codeblock> 
+curl -X POST \
+   -H  'Content-Type: application/json'  \
+   -d  '{                       
+           "CRLProfile": {   
+             "MyCRLProfile": {
+               "CRLSource": "file_crl.pem",
+               "UpdateInterval": 5,
+               "RevalidateConnection": false,
+               "Overwrite": false
+             }
+          }
+      }
+  '   \
+http://127.0.0.1:9089/ima/v1/configuration/</codeblock>
+      <p>The following example shows an example response to the POST method:</p>
+      <codeblock>
+{        
+  "Version": "v1",
+  "Code": "CWLNA6011",
+  "Message": "The requested configuration change has completed successfully."
+}
+</codeblock>
+    </example>
+  </taskbody>
+</task>
+<?Pub *0000008400?>

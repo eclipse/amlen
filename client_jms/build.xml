@@ -1,0 +1,412 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="client_jms" default="build_client_jms">
+	<property environment="env"/>
+	<property name="client.jms.src.dir" location="${client.jms.dir}/src" />
+	<property name="client.jms.ext.src.dir" location="${client.jms.dir}/../client_jms_ext/src" />
+	<property name="client.jms.test.src.dir" location="${client.jms.dir}/test" />
+	<property name="client.jms.bin.dir" location="${client.jms.dir}/bin" />
+	<property name="client.jms.junit.dir" location="${client.jms.bin.dir}/test" />
+	<property name="client.jms.lib.dir" location="${client.jms.bin.dir}/lib" />
+	<property name="client.jms.javadoc.dir" location="${client.jms.bin.dir}/javadoc" />
+	<property name="client.jms.samples.src.dir" location="${client.jms.dir}/samples" />
+	<property name="client.jms.samples.bin.dir" location="${client.jms.bin.dir}/samples" />
+	<property name="server.translation.dir" value="${client.build.dir}/../server_translation"/>
+	<property name="server.tmstool.dir" value="${client.build.dir}/../server_tmsmsgtool"/>
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+
+
+	<!-- Load contrib library -->
+	<taskdef resource="net/sf/antcontrib/antcontrib.properties" onerror="ignore"/>
+
+
+	<available file="${client.jms.rpx.dir}" type="dir" property="rpx.path.exists" />
+	<available file="${client.common.dir}/msgcat" type="dir" property="msgcat.path.exists" />
+	<available file="${client.jms.ext.src.dir}" type="dir" property="extension.path.exists" />
+
+	<!-- define client_jms jar file name -->
+	<property name="imaclientjms.jar" location="${client.jms.lib.dir}/imaclientjms.jar"/>
+	<property name="jmssamples.jar" location="${client.jms.lib.dir}/jmssamples.jar"/>
+
+	<property name="imaclientjms_test.jar" location="${client.jms.lib.dir}/imaclientjms_test.jar"/>
+
+	<property name="java8.dir" location="${env.JAVA_HOME}" />
+
+	<fileset dir="${server.translation.dir}/xml" id="jmsclient_translations">
+		<include name="**/ism_jmsclient_tms.xml" />
+	</fileset>
+	<pathconvert refid="jmsclient_translations" property="translations.present" setonempty="false"/>
+
+	<echo message="In ${server.translation.dir}/xml, translations.present=${translations.present}" />
+
+   <condition property="is64">
+       <or>
+           <os arch="x86_64" />
+           <os arch="amd64" />
+       </or>
+   </condition>
+   <condition property="OSbit" value="64">
+       <isset property="is64" />
+   </condition>
+
+   <condition property="OSbit" value="32">
+       <not>
+           <isset property="is64" />
+       </not>
+   </condition>
+
+	<condition property="extra.src.dir" value="${client.jms.ext.src.dir}" else="${client.jms.src.dir}">
+		<isset property="extension.path.exists" />
+	</condition>
+
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+   	  <pathelement location="${client.deps.dir}/jms.jar" />
+   	  <pathelement location="${client.deps.dir}/porting.jar" />
+   </path>
+
+   <path id="test.classpath">
+      <pathelement location="/usr/share/java" />
+   	  <pathelement location="/usr/share/java/junit.jar" />
+      <pathelement location="${client.jms.bin.dir}" />
+      <pathelement location="${client.jms.junit.dir}" />
+      <path refid="compile.classpath" />
+      <!-- <pathelement location="${jms.jar.dir}" /> -->
+   	  <pathelement location="${client.deps.dir}/fscontext.jar" />
+   	  <pathelement location="${client.deps.dir}/providerutil.jar" />
+   </path>
+
+   <path id="samples.classpath">
+      <pathelement location="${client.common.lib.dir}/imaclientjms.jar" />
+   	  <pathelement location="${client.deps.dir}/jms.jar" />
+   </path>
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${client.jms.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="jms_publish">
+		<echo> ==  Copy files to client_ship tree ================ </echo>
+		<copy todir="${client.common.lib.dir}" preservelastmodified="yes">
+			<fileset dir="${client.jms.lib.dir}" />
+		</copy>
+       	<copy file="${client.deps.dir}/jms.jar" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
+       	<copy file="${client.deps.dir}/fscontext.jar" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
+       	<copy file="${client.deps.dir}/providerutil.jar" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
+        <copy file="${imaclientjms.jar}" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
+        <copy file="${client.deps.dir}/jms.jar" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
+        <copy file="${client.deps.dir}/fscontext.jar" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
+        <copy file="${client.deps.dir}/providerutil.jar" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
+        <copy todir="${client.common.jmssdk.dir}/samples/com">
+            <fileset dir="${client.jms.dir}/samples/com" />
+        </copy>
+        <copy todir="${client.common.jmssdk.dir}/doc/javadoc">
+            <fileset dir="${client.jms.dir}/bin/javadoc" />
+        </copy>
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="samples_publish">
+		<echo> ==  Copy samples jar file to client_ship tree ================ </echo>
+		<copy file="${jmssamples.jar}" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
+		<copy file="${jmssamples.jar}" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, javadoc, package"  -->
+	<target name="build_client_jms"  depends="build_jms_jar, build_jms_test_jar, jms_javadoc, jms_test, jms_publish, jms_samples, samples_publish">
+		<echo> ==  Invoking ant for client_jms build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_jms_jar" depends="jms_compile, jms_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.jms.src.dir}/META-INF/MANIFEST.MF" todir="${client.jms.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.jms.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.jms.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imaclientjms.jar}">
+			<fileset dir="${client.jms.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/**, samples/**" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${imaclientjms.jar}" manifest="${client.jms.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+
+    <target name="build_jms_test_jar" depends="jms_compile, jms_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.jms.src.dir}/META-INF/MANIFEST.MF" todir="${client.jms.junit.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.jms.junit.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+        <replace file="${client.jms.junit.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${imaclientjms_test.jar}">
+			<fileset dir="${client.jms.junit.dir}" includes="**/*.class" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+        <jar update="true" keepcompression="true" compress="false" destfile="${imaclientjms_test.jar}" manifest="${client.jms.junit.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+
+	<!--Compile the project-->
+	<target name="jms_compile" depends="client_jms_init">
+		<!-- set build id in the ImaConstants.java file -->
+		<replace file="${client.jms.src.dir}/com/ibm/ima/jms/impl/ImaConstants.java" token="BUILD_ID" value="${build.id}" />
+
+		<!-- set version id in the ImaConstants.java file -->
+		<replace file="${client.jms.src.dir}/com/ibm/ima/jms/impl/ImaConstants.java" token="VERSION_ID" value="${version.id}" />
+
+
+		<javac source="1.6" target="1.6" srcdir="${client.jms.src.dir}" destdir="${client.jms.bin.dir}" deprecation="no"
+             includeAntRuntime="no" encoding="utf-8"
+             debug="yes" debuglevel="lines,source,vars" optimize="yes">
+			<src path="${client.jms.src.dir}" />
+			<src path="${extra.src.dir}" />
+			<src path="${client.common.dir}/msgcat" />
+			<exclude name="*.properties" />
+			<classpath refid="compile.classpath" />
+		</javac>
+
+        <copy todir="${client.jms.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${client.jms.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+
+   <!-- Generate Javadoc for just this project, both api and internal -->
+   <target name="jms_javadoc" depends="client_jms_init">
+      <!-- Find the product name -->
+      <exec executable="python3" outputproperty="IMA_PRODUCTNAME_FULL">
+        <arg value="${basedir}/../server_build/path_parser.py"/>
+        <arg value="-mvalue"/>
+        <arg value="-pIMA_PRODUCTNAME_FULL"/>
+      </exec>
+      <echo> ==  Generating JMS client javadoc for of ${IMA_PRODUCTNAME_FULL} version=${ISM_VERSION_ID}  ======= </echo>
+      <javadoc destdir="${client.jms.javadoc.dir}"
+               failonerror="false"
+               defaultexcludes="yes"
+               author="false"
+               private="false"
+               verbose="false"
+               version="true"
+               use="true"
+               splitindex="true"
+               noqualifier="java.*"
+      	       executable="${java8.dir}/bin/javadoc"
+               windowtitle="${IMA_PRODUCTNAME_FULL} Javadoc Reference"
+      >
+         <doctitle><![CDATA[<h1>${IMA_PRODUCTNAME_FULL} Javadoc Reference</h1>]]></doctitle>
+         <bottom><![CDATA[<i>Copyright &#169; Contributors to the Eclipse Foundation 2012-2021.</i>]]></bottom>
+
+         <classpath refid="test.classpath" />
+         <sourcefiles>
+      		<!-- <fileset file="${client.jms.src.dir}/../doconly/*.java" /> -->
+            <fileset file="${client.jms.src.dir}/com/ibm/ima/jms/*.java" />
+         </sourcefiles>
+      </javadoc>
+      <!-- Replace hr id="" elements to avoid "Multiple WAI-ARIA 'navigation' landmarks
+           must have unique labels specified with aria-label or aria-labelledby" validation error -->
+   	  <replace dir="${client.jms.javadoc.dir}">
+        <include name="**/*.html"/>
+        <replacetoken><![CDATA[<hr id="navbar]]></replacetoken>
+        <replacevalue><![CDATA[<div id="navbar]]></replacevalue>
+      </replace>
+
+      <!-- Remove contentinfo landmark from package-use.html, since it doesn't have
+           role="main" defined -->
+      <replace dir="${client.jms.javadoc.dir}" value="">
+        <include name="**/package-use.html"/>
+        <replacetoken><![CDATA[<div role="contentinfo" title ="contentinfo_title" aria-labelledby ="contentinfo_label"/><hr id="contentinfo_label"/>]]></replacetoken>
+      </replace>
+      <!-- Add a landmark role to index.html -->
+      <replace dir="${client.jms.javadoc.dir}">
+        <include name="**/index.html"/>
+        <replacetoken><![CDATA[</noscript>]]></replacetoken>
+        <replacevalue><![CDATA[</noscript>
+<div role="banner"/>]]></replacevalue>
+      </replace>
+   </target>
+
+   <!-- Execute unit test for the project -->
+    <target name="jms_test" depends="jms_compile_test, jms_junittest_32, jms_junittest_64">
+    </target>
+
+    <!-- Execute unit test 32 for the project -->
+    <target name="jms_junittest_32" depends="jms_compile_test" >
+       <echo> ==  Unit tests with 32 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="32"/>
+       </antcall>
+    </target>
+
+    <!-- Execute unit test 64 for the project -->
+    <target name="jms_junittest_64" if="do.unit.64" depends="jms_compile_test"  >
+       <echo> ==  Unit tests with 64 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="64"/>
+       </antcall>
+    </target>
+
+	<!-- Execute the unit tests for the project -->
+	<target name="junit_test">
+		<echo> ==  Unit test setup for ${os.st} bits ======================== </echo>
+		<property name="test.data.dir" location="${client.jms.junit.dir}/test-data/${os.st}" />
+		<property name="test.reports.dir" location="${client.jms.junit.dir}/test-reports/${os.st}" />
+		<delete dir="${test.data.dir}" />
+		<delete dir="${test.reports.dir}" />
+		<mkdir dir="${test.data.dir}" />
+		<mkdir dir="${test.reports.dir}" />
+
+		<!-- property name="jvmargadd_1" value="-showversion" / -->
+		<condition property="jvmargadd_1" value="-d${os.st}" else="-showversion">
+			<equals arg1="${os.name}" arg2="SunOS"/>
+		</condition>
+
+		<if>
+			<isset property="generate_coverage" />
+			<then>
+				<coverage destfile="${client.jms.bin.dir}/jacoco.exec">
+					<junit printsummary="no" haltonfailure="false" haltonerror="false" jvm="java" showoutput="yes" fork="true" forkmode="once">
+						<jvmarg value="${jvmargadd_1}" />
+						<classpath refid="test.classpath" />
+						<formatter type="xml" />
+						<formatter type="plain" usefile="no" />
+						<test name="com.ibm.ima.jms.impl.AllTests" fork="yes" todir="${test.data.dir}"/>
+					</junit>
+				</coverage>
+			</then>
+			<else>
+				<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
+					<jvmarg value="${jvmargadd_1}" />
+					<classpath refid="test.classpath" />
+					<formatter type="xml" />
+					<formatter type="plain" usefile="no" />
+					<test name="com.ibm.ima.jms.impl.AllTests" fork="yes" todir="${test.data.dir}"/>
+				</junit>
+			</else>
+		</if>
+
+		<!-- HTML report for the unit tests -->
+		<junitreport todir="${test.data.dir}" >
+			<fileset dir="${test.data.dir}">
+				<include name="*.xml" />
+			</fileset>
+			<report format="frames" todir="${test.reports.dir}" />
+		</junitreport>
+	</target>
+
+	<!--  Compile the unit test code  -->
+	<target name="jms_compile_test" depends="jms_compile">
+		   <condition property="run.pseudolocalized.messages.test" value="true" else="false">
+		       <not>
+		           <isset property="translations.present" />
+		       </not>
+		   </condition>
+
+		<replace file="${client.jms.test.src.dir}/com/ibm/ima/jms/impl/AllTests.java"
+			token="RUN_PSEUDOLOCALIZED_MESSAGES_TEST"
+			value="${run.pseudolocalized.messages.test}" />
+		<javac source="1.6"
+               target="1.6"
+               srcdir="${client.jms.test.src.dir}"
+               destdir="${client.jms.junit.dir}"
+               includeAntRuntime="no"
+               encoding="utf-8"
+               debug="yes"
+               debuglevel="lines,source,vars"
+               optimize="yes">
+         <classpath refid="test.classpath" />
+      </javac>
+      <copy todir="${client.jms.junit.dir}" preservelastmodified="yes">
+         <fileset dir="${client.jms.test.src.dir}" excludes="**/*.java" />
+      </copy>
+   </target>
+
+	<!--Compile the project-->
+	<target name="jms_samples" depends="jms_publish">
+		<!--  Compile the samples classes with no visibility to the internal files -->
+		<javac source="1.6"
+               target="1.6"
+               srcdir="${client.jms.samples.src.dir}"
+               destdir="${client.jms.samples.bin.dir}"
+               deprecation="no"
+             includeAntRuntime="no"
+               debug="yes"
+               debuglevel="lines,source,vars"
+               optimize="yes">
+			<src path="${client.jms.samples.src.dir}" />
+			<classpath refid="samples.classpath" />
+		</javac>
+
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.jms.samples.src.dir}/META-INF/MANIFEST.MF" todir="${client.jms.samples.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.jms.samples.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" encoding="UTF-8" />
+
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.jms.samples.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" encoding="UTF-8" />
+		<jar destfile="${jmssamples.jar}">
+			<fileset dir="${client.jms.samples.bin.dir}" includes="**/*.class" />
+		</jar>
+        <!--<jar destfile="${imaclientjms_test.jar}">
+			<fileset dir="${client.jms.junit.dir}" includes="**/*.class" />
+        </jar>-->
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${jmssamples.jar}" manifest="${client.jms.samples.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!-- Executing RPX tool for pseudo translation-->
+
+	<target name="NWays_mock" if="rpx.path.exists" unless="translations.present" description="Runs RPX class to do pseudo translation">
+		<if>
+	    	<equals arg1="${msgcat.path.exists}" arg2="true"/>
+    	<then>
+			<!-- Classpath for RPX -->
+			<path id="rpx.specific.classpath">
+		    	<pathelement location="rpx.jar"/>
+			    <fileset dir="${client.jms.rpx.dir}">
+			       <include name="**/*.jar"/>
+			    </fileset>
+			</path>
+
+			<taskdef name="nways" classname="com.ibm.rpx.ant.Nw" classpathref="rpx.specific.classpath"/>
+
+			<echo message="Running RPX"/>
+			<nways classpath="${client.jms.rpx.dir};${client.jms.rpx.dir}\rpx.jar;${ant.home}/lib/ant.jar" ways="fr de ja zh zh_TW" >
+				<fileset dir="${client.common.dir}/msgcat/com/ibm/ima/jms/msgcatalog/">
+					<include name="IsmJmsListResourceBundle.java"/>
+				</fileset>
+			</nways>
+		</then>
+		</if>
+	</target>
+
+    <!-- Initialize the build environment -->
+	<target name="client_jms_init">
+		<mkdir dir="${client.jms.junit.dir}"/>
+		<mkdir dir="${client.jms.lib.dir}"/>
+		<mkdir dir="${client.jms.samples.bin.dir}"/>
+	</target>
+</project>

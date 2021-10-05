@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+# Copyright (c) 2012-2021 Contributors to the Eclipse Foundation
+# 
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+# 
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0
+# 
+# SPDX-License-Identifier: EPL-2.0
+#
+-->
+
+<project name="client_mqtt" default="build_client_mqtt">
+    <property environment="env"/>
+	<property name="client.mqtt.src.dir" location="${client.mqtt.dir}/src" />
+	<property name="client.mqtt.test.src.dir" location="${client.mqtt.dir}/test" />
+	<property name="client.mqtt.bin.dir" location="${client.mqtt.dir}/bin" />
+	<property name="client.mqtt.junit.dir" location="${client.mqtt.bin.dir}/test" />
+	<property name="client.mqtt.lib.dir" location="${client.mqtt.bin.dir}/lib" />
+	<property name="client.mqtt.javadoc.dir" location="${client.mqtt.bin.dir}/javadoc" />
+    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+	
+	<!-- define client_ws jar file name -->
+	<property name="ismclientws.jar" location="${client.mqtt.lib.dir}/ismclientws.jar"/>
+
+
+   <condition property="is64">
+       <or>
+           <os arch="x86_64" />
+           <os arch="amd64" />
+       </or>
+   </condition>
+   <condition property="OSbit" value="64">
+       <isset property="is64" />
+   </condition>
+
+   <condition property="OSbit" value="32">
+       <not>
+           <isset property="is64" />
+       </not>
+   </condition>
+
+   <!-- Required Classpaths -->
+   <path id="compile.classpath">
+      <pathelement location="${client.deps.dir}/jms.jar" />
+      <pathelement location="${client.common.lib.dir}/imaclientjms.jar" />
+   </path>
+
+   <path id="test.classpath">
+      <path refid="compile.classpath" />
+      <pathelement location="/usr/share/java/junit.jar" />
+      <pathelement location="${client.mqtt.bin.dir}" />
+      <pathelement location="${client.mqtt.junit.dir}" />
+   </path>
+
+   <target name="clean">
+      <delete includeemptydirs="true" dir="${client.mqtt.bin.dir}" />
+   </target>
+
+   <!-- Copy the product file to ship tree      -->
+   <target name="mqtt_publish">
+		<echo> ==  Copy files to client_ship tree ================ </echo>
+		<copy todir="${client.common.lib.dir}" preservelastmodified="yes">
+			<fileset dir="${client.mqtt.lib.dir}" />
+		</copy>
+   </target>
+
+	<!-- Build all normal targets  -->
+	<!-- target name="production"  depends="retail, javadoc, package"  -->
+	<target name="build_client_mqtt"  depends="build_mqtt_jar, mqtt_javadoc, mqtt_test, mqtt_publish">
+		<echo> ==  Invoking ant for client_mqtt build ============= </echo>
+	</target>
+
+	<!-- Build output jar file -->
+	<target name="build_mqtt_jar" depends="mqtt_compile, mqtt_compile_test" >
+		<!-- copy MANIFEST.MF file -->
+		<copy file="${client.mqtt.src.dir}/META-INF/MANIFEST.MF" todir="${client.mqtt.bin.dir}/META-INF" failonerror="yes" verbose="true" />
+		<!-- set version id in the MANIFEST.MF file -->
+		<replace file="${client.mqtt.bin.dir}/META-INF/MANIFEST.MF" token="VERSION_ID" value="${version.id}" />
+	
+		<!-- set build id in the MANIFEST.MF file -->
+		<replace file="${client.mqtt.bin.dir}/META-INF/MANIFEST.MF" token="BUILD_ID" value="${build.id}" />
+
+		<jar destfile="${ismclientws.jar}">
+			<fileset dir="${client.mqtt.bin.dir}" includes="**/*.class, **/*.properties, **/*.xml, **/*.xsd" excludes="test/*" />
+			<fileset dir="${client.mqtt.bin.dir}/test" includes="**/*.class" />
+		</jar>
+		<!-- keepcompression=true to keep the current jar compress,
+           but compress=false to add the manifest as uncompressed  -->
+		<jar update="true" keepcompression="true" compress="false" destfile="${ismclientws.jar}" manifest="${client.mqtt.bin.dir}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<!--Compile the project-->
+	<target name="mqtt_compile" depends="client_mqtt_init">
+		<!--  Compile the public api classes with no visibility to the internal files -->
+		<javac srcdir="${client.mqtt.src.dir}" destdir="${client.mqtt.bin.dir}" deprecation="no"
+             includeAntRuntime="no"
+             debug="yes" debuglevel="lines,source" optimize="yes" target="1.7" source="1.7">
+			<src path="${client.mqtt.src.dir}" />
+			<classpath refid="compile.classpath" />
+		</javac>
+        <copy todir="${client.mqtt.bin.dir}" preservelastmodified="yes">
+			<fileset dir="${client.mqtt.src.dir}" excludes="**/*.java" />
+		</copy>
+	</target>
+	
+   <!-- Generate Javadoc for just this project, both api and internal -->
+   <target name="mqtt_javadoc" depends="client_mqtt_init">
+      <echo> ==  Generating complete reference javadoc for the project  ======= </echo>
+      <javadoc destdir="${client.mqtt.javadoc.dir}"
+               failonerror="false"
+               packagenames="**.*"
+               defaultexcludes="yes"
+               author="true"
+               private="true"
+               verbose="false"
+               version="true"
+               use="true"
+               noqualifier="java.*"
+      	       Extdirs="${gsaProjectSpace}/tools/javadoc;${env.JAVA_HOME}/jre/lib/ext"
+               windowtitle="IBM Internet Scale Messaging Internal Javadoc Reference"
+      >
+         <doctitle><![CDATA[<h1>IBM Internet Scale Messaging Internal Javadoc Reference</h1>]]></doctitle>
+         <bottom><![CDATA[<i>Copyright &#169; Contributors to the Eclipse Foundation 2011-2021.</i>]]></bottom>
+         <classpath refid="compile.classpath" />
+         <fileset dir="${client.mqtt.src.dir}" defaultexcludes="yes" />
+      </javadoc>
+   </target>
+
+   <!-- Execute unit test for the project -->
+    <target name="mqtt_test" depends="mqtt_compile_test, mqtt_junittest_32, mqtt_junittest_64">
+    </target>
+
+    <!-- Execute unit test 32 for the project -->
+    <target name="mqtt_junittest_32" depends="mqtt_compile_test" >
+       <echo> ==  Unit tests with 32 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="32"/>
+       </antcall>
+    </target>
+
+    <!-- Execute unit test 64 for the project -->
+    <target name="mqtt_junittest_64" if="do.unit.64" depends="mqtt_compile_test"  >
+       <echo> ==  Unit tests with 64 bit JVM     ============== </echo>
+       <antcall target="junit_test" inheritall="true">
+          <param name="os.st" value="64"/>
+       </antcall>
+    </target>
+
+	<!-- Execute the unit tests for the project -->
+	<target name="junit_test">
+		<echo> ==  Unit test setup for ${os.st} bits ======================== </echo>
+		<property name="test.data.dir" location="${client.mqtt.junit.dir}/test-data/${os.st}" />
+		<property name="test.reports.dir" location="${client.mqtt.junit.dir}/test-reports/${os.st}" />
+		<delete dir="${test.data.dir}" />
+		<delete dir="${test.reports.dir}" />
+		<mkdir dir="${test.data.dir}" />
+		<mkdir dir="${test.reports.dir}" />
+
+		<!-- property name="jvmargadd_1" value="-showversion" / -->
+		<condition property="jvmargadd_1" value="-d${os.st}" else="-showversion">
+			<equals arg1="${os.name}" arg2="SunOS"/>
+		</condition>
+
+		<if>
+			<isset property="generate_coverage" />
+			<then>
+				<coverage destfile="${client.mqtt.bin.dir}/jacoco.exec">
+					<junit printsummary="no" haltonfailure="false" haltonerror="false" jvm="java" showoutput="yes" fork="true" forkmode="once">
+						<jvmarg value="${jvmargadd_1}" />
+						<classpath refid="test.classpath" />
+						<formatter type="xml" />
+						<formatter type="plain" usefile="no" />
+						<test name="com.ibm.ism.mqtt.AllTests" fork="yes" todir="${test.data.dir}"/>
+					</junit>
+				</coverage>
+			</then>
+			<else>
+				<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
+					<jvmarg value="${jvmargadd_1}" />
+					<classpath refid="test.classpath" />
+					<formatter type="xml" />
+					<formatter type="plain" usefile="no" />
+					<test name="com.ibm.ism.mqtt.AllTests" fork="yes" todir="${test.data.dir}"/>
+				</junit>
+			</else>
+		</if>
+
+		<!-- HTML report for the unit tests -->
+		<junitreport todir="${test.data.dir}" >
+			<fileset dir="${test.data.dir}">
+				<include name="*.xml" />
+			</fileset>
+			<report format="frames" todir="${test.reports.dir}" />
+		</junitreport>
+	</target>
+
+	<!--  Compile the unit test code  -->
+	<target name="mqtt_compile_test" depends="mqtt_compile">
+		<javac srcdir="${client.mqtt.test.src.dir}" 
+               destdir="${client.mqtt.junit.dir}"
+               debug="yes" 
+               debuglevel="lines,source" 
+               optimize="yes" 
+               target="1.7"
+               source="1.7"
+               includeantruntime="no">
+         <classpath refid="test.classpath" />
+      </javac>
+      <copy todir="${client.mqtt.junit.dir}" preservelastmodified="yes">
+         <fileset dir="${client.mqtt.test.src.dir}" excludes="**/*.java" />
+      </copy>
+   </target>
+
+
+    <!-- Initialize the build environment -->
+	<target name="client_mqtt_init">
+		<mkdir dir="${client.mqtt.junit.dir}"/>
+		<mkdir dir="${client.mqtt.lib.dir}"/>
+	</target>
+</project>

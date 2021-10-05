@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_mqtt_disconnect
+
+  Test Category:  JMS MQTT
+  
+  Test Description:
+    Test Endpoint Disconnect on updating Enabled=False feature
+
+    Create 2 connections, DisconnectClient1mqtt and DisconnectClient2mqtt
+    Change connection policy to only allow DisconnectClient2mqtt
+    Attempt to connect as DisconnectClient3mqtt but fail due to new policy
+    Subscribe on DisconnectClient1mqtt and DisconnectClient2mqtt to show both
+       are still connected
+    Disable Endpoint
+    Attempt to connect again as DisconnectClient3mqtt and fail
+    Attempt to use the now disconnected connections DisconnectClient1mqtt and
+        DisconnectClient2mqtt and fail
+    Reenable the endpoint
+    Reconnect successfully as DisconnectClient2mqtt
+    Fail to reconnect as DisconnectClient1mqtt
+    Update Connection Policy back to default
+    Make sure DisconnectClient2mqtt is still connected
+    Connect again as DisconnectClient1mqtt which is now allowed again
+	
+*****************************************************************************/
+-->
+<IsmWSTest name="jms_mqtt_disconnect" >
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>jms_mqtt_disconnect</solution>
+    </SyncClient>
+	
+    <Action name="part1" type="CompositeAction">
+    	<!-- Following done in jms_mqtt_disconnectjms.xml -->
+        <!-- Create an endpoint that allows everything through on port 20002 -->
+        <!-- Create a connection policy that will be used later -->
+        <!-- Lets only ClientID=DisconnectClient2* connect       -->
+
+        <Action name="sync_ep_created" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_ep_created</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_created;mqtt_ep_created</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+		<Action name="CreateConnection1" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1</ActionParameter>
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DisconnectClient1mqtt</ApiParameter>
+			<ApiParameter name="port">20002</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		</Action>
+
+		<Action name="CreateConnection2" type="CreateConnection">
+			<ActionParameter name="structure_id">Con2</ActionParameter>
+			<ActionParameter name="connection_id">CF2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DisconnectClient2mqtt</ApiParameter>
+			<ApiParameter name="port">20002</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		</Action>
+
+        <Action name="sync_strict_ep" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_strict_ep</ActionParameter>
+            <ActionParameter name="component_list">jms_strict_ep;mqtt_strict_ep</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+    	<!-- Following done in jms_mqtt_disconnectjms.xml -->
+        <!-- Make Endpoint connection policy restrict by ClientID -->
+        <!-- This should get DisconnectClient1 disconnected -->
+
+        <Action name="sync_ep_strict" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_ep_strict</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_strict;mqtt_ep_strict</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Connection with ClientID DisconnectClient3 fails, since no longer allowed -->
+		<Action name="CreateConnection3Failure" type="CreateConnection" rc="1" reason="ISMTEST2525">
+			<ActionParameter name="structure_id">Con3</ActionParameter>
+			<ActionParameter name="connection_id">CF3</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DisconnectClient3mqtt</ApiParameter>
+			<ApiParameter name="port">20002</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		</Action>
+        
+        <!-- Still connected on DisconnectClient1, since not dynamic -->
+        <Action name="Subscribe1_after_strict" type="Subscribe">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ApiParameter name="topic">/Disconnect/+</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+		</Action>
+
+        <!-- Still connected on DisconnectClient2 -->
+        <Action name="Subscribe2_after_strict" type="Subscribe">
+			<ActionParameter name="connection_id">CF2</ActionParameter>
+			<ApiParameter name="topic">/Disconnect/+</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+		</Action>
+
+        <Action name="sync_disable_ep" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_disable_ep</ActionParameter>
+            <ActionParameter name="component_list">jms_disable_ep;mqtt_disable_ep</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+    	<!-- Following done in jms_mqtt_disconnectjms.xml -->
+        <!-- connection_cf1 and connection_cf2 will be disconnected by this -->
+
+        <Action name="sync_ep_disabled" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_ep_disabled</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_disabled;mqtt_ep_disabled</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Now that the endpoint is disabled, connection_cf3 will be unable to connect -->
+        <!-- Would have been nice to try this connection WHILE running the disable command
+             but the test driver doesn't really allow for that, since depending on timing, it
+             may or may not fail. So just attempt the connection right after the disable. -->
+		<Action name="CreateConnection3AterDisable" type="CreateConnection" rc="1" reason="ISMTEST2502">
+			<ActionParameter name="structure_id">Con3</ActionParameter>
+			<ActionParameter name="connection_id">CF3</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DisconnectClient3mqtt</ApiParameter>
+			<ApiParameter name="port">20002</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		</Action>
+        
+        <!-- Attempt to use connection_cf1 and connection_cf2 and fail -->
+        <Action name="Unsubscribe1_after_disable" type="Unsubscribe" rc="1" reason="ISMTEST2506">
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<ApiParameter name="topic">/Disconnect/+</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+		</Action>
+
+        <Action name="Unsubscribe2_after_disable" type="Unsubscribe" rc="1" reason="ISMTEST2506">
+			<ActionParameter name="connection_id">CF2</ActionParameter>
+			<ApiParameter name="topic">/Disconnect/+</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+		</Action>
+
+        <Action name="sync_enable_ep" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_enable_ep</ActionParameter>
+            <ActionParameter name="component_list">jms_enable_ep;mqtt_enable_ep</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+    	<!-- Following done in jms_mqtt_disconnectjms.xml -->
+		<!-- Re-enable the endpoint.. its used by later tests so hopefully
+		     the test gets this far -->
+
+        <Action name="sync_ep_enabled" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_ep_enabled</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_enabled;mqtt_ep_enabled</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+	<!-- Prove that we can connect again after re-enabling with the correct ClientID-->
+		<Action name="CreateConnection2Success" type="CreateConnection">
+			<ActionParameter name="structure_id">Con2</ActionParameter>
+			<ActionParameter name="connection_id">CF2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DisconnectClient2mqtt</ApiParameter>
+			<ApiParameter name="port">20002</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		</Action>
+        
+        <!-- And that we fail with the wrong ClientID -->
+		<Action name="CreateConnection1Fail" type="CreateConnection" rc="1" reason="ISMTEST2525">
+			<ActionParameter name="structure_id">Con1</ActionParameter>
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DisconnectClient1mqtt</ApiParameter>
+			<ApiParameter name="port">20002</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		</Action>
+        
+        <Action name="sync_reset_ep" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_reset_ep</ActionParameter>
+            <ActionParameter name="component_list">jms_reset_ep;mqtt_reset_ep</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+    	<!-- Following done in jms_mqtt_disconnectjms.xml -->
+    	<!-- Reset to the DemoConnectionPolicy -->
+
+        <Action name="sync_ep_reset" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_ep_reset</ActionParameter>
+            <ActionParameter name="component_list">jms_ep_reset;mqtt_ep_reset</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Verify that DisconnectClient2 is still connected -->
+        <Action name="Subscribe2Success" type="Subscribe">
+			<ActionParameter name="connection_id">CF2</ActionParameter>
+			<ApiParameter name="topic">/Disconnect/+</ApiParameter>
+			<ApiParameter name="QoS">0</ApiParameter>
+		</Action>
+        
+        <Action name="CloseConnection_cf2" type="CloseConnection">
+            <ActionParameter name="connection_id">CF2</ActionParameter>
+        </Action>
+
+        <!-- Verify that DisconnectClient1mqtt can now connect since
+             it will use DemoConnectionPolicy -->
+		<Action name="CreateConnection1Again" type="CreateConnection">
+			<ActionParameter name="structure_id">Con1</ActionParameter>
+			<ActionParameter name="connection_id">CF1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DisconnectClient1mqtt</ApiParameter>
+			<ApiParameter name="port">20002</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+		</Action>
+        
+        <Action name="CloseConnectionAgain_cf1" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        
+        <Action name="sync_complete" type="SyncComponentAction">
+            <ActionParameter name="component_name">mqtt_complete</ActionParameter>
+            <ActionParameter name="component_list">jms_complete;mqtt_complete</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        <!-- Cleanup -->
+        <!-- Done in jms_mqtt_disconnectjms.xml -->
+    </Action>
+</IsmWSTest>

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+HOST=`hostname -I`
+SERVER1=10.113.50.15
+
+MAX=8000
+
+t=4000
+s=20
+S1=1
+cmd=/niagara/test/svt_atelm/SL/at
+backend=/niagara/test/svt_atelm/SL/backends
+
+b=10.113.50.8
+echo `date` |tee ./startall.out
+echo ssh root@$b "${backend}" ${SERVER1} backend2 |tee -a ./startall.out
+ssh root@$b "${backend} ${SERVER1} backend2 &> ./backend2.out" &
+sleep 20s
+
+#for j in {1..8} ; do
+while [ true ]; do
+  for i in `clientlist`; do
+    if [[ "$i" != "$b" ]]; then
+      if [[ "$S1" -eq 1 ]]; then
+        echo `date` |tee -a ./startall.out
+        echo ssh root@$i "${cmd} ${SERVER1} $t" |tee -a ./startall.out
+        ssh root@$i "${cmd} ${SERVER1} $t &> ${t}.out" &
+#       S1=0
+      else
+        echo `date` |tee -a ./startall.out
+        echo ssh root@$i "${cmd} ${SERVER2} $t" |tee -a ./startall.out
+        ssh root@$i "${cmd} ${SERVER2} $t &> ${t}.out" &
+#       S1=1
+      fi
+      sleep ${s}s
+      ((t+=500))
+    fi
+    if [ $t -ge ${MAX} ]; then
+       exit
+    fi
+  done
+
+  if [ $s -lt 10 ]; then
+    ((s+=1))
+  fi
+
+done
+
+

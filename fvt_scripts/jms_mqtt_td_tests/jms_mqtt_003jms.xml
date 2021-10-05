@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+  TestCase Name: jms_mqtt_003
+
+  Test Category: JMS to/from MQTT
+  
+  Test Description:
+  	Test the ability to send messages back and forth between the JMS
+  	and MQTT clients.
+  	This test sends 10 messages in each direction.
+
+-->
+<LlmJmsTest name="jms_mqtt_003jms">
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>jms_mqtt_003</solution>
+	</SyncClient>
+
+	<Action name="syncReset" type="SyncAction">
+		<ActionParameter name="request">reset</ActionParameter>
+	</Action>
+
+	<Action name="syncInit1" type="SyncAction">
+		<ActionParameter name="request">init</ActionParameter>
+		<ActionParameter name="condition">syncPoint</ActionParameter>
+	</Action>
+
+	<Action name="Create_cf1" type="CreateConnectionFactory">
+		<ActionParameter name="structure_id">cf1</ActionParameter>
+	</Action>
+		
+	<Action name="SetProps_cf1" type="FillIsmProps">
+		<ActionParameter name="structure_id">cf1</ActionParameter>
+		<ActionParameter name="validateAll">true</ActionParameter>
+		<ActionParameter name="validateNoWarn">false</ActionParameter>
+		<ImaProperty name="ClientID" value="jms_003_clientid" type="STRING"/>
+		<include>../common/JMS_server.xml</include>
+		<ImaProperty name="Port" value="16102" type="STRING"/>
+	</Action>
+		
+	<Action name="CreateConnection_cf1" type="CreateConnection">
+		<ActionParameter name="structure_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="factory_id">cf1</ActionParameter>
+	</Action>
+		
+	<Action name="CreateSession1Rx_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session1_rx_cf1</ActionParameter>
+	</Action>
+
+	<Action name="CreateSession1Tx_conn_cf1" type="CreateSession">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	 	<ActionParameter name="structure_id">session1_tx_cf1</ActionParameter>
+	</Action>
+
+	<Action name="CreateRx_dest1" type="CreateDestination">
+		<ActionParameter name="structure_id">rx_dest1</ActionParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">/MqttToJms</ApiParameter>
+	</Action>
+
+	<Action name="CreateTx_dest1" type="CreateDestination">
+		<ActionParameter name="structure_id">tx_dest1</ActionParameter>
+		<ActionParameter name="type">topic</ActionParameter>
+		<ApiParameter name="name">/JmsToMqtt</ApiParameter>
+	</Action>
+
+	<Action name="CreateConsumer1Rx_dest1" type="CreateConsumer">
+		<ActionParameter name="structure_id">consumer1_dest1</ActionParameter>
+		<ActionParameter name="dest_id">rx_dest1</ActionParameter>
+		<ActionParameter name="session_id">session1_rx_cf1</ActionParameter>
+	</Action>
+		
+	<Action name="CreateProducer1Tx_dest1" type="CreateProducer">
+		<ActionParameter name="structure_id">producer1_dest1</ActionParameter>
+		<ActionParameter name="dest_id">tx_dest1</ActionParameter>
+		<ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+	</Action>
+		
+	<Action name="StartConnectionTx_cf1" type="StartConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+		
+	<!-- PRODUCER: Create messages -->
+	<Action name="CreateTxtMessage_prod_dest1" type="CreateMessage">
+		<ActionParameter name="structure_id">tx_txt_msg1</ActionParameter>
+		<ActionParameter name="session_id">session1_tx_cf1</ActionParameter>
+		<ApiParameter name="msgType">TEXT</ApiParameter>
+	</Action>
+
+	<!-- PRODUCER: Set message content -->				
+	<Action name="SetTxtMsg_prod_dest1" type="SetMessageText">
+		<ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+		<ApiParameter name="value">TEXT: test content 1</ApiParameter>
+	</Action>
+
+	<Action name="sync_components_jms1" type="SyncComponentAction">
+		<ActionParameter name="component_name">jms1</ActionParameter>
+		<ActionParameter name="component_list">mqtt1;jms1</ActionParameter>
+		<ActionParameter name="timeout">60000</ActionParameter>
+	</Action>
+
+	<!-- PRODUCER: Send messages -->
+	<Action name="SendTxtMessage_prod_dest1" type="SendMessage" repeat="10" interval="0" thread="2">
+		<dependsOn name="sync_components_jms1" interval="0"/>
+		<ActionParameter name="producer_id">producer1_dest1</ActionParameter>
+		<ActionParameter name="message_id">tx_txt_msg1</ActionParameter>
+	</Action>
+
+	<Action name="ReceiveMsg" type="ReceiveMessage" expected="10" interval="0" thread="3">
+		<dependsOn name="sync_components_jms1" interval="0"/>
+		<ActionParameter name="consumer_id">consumer1_dest1</ActionParameter>
+		<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+		<ApiParameter name="timeout">3000</ApiParameter>
+	</Action>
+
+	<Action name="StopConnection_cf1" type="StopConnection">
+		<dependsOn name="SendTxtMessage_prod_dest1"/>
+		<dependsOn name="ReceiveMsg"/>
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+		
+	<Action name="CloseConnection_cf1" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_cf1</ActionParameter>
+	</Action>
+</LlmJmsTest>	

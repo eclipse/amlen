@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
+  TestCase Name: jms_replyTo_001
+
+  Test Category:  JMS Foreign Messages/Reply to
+  
+  Test Description:
+    Reply to test which sends a message with reply to field set to
+    destination topic, "ism_replyto". Receiver gets this destination
+    from the message header of the received message, and publishes a
+    message back to that destination.
+
+-->
+<LlmJmsTest name="jms_replyTo_001">
+
+		<include>../common/jms_jndi_file.xml</include>
+		
+		<!-- Retrieve the foreign connection factory from JNDI -->
+		<Action name="Create_cf1" type="CreateConnectionFactory">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+		</Action>
+		
+		<Action name="SetProps_cf1" type="FillIsmProps">
+			<ActionParameter name="structure_id">cf1</ActionParameter>
+			<ActionParameter name="validateAll">true</ActionParameter>
+			<ActionParameter name="validateNoWarn">false</ActionParameter>
+			<ImaProperty name="ClientID" value="rx_RT001_clientid" type="STRING"/>
+			<include>../common/JMS_server.xml</include>
+			<ImaProperty name="Port" value="16102" type="STRING"/>
+		</Action>
+		
+		<Action name="CreateConnection_ism" type="CreateConnection">
+			<ActionParameter name="structure_id">connection_ism</ActionParameter>
+		 	<ActionParameter name="factory_id">cf1</ActionParameter>
+		</Action>
+	
+		<!-- consumer1 session -->	
+		<Action name="CreateSession1_ism" type="CreateSession">
+			<ActionParameter name="conn_id">connection_ism</ActionParameter>
+		 	<ActionParameter name="structure_id">session1_ism</ActionParameter>
+		</Action>
+		
+		<!-- consumer2 session -->
+		<Action name="CreateSession2_ism" type="CreateSession">
+			<ActionParameter name="conn_id">connection_ism</ActionParameter>
+		 	<ActionParameter name="structure_id">session2_ism</ActionParameter>
+		</Action>
+		
+		<!-- producer1 session -->
+		<Action name="CreateSession3_ism" type="CreateSession">
+			<ActionParameter name="conn_id">connection_ism</ActionParameter>
+		 	<ActionParameter name="structure_id">session3_ism</ActionParameter>
+		</Action>
+
+		<!-- producer2 session -->
+		<Action name="CreateSession4_ism" type="CreateSession">
+			<ActionParameter name="conn_id">connection_ism</ActionParameter>
+			<ActionParameter name="structure_id">session4_ism</ActionParameter>
+		</Action>
+
+		<Action name="Create_dest_ism" type="CreateDestination">
+			<ActionParameter name="structure_id">dest_ism</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">jmsRT-01</ApiParameter>
+		</Action>
+		
+		<Action name="Create_dest_ismreplyto" type="CreateDestination">
+			<ActionParameter name="structure_id">dest_ismreplyto</ActionParameter>
+			<ActionParameter name="type">topic</ActionParameter>
+			<ApiParameter name="name">ism_replyto</ApiParameter>
+		</Action>
+
+		<Action name="CreateConsumer1_ism" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer1_ism</ActionParameter>
+			<ActionParameter name="dest_id">dest_ism</ActionParameter>
+			<ActionParameter name="session_id">session1_ism</ActionParameter>
+		</Action>
+		
+		<Action name="CreateConsumer2_ism" type="CreateConsumer">
+			<ActionParameter name="structure_id">consumer2_ism</ActionParameter>
+			<ActionParameter name="dest_id">dest_ismreplyto</ActionParameter>
+			<ActionParameter name="session_id">session2_ism</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer1_ism" type="CreateProducer">
+			<ActionParameter name="structure_id">producer_ism</ActionParameter>
+			<ActionParameter name="dest_id">dest_ism</ActionParameter>
+			<ActionParameter name="session_id">session3_ism</ActionParameter>
+		</Action>
+		
+		<Action name="StartConnection_ism" type="StartConnection">
+			<ActionParameter name="conn_id">connection_ism</ActionParameter>
+		</Action>
+
+		<Action name="CreateMsgListener_consumer1" type="CreateMessageListener">
+			<ActionParameter name="structure_id">msg_listener_consumer1</ActionParameter>
+		</Action>
+		
+		<Action name="SetMsgListener_consumer1" type="SetMessageListener">
+			<ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+			<ActionParameter name="consumer_id">consumer1_ism</ActionParameter>
+		</Action>
+
+	<Action name="rmdt" type="CompositeAction">
+		<!-- PRODUCER -->
+		<!-- PRODUCER: Create messages -->
+		<Action name="CreateBytesMessage_foreign" type="CreateMessage">
+			<ActionParameter name="structure_id">tx_bytes_msg1</ActionParameter>
+			<ActionParameter name="session_id">session3_ism</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+		
+		<!-- PRODUCER: Set message content -->
+		<Action name="WriteBytesMessage_foreign" type="WriteBytesMessage">
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+			<ApiParameter name="valueType">UTF8</ApiParameter>
+			<ApiParameter name="value">BYTES: test content 1</ApiParameter>
+		</Action>
+
+		<Action name="SetReplyToProperty_foreign" type="SetMessageProperty">
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+			<ApiParameter name="propertyType">ReplyTo</ApiParameter>
+			<ApiParameter name="value">dest_ismreplyto</ApiParameter>
+		</Action>
+		
+		<!-- PRODUCER: Send messages -->
+		<Action name="SendBytesMessage_ism" type="SendMessage">
+			<ActionParameter name="producer_id">producer_ism</ActionParameter>
+			<ActionParameter name="message_id">tx_bytes_msg1</ActionParameter>
+		</Action>
+	</Action>
+
+	<Action name="rmdr1" type="CompositeAction">
+		<!-- CONSUMER 1: Receive messages -->
+		<Action name="RcvBytesMessage_consumer1" type="ReceiveMessage">
+			<ActionParameter name="listener_id">msg_listener_consumer1</ActionParameter>
+			<ActionParameter name="structure_id">rx_bytes_msg1</ActionParameter>
+			<ApiParameter name="timeout">15000</ApiParameter>
+		</Action>
+
+		<!-- CONSUMER 1: Extract message content and verify it -->
+		<Action name="ReadBytesMsg_consumer1" type="ReadBytesMessage">
+			<ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+			<ApiParameter name="valueType">UTF8</ApiParameter>
+			<ActionParameter name="verifyValue">BYTES: test content 1</ActionParameter>
+		</Action>
+
+		<Action name="GetReplyTo" type="GetReplyToDest">
+			<ActionParameter name="structure_id">replyDest</ActionParameter>
+			<ActionParameter name="message_id">rx_bytes_msg1</ActionParameter>
+		</Action>
+
+		<Action name="CreateProducer2_ism" type="CreateProducer">
+			<ActionParameter name="structure_id">producer2_ism</ActionParameter>
+			<ActionParameter name="dest_id">replyDest</ActionParameter>
+			<ActionParameter name="session_id">session4_ism</ActionParameter>
+		</Action>
+
+<!-- Set up a message to send here -->
+		<Action name="CreateMessage_Reply" type="CreateMessage">
+			<ActionParameter name="structure_id">rx_reply_msg</ActionParameter>
+			<ActionParameter name="session_id">session4_ism</ActionParameter>
+			<ApiParameter name="msgType">BYTES</ApiParameter>
+		</Action>
+		
+		<Action name="WriteBytesMessage_Reply" type="WriteBytesMessage">
+			<ActionParameter name="message_id">rx_reply_msg</ActionParameter>
+			<ApiParameter name="valueType">UTF8</ApiParameter>
+			<ApiParameter name="value">BYTES: test reply content 1</ApiParameter>
+		</Action>
+
+		<Action name="SendMessage_reply" type="SendMessage">
+			<ActionParameter name="producer_id">producer2_ism</ActionParameter>
+			<ActionParameter name="message_id">rx_reply_msg</ActionParameter>
+		</Action>
+	</Action>
+	
+	<Action name="RcvReplyMsg" type="ReceiveMessage">
+		<ActionParameter name="consumer_id">consumer2_ism</ActionParameter>
+		<ActionParameter name="structure_id">tx_reply_msg</ActionParameter>
+		<ApiParameter name="timeout">15000</ApiParameter>
+	</Action>
+
+	<Action name="ReadBytesMsg_consumer3" type="ReadBytesMessage">
+		<ActionParameter name="message_id">tx_reply_msg</ActionParameter>
+		<ApiParameter name="valueType">UTF8</ApiParameter>
+		<ActionParameter name="verifyValue">BYTES: test reply content 1</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession1_ism" type="CloseSession">
+		<ActionParameter name="session_id">session1_ism</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession2_ism" type="CloseSession">
+		<ActionParameter name="session_id">session2_ism</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession3_ism" type="CloseSession">
+		<ActionParameter name="session_id">session3_ism</ActionParameter>
+	</Action>
+
+	<Action name="CloseSession4_ism" type="CloseSession">
+		<ActionParameter name="session_id">session4_ism</ActionParameter>
+	</Action>
+
+	<Action name="StopConnection_ism" type="StopConnection">
+		<ActionParameter name="conn_id">connection_ism</ActionParameter>
+	</Action>
+
+	<Action name="CloseConnection_ism" type="CloseConnection">
+		<ActionParameter name="conn_id">connection_ism</ActionParameter>
+	</Action>
+</LlmJmsTest>

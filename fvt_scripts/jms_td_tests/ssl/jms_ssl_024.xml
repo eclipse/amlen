@@ -1,0 +1,715 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_ssl_024
+
+   Test Category:  JMS SSL
+   
+   Test Description:
+   MinimumProtocolMethod        Lowest level of protocol method permitted when connecting
+   				Options:TLSv1,TLSv1.1,TLSv1.2  Default:TLSv1
+
+   UseClientCertificate         Client certificate authentication.
+   				Options:True,False  Default:False
+
+   UsePasswordAuthentication    User ID and Password Authentication.
+   				Options:True,False  Default:True
+
+   Ciphers                      Ciphers.
+   				Options:Best,Medium,Fast  Default:Medium
+
+   CertificateProfile           Name of a certificate profile.
+   UseClientCipher              Use Clients Cipher.
+   				Options:True,False  Default:False
+
+   Start off with default values.
+   Connect successfully without client cert
+   Enable client certificates
+   Fail to connect without client cert
+   Connect successfully with client cert
+   Disable client certificates
+   Connect successfully with username
+   Disable password authentication
+   Connect successfully without username
+   Enable password authentication
+   Fail to connect without username
+   Connect successfully with username
+   Enable UseClientCipher
+   Connect successfully
+   Switch to a different certificate profile
+   Fail to connect since certs don't match
+   Delete security profile
+   Recreate security profile
+   Fail to connect over tcp
+   Connect successfully over tcps
+ 
+   *****************************************************************************/
+  -->
+
+<ImaJmsTest name="jms_ssl_024" >
+  <SyncClient>
+	<server>
+	  <include>../common/JMS_syncip.xml</include>
+      <include>../common/JMS_syncport.xml</include>
+	</server>
+	<solution>jms_ssl_024</solution>
+  </SyncClient>
+
+  <Action name="setup" type="CompositeAction">
+
+    <Action name="syncReset" type="SyncAction">
+      <ActionParameter name="request">reset</ActionParameter>
+    </Action>
+
+    <!-- Add a user -->
+    <!-- This user is now created by run-cli and policy_config.cli 
+    <Action name="add_user" type="ShellAction">
+      <ActionParameter name="command">ssh ``A1_USER``@``A1_HOST`` imaserver user add UserID=TestUser type=Messaging password=password</ActionParameter>
+    </Action>
+    -->
+    
+    <!-- Upload imaserver-crt and imaserver-key which match our jks -->
+    <Action name="upload_cert" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/common/imaserver-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/SecTestimaserver-crt.pem</ActionParameter>
+    </Action>
+
+	<Action name="upload_key" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/common/imaserver-key.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/SecTestimaserver-key.pem</ActionParameter>
+    </Action>
+
+	<Action name="create_certprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"CertificateProfile":{"CertProfTest":{"Certificate":"SecTestimaserver-crt.pem","Key":"SecTestimaserver-key.pem","Overwrite":true}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<!-- Upload newserver-crt and newserver-key which do not match our jks -->
+    <Action name="upload_newCert" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/newserver-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/newserver-crt.pem</ActionParameter>
+    </Action>
+
+	<Action name="upload_newKey" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/newserver-key.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/newserver-key.pem</ActionParameter>
+    </Action>
+    
+    <Action name="create_newcertprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"CertificateProfile":{"NewCertProfTest":{"Certificate":"newserver-crt.pem","Key":"newserver-key.pem","Overwrite":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"CertificateProfile":[{"Name":"NewCertProfTest","Certificate":"newserver-crt.pem","Key":"newserver-key.pem","Overwrite":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+	<Action name="create_secprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"SecProfTest":{"CertificateProfile":"CertProfTest"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"CertificateProfile":"CertProfTest"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Upload rootCA-crt and imaCA-crt which match our jks -->
+    <Action name="upload_rootCAcert" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/common/rootCA-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/SecTestrootCA-crt.pem</ActionParameter>
+    </Action>
+    <Action name="apply_rootCAcert" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TrustedCertificate":[{"TrustedCertificate":"SecTestrootCA-crt.pem","SecurityProfileName":"SecProfTest"}]}</ActionParameter>
+        <!--ActionParameter name="payload">{"TrustedCertificate":[{"TrustedCertificate":"SecTestrootCA-crt.pem","SecurityProfileName":"SecProfTest"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="upload_imaCAcert" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/common/imaCA-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/SecTestimaCA-crt.pem</ActionParameter>
+    </Action>
+    <Action name="apply_imaCAcert" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TrustedCertificate":[{"TrustedCertificate":"SecTestimaCA-crt.pem","SecurityProfileName":"SecProfTest"}]}</ActionParameter>
+        <!--ActionParameter name="payload">{"TrustedCertificate":[{"TrustedCertificate":"SecTestimaCA-crt.pem","SecurityProfileName":"SecProfTest"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <!-- Upload rootCA2-crt and imaCA2-crt which do not match our jks -->
+    <Action name="upload_rootCAcert2" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/rootCA2-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/rootCA2-crt.pem</ActionParameter>
+    </Action>
+    <Action name="apply_rootCA2cert" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TrustedCertificate":[{"TrustedCertificate":"rootCA2-crt.pem","SecurityProfileName":"SecProfTest"}]}</ActionParameter>
+        <!--ActionParameter name="payload">{"TrustedCertificate":[{"TrustedCertificate":"rootCA2-crt.pem","SecurityProfileName":"SecProfTest"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="upload_imaCAcert2" type="ShellAction">
+        <ActionParameter name="command">curl -X PUT -s -S -T ``M1_TESTROOT``/jms_td_tests/ssl/certs/imaCA2-crt.pem http://``A1_HOST``:``A1_PORT``/ima/v1/file/imaCA2-crt.pem</ActionParameter>
+    </Action>
+    <Action name="apply_imaCA2cert" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TrustedCertificate":[{"TrustedCertificate":"imaCA2-crt.pem","SecurityProfileName":"SecProfTest"}]}</ActionParameter>
+        <!--ActionParameter name="payload">{"TrustedCertificate":[{"TrustedCertificate":"imaCA2-crt.pem","SecurityProfileName":"SecProfTest"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="create_hub" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"MessageHub":{"SecTestHub":{}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"MessageHub":[{"Name":"SecTestHub"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Allow everything through on JMS -->
+    <Action name="create_conpol" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"ConnectionPolicy":{"SecTestCP":{"ClientID":"Test","Protocol":"JMS"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"{"ConnectionPolicy":[{"Name":"SecTestCP","ClientID":"Test","Protocol":"JMS"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="create_msgpol" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"TopicPolicy":{"SecTestMP":{"ClientID":"*","Protocol":"JMS","ActionList":"Publish,Subscribe","Topic":"*"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+	<Action name="create_ep" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"SecTestEP":{"Port":18501,"SecurityProfile":"SecProfTest","Enabled":true,"ConnectionPolicies":"SecTestCP","TopicPolicies":"SecTestMP","MessageHub":"SecTestHub"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- ready for use -->
+    <Action name="SyncForUse" type="SyncComponentAction">
+      <ActionParameter name="component_name">su</ActionParameter>
+      <ActionParameter name="component_list">x;su</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+
+    <!-- ready for teardown -->
+    <!--Action name="SyncForTearDown" type="SyncComponentAction">
+      <ActionParameter name="component_name">su2</ActionParameter>
+      <ActionParameter name="component_list">su2;td2;x2</ActionParameter>
+      <ActionParameter name="timeout">30000</ActionParameter>
+    </Action-->
+
+  </Action>
+
+  <Action name="prodcons1" type="CompositeAction">
+
+    <!-- Wait for setup to complete -->
+    <Action name="SyncForUse" type="SyncComponentAction">
+      <ActionParameter name="component_name">x</ActionParameter>
+      <ActionParameter name="component_list">x;su</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+
+    <!-- Initially set keystore -->
+    <Action name="CreateFactory_1" type="CreateConnectionFactory">
+      <dependsOn name="SyncForUse" interval="3000"/>
+      <ActionParameter name="structure_id">CF_1</ActionParameter>
+      <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+      <ActionParameter name="keyStorePassword">password</ActionParameter>
+      <ActionParameter name="loglevel">9</ActionParameter>
+      <ActionParameter name="logfile">stdout</ActionParameter>
+    </Action>
+
+    <Action name="CreateExcListener_x" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exc_x</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps_1" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF_1</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="Protocol" value="tcps"/>
+      <ImaProperty name="ClientID" value="Test" type="STRING"/>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18501" type="STRING"/>
+    </Action>
+
+    <!-- Successfully connect using default security profile values -->
+    <Action name="CreateConnection1" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_1</ActionParameter>
+      <ActionParameter name="factory_id">CF_1</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_1" type="CreateSession">
+      <ActionParameter name="conn_id">conn_1</ActionParameter>
+      <ActionParameter name="structure_id">sess_1</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_1" type="StartConnection">
+      <ActionParameter name="conn_id">conn_1</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_1" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_1</ActionParameter>
+    </Action>
+
+    <!-- Enable client certificates -->
+    <Action name="update_useClientCerts" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"SecProfTest":{"UseClientCertificate":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"SecProfTest","UseClientCertificate":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="SyncProdcons1End" type="SyncComponentAction">
+      <ActionParameter name="component_name">prodcons1</ActionParameter>
+      <ActionParameter name="component_list">prodcons2;prodcons1</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+  </Action>
+
+  <Action name="prodcons2" type="CompositeAction">
+    <Action name="SyncProdcons2Start" type="SyncComponentAction">
+      <ActionParameter name="component_name">prodcons2</ActionParameter>
+      <ActionParameter name="component_list">prodcons2;prodcons1</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+
+    <!-- Switch to keystore without client cert -->
+    <Action name="CreateFactory_2" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF_2</ActionParameter>
+      <ActionParameter name="keyStore">ssl/certs/ibm.jks</ActionParameter>
+      <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+
+    <Action name="CreateExcListener_x" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exc_x</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps_2" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF_2</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="Protocol" value="tcps"/>
+      <ImaProperty name="ClientID" value="Test" type="STRING"/>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18501" type="STRING"/>
+    </Action>
+
+    <!-- Fail to connect without client cert in keystore -->
+    <Action name="CreateConnection2" type="CreateConnection" rc="1" reason="CWLNC0022">
+      <ActionParameter name="structure_id">conn_2</ActionParameter>
+      <ActionParameter name="factory_id">CF_2</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="SyncProdcons2End" type="SyncComponentAction">
+      <ActionParameter name="component_name">prodcons2end</ActionParameter>
+      <ActionParameter name="component_list">prodcons2end;prodcons3</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+  </Action>
+
+  <Action name="prodcons3" type="CompositeAction">
+    <Action name="SyncProdcons3Start" type="SyncComponentAction">
+      <ActionParameter name="component_name">prodcons3</ActionParameter>
+      <ActionParameter name="component_list">prodcons2end;prodcons3</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+    <!-- Set keyStore back to one containing client cert -->
+    <Action name="CreateFactory_3" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF_3</ActionParameter>
+      <ActionParameter name="keyStore">../common/ibm.jks</ActionParameter>
+      <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+
+    <Action name="CreateExcListener_x" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exc_x</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps_3" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF_3</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="Protocol" value="tcps"/>
+      <ImaProperty name="ClientID" value="Test" type="STRING"/>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18501" type="STRING"/>
+    </Action>
+
+    <!-- Connect successfully using client cert -->
+    <Action name="CreateConnection3" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x3</ActionParameter>
+      <ActionParameter name="factory_id">CF_3</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x3" type="CreateSession">
+      <ActionParameter name="conn_id">conn_x3</ActionParameter>
+      <ActionParameter name="structure_id">sess_x3</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_x3" type="StartConnection">
+      <ActionParameter name="conn_id">conn_x3</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_x3" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_x3</ActionParameter>
+    </Action>
+
+    <!-- Disable client certificates -->
+    <Action name="update_disableClientCerts" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"SecProfTest":{"UseClientCertificate":false}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"SecProfTest","UseClientCertificate":false}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="SyncProdcons3End" type="SyncComponentAction">
+      <ActionParameter name="component_name">prodcons3end</ActionParameter>
+      <ActionParameter name="component_list">prodcons3end;prodcons4</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+  </Action>
+
+  <Action name="prodcons4" type="CompositeAction">
+    <Action name="SyncProdcons4Start" type="SyncComponentAction">
+      <ActionParameter name="component_name">prodcons4</ActionParameter>
+      <ActionParameter name="component_list">prodcons3end;prodcons4</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action>
+
+    <!-- Switch to keystore without client cert again -->
+    <Action name="CreateFactory_4" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF_4</ActionParameter>
+      <ActionParameter name="keyStore">ssl/certs/ibm.jks</ActionParameter>
+      <ActionParameter name="keyStorePassword">password</ActionParameter>
+    </Action>
+
+    <Action name="CreateExcListener_x" type="CreateExceptionListener">
+      <ActionParameter name="structure_id">exc_x</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps_4" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF_4</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="Protocol" value="tcps"/>
+      <ImaProperty name="ClientID" value="Test" type="STRING"/>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18501" type="STRING"/>
+    </Action>
+
+    <!-- Connect successfully again -->
+    <Action name="CreateConnection4" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x4</ActionParameter>
+      <ActionParameter name="factory_id">CF_4</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x4" type="CreateSession">
+      <ActionParameter name="conn_id">conn_x4</ActionParameter>
+      <ActionParameter name="structure_id">sess_x4</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_x4" type="StartConnection">
+      <ActionParameter name="conn_id">conn_x4</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_x4" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_x4</ActionParameter>
+    </Action>
+
+    <!-- Disable password authentication -->
+    <Action name="update_disablePasswordAuth" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"SecProfTest":{"UsePasswordAuthentication":false}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"SecProfTest","UsePasswordAuthentication":false}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Connect without a username -->
+    <Action name="CreateConnection5" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x5</ActionParameter>
+      <ActionParameter name="factory_id">CF_4</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x5" type="CreateSession">
+      <ActionParameter name="conn_id">conn_x5</ActionParameter>
+      <ActionParameter name="structure_id">sess_x5</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_x5" type="StartConnection">
+      <ActionParameter name="conn_id">conn_x5</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_x5" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_x5</ActionParameter>
+    </Action>
+
+    <!-- Enable password authentication -->
+    <Action name="update_enablePasswordAuth" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"SecProfTest":{"UsePasswordAuthentication":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"SecProfTest","UsePasswordAuthentication":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Fail to connect without username -->
+    <Action name="CreateConnection6" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x6</ActionParameter>
+      <ActionParameter name="factory_id">CF_4</ActionParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x6" type="CreateSession" rc="1" reason="CWLNC0207">
+      <ActionParameter name="conn_id">conn_x6</ActionParameter>
+      <ActionParameter name="structure_id">sess_x6</ActionParameter>
+    </Action>
+
+    <!-- Connect successfully with username -->
+    <Action name="CreateConnection7" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x7</ActionParameter>
+      <ActionParameter name="factory_id">CF_4</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x7" type="CreateSession">
+      <ActionParameter name="conn_id">conn_x7</ActionParameter>
+      <ActionParameter name="structure_id">sess_x7</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_x7" type="StartConnection">
+      <ActionParameter name="conn_id">conn_x7</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_x7" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_x7</ActionParameter>
+    </Action>
+
+    <!-- Enable UseClientCipher -->
+    <Action name="update_useClientCipher" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"SecProfTest":{"UseClientCipher":true}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"SecProfTest","UseClientCipher":true}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- verify we can still connect? -->
+    <Action name="CreateConnection8" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x8</ActionParameter>
+      <ActionParameter name="factory_id">CF_4</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x8" type="CreateSession">
+      <ActionParameter name="conn_id">conn_x8</ActionParameter>
+      <ActionParameter name="structure_id">sess_x8</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_x8" type="StartConnection">
+      <ActionParameter name="conn_id">conn_x8</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_x8" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_x8</ActionParameter>
+    </Action>
+
+    <!-- Switch to a new certificate profile -->
+    <Action name="update_changeCertProf" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"SecProfTest":{"CertificateProfile":"NewCertProfTest"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"SecProfTest","CertificateProfile":"NewCertProfTest"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Fail to connect -->
+    <Action name="CreateConnection9" type="CreateConnection" rc="1" reason="CWLNC0022">
+      <ActionParameter name="structure_id">conn_x9</ActionParameter>
+      <ActionParameter name="factory_id">CF_4</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <!-- Disable security profile on endpoint -->
+    <Action name="update_disableSecurityProfile" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"SecTestEP":{"SecurityProfile":""}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Delete the security profile -->
+    <Action name="deleteSecProf" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/SecurityProfile/SecProfTest</ActionParameter>
+        <ActionParameter name="action">DELETE</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Recreate security profile -->
+    <Action name="recreate_secprof" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"SecurityProfile":{"SecProfTest":{"CertificateProfile":"CertProfTest"}}}</ActionParameter>
+        <!--ActionParameter name="payload">{"SecurityProfile":[{"Name":"SecProfTest","CertificateProfile":"CertProfTest"}]}</ActionParameter-->
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Reenable security profile on endpoint -->
+    <Action name="update_enableSecurityProfile" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+        <ActionParameter name="action">POST</ActionParameter>
+        <ActionParameter name="payload">{"Endpoint":{"SecTestEP":{"SecurityProfile":"SecProfTest"}}}</ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <!-- Fail to connect unsecured -->
+    <Action name="CreateFactory_10" type="CreateConnectionFactory">
+      <ActionParameter name="structure_id">CF_10</ActionParameter>
+    </Action>
+
+    <Action name="SetFactoryProps_10" type="FillIsmProps">
+      <ActionParameter name="structure_id">CF_10</ActionParameter>
+      <ActionParameter name="validateAll">true</ActionParameter>
+      <ActionParameter name="validateNoWarn">false</ActionParameter>
+      <ImaProperty name="Protocol" value="tcp"/>
+      <ImaProperty name="ClientID" value="Test" type="STRING"/>
+      <include>../common/JMS_server.xml</include>
+      <ImaProperty name="Port" value="18501" type="STRING"/>
+    </Action>
+
+    <Action name="CreateConnection10" type="CreateConnection" rc="1" reason="CWLNC0022">
+      <ActionParameter name="structure_id">conn_x10</ActionParameter>
+      <ActionParameter name="factory_id">CF_10</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <!-- Connect successfully -->
+    <Action name="CreateConnection11" type="CreateConnection">
+      <ActionParameter name="structure_id">conn_x11</ActionParameter>
+      <ActionParameter name="factory_id">CF_4</ActionParameter>
+      <ApiParameter name="user">TestUser</ApiParameter>
+      <ApiParameter name="passwd">password</ApiParameter>
+      <ApiParameter name="exceptionListener">exc_x</ApiParameter>
+    </Action>
+
+    <Action name="CreateSession_x11" type="CreateSession">
+      <ActionParameter name="conn_id">conn_x11</ActionParameter>
+      <ActionParameter name="structure_id">sess_x11</ActionParameter>
+    </Action>
+
+    <Action name="StartConnection_x11" type="StartConnection">
+      <ActionParameter name="conn_id">conn_x11</ActionParameter>
+    </Action>
+
+    <Action name="CloseConnection_x11" type="CloseConnection">
+      <ActionParameter name="conn_id">conn_x11</ActionParameter>
+    </Action>
+
+    <!--Action name="SyncForTearDown" type="SyncComponentAction">
+      <ActionParameter name="component_name">x2</ActionParameter>
+      <ActionParameter name="component_list">td2;x2</ActionParameter>
+      <ActionParameter name="timeout">120000</ActionParameter>
+    </Action-->
+  </Action>
+
+</ImaJmsTest>

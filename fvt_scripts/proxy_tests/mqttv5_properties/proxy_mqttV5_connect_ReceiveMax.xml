@@ -1,0 +1,543 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2018-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="proxy_mqttV5_connect_ReceiveMax" >
+<!--
+    Test MQTTv5 Spec 
+    3.2.2.3.3 Receive Max
+    3.3.4 Publish Actions
+    4.9 Flow Control
+    Receive Max:  0x21(+2 bytes)
+Proxy does not use CONNECT PORTS and ConnectionPolicies for ExpectedMessageRate/ReceiveMax's 0x21 value in CONNACK:
+For Proxy, it will be based on the Client Class. 
+ device= (LOW)
+ gateway= (HIGH)     NOTE: PROXY HIGH is 1024, not 2048 like in MS
+ little a= (DEFAULT)
+ big A=  (HIGH)     NOTE: PROXY HIGH is 1024, not 2048 like in MS
+    
+The Publishers are not getting disconnected, however you can see they are 'throttled' by ReceiveMax in the screenlog.log
+MS Migration NOTE:  with the default config setup, 
+  - I can not test MAX nor Implicit Default
+  - I will have two HIGH tests: G and BIG A
+ -->    
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>proxy_mqttV5_connect_ReceiveMax</solution>
+    </SyncClient>
+    
+
+<!--  ==========  d:deviceLowRM  ==========  -->
+    <Action name="deviceLowRM" type="CompositeAction">
+
+        <Action name="CreateConnection_deviceLowRM" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:deviceLowRM</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:connProps:deviceLowRM</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+        </Action>
+        
+<!--  
+MQTT receive 10 CONNECT: connect=17: len=97 
+00044d51 545405c2 00230811 00000006 22000000 20643a6f 72673469 6f74323a 636f6e6e 50726f70 733a6465 76696365 4c6f7752 4d002064 3a6f7267 34696f74 323a636f 6e6e5072 6f70733a 64657669 63654c6f 77524d00 08 
+[..MQTT...#......"... d:org4iot2:connProps:deviceLowRM. d:org4iot2:connProps:deviceLowRM..] 
+
+MQTT send 20 CONNACK connect=17: len=9 
+0000 06 22 0000 21 000a 
+[..."..!..] 
+
+0x21 =0x000a aka 10
+
+-->
+        <Action name="CheckCONNACK_deviceLowRM" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareReceiveMaximum">10</ApiParameter>
+        </Action>    
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"clientId":"d:org4iot2:connProps:deviceLowRM", "ReceiveMax":"10" }</ApiParameter>
+            <ApiParameter name="RETAIN">false</ApiParameter>
+        </Action>
+        
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">deviceLowRM-1</ActionParameter>
+            <ActionParameter name="component_list">deviceLowRM-1;gtwyHighRM-1;appDefaultRM-1;APPHighRM-1;SubRM-1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="Publish_deviceLowRM" type="CompositeAction" repeat="400" atleast="10" repeat_interval="0">
+        
+            <Action name="SendMessage" type="SendMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="message_id">txmsg</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/receiveMax/fmt/Low</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+<!--  Not getting in flight - removed to speed up pubs
+            <Action name="CheckConnectDuringPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+            </Action>    
+-->
+        </Action>
+            
+            <Action name="CheckConnectAfterPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+<!-- Not Getting DISCONNECTED
+                <ActionParameter name="reasonCode">147</ActionParameter>
+                <ActionParameter name="reason">Receive max exceeded</ActionParameter>
+-->
+            </Action>    
+        
+        <Action name="CloseConnection_deviceLowRM" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>
+
+    
+<!--  ==========  a:appDefaultRM  ==========  -->
+
+    <Action name="appDefaultRM" type="CompositeAction">
+
+        <Action name="CreateConnection_appDefaultRM" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">a:org4iot2:connProps:appDefaultRM</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">a:org4iot2:connProps:appDefaultRM</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="sessionExpire">8</ApiParameter>  
+        </Action>
+<!--
+MQTT receive 10 CONNECT: connect=22: len=99 
+00044d51 545405c2 00230811 00000008 22000000 21613a6f 72673469 6f74323a 636f6e6e 50726f70 733a6170 70446566 61756c74 524d0021 613a6f72 6734696f 74323a63 6f6e6e50 726f7073 3a617070 44656661 756c7452 4d0008 
+[..MQTT...#......"...!a:org4iot2:connProps:appDefaultRM.!a:org4iot2:connProps:appDefaultRM..]
+ 
+
+MQTT send 20 CONNACK connect=22: len=9 
+0000 06 22 0000 21 0100 
+[..."..!..] 
+
+0x21=0x0100 aka 256
+-->        
+        <Action name="CheckCONNACK_appDefaultRM" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareReceiveMaximum">256</ApiParameter>  
+        </Action>    
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"clientId":"a:org4iot2:connProps:appDefaultRM", "ReceiveMax":"256" }</ApiParameter>
+            <ApiParameter name="RETAIN">false</ApiParameter>
+        </Action>
+        
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">appDefaultRM-1</ActionParameter>
+            <ActionParameter name="component_list">deviceLowRM-1;gtwyHighRM-1;appDefaultRM-1;APPHighRM-1;SubRM-1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="Publish_appDefaultRM" type="CompositeAction" repeat="500" atleast="256" repeat_interval="0" >
+        
+            <Action name="SendMessage" type="SendMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="message_id">txmsg</ActionParameter>
+                <ActionParameter name="topic">iot-2/type/connProps/id/SubReceiveMax/cmd/receiveMax/fmt/appDefaultRM</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+            
+            <Action name="CheckConnectDuringPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+            </Action>    
+                
+        </Action>
+            
+            <Action name="CheckConnectAfterPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+<!-- Not Getting DISCONNECTED
+                <ActionParameter name="reasonCode">147</ActionParameter>
+                <ActionParameter name="reason">Receive max exceeded</ActionParameter>
+-->
+            </Action>    
+
+
+        <Action name="CloseConnection_appDefaultRM" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>    
+
+    
+<!--  ==========  A:APPHighRM  ==========  -->
+
+    <Action name="APPHighRM" type="CompositeAction">
+
+        <Action name="CreateConnection_APPHighRM" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:connProps:APPHighRM</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:connProps:APPHighRM</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="sessionExpire">8</ApiParameter>  
+        </Action>
+<!--
+MQTT receive 10 CONNECT: connect=24: len=93 
+00044d51 545405c2 00230811 00000008 22000000 1e413a6f 72673469 6f74323a 636f6e6e 50726f70 733a4150 50486967 68524d00 1e413a6f 72673469 6f74323a 636f6e6e 50726f70 733a4150 50486967 68524d00 08 
+[..MQTT...#......"....A:org4iot2:connProps:APPHighRM..A:org4iot2:connProps:APPHighRM..] 
+
+
+MQTT send 20 CONNACK connect=24: len=9 
+0000 06 22 0000 21 0800 
+[..."..!..] 
+
+0x21=0x0800 aka 2048  (not 1024)
+
+
+Looking at the Proxy To Server CONNECT/CONNACK:
+
+MQTT receive 10 CONNECT connect=32 rc=0: len=192 
+00000: 00064d51 54547078 0582fa 0023 16 11 00000008 22 0000 26 0008 696d6170726f78  [..MQTTpx....#......"..&..imaprox]
+00032: 79 0001 35 001e 413a 6f726734 696f7432 3a636f6e 6e50726f 70733a41 50504869  [y..5..A:org4iot2:connProps:APPHi]
+00064: 6768524d 001e413a 6f726734 696f7432 3a636f6e 6e50726f 70733a41 50504869  [ghRM..A:org4iot2:connProps:APPHi]
+00096: 6768524d 00086f72 6734696f 74320000 001e003b 83000348 002c696f 742d322f  [ghRM..org4iot2.....;...H.,iot-2/]
+00128: 247b4f52 477d2f74 7970652f 41505048 69676852 4d2f6964 2f636f6e 6e50726f  [${ORG}/type/APPHighRM/id/connPro]
+00160: 70732f6d 6f6e1484 0050c300 00040000 0d313639 2e35332e 3134362e 3135075b  [ps/mon...P.......169.53.146.15.[]
+
+MQTT send 20 CONNACK connect=32: len=17 
+0000 0b 21 0800 2200 08270040 00008100 05 
+[...!.."..'.@.....]
+
+It too is 2048, need to get clarification from Ken what he meant.
+-->        
+        <Action name="CheckCONNACK_APPHighRM" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareReceiveMaximum">2048</ApiParameter>  
+        </Action>    
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"clientId":"A:org4iot2:connProps:APPHighRM", "ReceiveMax":"1024" }</ApiParameter>
+            <ApiParameter name="RETAIN">false</ApiParameter>
+        </Action>
+        
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">APPHighRM-1</ActionParameter>
+            <ActionParameter name="component_list">deviceLowRM-1;gtwyHighRM-1;appDefaultRM-1;APPHighRM-1;SubRM-1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="Publish_APPHighRM" type="CompositeAction" repeat="1500" atleast="1024" repeat_interval="0">
+        
+            <Action name="SendMessage" type="SendMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="message_id">txmsg</ActionParameter>
+                <ActionParameter name="topic">iot-2/type/connProps/id/SubReceiveMax/cmd/receiveMax/fmt/APPHighRM</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+            
+            <Action name="CheckConnectDuringPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+            </Action>    
+                
+        </Action>
+            
+            <Action name="CheckConnectAfterPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+<!-- Not Getting DISCONNECTED
+                <ActionParameter name="reasonCode">147</ActionParameter>
+                <ActionParameter name="reason">Receive max exceeded</ActionParameter>
+-->
+            </Action>    
+
+        <Action name="CloseConnection_APPHighRM" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>    
+    
+
+<!--  ==========  g:gtwyHighRM  ==========  -->
+    <Action name="gtwyHighRM" type="CompositeAction">
+
+        <Action name="CreateConnection_gtwyHighRM" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">g:org4iot2:connProps:gtwyHighRM</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">g:org4iot2:connProps:gtwyHighRM</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="sessionExpire">6</ApiParameter>    
+        </Action>
+        
+<!--  
+MQTT receive 10 CONNECT: connect=26: len=95 
+00044d51 545405c2 00230811 00000006 22000000 1f673a6f 72673469 6f74323a 636f6e6e 50726f70 733a6774 77794869 6768524d 001f673a 6f726734 696f7432 3a636f6e 6e50726f 70733a67 74777948 69676852 4d0008 
+[..MQTT...#......"....g:org4iot2:connProps:gtwyHighRM..g:org4iot2:connProps:gtwyHighRM..] 
+
+MQTT send 20 CONNACK connect=26: len=9 
+0000 06 22 0000 21 0800 
+[..."..!..] 
+
+0x21=0x0800 aka 2048  (not 1024)
+-->
+        <Action name="CheckCONNACK_gtwyHighRM" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareReceiveMaximum">2048</ApiParameter>
+        </Action>    
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"clientId":"g:org4iot2:connProps:gtwyHighRM", "ReceiveMax":"1024" }</ApiParameter>
+            <ApiParameter name="RETAIN">false</ApiParameter>
+        </Action>
+        
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">gtwyHighRM-1</ActionParameter>
+            <ActionParameter name="component_list">deviceLowRM-1;gtwyHighRM-1;appDefaultRM-1;APPHighRM-1;SubRM-1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="Publish_gtwyHighRM" type="CompositeAction" repeat="1500" atleast="1024" repeat_interval="0">
+        
+            <Action name="SendMessage" type="SendMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="message_id">txmsg</ActionParameter>
+                <ActionParameter name="topic">iot-2/type/connProps/id/SubReceiveMax/cmd/receiveMax/fmt/gtwyHighRM</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+<!-- removed check to spedd up PUBs to get inFlight
+            <Action name="CheckConnectDuringPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+            </Action>    
+-->
+        </Action>
+            
+            <Action name="CheckConnectAfterPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+<!-- Not DISCONNECTing
+                <ActionParameter name="reasonCode">147</ActionParameter>
+                <ActionParameter name="reason">Receive max exceeded</ActionParameter>
+-->
+            </Action>    
+        
+        <Action name="CloseConnection_gtwyHighRM" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>
+
+    
+<!--  ==========  PubMaxRM NOT USED IN PROXY ==========  -->
+
+    <Action name="PubMaxRM" type="CompositeAction">
+
+        <Action name="CreateConnectionPubMaxRM" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">d:org4iot2:connProps:PubMaxRM</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">d:org4iot2:connProps:PubMaxRM</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="sessionExpire">8</ApiParameter>  
+        </Action>
+<!--
+MQTT receive 10 CONNECT connect=210 rc=0: len=50 
+
+MQTT send 20 CONNACK connect=210: len=11 
+
+SPEC ln 1208:  If the ReceiveMax value is absent, then its value defaults to 65,535.
+-->        
+        <Action name="CheckCONNACKPubMaxRM" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="hasReceiveMaximum">false</ApiParameter>  
+        </Action>    
+        
+        <Action name="CreateMessage" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">{"clientId":"d:org4iot2:connProps:PubMaxRM", "ReceiveMax":"65535" }</ApiParameter>
+            <ApiParameter name="RETAIN">false</ApiParameter>
+        </Action>
+        
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">PubMaxRM-1</ActionParameter>
+            <ActionParameter name="component_list">deviceLowRM-1;gtwyHighRM-1;PubMaxRM-1;appDefaultRM-1;APPHighRM-1;SubRM-1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="PublishMax" type="CompositeAction" repeat="80000" atleast="1" repeat_interval="0">
+        
+            <Action name="SendMessage" type="SendMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="message_id">txmsg</ActionParameter>
+                <ActionParameter name="topic">iot-2/evt/receiveMax/fmt/Max</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+            
+            <Action name="CheckConnectDuringPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+            </Action>    
+                
+        </Action>
+            
+            <Action name="CheckConnectAfterPub" type="CheckConnection">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="isConnected">true</ActionParameter>
+<!--
+                <ActionParameter name="reasonCode">147</ActionParameter>
+                <ActionParameter name="reason">Receive max exceeded</ActionParameter>
+-->
+            </Action>    
+
+
+<!-- not be needed?-->
+        
+        
+        <Action name="CloseConnectionPubMaxRM" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>    
+
+    
+<!--  ==========  g:SubReceiveMax  ==========  -->
+
+    <Action name="SubReceiveMax" type="CompositeAction">
+
+        <Action name="CreateConnectionSubReceiveMax" type="CreateConnection" >
+            <ActionParameter name="structure_id">ConV5</ActionParameter>
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="connectionType">PAHO-MQTTv5</ActionParameter>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">g:org4iot2:connProps:SubReceiveMax</ApiParameter>  
+            <ApiParameter name="cleanSession">true</ApiParameter>
+            <ApiParameter name="user">g:org4iot2:connProps:SubReceiveMax</ApiParameter>  
+            <ApiParameter name="password">password</ApiParameter>  
+            <ApiParameter name="sessionExpire">8</ApiParameter>  
+        </Action>
+<!--
+MQTT receive 10 CONNECT: connect=28: len=101 
+00044d51 545405c2 00230811 00000008 22000000 22673a6f 72673469 6f74323a 636f6e6e 50726f70 733a5375 62526563 65697665 4d617800 22673a6f 72673469 6f74323a 636f6e6e 50726f70 733a5375 62526563 65697665 4d617800 08 
+[..MQTT...#......"..."g:org4iot2:connProps:SubReceiveMax."g:org4iot2:connProps:SubReceiveMax..] 
+
+MQTT send 20 CONNACK connect=28: len=9 
+0000 06 22 0000 21 0800 
+[..."..!..] 
+
+0x21=0x0800 aka 2048  (not 1024)
+-->        
+        <Action name="CheckCONNACKSubReceiveMax" type="CheckConnectOptions">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ActionParameter name="isConnected">true</ActionParameter>
+            <ApiParameter name="compareReceiveMaximum">2048</ApiParameter>  
+        </Action>    
+        
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/connProps/id/SubReceiveMax/cmd/receiveMax/fmt/+</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+            <ApiParameter name="expectedrc">2</ApiParameter>
+        </Action>
+        
+
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">SubRM-1</ActionParameter>
+            <ActionParameter name="component_list">deviceLowRM-1;gtwyHighRM-1;appDefaultRM-1;APPHighRM-1;SubRM-1</ActionParameter>
+            <ActionParameter name="timeout">20000</ActionParameter>
+        </Action>
+
+        <Action name="ReceiveLoop" type="CompositeAction" repeat="2000" atleast="1280" >
+        <!-- _________________________________________________________________________________
+             This client will NOT receive msgs from deviceLowRM (mismatch topic) 
+             nor will it receive the message from the gtwyHIGHRM client, even though it looks like ACL could allow it 
+          ____________________________________________________________________________________  -->
+        <!-- REPEAT = [NO 200 +] 500 + 1500 [NO + 1500] = 2000  From Pub Loops  -->
+        <!-- ATLEAST = [NO 10 +] 256 + 1024 [NO + 1024] = 1280  From ReceiveMax CONNACKs -->
+
+            <Action name="ReceiveMsg" type="ReceiveMessage">
+                <ActionParameter name="connection_id">CFV5</ActionParameter>
+                <ActionParameter name="structure_id">rxmsg1</ActionParameter>
+                <ActionParameter name="waitTime">5000</ActionParameter>
+            </Action>
+			
+        </Action>
+        
+		
+        <Action name="CloseConnectionSubReceiveMax" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV5</ActionParameter>
+            <ApiParameter name="sessionExpire">0</ApiParameter>  
+        </Action>    
+    </Action>    
+    
+    
+</IsmWSTest>
+                

@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: admin_dynamic_QoS2_002
+
+  Test Category: Dynamic Admin Updates, and Pending Delete. 
+  
+  Test Description:
+  
+  
+-->
+		
+<IsmWSTest name="admin_dynamic_QoS2_002">
+
+	<SyncClient>
+		<server>
+			<include>../common/JMS_syncip.xml</include>
+			<include>../common/JMS_syncport.xml</include>
+		</server>
+		<solution>admin_dynamic_QoS2_002</solution>
+	</SyncClient>
+ 
+	<Action name="Sub" type="CompositeAction">
+	
+	     <!-- QoS=2 , which uses intermediateQ in the engine -->
+  		
+		<Action name="CreateSubConnection_QoS_2_Clear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DynamicCodyQoS2</ApiParameter>
+			<ApiParameter name="port">20027</ApiParameter>  <!-- needs changing --> 
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_2_Clear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>	
+	    
+	    <!-- Create a QoS=2 durable subscriptions --> 
+		<Action name="CreateSubConnection_QoS_2" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DynamicCodyQoS2</ApiParameter> 
+			<ApiParameter name="port">20027</ApiParameter>    <!-- needs changing --> 
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action>    
+  		
+		<Action name="Subscribe_QoS_2" type="Subscribe">
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<ApiParameter name="topic">/DynamicCody/QoS2/+</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+		</Action>
+		
+		<Action name="Show_Sub1" type="RestAPI">
+			<ActionParameter name="structureID">showsub1</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/DynamicCody/QoS2/+&amp;MessagingPolicy=MQTTDynamicMP3</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+
+	    <Action name="CompareShow_Sub1" type="CompareREST">
+	        <ActionParameter name="structureID">showsub1</ActionParameter>
+	        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+	        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+	        <ActionParameter name="subObjectName">/DynamicCody/QoS2/+</ActionParameter>
+	        <ObjectProperty name="MaxMessages" value="3000"/>
+	        <ObjectProperty name="MessagingPolicy" value="MQTTDynamicMP3"/>
+	    </Action>		
+	    
+		<!-- signal durable subscriptions are ready --> 
+        
+      	<Action name="SyncMQTT_DS_Ready" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">Sub1</ActionParameter>
+			<ActionParameter name="component_list">Sub1;Pub1</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+		</Action>
+
+ 		<!-- remove MQTTDynamicMP3 from the Endpoint1, after some messages have been sent.  --> 
+ 		<Action name="RemoveMP3_from_Endpoint" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"Endpoint":{"MQTTDynamicEP1":{"TopicPolicies":"MQTTDynamicMP2,MQTTDynamicMP4,MQTTDynamicMP5"}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+			
+ 		<!-- remove MQTTDynamicMP3 from the Endpoint3, after some messages have been sent.  --> 
+ 		<Action name="RemoveMP3_from_Endpoint3" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"Endpoint":{"MQTTDynamicEP3":{"TopicPolicies":"MQTTDynamicMP2,MQTTDynamicMP4,MQTTDynamicMP5","SubscriptionPolicies":"MQTTDynamicMPSubscription5,MQTTDynamicMPSubscription2,MQTTDynamicMPSubscription3,MQTTDynamicMPSubscription4"}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>		
+	    	        		
+ 		<!-- remove MQTTDynamicMP3 from the Endpoint2, after some messages have been sent.  --> 
+ 		<Action name="RemoveMP3_from_Endpoint2" type="RestAPI">
+ 			<dependsOn action_id="SyncMQTT_DS_Ready" interval="2000" />
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"Endpoint":{"MQTTDynamicEP2":{"TopicPolicies":"MQTTDynamicMP2,MQTTDynamicMP4,MQTTDynamicMP5"}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+ 
+		<!-- I'm updating a MP that isn't on an endpoint. .  --> 
+		<Action name="Update_RemoveMP1_from_Endpoint" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration</ActionParameter>
+	        <ActionParameter name="action">POST</ActionParameter>
+	        <ActionParameter name="payload">{"TopicPolicy":{"MQTTDynamicMP3":{"Protocol":"JMS","MaxMessages":333333}}}</ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action> 
+	
+		<Action name="Show_Sub2" type="RestAPI">
+			<ActionParameter name="structureID">showsub2</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/DynamicCody/QoS2/+&amp;MessagingPolicy=MQTTDynamicMP3</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    <Action name="CompareShow_Sub2" type="CompareREST">
+	        <ActionParameter name="structureID">showsub2</ActionParameter>
+	        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+	        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+	        <ActionParameter name="subObjectName">/DynamicCody/QoS2/+</ActionParameter>
+	        <ObjectProperty name="MaxMessages" value="333333"/>
+	        <ObjectProperty name="MessagingPolicy" value="MQTTDynamicMP3"/>
+	    </Action>	
+
+		<!-- I'm deleting a MesssagingPolicy that is in use.    --> 
+		<Action name="Delete_RemoveMP3_from_Endpoint" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/MQTTDynamicMP3</ActionParameter>
+	        <ActionParameter name="action">DELETE</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action> 
+
+		<!-- Show it went into PendingDelete since it is still in use.    --> 
+		<Action name="Show_PendingDeleteMP3" type="RestAPI">
+			<ActionParameter name="structureID">showpending</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/MQTTDynamicMP3</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">404</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+<!-- In Angel, it is no longer PENDING STATE, The POLICY is deleted therefore there is nothing to GET from config, 
+   The POLICY only exists in Monitor Subscription 
+	    <Action name="CompareShow_PendingDelete" type="CompareREST">
+	        <ActionParameter name="structureID">showpending</ActionParameter>
+	        <ActionParameter name="topLevelKey">TopicPolicy</ActionParameter>
+	        <ActionParameter name="subObjectName">MQTTDynamicMP3</ActionParameter>
+	        <ObjectProperty name="PendingAction" value="Delete"/>
+	        <ObjectProperty name="UseCount" value="1"/>
+	    </Action>
+-->
+		
+		<!-- It should be in use. still. --> 
+		<Action name="Show_Sub3" type="RestAPI">
+			<ActionParameter name="structureID">showsub3</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/DynamicCody/QoS2/+&amp;MessagingPolicy=MQTTDynamicMP3</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    <Action name="CompareShow_Sub3" type="CompareREST">
+	        <ActionParameter name="structureID">showsub3</ActionParameter>
+	        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+	        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+	        <ActionParameter name="subObjectName">/DynamicCody/QoS2/+</ActionParameter>
+	        <ObjectProperty name="MaxMessages" value="333333"/>
+	        <ObjectProperty name="MessagingPolicy" value="MQTTDynamicMP3"/>
+	    </Action>	
+		
+	    <Action name="CloseConnection_QoS_2" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>
+	    
+		<!-- It should be in use. still. --> 
+		<Action name="Show_Sub4" type="RestAPI">
+			<ActionParameter name="structureID">showsub4</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/DynamicCody/QoS2/+&amp;MessagingPolicy=MQTTDynamicMP3</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    <Action name="CompareShow_Sub4" type="CompareREST">
+	        <ActionParameter name="structureID">showsub4</ActionParameter>
+	        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+	        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+	        <ActionParameter name="subObjectName">/DynamicCody/QoS2/+</ActionParameter>
+	        <ObjectProperty name="MaxMessages" value="333333"/>
+	        <ObjectProperty name="MessagingPolicy" value="MQTTDynamicMP3"/>
+	    </Action>
+		
+		<!-- Reconnect. It'll use a different messaging Policy. --> 
+		<Action name="CreateSubConnection_QoS_2_Number2" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DynamicCodyQoS2</ApiParameter> 
+			<ApiParameter name="port">20027</ApiParameter>     
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">false</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action>  
+  		
+ 		<!-- It should be using a different Messaging Policy Adjust to which one for verification.  --> 
+ 		<Action name="Show_Sub5" type="RestAPI">
+ 			<ActionParameter name="structureID">showsub5</ActionParameter>
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/DynamicCody/QoS2/+&amp;MessagingPolicy=MQTTDynamicMP5</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+	    <Action name="CompareShow_Sub5" type="CompareREST">
+	        <ActionParameter name="structureID">showsub5</ActionParameter>
+	        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+	        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+	        <ActionParameter name="subObjectName">/DynamicCody/QoS2/+</ActionParameter>
+	        <ObjectProperty name="MaxMessages" value="5000"/>
+	        <ObjectProperty name="MessagingPolicy" value="MQTTDynamicMP5"/>
+	    </Action>
+		
+		<!-- Show MP3 has (hopefully) been deleted, since it is no longer in use.     --> 
+		<Action name="Show_DeletedMP3" type="RestAPI">
+	        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+	        <ActionParameter name="path">/ima/v1/configuration/TopicPolicy/MQTTDynamicMP3</ActionParameter>
+	        <ActionParameter name="action">GET</ActionParameter>
+	        <ActionParameter name="payload"></ActionParameter>
+	        <ActionParameter name="printResult">true</ActionParameter>
+	        <ActionParameter name="expectedStatusCode">404</ActionParameter>
+	        <ActionParameter name="expectedMessageCode"></ActionParameter>
+	    </Action>
+		
+	    <Action name="CloseConnection_QoS_2_again" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>	 
+	    
+		<!-- signal durable subscriptions are done so Producer goes away. --> 
+    	<Action name="SyncMQTT_DS_Done" type="SyncAction">
+            <ActionParameter name="request">set</ActionParameter>
+            <ActionParameter name="condition">MQTT_DS_Done</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+        </Action>	
+        
+		<Action name="CreateSubConnection_QoS_2_ReClear" type="CreateConnection" >
+			<ActionParameter name="structure_id">Cons_QoS_2</ActionParameter>
+			<ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">DynamicCodyQoS2</ApiParameter>
+			<ApiParameter name="port">20027</ApiParameter>  <!-- needs changing --> 
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<!-- ApiParameter name="path">config.ism.ibm.com</ApiParameter -->
+			<ApiParameter name="cleanSession">true</ApiParameter>
+			<ApiParameter name="QoS">2</ApiParameter>
+  		</Action> 
+  		
+	    <Action name="CloseConnection_QoS_2_ReClear" type="CloseConnection">
+	   	    <ActionParameter name="connection_id">Con_QoS_2</ActionParameter>
+	    </Action>	        	
+	    			
+	 </Action>  
+	 
+ 
+	<Action name="Pub" type="CompositeAction">	
+ 
+		<Action name="CreatePubConnection1" type="CreateConnection">
+			<ActionParameter name="structure_id">ConPub1</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<include>../common/ConnectionType.xml</include>
+			<include>../common/MQTT_server.xml</include>
+			<ApiParameter name="clientId">MQTT_Exp_001_Pub1</ApiParameter>
+			<ApiParameter name="port">20027</ApiParameter>
+			<ApiParameter name="protocol">mqtt</ApiParameter>
+			<ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+			<ApiParameter name="cleanSession">true</ApiParameter>
+		</Action>
+
+		<Action name="CreateMessage" type="CreateMessage">
+			<ActionParameter name="structure_id">msg2Sec</ActionParameter>
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+			<ApiParameter name="msgType">TEXT</ApiParameter>
+			<ApiParameter name="payload">TEXT: Sending a lot of messages to DynamicCody/QoS2</ApiParameter>
+			<ActionParameter name="incrementing">true</ActionParameter>
+		</Action>
+	
+		<!-- wait for signal that durable subscriptions are ready --> 
+        
+   		<Action name="SyncMQTT_ISDS_Ready" type="SyncComponentAction"> 
+			<ActionParameter name="component_name">Pub1</ActionParameter>
+			<ActionParameter name="component_list">Pub1;Sub1</ActionParameter>
+			<ActionParameter name="timeout">20000</ActionParameter>
+		</Action>
+                
+  	    <!-- Send.. a lot. until we kill the connection.  -->
+  	    <Action name="Subs" type="CompositeAction" repeat="1000000" atleast="10" repeat_interval="10" thread="11">
+  	    	<dependsOn action_id="SyncMQTT_ISDS_Ready" interval="0" />
+			<Action name="SendMessages" type="SendMessage">
+				<ActionParameter name="connection_id">CFPub1</ActionParameter>
+				<ActionParameter name="message_id">msg2Sec</ActionParameter>
+				<ActionParameter name="topic">/DynamicCody/QoS2/Topic1</ActionParameter>
+				<ActionParameter name="QoS">2</ActionParameter>
+			</Action>
+		
+			<Action name="CheckConnection" type="CheckConnection">
+			    <ActionParameter name="connection_id">CFPub1</ActionParameter>
+			    <ActionParameter name="isConnected">true</ActionParameter>
+			</Action>
+		</Action>		
+
+		<!-- wait for signal durable subscriptions are done --> 
+    	<Action name="SyncMQTT_DS_Done" type="SyncAction">
+            <ActionParameter name="request">wait</ActionParameter>
+            <ActionParameter name="condition">MQTT_DS_Done</ActionParameter>
+            <ActionParameter name="value">1</ActionParameter>
+            <ActionParameter name="timeout">30000</ActionParameter>
+        </Action>
+        
+		<Action name="ClosePubConnection1" type="CloseConnection">
+		
+			<ActionParameter name="connection_id">CFPub1</ActionParameter>
+  		</Action>
+
+	</Action> 	 
+	 
+</IsmWSTest>   
+

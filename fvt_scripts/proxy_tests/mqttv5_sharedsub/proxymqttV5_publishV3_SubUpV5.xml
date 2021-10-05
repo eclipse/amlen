@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+-->
+<IsmWSTest name="proxymqttV5_publishV3_SubUpV5" >
+<!--
+    This test will test the Customer Upgrade story where a subscriber upgrades first.
+	Publish a messages as V4 Client, As messages arrive the Subscriber will migrate to V5 while PUB stays at V4.
+	Eventually the PUB does Upgrate to V5.
+-->
+    <SyncClient>
+        <server>
+            <include>../common/JMS_syncip.xml</include>
+            <include>../common/JMS_syncport.xml</include>
+        </server>
+        <solution>proxymqttV5_publishV3_SubUpV5</solution>
+    </SyncClient>
+    
+    
+<!-- ========== publish ========== --> 
+    
+    <Action name="publish" type="CompositeAction">
+        
+        <Action name="CLEANConnection_V3" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:publishV3:subUpV5.pub</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:publishV3:subUpV5.pub</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseCLEANConnection_V3" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+        <Action name="CreateConnection_V3" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:publishV3:subUpV5.pub</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:publishV3:subUpV5.pub</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="CreateMessage_V3" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1  Client:v4}</ApiParameter>
+        </Action>
+           
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx1</ActionParameter>
+            <ActionParameter name="component_list">rxV3-1;tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+        <Action name="SendMessages_V3" type="CompositeAction" repeat="20" repeat_interval="50">
+            <Action name="SendMessage_V3" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+	        <Action name="WaitForPendingDelivery" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+            </Action>
+        </Action>
+
+		
+        <Action name="sync_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx2</ActionParameter>
+            <ActionParameter name="component_list">rxV3-2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+
+        
+        <Action name="CloseConnection_V3" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection_V5" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:publishV3:subUpV5.pub</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:publishV3:subUpV5.pub</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="sessionExpire">16</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        <Action name="CreateMessage_V5" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1 Client:v5}</ApiParameter>
+            <ApiParameter name="contentType">Data is in QUASI-json format</ApiParameter>
+            <ApiParameter name="payloadFormatIndicator">true</ApiParameter>
+            <ApiParameter name="msgExpire">9</ApiParameter>
+            <ApiParameter name="userprop.0">FirstName=Homer</ApiParameter>
+            <ApiParameter name="userprop.1">LastName=Simpson</ApiParameter>
+        </Action>
+           
+
+        <Action name="SendV5Messages" type="CompositeAction" repeat="10" >
+            <Action name="SendMessage_V5" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+	        <Action name="WaitForPendingDelivery" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+            </Action>
+        </Action>
+
+           
+        <Action name="sync_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx3</ActionParameter>
+            <ActionParameter name="component_list">rxV3-3;tx3</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+           
+
+        <Action name="SendV5MessagesToQueue" type="CompositeAction" repeat="10" >
+            <Action name="SendMessage_V5ToQueue" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+	        <Action name="WaitForPendingDeliveryToQueue" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+            </Action>
+        </Action>
+
+           
+        <Action name="sync_4" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">tx4</ActionParameter>
+            <ActionParameter name="component_list">rxV3-4;tx4</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+           
+
+        <Action name="SendNewMessages_V%" type="CompositeAction" repeat="10" >
+            <Action name="SendNewMessage_V5" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+	        <Action name="WaitForPendingNewDelivery" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+            </Action>
+        </Action>
+
+        <Action name="CloseConnection_V5" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+		
+
+        <Action name="reConnection_V3" type="CreateConnection">
+            <ActionParameter name="structure_id">Con1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <ApiParameter name="protocol">mqtt</ApiParameter>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:publishV3:subUpV5.pub</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:publishV3:subUpV5.pub</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+
+        <Action name="CreateNewMessage_V3" type="CreateMessage">
+            <ActionParameter name="structure_id">txmsg1</ActionParameter>
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+            <ApiParameter name="msgType">TEXT</ApiParameter>
+            <ApiParameter name="payload">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1  Client:v4 AGAIN!}</ApiParameter>
+        </Action>
+           
+        <Action name="SendMessages_V3New" type="CompositeAction" repeat="20" repeat_interval="50">
+            <Action name="SendMessage_V3New" type="SendMessage">
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+                <ActionParameter name="message_id">txmsg1</ActionParameter>
+                <ActionParameter name="topic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+                <ActionParameter name="QoS">1</ActionParameter>
+                <ActionParameter name="RETAIN">false</ActionParameter>
+            </Action>
+	        <Action name="WaitForPendingDelivery_V3New" type="WaitPendingDelivery" >
+                <ActionParameter name="connection_id">CF1</ActionParameter>
+            </Action>
+        </Action>
+
+
+        <Action name="Disonnect_V3" type="CloseConnection">
+            <ActionParameter name="connection_id">CF1</ActionParameter>
+        </Action>
+		
+    </Action>
+    
+    
+<!-- ========== receiveV3 ========== --> 
+
+    <Action name="receiveV3" type="CompositeAction">
+        <Action name="CLEANConnection" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:publishV3:subUpV5.sub</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:publishV3:subUpV5.sub</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">true</ApiParameter>
+        </Action>
+        <Action name="CloseCLEANConnection_V3" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+        <Action name="CreateConnection_V3" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:publishV3:subUpV5.sub</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:publishV3:subUpV5.sub</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+        
+        <Action name="Subscribe" type="Subscribe">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <ApiParameter name="topic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ApiParameter>
+            <ApiParameter name="QoS">2</ApiParameter>
+        </Action>
+        
+        <Action name="sync_1" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-1</ActionParameter>
+            <ActionParameter name="component_list">rxV3-1;tx1</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+
+        <Action name="ReceiveFirstTenMessages_V3" type="CompositeAction" repeat="1">
+			<Action name="ReceiveFirstTenMessage_V3" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFV3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			<Action name="CheckFirstTenMessage" type="CompareMessageData">
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="compareBody">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1  Client:v4}</ActionParameter>
+				<ActionParameter name="compareTopic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+				<ActionParameter name="compareQoS">1</ActionParameter>
+				<ActionParameter name="compareRetain">false</ActionParameter>   <!-- It's false cause publisher has not Sent until after the SUBSCRIBE -->
+			</Action>
+        </Action>
+
+
+        <Action name="CloseConnection_V3" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+
+        <Action name="CreateConnection_V5" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionTypeV5.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:publishV3:subUpV5.sub</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:publishV3:subUpV5.sub</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+            <ApiParameter name="sessionExpire">16</ApiParameter>
+        </Action>
+        
+		
+        <Action name="ReceiveMixOfMessages" type="CompositeAction" repeat="18" >
+			<Action name="ReceiveMixOMessage_V3" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFV3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="waitTime">10000</ActionParameter>
+			</Action>
+        </Action>
+
+        <Action name="ReceiveLastTenMessages_V3" type="CompositeAction" repeat="1">
+			<Action name="ReceiveLastTenMessage_V3" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFV3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			<Action name="CheckLastTenMessage_V3" type="CompareMessageData">
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="compareBody">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1  Client:v4}</ActionParameter>
+				<ActionParameter name="compareTopic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+				<ActionParameter name="compareQoS">1</ActionParameter>
+				<ActionParameter name="compareRetain">false</ActionParameter>
+			</Action>
+        </Action>
+
+		
+		<Action name="ReceiveNoMoreMessages" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+			<ActionParameter name="connection_id">CFV3</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ActionParameter name="waitTime">1000</ActionParameter>
+		</Action>
+		
+		
+        <Action name="sync_2" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-2</ActionParameter>
+            <ActionParameter name="component_list">rxV3-2;tx2</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+		
+
+        <Action name="ReceiveFinalMessages_V5" type="CompositeAction" repeat="10">
+			<Action name="ReceiveFinalMessage_V5" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFV3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			<Action name="CheckFinalMessage_V5" type="CompareMessageData">
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="compareBody">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1 Client:v5}</ActionParameter>
+				<ActionParameter name="compareTopic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+				<ActionParameter name="compareQoS">1</ActionParameter>
+				<ActionParameter name="compareRetain">false</ActionParameter>
+				
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <ApiParameter name="compareContentType">Data is in QUASI-json format</ApiParameter>
+                <ApiParameter name="comparePayloadFormatIndicator">true</ApiParameter>
+                <ApiParameter name="compareMsgExpire">8</ApiParameter>
+                <ApiParameter name="compareUserprop.0">FirstName=Homer</ApiParameter>
+				<ApiParameter name="compareUerprop.1">LastName=Simpson</ApiParameter>
+			</Action>
+        </Action>
+        
+		
+		<Action name="FinalReceiveNoMoreMessages" type="ReceiveMessage" rc="1" reason="ISMTEST1143">
+			<ActionParameter name="connection_id">CFV3</ActionParameter>
+			<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+			<ActionParameter name="waitTime">1000</ActionParameter>
+		</Action>
+		
+
+        <Action name="CloseConnection_V5" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+
+		
+        <Action name="sync_3" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-3</ActionParameter>
+            <ActionParameter name="component_list">rxV3-3;tx3</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+
+        <Action name="sync_4" type="SyncComponentAction"> 
+            <ActionParameter name="component_name">rxV3-4</ActionParameter>
+            <ActionParameter name="component_list">rxV3-4;tx4</ActionParameter>
+            <ActionParameter name="timeout">15000</ActionParameter>
+        </Action>
+        
+
+        <Action name="reConnect_V3" type="CreateConnection">
+            <ActionParameter name="structure_id">ConV3</ActionParameter>
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+            <include>../common/ConnectionType.xml</include>
+            <include>../common/PROXY_server.xml</include>
+            <include>../common/PROXY_port.xml</include>
+            <ApiParameter name="clientId">A:org4iot2:publishV3:subUpV5.sub</ApiParameter>
+            <ApiParameter name="user">A:org4iot2:publishV3:subUpV5.sub</ApiParameter>
+            <ApiParameter name="password">password</ApiParameter>
+            <ApiParameter name="cleanSession">false</ApiParameter>
+        </Action>
+		
+
+        <Action name="ReceiveMessages_V5QueuedAsV3" type="CompositeAction" repeat="10">
+			<Action name="ReceiveMessage_V5Queued" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFV3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			<Action name="CheckMessage_V5Queued" type="CompareMessageData">
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="compareBody">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1 Client:v5}</ActionParameter>
+				<ActionParameter name="compareTopic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+				<ActionParameter name="compareQoS">1</ActionParameter>
+				<ActionParameter name="compareRetain">false</ActionParameter>
+				
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <ApiParameter name="hasContentType">false</ApiParameter>
+                <ApiParameter name="hasPayloadFormatIndicator">false</ApiParameter>
+                <ApiParameter name="hasUserProperties">false</ApiParameter>
+			</Action>
+        </Action>
+        
+
+        <Action name="ReceiveMessages_V5NewAsV3" type="CompositeAction" repeat="10">
+			<Action name="ReceiveMessage_V5New" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFV3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			<Action name="CheckMessage_V5New" type="CompareMessageData">
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="compareBody">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1 Client:v5}</ActionParameter>
+				<ActionParameter name="compareTopic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+				<ActionParameter name="compareQoS">1</ActionParameter>
+				<ActionParameter name="compareRetain">false</ActionParameter>
+				
+                <ActionParameter name="mqttMessageVersion">5</ActionParameter>
+                <ApiParameter name="hasContentType">false</ApiParameter>
+                <ApiParameter name="hasPayloadFormatIndicator">false</ApiParameter>
+                <ApiParameter name="hasUserProperties">false</ApiParameter>
+			</Action>
+        </Action>
+        
+
+        <Action name="ReceiveNewMessages_V3" type="CompositeAction" repeat="1">
+			<Action name="ReceiveNewMessage_V3" type="ReceiveMessage">
+				<ActionParameter name="connection_id">CFV3</ActionParameter>
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="waitTime">3000</ActionParameter>
+			</Action>
+			<Action name="CheckNewMessage_V3" type="CompareMessageData">
+				<ActionParameter name="structure_id">rxmsg1</ActionParameter>
+				<ActionParameter name="compareBody">MSG :{ clientId:A:org4iot2:publishV3:subUpV5.pub , topic:iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade , QoS:1  Client:v4 AGAIN!}</ActionParameter>
+				<ActionParameter name="compareTopic">iot-2/type/publishV3/id/subUpV5.sub/cmd/subUpV5/fmt/upgrade</ActionParameter>
+				<ActionParameter name="compareQoS">1</ActionParameter>
+				<ActionParameter name="compareRetain">false</ActionParameter>
+			</Action>
+        </Action>
+
+
+        <Action name="Disconnect_V3" type="CloseConnection">
+            <ActionParameter name="connection_id">CFV3</ActionParameter>
+        </Action>
+
+
+	</Action>
+
+
+    
+</IsmWSTest>
+                

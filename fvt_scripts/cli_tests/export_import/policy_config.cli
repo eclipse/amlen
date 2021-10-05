@@ -1,0 +1,537 @@
+
+#########################
+# Create messaging groups
+#########################
+setup 0 group add GroupID=EXPORTGroup1
+setup 0 group add GroupID=EXPORTGroup2
+setup 0 group add GroupID=EXPORTGroup3
+setup 0 group add GroupID=EXPORTGroup4
+setup 0 group add GroupID=EXPORTGroup5a
+setup 0 group add GroupID=EXPORTGroup5b GroupMembership=EXPORTGroup5a
+setup 0 group add GroupID=EXPORTGroup5c GroupMembership=EXPORTGroup5b
+setup 0 group add GroupID=EXPORTGroup5d GroupMembership=EXPORTGroup5c
+# setup 0 group edit GroupID=EXPORTGroup5a AddGroupMembership=EXPORTGroup5a ### circular groups disabled as of 31942
+setup 0 group add GroupID=EXPORTVarGroup
+setup 0 group add GroupID=EXPORT☆Group
+#setup 0 group add GroupID=EXPORT_DCN_Group
+
+########################
+# Create messaging users
+########################
+setup 0 user add UserID=EXPORTUser1 type=messaging password=test
+setup 0 user add UserID=EXPORTUser2 type=messaging password=test GroupMembership=EXPORTGroup1
+setup 0 user add UserID=EXPORTUser3 type=messaging password=test GroupMembership=EXPORTGroup2
+setup 0 user add UserID=EXPORTUser4 type=messaging password=test 
+setup 0 user add UserID=EXPORTUser5 type=messaging password=test GroupMembership=EXPORTGroup3
+setup 0 user add UserID=EXPORTUser6 type=messaging password=original
+setup 0 user add UserID=EXPORTUser7 type=messaging password=test GroupMembership=EXPORTGroup4
+setup 0 user add UserID=EXPORTUser8a type=messaging password=test GroupMembership=EXPORTGroup5a
+setup 0 user add UserID=EXPORTUser8b type=messaging password=test GroupMembership=EXPORTGroup5b
+setup 0 user add UserID=EXPORTUser8c type=messaging password=test GroupMembership=EXPORTGroup5c
+setup 0 user add UserID=EXPORTUser8d type=messaging password=test GroupMembership=EXPORTGroup5d
+setup 0 user add UserID=VarUser1 type=messaging password=test GroupMembership=EXPORTVarGroup
+setup 0 user add UserID=VarUser2 type=messaging password=test GroupMembership=EXPORTVarGroup
+setup 0 user add UserID=EXPORT☆ type=messaging password=test GroupMembership=EXPORT☆Group
+#setup 0 user add UserID=EXPORT_DCN_User type=messaging password=test GroupMembership=EXPORT_DCN_Group
+#setup 0 user add UserID=EXPORT_DCN_app_User type=messaging password=test GroupMembership=EXPORT_DCN_Group
+#setup 0 set TraceLevel=9
+
+####################################################
+# Increase MaxMessages for Message Delivery Test (MD9)
+####################################################
+setup 0 update MessagingPolicy Name=DemoTopicPolicy Destination=* DestinationType=Topic MaxMessages=30000 "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=MessagingPolicyQueue Destination=* ClientAddress=* DestinationType=Queue Protocol=JMS "ActionList=Send,Receive"
+setup 0 create MessagingPolicy Name=MessagingPolicyQueueGVT Destination=葛渚噓 DestinationType=Queue Protocol=JMS "ActionList=Send,Receive"
+setup 0 update Endpoint Name=DemoEndpoint Enabled=True MessagingPolicies=DemoTopicPolicy,MessagingPolicyQueue,MessagingPolicyQueueGVT,DemoSubscriptionPolicy
+
+#setup 0 set TraceLevel=7
+
+#######################
+# SSL Certificate Setup
+#######################
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-crt.pem jmsimaserver-crt.pem
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaserver-key.pem jmsimaserver-key.pem
+setup 0 apply Certificate CertFileName=jmsimaserver-crt.pem "CertFilePassword=" KeyFileName=jmsimaserver-key.pem "KeyFilePassword=" Overwrite=True
+
+############################################
+# SSL Certificate and Security Profile Setup
+############################################
+setup 0 create CertificateProfile Name=EXPORTSSLCertProf1 Certificate=jmsimaserver-crt.pem Key=jmsimaserver-key.pem
+setup 0 create SecurityProfile Name=EXPORTSSLSecureProf1 MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=EXPORTSSLCertProf1
+setup 0 create SecurityProfile Name=EXPORTSSLSecureProf2 MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=EXPORTSSLCertProf1 UsePasswordAuthentication=True
+setup 0 create SecurityProfile Name=EXPORTSSLSecureProf3 MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=EXPORTSSLCertProf1 UsePasswordAuthentication=False
+
+setup 0 create SecurityProfile Name=EXPORTSSLSecureProfForFipsTrue1 MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Best CertificateProfile=EXPORTSSLCertProf1
+setup 0 create SecurityProfile Name=EXPORTSSLSecureProfForFipsTrue2 MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Fast CertificateProfile=EXPORTSSLCertProf1
+setup 0 create SecurityProfile Name=EXPORTSSLSecureProfForFipsTrue3 MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Medium CertificateProfile=EXPORTSSLCertProf1
+setup 0 create SecurityProfile Name=EXPORTSSLSecureProfForFipsTrue4 MinimumProtocolMethod=TLSv1.1 UseClientCertificate=False Ciphers=Medium CertificateProfile=EXPORTSSLCertProf1
+
+############################################
+# Non-TLS Security Profile Setup
+############################################
+setup 0 create SecurityProfile Name=EXPORTNoTLSSecureProf1 TLSEnabled=False MinimumProtocolMethod=TLSv1 UseClientCertificate=False Ciphers=Fast CertificateProfile=EXPORTSSLCertProf1
+setup 0 create SecurityProfile Name=EXPORTNoTLSSecProfForFipsTrue1 TLSEnabled=False MinimumProtocolMethod=TLSv1.2 UseClientCertificate=False Ciphers=Best CertificateProfile=EXPORTSSLCertProf1
+
+####################################################
+# Commands for client certificates
+# Server code not currently using the correct CAPath
+####################################################
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/imaCA-crt.pem EXPORTimaCA-crt.pem
+setup 0 bedrock file get scp://${M1_USER}@${M1_IPv4_1}:${M1_TESTROOT}/common/rootCA-crt.pem EXPORTrootCA-crt.pem
+setup 0 create SecurityProfile Name=EXPORTSSLSecureProf4 MinimumProtocolMethod=TLSv1 UseClientCertificate=True UsePasswordAuthentication=False Ciphers=Fast CertificateProfile=EXPORTSSLCertProf1
+setup 0 apply Certificate TrustedCertificate=EXPORTrootCA-crt.pem SecurityProfileName=EXPORTSSLSecureProf4 Overwrite=True
+setup 0 apply Certificate TrustedCertificate=EXPORTimaCA-crt.pem SecurityProfileName=EXPORTSSLSecureProf4 Overwrite=True
+
+###############################
+# Message Hub for SSL Endpoints
+###############################
+setup 0 create MessageHub Name=EXPORTSSLHub Description=EXPORTSSLHub
+setup 0 create MessageHub Name=EXPORT☆Hub Description=☆
+
+####################################################
+# Message Hub for Disconnected Client Notification
+####################################################
+#setup 0 create MessageHub Name=EXPORT_DCN_Hub Description=EXPORT_DCN_Hub
+
+########################################im
+# Plain Message Hub config that WILL NEVER EVER CHANGE
+########################################
+setup 0 create MessageHub Name=EXPORTPlainHub Description=DoNotModify
+setup 0 create ConnectionPolicy Name=EXPORTPlainCP Protocol=JMS,MQTT
+setup 0 create MessagingPolicy Name=EXPORTPlainMP UserID=* GroupID=* Destination=* DestinationType=Topic Protocol=JMS,MQTT "ActionList=Publish,Subscribe" 
+setup 0 create MessagingPolicy Name=EXPORTPlainMPExp UserID=* GroupID=* Destination=/sports/* MaxMessageTimeToLive=8  DestinationType=Topic  "ActionList=Publish,Subscribe"
+setup 0 create Endpoint Name=EXPORTPlainEP Enabled=True Port=19500 ConnectionPolicies=EXPORTPlainCP MessagingPolicies=EXPORTPlainMPExp,EXPORTPlainMP MaxMessageSize=262144KB MessageHub=EXPORTPlainHub
+setup 0 create Endpoint Name=NoQueuesDemoEndpoint Enabled=True Port=18502 ConnectionPolicies=DemoConnectionPolicy MessagingPolicies=DemoTopicPolicy,DemoSubscriptionPolicy MessageHub=DemoHub
+
+########################################
+# Administratively expiring messages Endpoints 
+########################################
+setup 0 create MessageHub Name=EXPORTExpiringHub "Description=Endpoints which set an Adminstrative MaxMessageTimeToLive"
+setup 0 create ConnectionPolicy Name=EXPORTExpCP Protocol=JMS,MQTT
+setup 0 create MessagingPolicy Name=EXPORTExpMP1 UserID=* GroupID=* Destination=* MaxMessageTimeToLive=120000  DestinationType=Topic "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=EXPORTExpMP2 UserID=* GroupID=* Destination=* MaxMessageTimeToLive=15  DestinationType=Topic "ActionList=Publish,Subscribe"
+setup 0 create Endpoint Name=EXPORTExpEP1 Enabled=True Port=19501 ConnectionPolicies=EXPORTExpCP MessagingPolicies=EXPORTExpMP1 MaxMessageSize=4MB MessageHub=EXPORTExpiringHub
+setup 0 create Endpoint Name=EXPORTExpEP2 Enabled=True Port=19502 ConnectionPolicies=EXPORTExpCP MessagingPolicies=EXPORTExpMP2 MaxMessageSize=4MB MessageHub=EXPORTExpiringHub
+#
+
+###############
+# Create Queues
+# Do not reuse it for any other tests.
+###############
+setup 0 create Queue Name=EXPORTQueueBrowser AllowSend=True ConcurrentConsumers=False MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue1 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTZombieQueue1 AllowSend=True ConcurrentConsumers=False MaxMessages=200
+setup 0 create Queue Name=EXPORT葛渚噓 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue2 AllowSend=True ConcurrentConsumers=True MaxMessages=100
+setup 0 create Queue Name=EXPORTZombieQueue2 AllowSend=True ConcurrentConsumers=False MaxMessages=200
+setup 0 create Queue Name=EXPORTQueue3 AllowSend=True ConcurrentConsumers=False MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue4 AllowSend=False ConcurrentConsumers=True MaxMessages=5000
+setup 0 create Queue Name=EXPORTQueue5 AllowSend=True ConcurrentConsumers=False MaxMessages=1000
+setup 0 create Queue Name=EXPORTQueue6 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue7 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue8 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue9 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue10 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue11 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue12 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue13 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue14 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue15 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue16 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue17 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue009 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueue012 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTQueueExp AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setup 0 create Queue Name=EXPORTQueue014 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+# Defaults are AllowSend=True ConcurrentConsumers=True MaxMessages=5000
+setup 0 create Queue Name=EXPORTQueue022
+setup 0 create Queue Name=EXPORTtrans_queue01 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTtrans_queue02 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTtrans_queue03 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTtrans_queue04 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+setup 0 create Queue Name=EXPORTjms_ha_queue01 AllowSend=True ConcurrentConsumers=True MaxMessages=100000
+
+#####################
+# ☆ Connection Policy
+#####################
+setup 0 create ConnectionPolicy Name=EXPORT☆CP Protocol=JMS
+
+#########################
+# Queue Connection Policy (All Queue Tests)
+#########################
+setup 0 create ConnectionPolicy Name=EXPORTQueueConnectionPolicy1 Protocol=JMS
+
+#######################################
+# Connection Policies for SSL Endpoints (Tests 1-8, 16,17)
+#######################################
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy1 ClientID=jms* Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy2 ClientAddress=${M1_IPv4_1} Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy3 UserID=EXPORTUser4 Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy4 ClientID=jmsClient1 Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy5 UserID=EXPORTUser3 GroupID=EXPORTGroup2 Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy6 ClientID=* Protocol=MQTT
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy7 ClientID=jmsClient1 Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy8 Protocol=JMS UserID=EXPORTUser6
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy9 GroupID=EXPORTGroup4 Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy10 GroupID=EXPORTGroup5b Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy11 ClientID=EXPORTclient0 Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTSSLConnectionPolicy14 "CommonNames=IMA Test Team(imaclient*"  Protocol=JMS
+
+#########################################
+# Connection Policy for Wildcard Endpoint (Test 10)
+#########################################
+setup 0 create ConnectionPolicy Name=WildConnectionPolicy1 ClientID=jmsClient* Protocol=JMS
+
+################################################
+# Connection Policy for Variable Policy Endpoint (Test 11-12)
+################################################
+setup 0 create ConnectionPolicy Name=EXPORTVarConnPol1 GroupID=EXPORTVarGroup Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTVarConnPol2 GroupID=EXPORTVarGroup Protocol=JMS
+
+####################################
+# Connection Policies for SSL Test 9 (Test 9)
+####################################
+setup 0 create ConnectionPolicy Name=EXPORTConnectionPolicy1 GroupID=EXPORTGroup1 Protocol=JMS
+setup 0 create ConnectionPolicy Name=EXPORTConnectionPolicy2 GroupID=EXPORTGroup2 Protocol=JMS
+
+############################
+# ConnectionPolicy for DCN
+############################
+#setup 0 create ConnectionPolicy Name=EXPORT_DCN_CP GroupID=EXPORT_DCN_Group Protocol=JMS
+
+###########################
+# Messaging Policy for DCN
+###########################
+#setup 0 create MessagingPolicy Name=EXPORT_DCN_MP Destination=\$SYS/DisconnectedClientNotification DestinationType=Topic ActionList=Subscribe Protocol=JMS
+#setup 0 create MessagingPolicy Name=EXPORT_DCN_app_MP Destination=/Foo DestinationType=Topic ActionList=Subscribe,Publish DisconnectedClientNotification=True Protocol=JMS
+
+####################
+# ☆ Messaging Policy
+####################
+setup 0 create MessagingPolicy Name=EXPORT☆MP UserID=EXPORT☆ GroupID=EXPORT☆Group Destination=* DestinationType=Topic Protocol=JMS "ActionList=Publish,Subscribe"
+
+##########################
+# Queue Messaging Policies (All Queue Tests)
+##########################
+setup 0 create MessagingPolicy Name=EXPORTQueueMessagingPolicy01 Destination=* DestinationType=Queue "ActionList=Send,Receive,Browse" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTQueueMessagingPolicy02 Destination=* DestinationType=Queue "ActionList=Send,Browse" Protocol=JMS
+
+######################################
+# Messaging Policies for SSL Endpoints (Test 1-8)
+######################################
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy01 Destination=dest1 DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy02 Destination=dest2 DestinationType=Topic "ActionList=Publish" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy03 Destination=dest3 DestinationType=Topic "ActionList=Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy04 Destination=dest4 DestinationType=Topic Protocol=MQTT "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy05 Destination=dest5 DestinationType=Topic UserID=EXPORTUser2 GroupID=EXPORTGroup1 "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy06 Destination=dest6 DestinationType=Topic ClientAddress=${M1_IPv6_1} "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy07 Destination=dest7 DestinationType=Topic ClientID=jmsClient7 "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy08 Destination=topic* DestinationType=Topic ClientID=jmsClient1 ClientAddress=${M1_IPv4_1} "ActionList=Publish,Subscribe"
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy09 Destination=* DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy14 Destination=* DestinationType=Topic "ActionList=Publish,Subscribe" "CommonNames=IMA Test Team(imaclient*" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTSSLMsgSubPolicy09A Destination=sharedSSL_014 DestinationType=Subscription "ActionList=Control,Receive" "CommonNames=IMA Test Team(imaclient*" 
+setup 0 create MessagingPolicy Name=EXPORTSSLMsgSubPolicy09B Destination=sharedSSL_014 DestinationType=Subscription "ActionList=Control,Receive" "CommonNames=Notima*" 
+setup 0 create MessagingPolicy Name=EXPORTSSLMsgSubPolicy09C Destination=sharedSSL_014 DestinationType=Subscription "ActionList=Receive" "CommonNames=IMA Test Team(imaclient*" 
+setup 0 create MessagingPolicy Name=EXPORTSSLMessagingPolicy10 GroupID=EXPORTGroup3 Destination=dest10 DestinationType=Topic "ActionList=Publish,Subscribe"
+
+##########################################
+# Messaging Policies for Wildcard Endpoint (Test 10)
+##########################################
+setup 0 create MessagingPolicy Name=WildMessagingPolicy1 ClientID=jmsClient1 Destination=/topic/a DestinationType=Topic "ActionList=Subscribe"
+setup 0 create MessagingPolicy Name=WildMessagingPolicy2 ClientID=jmsClient1 Destination=/topic/b DestinationType=Topic "ActionList=Subscribe"
+setup 0 create MessagingPolicy Name=WildMessagingPolicy3 ClientID=jmsClient2 Destination=/topic/* DestinationType=Topic "ActionList=Publish"
+
+###############################################
+# Messaging Policy for Variable Policy Endpoint (Test 11-12)
+###############################################
+setup 0 create MessagingPolicy Name=EXPORTVarMsgPol1 Destination=/accounts/\${ClientID}/data DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTVarMsgPol2 Destination=/accounts/\${UserID}/data DestinationType=Topic "ActionList=Publish,Subscribe" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTVarMsgPol3 Destination=/\${UserID}/\${ClientID}/info DestinationType=Topic "ActionList=Publish" Protocol=JMS
+setup 0 create MessagingPolicy Name=EXPORTVarMsgPol4 Destination=* DestinationType=Topic "ActionList=Subscribe" Protocol=JMS
+
+###################################
+# Messaging Policies for SSL Test 9 (Test 9)
+###################################
+setup 0 create MessagingPolicy Name=EXPORTMessagingPolicy1 ClientID=jmsClient1 UserID=EXPORTUser2 Destination=/topic/subTopic DestinationType=Topic "ActionList=Subscribe"
+setup 0 create MessagingPolicy Name=EXPORTMessagingPolicy2 ClientID=jmsClient2 UserID=EXPORTUser3 Destination=/topic/subTopic/subSubTopic DestinationType=Topic "ActionList=Subscribe"
+setup 0 create MessagingPolicy Name=EXPORTMessagingPolicy3 ClientID=jmsClient3 UserID=EXPORTUser2 Destination=/topic/sub* DestinationType=Topic "ActionList=Publish"
+setup 0 create MessagingPolicy Name=EXPORTMessagingPolicy4 ClientID=jmsClient4 UserID=EXPORTUser3 Destination=/topic/subTopic/subSubTopic DestinationType=Topic "ActionList=Publish"
+setup 0 create MessagingPolicy Name=EXPORTMessagingPolicy5 ClientID=jmsClient* UserID=EXPORTUser* GroupID=EXPORTGroup* Destination=/topic DestinationType=Topic "ActionList=Publish,Subscribe"
+
+############
+# ☆ Endpoint
+############
+setup 0 create Endpoint Name=EXPORT☆EP Enabled=True Port=18456 ConnectionPolicies=EXPORT☆CP MessagingPolicies=EXPORT☆MP MaxMessageSize=4MB MessageHub=EXPORT☆Hub
+
+################
+# Queue Endpoint
+################
+setup 0 create Endpoint Name=EXPORTQueueEndpoint Enabled=True Port=18458 ConnectionPolicies=EXPORTQueueConnectionPolicy1 MessagingPolicies=EXPORTQueueMessagingPolicy01 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+setup 0 create Endpoint Name=EXPORTQueueBrowserEndpoint Enabled=True Port=18457 ConnectionPolicies=EXPORTQueueConnectionPolicy1 MessagingPolicies=EXPORTQueueMessagingPolicy02 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+######################################
+# Endpoint for wildcards with policies (Test 10)
+######################################
+setup 0 create Endpoint Name=WildEndpoint1 Enabled=True Port=18459 ConnectionPolicies=WildConnectionPolicy1 MessagingPolicies=WildMessagingPolicy1,WildMessagingPolicy2,WildMessagingPolicy3 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+################
+# Basic Endpoint (Test 8)
+################
+setup 0 create Endpoint Name=EXPORTBasicEndpoint1 Enabled=True Port=18465 ConnectionPolicies=EXPORTSSLConnectionPolicy7 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+
+############################################
+# Disconnected Client Notification Endpoint
+############################################
+#setup 0 create Endpoint Name=EXPORT_DCN_EP Enabled=True Port=29301 ConnectionPolicies=EXPORT_DCN_CP MessagingPolicies=EXPORT_DCN_MP,EXPORT_DCN_app_MP MessageHub=EXPORT_DCN_Hub
+
+###########################
+# Variable Policy Endpoints (Test 11-12)
+###########################
+setup 0 create Endpoint Name=EXPORTVarEndpoint1 Enabled=True Port=18464 ConnectionPolicies=EXPORTVarConnPol1 MessagingPolicies=EXPORTVarMsgPol1,EXPORTVarMsgPol2 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+setup 0 create Endpoint Name=EXPORTVarEndpoint2 Enabled=True Port=18463 ConnectionPolicies=EXPORTVarConnPol2 MessagingPolicies=EXPORTVarMsgPol3,EXPORTVarMsgPol4 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+###############
+# SSL Endpoints (Test 1-7, 16)
+###############
+setup 0 create Endpoint Name=EXPORTSSLEndpoint1 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18466 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint2 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18467 ConnectionPolicies=EXPORTSSLConnectionPolicy2 MessagingPolicies=EXPORTSSLMessagingPolicy06,EXPORTSSLMessagingPolicy10 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint3 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18468 ConnectionPolicies=EXPORTSSLConnectionPolicy3 MessagingPolicies=EXPORTSSLMessagingPolicy06,EXPORTSSLMessagingPolicy07 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint4 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18469 ConnectionPolicies=EXPORTSSLConnectionPolicy4 MessagingPolicies=EXPORTSSLMessagingPolicy08,EXPORTSSLMessagingPolicy10 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint5 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18470 ConnectionPolicies=EXPORTSSLConnectionPolicy5 MessagingPolicies=EXPORTSSLMessagingPolicy09 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint6 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18471 ConnectionPolicies=EXPORTSSLConnectionPolicy6 MessagingPolicies=EXPORTSSLMessagingPolicy01 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint7 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18479 ConnectionPolicies=EXPORTSSLConnectionPolicy8 MessagingPolicies=EXPORTSSLMessagingPolicy01 MaxMessageSize=1MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint8 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18480 ConnectionPolicies=EXPORTSSLConnectionPolicy9 MessagingPolicies=EXPORTSSLMessagingPolicy01 MaxMessageSize=1KB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint9 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18481 ConnectionPolicies=EXPORTSSLConnectionPolicy10 MessagingPolicies=EXPORTSSLMessagingPolicy01 MaxMessageSize=1KB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLEndpoint10 Enabled=True SecurityProfile=EXPORTSSLSecureProf1 Port=18482 ConnectionPolicies=EXPORTSSLConnectionPolicy11 MessagingPolicies=EXPORTSSLMessagingPolicy01 MaxMessageSize=1KB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLFIPSTrueEndpoint1 Enabled=True SecurityProfile=EXPORTSSLSecureProfForFipsTrue1 Port=18483 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLFIPSTrueEndpoint2 Enabled=True SecurityProfile=EXPORTSSLSecureProfForFipsTrue2 Port=18484 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLFIPSTrueEndpoint3 Enabled=True SecurityProfile=EXPORTSSLSecureProfForFipsTrue3 Port=18485 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+setup 0 create Endpoint Name=EXPORTSSLFIPSTrueEndpoint4 Enabled=True SecurityProfile=EXPORTSSLSecureProfForFipsTrue4 Port=18486 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+##########################
+# Endpoints for SSL Test 9 (Test 9)
+##########################
+setup 0 create Endpoint Name=EXPORTEndpoint1 Enabled=True Port=18460 ConnectionPolicies=EXPORTConnectionPolicy1 MessagingPolicies=EXPORTMessagingPolicy1,EXPORTMessagingPolicy3,EXPORTMessagingPolicy5 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+setup 0 create Endpoint Name=EXPORTEndpoint2 Enabled=True Port=18461 ConnectionPolicies=EXPORTConnectionPolicy2 MessagingPolicies=EXPORTMessagingPolicy2,EXPORTMessagingPolicy4,EXPORTMessagingPolicy5 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+################################
+# Endpoints for SSL UserAuth Test (Test 13)
+################################
+setup 0 create Endpoint Name=EXPORTSSLEndpoint13 Enabled=True SecurityProfile=EXPORTSSLSecureProf2 Port=18472 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+setup 0 create Endpoint Name=EXPORTSSLEndpoint13b Enabled=True SecurityProfile=EXPORTSSLSecureProf3 Port=18473 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+#######################################
+# Endpoint for Client Certificate Tests (Test 14)
+#######################################
+setup 0 create Endpoint Name=ClientCertEndpoint014A Enabled=True Port=18474 SecurityProfile=EXPORTSSLSecureProf4 ConnectionPolicies=EXPORTSSLConnectionPolicy14 MessagingPolicies=EXPORTSSLMessagingPolicy14,EXPORTSSLMsgSubPolicy09A MessageHub=EXPORTSSLHub
+setup 0 create Endpoint Name=ClientCertEndpoint014B Enabled=True Port=18475 SecurityProfile=EXPORTSSLSecureProf4 ConnectionPolicies=EXPORTSSLConnectionPolicy14 MessagingPolicies=EXPORTSSLMessagingPolicy14,EXPORTSSLMsgSubPolicy09B MessageHub=EXPORTSSLHub
+setup 0 create Endpoint Name=ClientCertEndpoint014C Enabled=True Port=18476 SecurityProfile=EXPORTSSLSecureProf4 ConnectionPolicies=EXPORTSSLConnectionPolicy14 MessagingPolicies=EXPORTSSLMessagingPolicy14,EXPORTSSLMsgSubPolicy09C MessageHub=EXPORTSSLHub
+
+##########################
+# Endpoints with non-TLS SecurityProfiles
+##########################
+setup 0 create Endpoint Name=EXPORTNoTLSEndpoint1 Enabled=True SecurityProfile=EXPORTNoTLSSecureProf1 Port=28466 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+setup 0 create Endpoint Name=EXPORTNoTLSFIPSTrueEndpoint1 Enabled=True SecurityProfile=EXPORTNoTLSSecProfForFipsTrue1 Port=28483 ConnectionPolicies=EXPORTSSLConnectionPolicy1 MessagingPolicies=EXPORTSSLMessagingPolicy01,EXPORTSSLMessagingPolicy02,EXPORTSSLMessagingPolicy03,EXPORTSSLMessagingPolicy04,EXPORTSSLMessagingPolicy05 MaxMessageSize=4MB MessageHub=EXPORTSSLHub
+
+#setup 0 set TraceLevel=7
+
+
+#######################################
+# Security Policy Cleanup Configuration
+#######################################
+#cleanup 0 set TraceLevel=7
+cleanup 0 delete Endpoint Name=EXPORT☆EP
+
+cleanup 0 delete Endpoint Name=EXPORTQueueEndpoint
+cleanup 0 delete Endpoint Name=EXPORTQueueBrowserEndpoint
+cleanup 0 delete Endpoint Name=WildEndpoint1
+cleanup 0 delete Endpoint Name=EXPORTBasicEndpoint1
+cleanup 0 delete Endpoint Name=EXPORTVarEndpoint1
+cleanup 0 delete Endpoint Name=EXPORTVarEndpoint2
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint1
+cleanup 0 delete Endpoint Name=EXPORTNoTLSEndpoint1
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint2
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint3
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint4
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint5
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint6
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint7
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint8
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint9
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint10
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint13
+cleanup 0 delete Endpoint Name=EXPORTSSLEndpoint13b
+cleanup 0 delete Endpoint Name=EXPORTSSLFIPSTrueEndpoint1
+cleanup 0 delete Endpoint Name=EXPORTNoTLSFIPSTrueEndpoint1
+cleanup 0 delete Endpoint Name=EXPORTSSLFIPSTrueEndpoint2
+cleanup 0 delete Endpoint Name=EXPORTSSLFIPSTrueEndpoint3
+cleanup 0 delete Endpoint Name=EXPORTSSLFIPSTrueEndpoint4
+cleanup 0 delete Endpoint Name=EXPORTEndpoint1
+cleanup 0 delete Endpoint Name=EXPORTEndpoint2
+cleanup 0 delete Endpoint Name=ClientCertEndpoint014A
+cleanup 0 delete Endpoint Name=ClientCertEndpoint014B
+cleanup 0 delete Endpoint Name=ClientCertEndpoint014C
+cleanup 0 delete Endpoint Name=EXPORTExpEP1
+cleanup 0 delete Endpoint Name=EXPORTExpEP2
+cleanup 0 delete SecurityProfile Name=EXPORTSSLSecureProf1
+cleanup 0 delete SecurityProfile Name=EXPORTNoTLSSecureProf1
+cleanup 0 delete SecurityProfile Name=EXPORTSSLSecureProf2
+cleanup 0 delete SecurityProfile Name=EXPORTSSLSecureProf3
+cleanup 0 delete SecurityProfile Name=EXPORTSSLSecureProf4
+cleanup 0 delete SecurityProfile Name=EXPORTSSLSecureProfForFipsTrue1
+cleanup 0 delete SecurityProfile Name=EXPORTNoTLSSecProfForFipsTrue1
+cleanup 0 delete SecurityProfile Name=EXPORTSSLSecureProfForFipsTrue2
+cleanup 0 delete SecurityProfile Name=EXPORTSSLSecureProfForFipsTrue3
+cleanup 0 delete SecurityProfile Name=EXPORTSSLSecureProfForFipsTrue4
+cleanup 0 delete CertificateProfile Name=EXPORTSSLCertProf1
+#cleanup 0 delete TrustedCertificate TrustedCertificate=EXPORTimaCA-crt.pem SecurityProfileName=EXPORTSSLSecureProf4
+#cleanup 0 delete TrustedCertificate TrustedCertificate=EXPORTrootCA-crt.pem SecurityProfileName=EXPORTSSLSecureProf4
+cleanup 0 delete ConnectionPolicy Name=EXPORT☆CP
+cleanup 0 delete ConnectionPolicy Name=EXPORTQueueConnectionPolicy1
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy1
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy2
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy3
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy4
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy5
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy6
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy7
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy8
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy9
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy10
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy11
+cleanup 0 delete ConnectionPolicy Name=EXPORTSSLConnectionPolicy14
+cleanup 0 delete ConnectionPolicy Name=WildConnectionPolicy1
+cleanup 0 delete ConnectionPolicy Name=EXPORTVarConnPol1
+cleanup 0 delete ConnectionPolicy Name=EXPORTVarConnPol2
+cleanup 0 delete ConnectionPolicy Name=EXPORTConnectionPolicy1
+cleanup 0 delete ConnectionPolicy Name=EXPORTConnectionPolicy2
+cleanup 0 delete ConnectionPolicy Name=EXPORTExpCP
+cleanup 0 delete MessagingPolicy Name=EXPORT☆MP
+cleanup 0 delete MessagingPolicy Name=EXPORTQueueMessagingPolicy01
+cleanup 0 delete MessagingPolicy Name=EXPORTQueueMessagingPolicy02
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy01
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy02
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy03
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy04
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy05
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy06
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy07
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy08
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy09
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy14
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMsgSubPolicy09A
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMsgSubPolicy09B
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMsgSubPolicy09C
+cleanup 0 delete MessagingPolicy Name=EXPORTSSLMessagingPolicy10
+cleanup 0 delete MessagingPolicy Name=WildMessagingPolicy1
+cleanup 0 delete MessagingPolicy Name=WildMessagingPolicy2
+cleanup 0 delete MessagingPolicy Name=WildMessagingPolicy3
+cleanup 0 delete MessagingPolicy Name=EXPORTVarMsgPol1
+cleanup 0 delete MessagingPolicy Name=EXPORTVarMsgPol2
+cleanup 0 delete MessagingPolicy Name=EXPORTVarMsgPol3
+cleanup 0 delete MessagingPolicy Name=EXPORTVarMsgPol4
+cleanup 0 delete MessagingPolicy Name=EXPORTMessagingPolicy1
+cleanup 0 delete MessagingPolicy Name=EXPORTMessagingPolicy2
+cleanup 0 delete MessagingPolicy Name=EXPORTMessagingPolicy3
+cleanup 0 delete MessagingPolicy Name=EXPORTMessagingPolicy4
+cleanup 0 delete MessagingPolicy Name=EXPORTMessagingPolicy5
+cleanup 0 delete MessagingPolicy Name=EXPORTExpMP1
+cleanup 0 delete MessagingPolicy Name=EXPORTExpMP2
+cleanup 0 delete Queue Name=EXPORTQueueBrowser DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue1 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTZombieQueue1 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORT葛渚噓 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue2 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTZombieQueue2 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue3 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue4 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue5 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue6 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue7 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue8 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue9 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue10 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue11 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue12 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue13 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue14 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue022 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue15 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue16 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue17 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue009 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue012 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueueExp DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTQueue014 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTtrans_queue01 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTtrans_queue02 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTtrans_queue03 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTtrans_queue04 DiscardMessages=True
+cleanup 0 delete Queue Name=EXPORTjms_ha_queue01 DiscardMessages=True
+cleanup 0 delete MessageHub Name=EXPORT☆Hub
+cleanup 0 delete MessageHub Name=EXPORTSSLHub
+cleanup 0 delete MessageHub Name=EXPORTExpiringHub
+cleanup 0 user delete UserID=EXPORT☆ type=messaging
+cleanup 0 user delete UserID=EXPORTUser1 type=messaging
+cleanup 0 user delete UserID=EXPORTUser2 type=messaging
+cleanup 0 user delete UserID=EXPORTUser3 type=messaging
+cleanup 0 user delete UserID=EXPORTUser4 type=messaging
+cleanup 0 user delete UserID=EXPORTUser5 type=messaging
+cleanup 0 user delete UserID=EXPORTUser6 type=messaging
+cleanup 0 user delete UserID=EXPORTUser7 type=messaging
+cleanup 0 user delete UserID=EXPORTUser8a type=messaging
+cleanup 0 user delete UserID=EXPORTUser8b type=messaging
+cleanup 0 user delete UserID=EXPORTUser8c type=messaging
+cleanup 0 user delete UserID=EXPORTUser8d type=messaging
+cleanup 0 user delete UserID=VarUser1 type=messaging
+cleanup 0 user delete UserID=VarUser2 type=messaging
+cleanup 0 group delete GroupID=EXPORT☆Group
+cleanup 0 group delete GroupID=EXPORTGroup1
+cleanup 0 group delete GroupID=EXPORTGroup2
+cleanup 0 group delete GroupID=EXPORTGroup3
+cleanup 0 group delete GroupID=EXPORTGroup4
+cleanup 0 group delete GroupID=EXPORTGroup5a
+cleanup 0 group delete GroupID=EXPORTGroup5b
+cleanup 0 group delete GroupID=EXPORTGroup5c
+cleanup 0 group delete GroupID=EXPORTGroup5d
+cleanup 0 group delete GroupID=EXPORTVarGroup
+cleanup 0 update MessagingPolicy Name=DemoTopicPolicy Destination=* DestinationType=Topic MaxMessages=5000 "ActionList=Publish,Subscribe"
+cleanup 0 update Endpoint Name=DemoEndpoint MessagingPolicies=DemoTopicPolicy,DemoSubscriptionPolicy
+cleanup 0 delete MessagingPolicy Name=MessagingPolicyQueue
+cleanup 0 delete MessagingPolicy Name=MessagingPolicyQueueGVT
+
+cleanup 0 delete Endpoint Name=EXPORTPlainEP
+cleanup 0 delete Endpoint Name=NoQueuesDemoEndpoint
+cleanup 0 delete MessageHub Name=EXPORTPlainHub
+cleanup 0 delete ConnectionPolicy Name=EXPORTPlainCP
+cleanup 0 delete MessagingPolicy Name=EXPORTPlainMP
+cleanup 0 delete MessagingPolicy Name=EXPORTPlainMPExp
+
+cleanup 0 POST configuration {"Endpoint":{"DemoEndpoint":{"Enabled":true}}}
+cleanup 0 POST configuration {"Endpoint":{"DemoMqttEndpoint":{"Enabled":true}}}
+cleanup 0 GET configuration/Endpoint
+cleanup 0 set TraceLevel=5
+
+export 0 POST service/export {"FileName":"testExport","Password":"ima4test"}
+import 0 POST service/import {"FileName":"testExport","Password":"ima4test","DisableObjects":true,"ApplyConfig":false}
+importApply 0 set TraceLevel=5,admin:9
+importApply 0 POST service/import {"FileName":"testExport","Password":"ima4test","DisableObjects":true,"ApplyConfig":true}
+
+# Import v1.2 backup
+putFile 0 PUT file ${M1_TESTROOT}/cli_tests/export_import/imaBackup_v12 imaBackup_v12
+importApplyV12 0 set TraceLevel=5,admin:9
+importApplyV12 0 POST service/import {"FileName":"imaBackup_v12","Password":"ima4test","DisableObjects":true,"ApplyConfig":true}
+

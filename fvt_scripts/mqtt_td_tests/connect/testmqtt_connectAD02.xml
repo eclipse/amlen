@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+* To recreate defect 71083.. run this test back to back with testmqttAD01, 
+* and uncomment the 'dependsOn' for action CreatePubConnection2.
+*
+*****************************************************************************/
+-->
+<IsmWSTest name="testmqtt_connectAD02" >
+<!--
+    This test will attempt to verify CreateConnection fails or works correctly a user
+    that has a previously existing session loses the Authorization for CleanSession=False. 
+
+    The Setup of preparing the CleanSession=False session with 
+    userID ADChangesUser1 is now done in testMqtt_connectAD01.
+    
+    And the RemoveGroupMembership / AddGroupMembership is also done in
+    testmqtt_connectAD01. (The Groups are cached, so we do it there in order to 
+    not need a 10 to 30 seconds wait time in this test for the cache to be refreshed.) 
+
+            
+    ************************************************************************************ -->        
+  
+    <Action name="RESTShowEndpoint" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/Endpoint/MQTTADEndpoint</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="RESTShowCPNo1" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/MQTTADNoCP1</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+    
+    <Action name="RESTShowCPYes1" type="RestAPI">
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/configuration/ConnectionPolicy/MQTTADYesCP1</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">200</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="ShowUser" type="ShellAction">
+        <ActionParameter name="command">bash ../scripts/config_wrapper.sh 1 user list UserID=ADChangesUser1 Type=Messaging </ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>     
+    
+    <Action name="ShowGroup1" type="ShellAction">
+        <ActionParameter name="command">bash ../scripts/config_wrapper.sh 1 group list GroupID=AllowDurableYes Type=Messaging </ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>
+
+    <Action name="ShowGroup2" type="ShellAction">
+        <ActionParameter name="command">bash ../scripts/config_wrapper.sh 1 group list GroupID=AllowDurableNo Type=Messaging </ActionParameter>
+        <ActionParameter name="print_result">true</ActionParameter>
+    </Action>     
+    
+    <!-- Attempt to reconnect with a now that this user is not allowed to use CleanSession=False. ConnectionPolicy MQTTADNoCP1.  -->
+    <Action name="CreatePubConnection2" type="CreateConnection"  rc="1" reason="ISMTEST2525">
+        <!-- dependsOn action_id="ShowCPYes1" interval="30000" / Defect  71083 recreate --> 
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">connectAD_02</ApiParameter>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser1</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+    </Action>
+    
+    <!-- Try the same thing twice in a row. Hopefully getting the same result. -->
+    <Action name="CreatePubConnection3" type="CreateConnection"  rc="1" reason="ISMTEST2525">
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">connectAD_02</ApiParameter>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser1</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">false</ApiParameter>
+    </Action>
+    
+    <!-- Attempt to reconnect with CleanSession is true, so this should succeed, 
+    but it'll delete the subscription.   -->
+    <Action name="CreatePubConnection4" type="CreateConnection" >
+        <ActionParameter name="structure_id">Con1</ActionParameter>
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <include>../common/ConnectionType.xml</include>
+        <include>../common/MQTT_server.xml</include>
+        <ApiParameter name="clientId">connectAD_02</ApiParameter>
+        <ApiParameter name="port">20029</ApiParameter>
+        <ApiParameter name="protocol">mqtt</ApiParameter>
+        <ApiParameter name="path">config.ism.ibm.com</ApiParameter>
+        <ApiParameter name="user">ADChangesUser1</ApiParameter>
+        <ApiParameter name="password">test</ApiParameter>
+        <ApiParameter name="cleanSession">true</ApiParameter>
+    </Action>
+    
+    <Action name="CheckPubConnection4Good" type="CheckConnection" >
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+        <ActionParameter name="isConnected">true</ActionParameter>
+    </Action> 
+    
+    <Action name="RESTShowSubIsGone" type="RestAPI">
+        <ActionParameter name="structureID">stat_output_b</ActionParameter>
+        <ActionParameter name="server">``A1_HOST``:``A1_PORT``</ActionParameter>
+        <ActionParameter name="path">/ima/v1/monitor/Subscription?SubName=/connect/AD02</ActionParameter>
+        <ActionParameter name="action">GET</ActionParameter>
+        <ActionParameter name="payload"></ActionParameter>
+        <ActionParameter name="printResult">true</ActionParameter>
+        <ActionParameter name="expectedStatusCode">-1</ActionParameter>
+        <ActionParameter name="expectedMessageCode"></ActionParameter>
+    </Action>
+
+    <Action name="RESTCompareShowSubIsGone" type="CompareREST" rc="1" reason="ISMTEST3416">
+        <ActionParameter name="structureID">stat_output_b</ActionParameter>
+        <ActionParameter name="topLevelKey">Subscription</ActionParameter>
+        <ActionParameter name="subObjectKey">SubName</ActionParameter>
+        <ActionParameter name="subObjectName">/connect/AD02</ActionParameter>
+    </Action>
+
+    <Action name="ClosePubConnection4" type="CloseConnection">
+        <ActionParameter name="connection_id">CF1</ActionParameter>
+    </Action>
+    
+    
+</IsmWSTest>
+                

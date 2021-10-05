@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>WebLogic 12c Installation</title>
+</head>
+<body>
+	<h1>WebLogic 12c</h1>
+	<ul>
+		<li><a href="#install">Installation</a></li>
+		<li><a href="#conf_db2">Configure DB2</a></li>
+		<li><a href="#conf_ssl">Configure SSL</a></li>
+		<li><a href="#conf_ima">Configure IBM MessageSight Resource
+				Adapter</a></li>
+		<li><a href="#conf_obound">Configure JMS Outbound</a></li>
+		<li><a href="#conf_ibound">Configure JMS Inbound (Message
+				Driven Beans)</a></li>
+	</ul>
+	<br />
+	<h2 id="install">Installation</h2>
+	<ol>
+		<li>Unzip V31344-01.zip.</li>
+		<li>Launch wls1211_generic.jar.</li>
+		<li>Install to /opt/Oracle/Middleware. Follow the prompts. Don't
+			select to receive security updates.</li>
+		<li>Once installed, a domain must be created. Run: <br />
+			/opt/Oracle/Middleware/wlserver_12.1/common/bin/config.sh and create
+			base_domain.
+		</li>
+		<li>Once the domain is created, launch the server in the
+			background with: <br />/opt/Oracle/Middleware/user_projects/domains/base_domain/startWebLogic.sh
+			< /dev/null &> /dev/null &
+		</li>
+		<li>The Web UI will become available at [hostname]:7001/console.
+		</li>
+	</ol>
+	<br />
+	<h2 id="conf_db2">Configure DB2</h2>
+	<ol>
+		<li>In the left panel, navigate to services -> data sources and
+			press 'new'.</li>
+		<li>Enter: <br />Name: TheDB2DB<br />JNDIName: TheDB2DB<br />DatabaseType:
+			DB2<br /></li>
+		<li>Press 'next'.</li>
+		<li>Enter: <br />database driver: IBM's DB2 Driver (Type 4 XA)<br /></li>
+		<li>Press 'next'.</li>
+		<li>Enter: <br />Database name: sample<br />Host Name:
+			mar092.test.example.com<br />Port: 50000<br />Database User
+			Name: db2inst1<br />Password: admin<br /></li>
+		<li>Press 'next'.</li>
+		<li>In the properties text box, enter:<br />user=db2inst1<br />
+		driverType=4<br />databaseName=sample<br />serverName=mar042.test.example.com
+		<br />portNumber=50000<br /></li>
+		<li> Test Connection to make sure the settings are correct. </li>
+		<li> services -> Data Sources -> TheDB2DB -> Transaction
+		Set XA Transaction timeout: True
+		XA Transaction Timeout: 30 </li>
+		<li> services -> JTA:
+		timeout seconds: 30
+		abandon timeout seconds 36000
+		forget heuristics: true
+	
+		max duration of XA calls: 120000
+		max duration XA resource unavailable: 5000 </li>
+	</ol>
+	<br />
+	<h2 id="conf_ssl">Configure SSL</h2>
+	<ol>
+		<li>Copy testTools_scripts/common_src/ibm.jks to /opt/Oracle/Middleware/wlserver_12.1/server/lib/</li>
+		<li>Modify startWebLogic.sh to include the following properties in JAVA_OPTIONS:
+		<br />-Djavax.net.ssl.keyStore=${WL_HOME}/server/lib/ibm.jks
+		<br />-Djavax.net.ssl.keyStorePassword=password
+		<br />-Djavax.net.ssl.trustStore=${WL_HOME}/server/lib/ibm.jks
+		<br />-Djavax.net.ssl.trustStorePassword=password<br /></li>
+		<li> Note that this isn't the proper way to configure SSL for WebLogic, but it works quite well. </li>
+	</ol>
+	<br />
+	<h2 id="conf_ima">Configure IBM MessageSight Resource Adapter</h2>
+	<ol>
+		<li>Copy ima.jmsra.rar to the server directory (e.g.
+			C:\Oracle\Middleware\user_projects\domains\base_domain)</li>
+		<li>In WebLogic, navigate to 'Deployments' in the left-hand
+			panel.</li>
+		<li>Click 'Install'</li>
+		<li>Browse to the server directory and select ima.jmsra.rar and
+			click 'next'</li>
+		<li>Select 'Install this deployment as an application' and click
+			'next'</li>
+		<li>Click 'Finish'</li>
+		<li>Once installed, Click on ima.jmsra on the 'Deployments' page.
+		</li>
+		<li>There will be several tabs. Go to the 'Configuration' tab.</li>
+		<li>Another row of tabs will appear. Go to the 'General' tab.</li>
+		<li>Assign the resource adapter a JNDI name.</li>
+		<li>Save.</li>
+		<li>On the first save, WebLogic will prompt you to create a
+			Plan.xml. Choose a location for the Plan.xml and save.</li>
+		<li>To configure resource adapter properties, such as trace
+			level, go to the Configuration -> Properties tab.</li>
+	</ol>
+	<br />
+	<h2 id="conf_obound">Configure JMS Outbound</h2>
+	<h3>Creating Connection Factories:</h3>
+	<ol>
+		<li>Navigate to the 'Deployments' page in the left-hand panel.</li>
+		<li>Click on ima.jmsra on the 'Deployments' page.</li>
+		<li>Click on the 'Configuration' tab.</li>
+		<li>In the new row of tabs, click the 'Outbound Connection Pools'
+			tab.</li>
+		<li>Click 'new'.</li>
+		<li>Choose an interface.</li>
+		<li>Assign a JNDI name.</li>
+		<li>Save.</li>
+		<li>Expand the Connection Factory Group of the interface type you
+			created, and click on the new connection factory.</li>
+		<li>Edit the properties as necessary.</li>
+		<li>Save.</li>
+	</ol>
+	<h3>Creating Admin Objects:</h3>
+	<ol>
+		<li>This is the same steps as for a connection factory, but from
+			the Admin Objects configuration tab.</li>
+	</ol>
+	<br />
+	<h2 id="conf_ibound">Configure JMS Inbound (Message Driven Beans)</h2>
+	<ol>
+		<li>Create an EJB project</li>
+		<li>Create a Message Driven Bean (MDB) <br /> For example, this
+			MDB will receive a text message and print it out: <code>
+				<pre>
+package com.ibm.ima.test.weblogic;
+
+import javax.ejb.ActivationConfigProperty;
+import javax.ejb.MessageDriven;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.TextMessage;
+
+@MessageDriven(
+		activationConfig = {
+				@ActivationConfigProperty(propertyName = "destinationType", propertyValue = "javax.jms.Topic"), 
+				@ActivationConfigProperty(propertyName = "destination", propertyValue = "/fun/mdb"),
+				@ActivationConfigProperty(propertyName = "subscriptionDurablility", propertyValue="NonDurable"),
+				@ActivationConfigProperty(propertyName = "subscriptionShared", propertyValue="NonShared"),
+				@ActivationConfigProperty(propertyName = "server", propertyValue = "10.10.4.70"),
+				@ActivationConfigProperty(propertyName = "port", propertyValue= "16102"),
+				@ActivationConfigProperty(propertyName = "traceLevel", propertyValue= "5"),
+				@ActivationConfigProperty(propertyName = "clientMessageCache", propertyValue="1"),
+				@ActivationConfigProperty(propertyName = "concurrentConsumers", propertyValue="1")
+		}, 
+		mappedName = "/fun/mdb")
+public class FunMDB implements MessageListener {
+    public FunMDB() {}
+
+    public void onMessage(Message message) {
+    	log("&gt;&gt; onMessage()");
+    	if (!(message instanceof TextMessage)) {
+    		log("Error, message is not a TextMessage");
+    		return;
+    	}
+    	TextMessage tm = (TextMessage) message;
+    	try {
+			log("message: " + tm.getText());
+		} catch (JMSException e) {
+			log("" + e);
+		}
+    	log("&lt;&lt; onMessage()");
+    }
+    
+    private static void log(String s) {
+    	System.out.println(s);
+    }
+}				
+				</pre>
+			</code>
+		</li>
+		<li>Create the ejb-jar.xml deployment descriptor.<br /> <code>
+				<pre>
+&lt;enterprise-beans&gt;
+	&lt;message-driven&gt;
+		&lt;display-name&gt;FunMDB&lt;/display-name&gt;
+		&lt;ejb-name&gt;FunMDB&lt;/ejb-name&gt;
+		&lt;ejb-class&gt;com.ibm.ima.test.weblogic.FunMDB&lt;/ejb-class&gt;
+		&lt;messaging-type&gt;javax.jms.MessageListener&lt;/messaging-type&gt;
+		&lt;transaction-type&gt;Bean&lt;/transaction-type&gt;
+		&lt;activation-config&gt;
+			&lt;activation-config-property&gt;
+				&lt;activation-config-property-name&gt; destinationType&lt;/activation-config-property-name>
+				&lt;activation-config-property-value&gt; javax.jms.Topic&lt;/activation-config-property-value>
+			&lt;/activation-config-property&gt;
+		&lt;/activation-config&gt;
+	&lt;/message-driven&gt;
+&lt;/enterprise-beans&gt;
+						</pre>
+			</code>
+		</li>
+		<li>Create the weblogic-ejb-jar.xml deployment descriptor.<br />
+			<code>
+				<pre>
+&lt;wls:weblogic-ejb-jar xmlns:wls="http://xmlns.oracle.com/weblogic/weblogic-ejb-jar" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/ejb-jar_3_1.xsd http://xmlns.oracle.com/weblogic/weblogic-ejb-jar http://xmlns.oracle.com/weblogic/weblogic-ejb-jar/1.3/weblogic-ejb-jar.xsd"&gt;
+    &lt;wls:weblogic-enterprise-bean&gt;
+    	&lt;wls:ejb-name>FunMDB&lt;/wls:ejb-name&gt;
+    	&lt;wls:message-driven-descriptor&gt;
+    		&lt;wls:resource-adapter-jndi-name&gt;ima.jmsra&lt;/wls:resource-adapter-jndi-name&gt;
+    	&lt;/wls:message-driven-descriptor&gt;
+    &lt;/wls:weblogic-enterprise-bean&gt;
+&lt;/wls:weblogic-ejb-jar&gt;
+					</pre>
+			</code>
+		</li>
+		<li>Deploy the application to WebLogic Server.<br />
+			<ol>
+				<li>Copy the application to the server directory.</li>
+				<li>In WebLogic, navigate to 'Deployments' in the left-hand
+					panel.</li>
+				<li>Click 'Install'</li>
+				<li>Browse to the server directory and select the application
+					and click 'next'</li>
+				<li>Select 'Install this deployment as an application' and
+					click 'next'</li>
+				<li>Click 'Finish'</li>
+				<li>Once installed, Click on the application name on the
+					'Deployments' page.</li>
+				<li>From here, you can configure the application as necessary.</li>
+			</ol>
+		</li>
+	</ol>
+
+</body>
+</html>

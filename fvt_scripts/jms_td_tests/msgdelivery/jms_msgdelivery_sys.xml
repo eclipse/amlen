@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright (c) 2013-2021 Contributors to the Eclipse Foundation
+ * 
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ * 
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ * 
+ * SPDX-License-Identifier: EPL-2.0
+ */
+   TestCase Name: jms_msgdelivery_sys
+
+   Test Category:  JMS Message Delivery
+
+   Test Description:
+     Overall: Test the functionality of $SYS monitoring topics through JMS
+
+   The following Destinations are created:
+    $SYS/#
+    $SYS/foo
+    $SYSTEM
+    foo
+    #
+
+   One connection is created, has ClientID jms_md_sys_cid
+   One session is created
+
+   The following producers are created:
+    prod_foo (destination foo)
+    prod_SYS_hash (destination $SYS/#) <== create is expected to fail
+    anon_prod_SYS_foo (no destination specified)
+     This producer sends a message to $SYS/foo, and is expected to fail
+              also sends a message to $SYSTEM,  and is expected to fail 
+    prod_SYSTEM (destination $SYSTEM) <== create is expected to fail
+
+   The following consumers are created:
+    cons_hash (destination #) <== expected to receive only 1 message, the one sent to foo    
+                                  cons_ds (destination $SYS/#) <== expected to fail, as DS is not allowed on $SYS topics
+    cons_SYS_hash (destination $SYS/#) <== expected to receive all messages on $SYS/...
+
+
+
+    In the second portion of the test, another connection factory is created, but this time
+    with ConvertMessageType set to "bytes". Even though this is the case, we check to ensure
+    that the received message is of type "TextMessage", because this property is explicitly set.
+  -->
+<ImaJmsTest name="jms_msgdelivery_sys">
+
+  <Action name="Create_CF" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">CF</ActionParameter>
+    <ActionParameter name="loglevel">9</ActionParameter>
+    <ActionParameter name="logfile">stdout</ActionParameter>
+  </Action>
+
+  <Action name="SetProps_CF" type="FillIsmProps">
+    <ActionParameter name="structure_id">CF</ActionParameter>
+    <ActionParameter name="validateAll">true</ActionParameter>
+    <ActionParameter name="validateNoWarn">false</ActionParameter>
+    <ImaProperty name="Protocol" value="tcp" />
+    <include>../common/JMS_server.xml</include>
+    <ImaProperty name="Port" value="16102" type="STRING"/>
+	<ImaProperty name="ClientID" value="jms_md_sys_cid" type="STRING"/>
+  </Action>
+
+  <Action name="Create_SYS_hash" type="CreateDestination">
+	<ActionParameter name="structure_id">SYS_hash</ActionParameter>
+	<ActionParameter name="type">topic</ActionParameter>
+	<ApiParameter name="name">$SYS/#</ApiParameter>
+  </Action>
+
+  <Action name="Create_SYS_foo" type="CreateDestination">
+	<ActionParameter name="structure_id">SYS_foo</ActionParameter>
+	<ActionParameter name="type">topic</ActionParameter>
+	<ApiParameter name="name">$SYS/foo</ApiParameter>    
+  </Action>
+
+  <Action name="Create_SYSTEM" type="CreateDestination">
+	<ActionParameter name="structure_id">SYSTEM</ActionParameter>
+	<ActionParameter name="type">topic</ActionParameter>
+	<ApiParameter name="name">$SYSTEM</ApiParameter>    
+  </Action>
+
+  <Action name="Create_foo" type="CreateDestination">
+	<ActionParameter name="structure_id">foo</ActionParameter>
+	<ActionParameter name="type">topic</ActionParameter>
+	<ApiParameter name="name">foo</ApiParameter>    
+  </Action>
+
+  <Action name="Create_hash" type="CreateDestination">
+	<ActionParameter name="structure_id">hash</ActionParameter>
+	<ActionParameter name="type">topic</ActionParameter>
+	<ApiParameter name="name">#</ApiParameter>    
+  </Action>
+  
+	<Action name="Create_Sys_Topic" type="CreateDestination">
+     <ActionParameter name="structure_id">SYS_Topic</ActionParameter>
+     <ActionParameter name="type">topic</ActionParameter>
+     <ApiParameter name="name">$SYS/ResourceStatistics/Topic</ApiParameter>
+	</Action>
+
+  <Action name="CreateConnection_con" type="CreateConnection">
+    <ActionParameter name="structure_id">con</ActionParameter>
+    <ActionParameter name="factory_id">CF</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession_sess" type="CreateSession">
+    <ActionParameter name="conn_id">con</ActionParameter>
+    <ActionParameter name="structure_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="CreateMessage1" type="CreateMessage">
+	<ActionParameter name="structure_id">msg1</ActionParameter>
+	<ActionParameter name="session_id">sess</ActionParameter>
+	<ApiParameter name="msgType">BYTES</ApiParameter>
+  </Action>
+
+  <Action name="SetMessage1Text" type="SetMessageText">
+	<ActionParameter name="message_id">msg1</ActionParameter>
+	<ApiParameter name="value">some message text</ApiParameter>
+  </Action>
+
+  <Action name="CreateMessage_foo" type="CreateMessage">
+	<ActionParameter name="structure_id">msg_foo</ActionParameter>
+	<ActionParameter name="session_id">sess</ActionParameter>
+	<ApiParameter name="msgType">BYTES</ApiParameter>
+  </Action>
+
+  <Action name="SetMessage_foo_Text" type="SetMessageText">
+	<ActionParameter name="message_id">msg_foo</ActionParameter>
+	<ApiParameter name="value">this is foo message</ApiParameter>
+  </Action>
+
+  <Action name="CreateProducer_foo" type="CreateProducer">
+    <ActionParameter name="structure_id">prod_foo</ActionParameter>
+    <ActionParameter name="destination_id">foo</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="CreateConsumer_hash" type="CreateConsumer">
+    <ActionParameter name="structure_id">cons_hash</ActionParameter>
+    <ActionParameter name="dest_id">hash</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="CreateConsumer_SYS_hash" type="CreateConsumer">
+    <ActionParameter name="structure_id">cons_SYS_hash</ActionParameter>
+    <ActionParameter name="dest_id">SYS_hash</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="CreateProducer_SYS_hash" type="CreateProducer" rc="1" reason="CWLNC0225">
+    <ActionParameter name="structure_id">prod_SYS_hash</ActionParameter>
+    <ActionParameter name="dest_id">SYS_hash</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="CreateProducer_SYSTEM" type="CreateProducer" rc="1" reason="CWLNC0225">
+    <ActionParameter name="structure_id">prod_SYSTEM</ActionParameter>
+    <ActionParameter name="dest_id">SYSTEM</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>    
+  </Action>
+
+  <Action name="CreateAnonymousProducer" type="CreateProducer">
+    <ActionParameter name="structure_id">anon_prod</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+  </Action>
+
+  <Action name="StartConnection_con" type="StartConnection">
+    <ActionParameter name="conn_id">con</ActionParameter>
+  </Action>
+
+  <Action name="TX_anon_SYS_foo" type="SendMessage" rc="1" reason="CWLNC0225">
+	<ActionParameter name="dest_id">SYS_foo</ActionParameter>
+    <ActionParameter name="producer_id">anon_prod</ActionParameter>
+    <ActionParameter name="message_id">msg1</ActionParameter>
+  </Action>
+
+  <Action name="TX_anon_SYSTEM" type="SendMessage" rc="1" reason="CWLNC0225">
+	<ActionParameter name="dest_id">SYSTEM</ActionParameter>
+    <ActionParameter name="producer_id">anon_prod</ActionParameter>
+    <ActionParameter name="message_id">msg1</ActionParameter>
+  </Action>
+
+  <Action name="CreateDurableConsumer_SYS_hash" type="CreateDurableSubscriber" rc="1" reason="CWLNC0225">
+    <ActionParameter name="structure_id">cons_ds</ActionParameter>
+    <ActionParameter name="dest_id">SYS_hash</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+    <ApiParameter name="durableName">sys_hash_ds</ApiParameter>
+  </Action>
+  
+  <Action name="CreateSharedDurableConsumer_SYS_Topic" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0225">
+    <ActionParameter name="structure_id">cons_sds_topic</ActionParameter>
+    <ActionParameter name="dest_id">SYS_Topic</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+    <ApiParameter name="durableName">sys_topic_ds</ApiParameter>
+  </Action>
+  
+  <Action name="CreateDurableConsumer_SYS_Topic" type="CreateSharedDurableConsumer" rc="1" reason="CWLNC0225">
+    <ActionParameter name="structure_id">cons_ds_topic</ActionParameter>
+    <ActionParameter name="dest_id">SYS_Topic</ActionParameter>
+    <ActionParameter name="session_id">sess</ActionParameter>
+    <ApiParameter name="durableName">sys_topic_ds</ApiParameter>
+  </Action>
+  
+  <Action name="SendMessage_foo" type="SendMessage">
+    <ActionParameter name="dest_id">foo</ActionParameter>
+    <ActionParameter name="producer_id">prod_foo</ActionParameter>
+    <ActionParameter name="message_id">msg_foo</ActionParameter>
+  </Action>
+
+  <Action name="RX_msg_foo" type="ReceiveMessage">
+    <ActionParameter name="consumer_id">cons_hash</ActionParameter>
+    <ActionParameter name="structure_id">rx_msg_foo</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+
+  <Action name="RX_no_more" type="ReceiveMessage" rc="1" reason="JMSTDNullMsg">
+    <ActionParameter name="consumer_id">cons_hash</ActionParameter>
+    <ActionParameter name="structure_id">rx_msg_none</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+  </Action>
+  
+
+  <Action name="RX_msg_1" type="ReceiveMessage" repeat="3">
+    <ActionParameter name="consumer_id">cons_SYS_hash</ActionParameter>
+    <ActionParameter name="structure_id">rx_msg_1</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+    <ApiParameter name="msgBodyType">TextMessage</ApiParameter>
+  </Action>
+
+  <Action name="StopConnection_con" type="StopConnection">
+    <ActionParameter name="conn_id">con</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_con" type="CloseConnection">
+    <ActionParameter name="conn_id">con</ActionParameter>
+  </Action>
+
+
+
+
+
+
+  <Action name="Create_CF2" type="CreateConnectionFactory">
+    <ActionParameter name="structure_id">CF2</ActionParameter>
+    <ActionParameter name="loglevel">9</ActionParameter>
+    <ActionParameter name="logfile">stdout</ActionParameter>
+  </Action>
+
+  <Action name="SetProps_CF2" type="FillIsmProps">
+    <ActionParameter name="structure_id">CF2</ActionParameter>
+    <ActionParameter name="validateAll">true</ActionParameter>
+    <ActionParameter name="validateNoWarn">false</ActionParameter>
+    <ImaProperty name="Protocol" value="tcp" />
+    <include>../common/JMS_server.xml</include>
+    <ImaProperty name="Port" value="16102" type="STRING"/>
+    <ImaProperty name="ConvertMessageType" value="bytes" type="STRING"/>
+  </Action>
+
+  <Action name="CreateConnection_con2" type="CreateConnection">
+    <ActionParameter name="structure_id">con2</ActionParameter>
+    <ActionParameter name="factory_id">CF2</ActionParameter>
+  </Action>
+
+  <Action name="CreateSession_sess2" type="CreateSession">
+    <ActionParameter name="conn_id">con2</ActionParameter>
+    <ActionParameter name="structure_id">sess2</ActionParameter>
+  </Action>
+
+  <Action name="CreateConsumer_cons2" type="CreateConsumer">
+    <ActionParameter name="structure_id">cons2</ActionParameter>
+    <ActionParameter name="dest_id">SYS_hash</ActionParameter>
+    <ActionParameter name="session_id">sess2</ActionParameter>
+  </Action>
+
+  <Action name="StartConnection_con2" type="StartConnection">
+    <ActionParameter name="conn_id">con2</ActionParameter>
+  </Action>
+
+  <Action name="RX_msg_1_again" type="ReceiveMessage" repeat="1">
+    <ActionParameter name="consumer_id">cons2</ActionParameter>
+    <ActionParameter name="structure_id">rx_msg_1</ActionParameter>
+    <ApiParameter name="timeout">3000</ApiParameter>
+    <ApiParameter name="msgBodyType">TextMessage</ApiParameter>
+  </Action>
+
+  <Action name="StopConnection_con2" type="StopConnection">
+    <ActionParameter name="conn_id">con2</ActionParameter>
+  </Action>
+
+  <Action name="CloseConnection_con2" type="CloseConnection">
+    <ActionParameter name="conn_id">con2</ActionParameter>
+  </Action>
+
+</ImaJmsTest>
