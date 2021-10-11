@@ -26,7 +26,7 @@ function verify_status_docker {
         reply=`$cmd`
         RC=$?
         if [ $RC -eq 0 ] ; then
-            StateDescription=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
+            StateDescription=`echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
             if [[ "$StateDescription" =~ "$1" ]] ; then
                 echo " $reply"
                 echo " StateDescription=$StateDescription"	

@@ -1,0 +1,674 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE stax SYSTEM "stax.dtd">
+ 
+<stax>
+  <defaultcall function="ismClient"/>
+  <function name="ismClient">
+    <sequence>
+      <process name="'Get STAX server hostname'">
+        <location>"local"</location>
+        <command mode="'shell'">"hostname"</command>
+        <stdout>"/STAXhostname.%s" % STAXJobID</stdout>
+        <stderr mode="'stdout'"/>
+        <returnstdout/>
+      </process>
+      <script>
+          globalVARSLibFile   = '/staf/tools/amlen/globalVARS.xml'
+      </script>
+      <!-- Uncomment this if you want to step through ismClient.xml via STAX debugger -->
+      <!-- <breakpoint/> -->
+      <import file="globalVARSLibFile"/>
+      <call function="'loadGlobalVARS'"/>
+      <call function="'doCommand'">staxServiceMachine, 'rm', '-f /STAXhostname.%s' % (STAXJobID), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+
+      <!--<breakpoint/>-->
+      <script>
+        gapplianceToMigrate = STAXGlobal([0])
+        gtestRC             = STAXGlobal([0])
+        gtestResult         = STAXGlobal([0])
+
+        startTime = time.time(); # record starting time
+ 
+        testFailed          =  0
+        totalPassed         =  0
+        totalFailed         =  0
+        statusMessage       = ""
+        testTypeResults     = ""
+        A1Type              = ""
+        rqmResults          = ""
+        failedList          = ""
+        nonZeroMsg          = ' '
+      </script>
+
+      <call function="'doMessageLog'">'INFO', 'Test = %s,  OS = %s, Build Type = %s, Server Release = %s, Server Label = %s, Client Release = %s, Client Label = %s, Test Release = %s, Test Label = %s, Group = %s %s Environment = %s' % (machineTestName, machineOSName, bldType, serverRelease, serverLabel, clientRelease, clientLabel, testRelease, testLabel, testGroup, ipVersion, allHostList)</call>
+      <script>
+        if testGroup.find('migrate') != -1:
+          finalStatusMessage  = '\nSTAX Job ID:       %s\n\nTest Name:         %s\nBuild Type:        %s\nServer Release:    %s @ %s migrated to %s @ %s\nClient Release:    %s @ %s\nTest Release:      %s @ %s\nTest Group:        %s %s\n\nTest Environment:\n----------------\nController: %s\n%s\n' % (STAXJobID, machineTestName, bldType, serverRelease, serverLabel, migrateRelease, migrateLabel, clientRelease, clientLabel, testRelease, testLabel, testGroup, ipVersion, machineHostName, allHostInfo)
+        else:
+          if proxyRelease != 'NA':
+            finalStatusMessage  = '\nSTAX Job ID:       %s\n\nTest Name:         %s\nBuild Type:        %s\nProxy Release:     %s @ %s\nServer Release:    %s @ %s\nClient Release:    %s @ %s\nTest Release:      %s @ %s\nTest Group:        %s %s\n\nTest Environment:\n----------------\nController: %s\n%s\n' % (STAXJobID, machineTestName, bldType, proxyRelease, proxyLabel, serverRelease, serverLabel, clientRelease, clientLabel, testRelease, testLabel, testGroup, ipVersion, machineHostName, allHostInfo)
+          else:
+            finalStatusMessage  = '\nSTAX Job ID:       %s\n\nTest Name:         %s\nBuild Type:        %s\nServer Release:    %s @ %s\nClient Release:    %s @ %s\nTest Release:      %s @ %s\nTest Group:        %s %s\n\nTest Environment:\n----------------\nController: %s\n%s\n' % (STAXJobID, machineTestName, bldType, serverRelease, serverLabel, clientRelease, clientLabel, testRelease, testLabel, testGroup, ipVersion, machineHostName, allHostInfo)
+        statusSeperator     = '\n\n************************************************************************************************************\n\n'
+      </script>
+
+      <!-- *****  Use Paho version 3.1 if SUNjava80 for IMA15? release  ***** -->
+      <if expr="serverRelease.find('IMADev') != -1 and clientRelease.find('IMADev') != -1 and testRelease.find('IMADev') != -1 and machineFlags.find('SUNjava80') != -1">
+        <call function="'doCommand'">machineHostIP, 'echo', 'export PAHO_VERSION=3', 'nodir', 'noenv', '%s/testEnv.sh' % (testRoot), 'append'</call>
+      </if>
+
+      <!-- *****  TEST EXECUTION ITERATION FOR ITEMS IN testList STARTS HERE  ***** -->
+      <iterate var="test" in="ismClientTestList" indexvar="i">
+        <sequence>
+          <call function="'doMessageLog'">'TRACE', 'DEBUG: test0: %s' % (test[0])</call>
+          <call function="'doMessageLog'">'TRACE', 'DEBUG: test1: %s' % (test[1])</call>
+          <call function="'doMessageLog'">'TRACE', 'DEBUG: machineFlags: %s' % (machineFlags)</call>
+          <!-- Check for TERMINATE flag... if set, do not start any additional tests -->
+          <if expr="testGroup.find('_prod') != -1">
+            <call function="'processVAR'">'GET', 'NOHOLD', nameSpace, testGroup[0:tgPrefixLen] + 'prod_' + thisRelease</call>
+          <else>
+            <call function="'processVAR'">'GET', 'NOHOLD', nameSpace, testGroup[0:tgPrefixLen] + thisRelease</call>
+          </else>
+          </if>
+          <script>releaseStatus = STAFResult</script>
+          <if expr="releaseStatus == 'TERMINATE'">
+            <sequence>
+              <message log="1">'TERMINATING....'</message>
+              <break/>
+            </sequence>
+          </if>
+          <if expr="test[1] != ' '">
+            <script> testcaseName = '%s_%s' % (test[1], test[0]) </script>
+          <else>
+            <script> testcaseName = '%s' % (test[0]) </script>
+          </else>
+          </if>
+
+          <testcase name="'%s' % (testcaseName)">
+            <sequence>
+              <script> skipTest = 'FALSE' </script>
+              <if expr="machineFlags.find('32bit') != -1 and testcaseName.find('web_ui') == -1">
+                <call function="'getJavaPath'">'32', 'default'</call>
+              <else>
+                <call function="'getJavaPath'">'64', 'default'</call>
+              </else>
+              </if>
+              <script> javaPath = STAXResult </script>
+
+              <!-- *****  Set the JVM PATH for this test, OR skip test because machineFlags so not specify this JVM ***** -->
+              <iterate var="jvm" in="jvmList">
+                <sequence> 
+                  <if expr="test[1].find(jvm) != -1">
+                    <if expr="machineFlags.find(jvm) == -1">
+                      <sequence>
+                      <call function="'doMessageLog'">'INFO', 'INFO: Skipping test since JVM flags missing from machineFlags.'</call>
+                      <script> skipTest = 'TRUE' </script>
+                      </sequence>
+                    <else>
+                      <sequence>
+                        <if expr="machineFlags.find('32bit') != -1">
+                          <call function="'getJavaPath'">'32', '%s' % (jvm)</call>
+                        <else>
+                          <call function="'getJavaPath'">'64', '%s' % (jvm)</call>
+                        </else>
+                        </if>
+                        <script>
+                          javaPath = STAXResult
+                          skipTest = 'FALSE'
+                        </script>
+                      </sequence>
+                    </else>
+                    </if>
+                  </if>
+                </sequence>
+              </iterate>
+
+              <!-- *****  Check to be sure test script exists for this release... if not, skip the test (DON'T SKIP MIGRATION)  ***** -->
+              <call function="'doCommand'">machineHostIP, 'test', '-f %s/%s/%s' % (testRoot, test[0], test[2]), 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+              <if expr="STAXResult[0] != 0 and test[1].find('MIGRATE') == -1">
+                <sequence>
+                <call function="'doMessageLog'">'INFO', 'INFO: Skipping test since test script was not found.'</call>
+                <script> skipTest = 'TRUE' </script>
+                </sequence>
+              </if>
+
+              <!-- *****  Skip C tests if machineFlags do not specify "C" ***** -->
+              <if expr="test[1].find('C') != -1">
+                <if expr="machineFlags.find('C') == -1">
+                  <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping C tests since C flag was not found in machineFlags.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip JMS TCK tests if machineFlags do not specify "JMSTCK" ***** -->
+              <if expr="test[0].find('jms_tck') != -1">
+                <if expr="machineFlags.find('JMSTCK') == -1">
+                  <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping JMS TCK tests since JMSTCK flag was not found in machineFlags.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip the listed test buckets if server is in remote location from client/tools (ie. Azure or EC2) ***** -->
+              <if expr="test[0] == 'proxy_tests' or test[0] == 'jms_mqtt_td_tests' or test[0] == 'jca_tests' or test[0] == 'jms_tck' or test[0] == 'mqtt_xrscada'">
+                <sequence>
+                  <call function="'doCommand'">machineHostIP, 'grep', 'A1_LOCATION %s/testEnv.sh' % (testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                  <if expr="STAXResult[1].split('=')[1].strip() == 'remote'">
+                    <script> skipTest = 'TRUE' </script>
+                  </if>
+                </sequence>
+              </if>
+
+              <!-- *****  Skip JCA tests if machineFlags do not specify "JCA" ***** -->
+              <if expr="test[0].find('jca_tests') != -1">
+                <if expr="machineFlags.find('JCA') == -1">
+                  <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping JCA tests since JCA flag was not found in machineFlags.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip ALL other tests except proxy tests if machineFlags does specify "BRIDGE" ***** -->
+              <if expr="machineFlags.find('BRIDGE') != -1">
+                <if expr="test[0].find('bridge_tests') == -1 and test[0].find('proxy_tests') == -1">
+                  <sequence>
+                  <script> skipTest = 'TRUE' </script>
+                  <call function="'doMessageLog'">'TRACE', 'Skipping test %s because we found Bridge machine flags.' % (test[0])</call>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip Bridge tests if machineFlags do not specify "BRIDGE" ***** -->
+              <if expr="test[0].find('bridge_tests') != -1">
+                <if expr="machineFlags.find('BRIDGE') == -1">
+                  <sequence>
+                  <script> skipTest = 'TRUE' </script>
+                  <call function="'doMessageLog'">'TRACE', 'Skipping test %s because Bridge machine flags were not set.' % (test[0])</call>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip ALL other tests except bridge tests if machineFlags does specify "PROXY" ***** -->
+              <if expr="machineFlags.find('PROXY') != -1">
+                <if expr="test[0].find('proxy_tests') == -1 and test[0].find('bridge_tests') == -1">
+                  <sequence>
+                  <script> skipTest = 'TRUE' </script>
+                  <call function="'doMessageLog'">'TRACE', 'Skipping test %s because we found Proxy machine flags.' % (test[0])</call>
+                  </sequence>
+                </if>
+              </if>
+
+              <if expr="test[0].find('proxy_tests') != -1">
+                <if expr="machineFlags.find('PROXY') == -1">
+                  <sequence>
+                  <script> skipTest = 'TRUE' </script>
+                  <call function="'doMessageLog'">'TRACE', 'Skipping test %s because Proxy machine flags were not set.' % (test[0])</call>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- ***** Renabling bridge tests if machineFlags specify "BRIDGE" ***** -->
+              <if expr="machineFlags.find('BRIDGE') != -1">
+                <if expr="test[0].find('bridge_tests') != -1">
+                  <sequence>
+                  <script> skipTest = 'FALSE' </script>
+                  <call function="'doMessageLog'">'TRACE', 'Making sure to run test %s because we found BRIDGE machine flags.' % (test[0])</call>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- ***** Renabling proxy tests if machineFlags specify "PROXY" ***** -->
+              <if expr="machineFlags.find('PROXY') != -1">
+                <if expr="test[0].find('proxy_tests') != -1">
+                  <sequence>
+                  <script> skipTest = 'FALSE' </script>
+                  <call function="'doMessageLog'">'TRACE', 'Making sure to run test %s because we found PROXY machine flags.' % (test[0])</call>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip HA tests if machineFlags do not specify "HA" ***** -->
+              <if expr="test[1].find('HA') != -1">
+                <if expr="machineFlags.find('HA') == -1">
+                  <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping HA tests since HA flag was not found in machineFlags.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip ALL other tests if machineFlags does specify "HA" ***** -->
+              <if expr="machineFlags.find('HA') != -1">
+                  <if expr="test[1].find('HA') == -1">
+                  <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping all other tests since HA flag was found in machineFlags.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip CLSTSM tests if machineFlags do not specify "CLSTSM" ***** -->
+              <if expr="test[1].find('CLSTSM') != -1">
+                <if expr="machineFlags.find('CLSTSM') == -1">
+                    <sequence>
+                    <call function="'doMessageLog'">'INFO', 'INFO: Skipping CLSTSM tests since CLSTSM flag was not found in machineFlags.'</call>
+                    <script> skipTest = 'TRUE' </script>
+                    </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip ALL other tests if machineFlags does specify "CLSTSM" ***** -->
+              <if expr="machineFlags.find('CLSTSM') != -1">
+                <if expr="test[1].find('CLSTSM') == -1">
+                  <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping all other tests since CLSTSM flag was found in machineFlags.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip CLSTLG tests if machineFlags do not specify "CLSTLG" ***** -->
+              <if expr="test[1].find('CLSTLG') != -1">
+                <if expr="machineFlags.find('CLSTLG') == -1">
+                  <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping CLSTLG tests since CLSTLG flag was not found in machineFlags.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip ALL other tests if machineFlags does specify "CLSTLG" ***** -->
+              <if expr="machineFlags.find('CLSTLG') != -1">
+                <if expr="test[1].find('CLSTLG') == -1">
+                  <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping all other tests since CLSTLG flag was found in machineFlags.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+                </if>
+              </if>
+
+              <!-- *****  Skip haFunctions tests on Bare Metal machines ***** -->
+              <if expr="test[0] == 'haFunctions'">
+                <sequence>
+                  <call function="'doCommand'">machineHostIP, 'grep', 'A1_TYPE %s/testEnv.sh' % (testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                  <if expr="STAXResult[1].split('=')[1].strip() == 'Bare_Metal'">
+                    <script> skipTest = 'TRUE' </script>
+                  </if>
+                </sequence>
+              </if>
+
+              <!-- *****  Skip PROXY tests if no PROXY ***** -->
+              <call function="'doCommand'">machineHostIP, 'grep', 'P_COUNT %s/testEnv.sh' % (testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+              <if expr="test[0] == 'proxy_tests' and STAXResult[1].split('=')[1].strip() == '0'">
+                <sequence>
+                  <call function="'doMessageLog'">'INFO', 'INFO: Skipping proxy tests since no proxy was found.'</call>
+                  <script> skipTest = 'TRUE' </script>
+                  </sequence>
+              </if>
+
+              <!-- *****  Skip BRIDGE tests if no BRIDGE ***** -->
+              <call function="'doCommand'">machineHostIP, 'grep', 'B_COUNT %s/testEnv.sh' % (testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+              <if expr="test[0] == 'bridge_tests' and STAXResult[1].split('=')[1].strip() == '0'">
+                <script> skipTest = 'TRUE' </script>
+              </if>
+
+              <!-- *****  If the SkipTest FLAG was set, then skip this test ***** -->
+              <if expr="skipTest == 'TRUE'">
+                <sequence>
+                  <call function="'doMessageLog'">'TRACE', 'Skipping test: %s -  %s/%s/%s' % (test[1], testRoot, test[0], test[2])</call>
+                  <continue/>
+                </sequence>
+              </if>
+
+              <!-- *****  Get the Browser PATH for all browsers used for this test ***** -->
+              <call function="'getBrowserPath'"/>
+              <script> browserPath = STAXResult </script>
+
+              <!-- *****  Get the MQ Client PATH for this test ***** -->
+              <call function="'getMQClientPath'"/>
+              <script> 
+                mqClientPath      = STAXResult[0]
+                mqClientLibPath   = STAXResult[1]
+                mqClientClassPath = STAXResult[2]
+              </script> 
+
+              <!-- *****  Checkout WAS, uninstall old rar file, install new rar file, and add variables to M1 testEnv.sh  ***** -->
+              <if expr="test[0] == 'jca_tests'">
+                <sequence>
+                  <call function="'setupWAS'"/>
+                  <script> 
+                    wasResult = STAXResult[0] 
+                    wasInfo   = STAXResult[1] 
+                  </script>
+                  <if expr="len(wasResult) > 1">
+                    <sequence>
+                    <call function="'slackNotify'">stafAdminSlack, 'JobID: %s afharness: WAS setup FAILED for Release: %s(%s) Label: %s, %s (%s%s) on %s\n\n%s' % (STAXJobID, thisRelease, bldType, thisLabel, machineTestName, testGroup, ipVersion, allHostList, wasResult)</call>
+                    <call function="'sendEmail'">stafAdmin, 'WAS setup FAILED for Release: %s(%s) Label: %s, %s (%s%s) on %s' % (thisRelease, bldType, thisLabel, machineTestName, testGroup, ipVersion, allHostList), '\n\n%s' % (wasResult)</call>
+                    </sequence>
+                  </if>
+                  <call function="'doCommand'">machineHostIP, 'echo', 'export WASIP=%s' % (wasInfo[2][0]), 'nodir', 'noenv', '%s/testEnv.sh' % (testRoot), 'append'</call>
+                  <call function="'doCommand'">machineHostIP, 'echo', 'export WASType=%s' % (wasInfo[2][1]), 'nodir', 'noenv', '%s/testEnv.sh' % (testRoot), 'append'</call>
+                  <call function="'doCommand'">machineHostIP, 'echo', 'export WASPath=%s' % (wasInfo[2][2]), 'nodir', 'noenv', '%s/testEnv.sh' % (testRoot), 'append'</call>
+                </sequence>
+              </if>
+
+              <script>
+                testStartTime = time.time() # get current time
+                testPath      = 'PATH=%s:%s:%s:%s' % (javaPath, browserPath, mqClientPath, clientPath)
+                testLibPath   = 'LD_LIBRARY_PATH=%s:%s' % (mqClientLibPath, clientLibPath)
+                testClassPath = 'CLASSPATH=%s:%s' % (clientClassPath, mqClientClassPath)
+                testOtherENV1 = 'USE_BUSYBOX=off'
+                testOtherENV2 = 'ISM_BUILDTYPE=%s' % (bldType)
+                testType     = '%s' % (test[5])
+              </script>
+
+              <call function="'doCommand'">machineHostIP, 'grep', 'A1_TYPE %s/testEnv.sh' % (testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+              <script> A1Type = STAXResult[1].split('=')[1].strip() </script>
+
+              <!-- Use A1_HOST_OS instead of A1_TYPE for DOCKER and RPM installs -->
+              <if expr="A1Type.find('DOCKER') != -1 or A1Type.find('RPM') != -1">
+                <sequence>
+                  <call function="'doCommand'">machineHostIP, 'grep', 'A1_HOST_OS %s/testEnv.sh' % (testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                  <script> A1Type = STAXResult[1].split('=')[1].strip() </script>
+                </sequence>
+              </if>
+ 
+              <call function="'doMessageLog'">'TRACE', 'testPath = %s' % (testPath)</call>
+              <call function="'doMessageLog'">'TRACE', 'testLibPath = %s' % (testLibPath)</call>
+              <call function="'doMessageLog'">'TRACE', 'testClassPath = %s' % (testClassPath)</call>
+              <call function="'doMessageLog'">'TRACE', 'testOtherENVs = %s %s' % (testOtherENV1, testOtherENV2)</call>
+  
+              <sequence>
+                <call function="'doCommand'">machineHostIP, 'echo', '\"PROFILEREAD=false\"', 'nodir', 'noenv', '/root/.ssh/environment', 'nomode'</call>
+                <call function="'doCommand'">machineHostIP, 'echo', '\"%s\"' % (testPath), 'nodir', 'noenv', '/root/.ssh/environment', 'append'</call>
+                <call function="'doCommand'">machineHostIP, 'echo', '\"%s\"' % (testLibPath), 'nodir', 'noenv', '/root/.ssh/environment', 'append'</call>
+                <call function="'doCommand'">machineHostIP, 'echo', '\"%s\"' % (testClassPath), 'nodir', 'noenv', '/root/.ssh/environment', 'append'</call>
+              </sequence>
+
+              <!-- capture the environment on the test machine -->
+              <call function="'doMessageLog'">'TRACE', 'testPath = %s' % (testPath)</call>
+              <call function="'doCommand'">machineHostIP, 'set', ' ', '%s/%s' % (testRoot, test[0]), [testPath, testLibPath, testClassPath, testOtherENV1, testOtherENV2], '%s/%s_ENVIRONMENT.log' % (testRoot, testcaseName), 'nomode'</call>
+              <!-- capture the java version for this test -->
+              <if expr="test[1].find('java') != -1">
+                <call function="'doCommand'">machineHostIP, 'java', '-version', '%s/%s' % (testRoot, test[0]), [testPath, testLibPath, testClassPath, testOtherENV1, testOtherENV2], '%s/%s.log' % (testRoot, testcaseName), 'nomode'</call>
+              </if>
+              <call function="'doMessageLog'">'INFO', 'Running test %s on %s' % (testcaseName, machineOSName)</call>
+              <!-- Check the timezone before execution of each test bucket (NOT SUPPORTED ON DOCKER) -->
+              <call function="'doCommand'">machineHostIP, 'grep', 'A1_TYPE %s/testEnv.sh' % (testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+
+              <!-- If a file named HOLD.IT exist in the test root directory (ie. /HOLD.IT), wait here until it no longer exist -->
+              <loop>
+                <sequence>
+                  <call function="'doCommand'">machineHostIP, 'test', '-f /HOLD.IT', 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK NO_MESSAGE_LOG'</call>
+                  <if expr="STAXResult[0] != 0">
+                    <break/>
+                  <else>
+                    <stafcmd name="'Sleep for 300 seconds'">
+                      <location>staxServiceMachine</location>
+                      <service>'delay'</service>
+                      <request>'delay 300000'</request>
+                    </stafcmd>
+                  </else>
+                  </if>
+                </sequence>
+              </loop>
+
+              <parallel>
+                <block name="'runTest'">
+                  <sequence>
+                    <!-- If there is a test script to run, then run it -->
+                    <call function="'doCommand'">machineHostIP, 'test', '-f %s/%s/%s' % (testRoot, test[0], test[2]), 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                    <if expr="STAXResult[0] == 0">
+                      <sequence>
+                        <!-- start the test on the test machine -->
+                        <call function="'doCommand'">machineHostIP, '%s/%s/%s' % (testRoot, test[0], test[2]), test[3], '%s/%s' % (testRoot, test[0]), [testPath, testLibPath, testClassPath, testOtherENV1, testOtherENV2], '%s/%s.log' % (testRoot, testcaseName), 'append', 'NO_ERROR_CHECK'</call>
+                        <script>
+                          gtestRC[0]     = STAXResult[0]
+                          gtestResult[0] = STAXResult[1]
+                        </script>
+                      </sequence>
+                    </if>
+                  </sequence>
+                </block>
+                <call function="'monitorRunTime'">test[4]</call>
+                <!-- *****  MIGRATE TEST: IF TESTCASE NAME = MIGRATE, MIGRATION SETUP IS COMPLETE SO UPGRADE THE APPLIANCE AND WAIT FOR IT TO COME BACK UP ***** -->
+                <!-- *****  (SA configuration the server should always be 1, HA configuration we want to migrate server 2 1st as it should be the standby) ***** -->
+              </parallel>
+              <script>
+                testRC        = gtestRC[0]
+                testResult    = gtestResult[0]
+                testEndTime   = time.time() # get current time
+                testTotalSecs = testEndTime - testStartTime # yields time elapsed in seconds
+                testTotalMins = testTotalSecs / 60
+              </script>
+              <call function="'doMessageLog'">'DEBUG', 'After running test %s on %s: testRC = %s' % (testcaseName, machineOSName, testRC)</call>
+              <call function="'doMessageLog'">'DEBUG', 'After running test %s on %s: testResult = %s' % (testcaseName, machineOSName, testResult)</call>
+              <!-- *****  Release WAS server back to pool  ***** -->
+              <if expr="test[0] == 'jca_tests'">
+                <sequence>
+                  <call function="'hostRequestRelease'">wasInfo[0], 'RELEASE'</call>
+                  <script> 
+                    finalStatusMessage = finalStatusMessage + 'WAS Info:          %s@%s\n\n' % (wasInfo[2][1], wasInfo[2][0])
+                  </script> 
+                </sequence>
+              </if>
+              <!--if expr="testRC != 0"-->
+              <if expr="0 != 0"> <!-- FORCE THE PATH WHERE WE DON"T PUT STDOUT TO THE EMAIL REPORTS -->
+                <!-- capture failure info -->
+                <sequence>
+                  <call function="'doMessageLog'">'INFO', 'test %s on %s failed with RC=%s' % (testcaseName, machineOSName, testRC)</call>
+                  <call function="'doCommand'">machineHostIP, 'cat', '%s/%s.log' % (testRoot, testcaseName), 'nodir', 'noenv', '%s/%s.failed' % (testRoot, testcaseName), 'nomode', 'NO_ERROR_CHECK'</call>
+                  <script>
+                    nonZeroMsg = '(RC!=0 for some tests, check individual results for details)'
+                    testFailed=1
+                    statusMessage = statusMessage + "%s%s FAILED, RC=%s, Duration: %.2f minutes\n\n%s\n" % (statusSeperator, STAXCurrentTestcase, testRC, testTotalMins, testResult.replace('\"', '*').replace('\'', '*').replace('\$', '*').replace('\{', '*'))
+                    failedList = failedList + "\"" + testcaseName + "\" FAILED:\n" + testResult.replace('\"', '*').replace('\'', '*').replace('\$', '*').replace('\{', '*')
+                  </script>
+                  <tcstatus result="'fail'">'RC=%s Results: %s' % (testRC, testResult)</tcstatus>
+                  <!-- copy logs to unique named directory so they don't get overwritten by next run -->
+                  <!-- <call function="'doCommand'">machineHostIP, 'mkdir', '-p %s/LOGS_for_%s' % (testRoot, testcaseName), 'nodir', 'noenv', 'nofile', 'nomode'</call> -->
+                  <call function="'doCommand'">machineHostIP, 'cp', '-r %s/%s %s/LOGS_for_%s' % (testRoot, test[0], testRoot, testcaseName), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                  <!-- delete logs from testcase directory after copy so we don't end up with duplicates in the zip file -->
+                  <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.log\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                  <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.tar\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                  <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.tgz\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                  <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.otx\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                  <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.enc\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                  <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'javacore*\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                  <!-- delete restapi/node_modules directory before we zip because we are getting file name too long errors on Windows unzip in place. -->
+                  <call function="'doCommand'">machineHostIP, 'rm', '-rf %s/LOGS_for_%s/restapi/node_modules' % (testRoot, testcaseName), 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                </sequence>
+              <else>
+                <!-- determine total number of PASSED and FAILED for this test -->
+                <sequence>
+                  <call function="'doMessageLog'">'INFO', 'getting PASSED count for test %s on %s' % (testcaseName, machineOSName)</call>
+                  <!-- get PASSED count -->
+                  <call function="'doCommand'">machineHostIP, 'grep', '-c PASSED %s/%s.log' % (testRoot, testcaseName), 'nodir', 'noenv', '%s/%s.passed' % (testRoot, testcaseName), 'nomode', 'NO_ERROR_CHECK'</call>
+                  <script>
+                    passedCount = STAXResult[1]
+                    totalPassed = totalPassed + int(passedCount)
+                  </script>
+                  <!-- if there were passes, extract the PASSED lines from log -->
+                  <if expr="passedCount[0] != '0'">
+                    <call function="'doCommand'">machineHostIP, 'grep', 'PASSED %s/%s.log' % (testRoot, testcaseName), 'nodir', 'noenv', '%s/%s.passed' % (testRoot, testcaseName), 'nomode', 'NO_ERROR_CHECK'</call>
+                  </if>
+                  <!-- get FAILED count -->
+                  <call function="'doMessageLog'">'INFO', 'getting FAILED count for test %s on %s' % (testcaseName, machineOSName)</call>
+                  <call function="'doCommand'">machineHostIP, 'grep', '-c FAILED %s/%s.log' % (testRoot, testcaseName), 'nodir', 'noenv', '%s/%s.failed' % (testRoot, testcaseName), 'nomode', 'NO_ERROR_CHECK'</call>
+                  <script>
+                    failedCount = STAXResult[1]
+                    totalFailed = totalFailed + int(failedCount)
+                  </script>
+                  <!-- if there were failures, extract the FAILED lines from log -->
+                  <if expr="failedCount[0] != '0'">
+                    <call function="'doCommand'">machineHostIP, 'grep', 'FAILED %s/%s.log' % (testRoot, testcaseName), 'nodir', 'noenv', '%s/%s.failed' % (testRoot, testcaseName), 'nomode', 'NO_ERROR_CHECK'</call>
+                  </if>
+                  <!-- determine correct status message  -->
+                  <if expr="STAXResult[0] == 0 or passedCount[0] == '0' or testRC != 0">
+                    <sequence>
+                      <script>testFailed=1</script>
+                      <if expr="testRC != 0">
+                        <script> nonZeroMsg = '(RC!=0 for some tests, check individual results for details)' </script>
+                      </if>
+                      <if expr="RC == 0">
+                        <sequence>
+                          <script>
+                            statusMessage = statusMessage + "%s%s FAILED, RC=%s, Duration: %.2f minutes\n\n PASSED count = %s FAILED count = %s\n\nFailures reported:\n%s\n" % (statusSeperator, STAXCurrentTestcase, testRC, testTotalMins, passedCount, failedCount, STAXResult[1].replace('\"', '*').replace('\'', '*').replace('\$', '*').replace('\{', '*'))
+                            failedList = failedList + "\"" + testcaseName + "\" FAILED:\n" + STAXResult[1].replace('\"', '*').replace('\'', '*').replace('\$', '*').replace('\{', '*')
+                          </script>
+                          <tcstatus result="'fail'">'PASSED count = %s FAILED count = %s %s' % (passedCount, failedCount, STAXResult[1])</tcstatus>
+                        </sequence>
+                      <else>
+                        <sequence>
+                          <script>statusMessage = statusMessage + "%s%s FAILED, RC=%s, Duration: %.2f minutes\n\n PASSED count = %s FAILED count = %s\n" % (statusSeperator, STAXCurrentTestcase, testRC, testTotalMins, passedCount, failedCount)</script>
+                          <tcstatus result="'fail'">'PASSED count = %s FAILED count = %s' % (passedCount, failedCount)</tcstatus>
+                        </sequence>
+                      </else>
+                      </if>
+                      <!-- copy logs to unique named directory so they don't get overwritten by next run -->
+                      <call function="'doCommand'">machineHostIP, 'mkdir', '-p %s/LOGS_for_%s' % (testRoot, testcaseName), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                      <call function="'doCommand'">machineHostIP, 'cp', '-r %s/%s %s/LOGS_for_%s' % (testRoot, test[0], testRoot, testcaseName), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                      <!-- delete logs from testcase directory after copy so we don't end up with duplicates in the zip file -->
+                      <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.log\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                      <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.tar\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                      <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.tgz\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                      <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.otx\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                      <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'*.enc\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                      <call function="'doCommand'">machineHostIP, 'rm', '`find -name \'javacore*\'` -f', '%s/%s' % (testRoot, test[0]), 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                      <!-- delete restapi/node_modules directory before we zip because we are getting file name too long errors on Windows unzip in place. -->
+                      <call function="'doCommand'">machineHostIP, 'rm', '-rf %s/LOGS_for_%s/restapi/node_modules' % (testRoot, testcaseName), 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                    </sequence>
+                  <else>
+                    <sequence>
+                      <script>statusMessage = statusMessage + "%s%s PASSED, RC=%s, Duration: %.2f minutes\n\n PASSED count = %s FAILED count = %s\n" % (statusSeperator, STAXCurrentTestcase, testRC, testTotalMins, passedCount, failedCount)</script>
+                      <tcstatus result="'pass'">'PASSED count = %s FAILED count = %s' % (passedCount, failedCount)</tcstatus>
+                    </sequence>
+                  </else>
+                  </if>
+                  <script>
+                    testTypeResults = testTypeResults + "%s:  PCOUNT: %s   FCOUNT: %s\n" % (testType, str(passedCount).rstrip(), str(failedCount).rstrip())
+                    ### Create test results data in format for RQM input file ###
+                    for line in testResult.splitlines():
+                      if line.find('PASSED') != -1 or line.find('FAILED') != -1 and line.find('must-gather') == -1:
+                        if line.find(':') != -1:
+                          lineStatus = line.split(':')[0].strip()
+                        else:
+                          lineStatus = line
+                        if line.find('-') != -1:
+                          lineTestCase = line.split('-')[1].strip()
+                        else:
+                          lineTestCase = testcaseName
+                        rqmResults = rqmResults + lineStatus + ',' + thisLabel + ',' + 'NA' + ',' + test[2] + ',' + testType + "," + lineTestCase + '\n'
+                  </script>
+                  <call function="'doMessageLog'">'TRACE', 'rqmResults = %s' % (rqmResults)</call>
+                </sequence>
+              </else>
+              </if>
+            </sequence>
+          </testcase>
+        </sequence>
+      </iterate>
+      <call function="'postLogFiles'">'getLink'</call>
+      <script>
+        logFileLink = STAXResult
+        endTime   = time.time() # get current time
+        totalSecs = endTime - startTime # yields time elapsed in seconds
+        hours=totalSecs/3600
+        minutes=(totalSecs/60)%60
+        seconds=totalSecs%60
+        finalStatusMessage = finalStatusMessage + 'Total Time:        %02d:%02d:%02d\n\nTotal PASSED:      %s\nTotal FAILED:      %s   %s\n\nSee logfile for details:\n%s\nLogfiles can also be found via the external IP address in the same location: %s\n' % (hours, minutes, seconds, totalPassed, totalFailed, nonZeroMsg, logFileLink, pubServer)
+        finalStatusMessage = finalStatusMessage + statusMessage + statusSeperator
+        testTypeResults = testTypeResults + "%s:  PCOUNT: %s   FCOUNT: %s\n" % (A1Type, totalPassed, totalFailed)
+        slackFailedSummaryMessage = 'Release: %s (%s) Label: %s, %s (%s%s) on %s FAILED' % (thisRelease, bldType, thisLabel, machineTestName, testGroup, ipVersion, allHostList) 
+        slackSucceededSummaryMessage = 'Release: %s (%s) Label: %s, %s (%s%s) on %s SUCCESSFUL' % (thisRelease, bldType, thisLabel, machineTestName, testGroup, ipVersion, allHostList) 
+      </script>
+
+      <if expr="testFailed">
+        <sequence>
+          <if expr="testGroup.find('bvt') != -1 and staxLocation == 'softlayer' and bldType != 'personal'">
+            <call function="'doCommand'">staxServiceMachine, 'ssh', '%s \"cd %s/results; touch failedBVT\"' % (pubServer, serverPubRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+          </if>
+          <call function="'doMessageLog'">'INFO', 'TEST FAILED: Adding ALL files and dirs (excluding tar, tgz, enc, and otx) from %s to %s/%s_logs.zip' % (testRoot, testRoot, machineTestName)</call>
+          <call function="'doCommand'">machineHostIP, 'zip', '-r %s/%s_logs.zip %s/* -x \\*.tgz -x \\*.tar -x \\*.enc -x \\*.otx -x *A??cores* -x *A??log* -x *A??messagesight*' % (testRoot, machineTestName, testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+          <call function="'doMessageLog'">'INFO', 'TEST FAILED: Adding tgz, tar, and dirs from %s to %s/%s_tars.zip' % (testRoot, testRoot, machineTestName)</call>
+          <call function="'doCommand'">machineHostIP, 'zip', '-r %s/%s_tars.zip %s/* -i \\*.tgz -i \\*.tar -i *A??cores* -i *A??log* -i *A??messagesight*' % (testRoot, machineTestName, testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+          <call function="'slackNotify'">slackNotifyList, 'JobID: %s afharness: Release: %s(%s) Label: %s, %s (%s%s) on %s FAILED\n\n%s' % (STAXJobID, thisRelease, bldType, thisLabel, machineTestName, testGroup, ipVersion, allHostList, finalStatusMessage)</call>
+          <call function="'sendEmail'">emailNotifyList, 'Release: %s(%s) Label: %s, %s (%s%s) on %s FAILED' % (thisRelease, bldType, thisLabel, machineTestName, testGroup, ipVersion, allHostList), '\n\n%s' % (finalStatusMessage)</call>
+          <script>
+              slackFinalStatusMessage = "\n---------\n"
+              slackFinalStatusMessage = slackFinalStatusMessage + "AFHarness job notification:\n"
+              slackFinalStatusMessage = slackFinalStatusMessage + slackFailedSummaryMessage + "\n"
+              slackFinalStatusMessage = slackFinalStatusMessage + "---------\n\n"
+              slackFinalStatusMessage = slackFinalStatusMessage + finalStatusMessage + "\n\n"
+          </script>
+        </sequence>
+      <else>
+        <sequence>
+          <call function="'doMessageLog'">'INFO', 'TEST PASSED: Adding ONLY files located in %s to %s/%s_logs.zip' % (testRoot, testRoot, machineTestName)</call>
+          <call function="'doCommand'">machineHostIP, 'zip', '%s/%s_logs.zip %s/*' % (testRoot, machineTestName, testRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+          <if expr="testGroup.find('bvt') != -1">
+            <sequence>
+            <if expr="staxLocation == 'softlayer' and bldType != 'personal'">
+              <sequence>
+                <call function="'doCommand'">staxServiceMachine, 'ssh', '%s \"cd %s/results; touch passedBVT\"' % (pubServer, serverPubRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                <call function="'doCommand'">staxServiceMachine, 'ssh', '%s \"cd %s/..; rm -f passedBVT\"' % (pubServer, serverPubRoot), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                <call function="'doCommand'">staxServiceMachine, 'ssh', '%s \"cd %s/..; ln -s %s passedBVT\"' % (pubServer, serverPubRoot, thisLabel), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+              </sequence>
+            </if>
+                <sequence>
+                <call function="'slackNotify'">slackNotifyList, 'JobID: %s afharness: Release: %s(%s) Label: %s, %s (%s%s) on %s SUCCESSFUL\n\n%s' % (STAXJobID, thisRelease, bldType, thisLabel, machineTestName, testGroup, ipVersion, allHostList, finalStatusMessage)</call>
+                <script>
+                  slackFinalStatusMessage = "\n---------\n"
+                  slackFinalStatusMessage = slackFinalStatusMessage + "AFHarness job notification:\n"
+                  slackFinalStatusMessage = slackFinalStatusMessage + slackSucceededSummaryMessage + "\n"
+                  slackFinalStatusMessage = slackFinalStatusMessage + "---------\n\n"
+                  slackFinalStatusMessage = slackFinalStatusMessage + finalStatusMessage + "\n\n"
+                </script>
+                </sequence>
+            </sequence>
+          <else>
+            <sequence>
+            <call function="'slackNotify'">stafAdminSlack, 'JobID: %s afharness: Release: %s(%s) Label: %s, %s (%s%s) on %s SUCCESSFUL\n\n%s' % (STAXJobID, thisRelease, bldType, thisLabel, machineTestName, testGroup, ipVersion, allHostList, finalStatusMessage)</call>
+            </sequence>
+          </else>
+          </if>
+        </sequence>
+      </else>
+      </if>
+      <sequence>
+        <call function="'postLogFiles'">'%s/%s_logs.zip' % (testRoot, machineTestName)</call>
+        <if expr="serverRelease.find('MGPROD') != -1">
+            <sequence>
+                <call function="'doMessageLog'">'TRACE', 'DEBUG: testRoot: %s' % (testRoot)</call>
+                <call function="'doMessageLog'">'TRACE', 'DEBUG: machineTestName: %s' % (machineTestName)</call>
+                <call function="'doMessageLog'">'TRACE', 'DEBUG: gitRelease: %s' % (gitRelease)</call>
+                <call function="'doMessageLog'">'TRACE', 'DEBUG: aKey: %s' % (aKey)</call>
+                <call function="'postLogFilesArtifactory'">'%s/%s_logs.zip' % (testRoot, machineTestName), '%s' % (gitRelease), '%s' % (aKey)</call>
+            </sequence>
+        </if>
+      </sequence>
+      <if expr="testFailed">
+      <sequence>
+        <call function="'postLogFiles'">'%s/%s_tars.zip' % (testRoot, machineTestName)</call>
+        <if expr="serverRelease.find('MGPROD') != -1">
+            <sequence>
+                <call function="'doMessageLog'">'TRACE', 'DEBUG: testRoot: %s' % (testRoot)</call>
+                <call function="'doMessageLog'">'TRACE', 'DEBUG: machineTestName: %s' % (machineTestName)</call>
+                <call function="'doMessageLog'">'TRACE', 'DEBUG: gitRelease: %s' % (gitRelease)</call>
+                <call function="'doMessageLog'">'TRACE', 'DEBUG: aKey: %s' % (aKey)</call>
+                <call function="'postLogFilesArtifactory'">'%s/%s_logs.zip' % (testRoot, machineTestName), '%s' % (gitRelease), '%s' % (aKey)</call>
+            </sequence>
+        </if>
+      </sequence>
+      </if>
+      <call function="'UpdateReportDataFile'"/>
+      <call function="'UpdateRqmDataFile'"/>
+
+    </sequence>
+  </function>
+ 
+</stax>

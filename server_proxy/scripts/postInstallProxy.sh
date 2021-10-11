@@ -10,7 +10,11 @@
 # 
 # SPDX-License-Identifier: EPL-2.0
 #
-LOGDIR=/var/imaproxy/diag/logs
+
+PXY_INSTALL_DIR=${IMA_PROXY_INSTALL_PATH}
+PXY_DATA_DIR=${IMA_PROXY_DATA_PATH}
+
+LOGDIR=${PXY_DATA_DIR}/diag/logs
 mkdir -p -m 770 ${LOGDIR} > /dev/null 2>&1
 
 INITLOG=${LOGDIR}/ProxyInstall.log
@@ -18,7 +22,7 @@ touch ${INITLOG}
 
 
 #Work out what user and group we should be running as
-source /opt/ibm/imaproxy/bin/getUserGroup.sh >> ${INITLOG}
+source ${PXY_INSTALL_DIR}/bin/getUserGroup.sh >> ${INITLOG}
 
 
 perl -pi -e 's/\r\n$/\n/g' ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1 3>&1
@@ -45,7 +49,7 @@ if [ -d /etc/logrotate.d ]
 then
     if [ ! -f /etc/logrotate.d/imaproxy ]
     then
-        cp /opt/ibm/imaproxy/config/imaproxy.logrotate /etc/logrotate.d/imaproxy
+        cp ${PXY_INSTALL_DIR}/config/imaproxy.logrotate /etc/logrotate.d/imaproxy
     fi
 fi
 #
@@ -53,7 +57,7 @@ if [ -d "/etc/systemd/system" ]
 then
     # Update systemd (including removing old service name)
     rm -f /etc/systemd/system/IBMIoTMessageSightProxy.service
-    cp /opt/ibm/imaproxy/config/imaproxy.service /etc/systemd/system/.
+    cp ${PXY_INSTALL_DIR}/config/imaproxy.service /etc/systemd/system/.
     ln -s /etc/systemd/system/imaproxy.service /etc/systemd/system/IBMIoTMessageSightProxy.service
 
     INIT_SYSTEM=$(ps --no-headers -o comm 1)

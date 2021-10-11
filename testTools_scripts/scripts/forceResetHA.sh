@@ -52,7 +52,7 @@ function statusloop {
     cmd="curl -sSfXGET ${url[${2}]}/service/status"
     #cmd="ssh $2 status imaserver"
     reply=`${cmd}`
-    StateDescription=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
+    StateDescription=`echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
     if [[ "${StateDescription}" =~ "${expectedA}" ]] ; then
       rc=0
       echo ""
@@ -96,7 +96,7 @@ for index in `seq 0 ${numServers}` ; do
   sleep 15
   
   reply=`curl -sSfXGET ${thisURL}/service/status 2>&1`
-  StateDescription=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
+  StateDescription=`echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
 
   if ! [[ "${StateDescription}" =~ "Running (production)" ]] ; then
     echo "Server A${index} is not running in production mode." | tee -a ${LOG}

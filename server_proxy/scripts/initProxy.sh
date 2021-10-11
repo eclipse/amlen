@@ -10,7 +10,12 @@
 # 
 # SPDX-License-Identifier: EPL-2.0
 #
-INITLOG=/var/imaproxy/diag/logs/imaproxy_init.log
+
+PXY_INSTALL_DIR=${IMA_PROXY_INSTALL_PATH}
+PXY_DATA_DIR=${IMA_PROXY_DATA_PATH}
+
+INITLOG=${PXY_DATA_DIR}/diag/logs/imaproxy_init.log
+
 export INITLOG
 mkdir -p -m 770 $(dirname $INITLOG)
 CURDIR=`pwd`
@@ -49,17 +54,17 @@ else
 fi
 
 # Predefined directory locations in the container
-IMADATADIR=/var/imaproxy/data
-IMALOGDIR=/var/imaproxy/diag/logs
-IMACOREDIR=/var/imaproxy/diag/cores
-IMACFGDIR=/var/imaproxy
-IMASERVERCFG=/opt/ibm/imaproxy/bin/imaproxy.cfg
-IMADYNPROXYCFG=/var/imaproxy/proxy.cfg
+IMADATADIR=${PXY_DATA_DIR}/data
+IMALOGDIR=${PXY_DATA_DIR}/diag/logs
+IMACOREDIR=${PXY_DATA_DIR}/diag/cores
+IMACFGDIR=${PXY_DATA_DIR}
+IMASERVERCFG=${PXY_INSTALL_DIR}/bin/imaproxy.cfg
+IMADYNPROXYCFG=${PXY_DATA_DIR}/proxy.cfg
 
 # Initialize instance if required
 if [ ! -f ${IMACFGDIR}/MessageSightInstance.inited ]
 then
-    /opt/ibm/imaproxy/bin/initImaserverInstance.sh >> ${INITLOG}
+    ${PXY_INSTALL_DIR}/bin/initImaserverInstance.sh >> ${INITLOG}
 fi
 
 # Initialize container specific data
@@ -119,12 +124,12 @@ fi
 
 if [ ! -f ${IMACFGDIR}/.defaultAdminCerts ]
 then
-    mkdir -p -m 770 /var/imaproxy/keystore
+    mkdir -p -m 770 ${PXY_DATA_DIR}/keystore
 
-    if [[ ! -f /var/imaproxy/keystore/imaproxy_default_key.pem ]]  ||  [[ ! -f /var/imaproxy/keystore/imaproxy_default_cert.pem ]]
+    if [[ ! -f ${PXY_DATA_DIR}/keystore/imaproxy_default_key.pem ]]  ||  [[ ! -f ${PXY_DATA_DIR}/keystore/imaproxy_default_cert.pem ]]
     then
-        cp /opt/ibm/imaproxy/certificates/keystore/imaproxy_default_key.pem /var/imaproxy/keystore/imaproxy_default_key.pem
-        cp /opt/ibm/imaproxy/certificates/keystore/imaproxy_default_cert.pem /var/imaproxy/keystore/imaproxy_default_cert.pem
+        cp ${PXY_INSTALL_DIR}/certificates/keystore/imaproxy_default_key.pem ${PXY_DATA_DIR}/keystore/imaproxy_default_key.pem
+        cp ${PXY_INSTALL_DIR}/certificates/keystore/imaproxy_default_cert.pem ${PXY_DATA_DIR}/keystore/imaproxy_default_cert.pem
     fi
     touch ${IMACFGDIR}/.defaultAdminCerts
 fi

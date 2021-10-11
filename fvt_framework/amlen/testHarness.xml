@@ -1,0 +1,535 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE stax SYSTEM "stax.dtd">
+
+<stax>
+
+  <defaultcall function="Main"/>
+  <function name="Main">
+  <sequence>  
+    <process name="'Get STAX server hostname'">
+      <location>"local"</location>
+      <command mode="'shell'">"hostname"</command>
+      <stdout>"/STAXhostname.%s" % STAXJobID</stdout>
+      <stderr mode="'stdout'"/>
+      <returnstdout/>
+    </process>
+    <script>
+        globalVARSLibFile   = '/staf/tools/amlen/globalVARS.xml'
+      testName            = 'testHarness'
+    </script>
+
+    <!-- Hold runs that meet the following criteria --> 
+    <if expr="bldType.find('XXXXXX') != -1">
+      <hold/>
+    </if>
+
+    <!--import machine="staxServiceMachine" file="globalVARSLibFile"/-->
+    <!-- Uncomment breakpoint to step through job with STAX debugger -->
+    <!--<breakpoint/> -->
+    <import file="globalVARSLibFile"/>
+    <call function="'loadGlobalVARS'"/>
+    <if expr="staxLocation == 'local'">
+      <sequence>
+        <if expr="testGroup.find('bvt') != -1">
+          <sequence>
+          <call function="'doMessageLog'">'INFO', 'Loading machineList from /staf/tools/amlen/bvt_machines.xml'</call>
+          <import machine="staxServiceMachine" file="'/staf/tools/amlen/bvt_machines.xml'"/>    
+          </sequence>
+        </if>
+        <!--<if expr="testGroup.find('svt') != -1">
+          <import machine="staxServiceMachine" file="'/staf/tools/amlen/SLsvt_machines7.xml'"/>    
+        </if> -->
+        <if expr="testGroup == 'fvt_default'">
+          <sequence>
+          <call function="'doMessageLog'">'INFO', 'Loading machineList from /staf/tools/amlen/fvt_default_machines.xml'</call>
+          <import machine="staxServiceMachine" file="'/staf/tools/amlen/SLfvtdefault_machines7.xml'"/>    
+          </sequence>
+        </if>
+        <if expr="testGroup == 'fvt_prod'">
+          <sequence>
+          <call function="'doMessageLog'">'INFO', 'Loading machineList from /staf/tools/amlen/fvt_prod_machines.xml'</call>
+          <import machine="staxServiceMachine" file="'/staf/tools/amlen/SLfvtprod_machines7.xml'"/>    
+          </sequence>
+        </if>
+        <if expr="testGroup == 'fvt_request' or testGroup == 'fvt_debug'">
+          <sequence>
+            <if expr="thisRelease.find('IMADev') != -1">
+              <import machine="staxServiceMachine" file="'/staf/tools/amlen/fvt_default_machines.xml'"/>
+            </if>
+            <if expr="thisRelease.find('IMAProd') != -1">
+              <import machine="staxServiceMachine" file="'/staf/tools/amlen/fvt_prod_machines.xml'"/>
+            </if>
+            <!--<import machine="staxServiceMachine" file="'/staf/tools/amlen/SLfvtother_machines7.xml'"/>   -->
+          </sequence>
+        </if>
+        <call function="'loadMachineList'"/>
+      </sequence>
+    </if>
+    
+    <!-- <breakpoint/> -->
+    <call function="'doCommand'">staxServiceMachine, 'rm', '-f /STAXhostname.%s' % (STAXJobID), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+
+    <!-- Validate parameters sent by the build machine in the event notice  --> 
+    <!-- <breakpoint/> -->
+    <call function="'doMessageLog'">'INFO', 'Validating parameters sent by the build machine event notice'</call>
+    <call function="'validateBuildParms'"/>
+
+    <!-- TERMINATE jobs that are set to DO_NOT_RUN in the NAMESPACE -->
+    <if expr="testGroup.find('debug') == -1 and testGroup.find('request') == -1 and testGroup.find('bvt') == -1 and testGroup.find('migrate') == -1">
+      <sequence>
+        <if expr="testGroup.find('_prod') != -1">
+          <call function="'processVAR'">'GET', 'HOLD', nameSpace, testGroup[0:tgPrefixLen] + 'prod_' + thisRelease</call>
+        <else>
+          <call function="'processVAR'">'GET', 'HOLD', nameSpace, testGroup[0:tgPrefixLen] + thisRelease</call>
+        </else>
+        </if>
+        <if expr="STAFResult == 'DO_NOT_RUN'">
+         <sequence>
+          <call function="'doMessageLog'">'INFO', 'Job terminated because STAF VAR set to DO_NOT_RUN'</call>
+          <terminate block="'main'"/>
+        </sequence>
+        </if>
+      </sequence>
+    </if>
+
+    <call function="'doMessageLog'">'TRACE', 'thisRelease   = %s @ %s' % (thisRelease, thisLabel)</call>
+    <call function="'doMessageLog'">'TRACE', 'serverRelease = %s @ %s' % (serverRelease, serverLabel)</call>
+    <call function="'doMessageLog'">'TRACE', 'clientRelease = %s @ %s' % (clientRelease, clientLabel)</call>
+    <call function="'doMessageLog'">'TRACE', 'testRelease   = %s @ %s' % (testRelease, testLabel)</call>
+    <call function="'doMessageLog'">'TRACE', 'proxyRelease  = %s @ %s' % (proxyRelease, proxyLabel)</call>
+    <!-- <call function="'doMessageLog'">'TRACE', 'sToken  = %s' % (sToken)</call>
+    <call function="'doMessageLog'">'TRACE', 'aKey  = %s' % (aKey)</call> -->
+
+    <if expr="testGroup.find('debug') == -1 and testGroup.find('request') == -1 and testGroup.find('bvt') == -1">
+      <sequence>  
+        <if expr="testGroup.find('compat') == -1 and testGroup.find('migrate') == -1">
+          <sequence>  
+            <call function="'doMessageLog'">'INFO', 'Checking and waiting for current runs to complete'</call>
+            <!-- Replace any current queued JOB with this JOB since this is a newer request -->
+            <call function="'replaceQueuedJOB'"/>
+            <!-- Wait for any current running JOB for this release to complete before starting this JOB -->
+            <call function="'waitForRelease'"/>
+          </sequence>  
+        </if>
+        <!-- Send email notifying that Automation is starting -->
+        <if expr="testGroup.find('migrate') == -1">
+            <call function="'doMessageLog'">'INFO', 'IMA Automation is Running (Release: %s(%s), Label: %s, Test Group: %s%s)' % (thisRelease, bldType, thisLabel, testGroup, ipVersion), '\nIMA Automation is Running\n\nBuild Type:      %s\nServer Release:  %s     @ %s\nProxy Release:   %s @ %s\nClient Release:  %s @ %s\nTest Release:    %s @ %s\nTest Group:      %s %s' % (bldType, serverRelease, serverLabel, proxyRelease, proxyLabel, clientRelease, clientLabel, testRelease, testLabel, testGroup, ipVersion)</call>
+        <else>
+            <call function="'doMessageLog'">'INFO', 'IMA Automation is Running (Release: %s(%s), Label: %s, Test Group: %s%s)' % (thisRelease, bldType, thisLabel, testGroup, ipVersion), '\nIMA Automation is Running\n\nBuild Type:      %s\nServer Release:  %s     @ %s\nProxy Release:   %s @ %s\nClient Release:  %s @ %s\nTest Release:    %s @ %s\nTest Group:      %s %s' % (bldType, serverRelease, serverLabel, proxyRelease, proxyLabel, clientRelease, clientLabel, testRelease, testLabel, testGroup, ipVersion)</call>
+        </else>
+        </if>
+      </sequence>  
+    </if>
+
+    <!-- Delete Report Data Files for previous run of this release -->
+    <call function="'doMessageLog'">'INFO', 'Deleting previous summary and times data files'</call>
+    <call function="'deleteDataFiles'"/>
+
+    <call function="'doMessageLog'">'INFO', 'Setting start time for recording perf info.'</call>
+    <script> startTime = time.time(); # record starting time </script>
+
+    <!-- Repeat the steps below in parallel for each machine in the machine list -->
+    <call function="'doMessageLog'">'INFO', 'Begin processing through the list of machines'</call>
+    <paralleliterate var="machineInfo" in="machineList">
+      <sequence>
+        <call function="'doMessageLog'">'TRACE', 'machineInfo = %s' % (machineInfo)</call>
+        <script>
+          machineTotalSecs   = 0
+          machineSoftlayerID = ''
+          machineHostName    = machineInfo[0]
+          machineRole        = machineInfo[1]
+          machineHostIP      = machineInfo[2]
+          machine10NetConfig = machineInfo[3]
+          machineOSType      = machineInfo[4]
+          machineArchBits    = machineInfo[5]
+          machineHardware    = machineInfo[6]
+          if len(machineInfo) > 7:
+            machineIMMIP     = machineInfo[7]
+          else:
+            machineIMMIP     = []
+          if len(machineInfo) > 8:
+            machineHAIPs     = machineInfo[8]
+          else:
+            machineHAIPs     = []
+          machineOSName      = '%s (%s)' % (machineOSType, machineArchBits)
+        </script>
+        <!-- Repeat the steps below for each item in the group list -->
+        <call function="'doMessageLog'">'INFO', 'Begin processing through the groups for this machine: %s' % machineHostName</call>
+        <iterate var="groupInfo" in="groupList">
+          <sequence>
+            <call function="'doMessageLog'">'TRACE', 'groupInfo = %s' % (groupInfo)</call>
+            <!-- Repeat the steps below for each machine in the groups machine list (all test machines needed for this group) -->
+            <iterate var="testMachine" in="groupInfo[1]">
+              <sequence>
+                <call function="'doMessageLog'">'TRACE', 'machineHostName = %s' % (machineHostName)</call>
+                <call function="'doMessageLog'">'TRACE', 'testMachine = %s' % (testMachine)</call>
+                <!-- If the machine and the group host names match, then do the setup and run the test (test will be controlled from 1st client) -->
+                <if expr="machineHostName == testMachine[0]">
+                  <sequence>
+                    <!-- Request the machine from the resource pool with NO timeout (wait for it to become available) -->
+                    <call function="'hostRequestRelease'">machineHostName, 'REQUEST'</call>
+                    <call function="'doMessageLog'">'TRACE', 'Test machine %s is now available' % (machineHostName)</call>
+                    <script>
+                      machStartTime = time.time(); # record starting time 
+                      testController  = ''
+                      ### Determine appliance number (ie. A1, A2, etc)
+                      applianceNumber = 'NA'
+		      proxyNumber = 'NA'
+		      bridgeNumber = 'NA'
+                      if machineRole == 'appliance':
+                        for i in range(len(groupInfo[1])):
+                          if groupInfo[1][i][0] == machineHostName:
+                            applianceNumber = i + 1
+                      if machineRole == 'proxy':
+                        for i in range(len(groupInfo[1])):
+                          if groupInfo[1][i][0] == machineHostName:
+                            proxyNumber = i + 1
+                      if machineRole == 'bridge':
+                        for i in range(len(groupInfo[1])):
+                          if groupInfo[1][i][0] == machineHostName:
+                            bridgeNumber = i + 1
+                    </script>
+                    <call function="'doMessageLog'">'TRACE', '%s is A%s' % (machineHostName, str(applianceNumber))</call>
+                    <if expr="machineOSType.find('CCI') != -1">
+                      <sequence>
+                        <if expr="machineRole == 'appliance'">
+                          <sequence>
+                            <call function="'doMessageLog'">'TRACE', 'Calling provisionCCIAppliance OR provisionCCIDocker for %s %s %s%s' % (machineHardware, machineRole, machineHostName, testDomain)</call>
+                            <if expr="machineHardware == 'DOCKER' or machineHardware == 'RPM'">
+                              <call function="'provisionCCIDocker'"/>
+                            <else>
+                              <call function="'provisionCCIAppliance'"/>
+                            </else>
+                            </if>
+                          </sequence>
+                        </if>
+                        <if expr="machineRole == 'client' or machineRole == 'proxy'">
+                          <sequence>
+                            <call function="'doMessageLog'">'TRACE', 'Calling setupCCIClient for %s %s %s.%s' % (machineHardware, machineRole, machineHostName, testDomain)</call>
+                            <call function="'provisionCCIClient'"/>
+                          </sequence>
+                        </if>
+                        <if expr="machineRole == 'bridge'">
+                          <sequence>
+                            <call function="'doMessageLog'">'TRACE', 'Calling setupCCIClient for %s %s %s.%s' % (machineHardware, machineRole, machineHostName, testDomain)</call>
+                            <call function="'provisionCCIClient'"/>
+                          </sequence>
+                        </if>
+                        <call function="'doMessageLog'">'TRACE', '%s machineSoftlayerID       = %s' % (machineHostName, machineSoftlayerID)</call>
+                        <call function="'doMessageLog'">'TRACE', '%s machineHostIP            = %s' % (machineHostName, machineHostIP)</call>
+                        <call function="'doMessageLog'">'TRACE', '%s machine10NetConfig[0][0] = %s' % (machineHostName, machine10NetConfig[0][0])</call>
+                        <call function="'doMessageLog'">'TRACE', '%s machine10NetConfig[0][1] = %s' % (machineHostName, machine10NetConfig[0][1])</call>
+                      </sequence>
+                    </if>
+                    <script>
+                      testName              = groupInfo[0]
+                      testMachineList       = groupInfo[1]
+                      if len(testMachine) > 1:
+                        machineFlags          = testMachine[1]
+                      else:
+                        machineFlags          = ''
+                      machineHostIPScript   = "machineHostIP   = '%s'" % machineHostIP
+                      testGroupScript       = "testGroup       = '%s'" % testGroup
+                      machineFlagsScript    = "machineFlags    = '%s'" % machineFlags
+                      machineOSTypeScript   = "machineOSType   = '%s'" % machineOSType
+                      machineHostNameScript = "machineHostName = '%s'" % machineHostName
+                      machineTestNameScript = "machineTestName = '%s'" % (testName)
+                      machineOSNameScript   = "machineOSName   = '%s (%s) (%s: %s)'" % (machineOSType, machineArchBits, testGroup, machineFlags)
+                    </script>
+                    <call function="'identifyController'"/>
+                    <script>
+                      testController   = STAXResult[0]
+                      testControllerIP = STAXResult[1]
+                    </script>
+                    <if expr="machineRole == 'appliance' and machineHardware != 'CCI'">
+                      <sequence>
+                        <if expr="machineHardware == 'DOCKER' or machineHardware == 'RPM'">
+                          <sequence>
+                            <call function="'verifySTAFisRunning'"/>
+                            <if expr="machineHardware == 'DOCKER'">
+                              <sequence>
+                                <!-- 1st remove the previous docker containers and images -->
+                                <call function="'doCommand'">machineHostIP, 'docker', 'rm --force `docker ps -qa`', 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                                <call function="'doCommand'">machineHostIP, 'docker', 'rmi --force `docker images -q`', 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                                <call function="'setupDockerServer'"/>
+                              </sequence>
+                            <else>
+                              <sequence>
+                                <call function="'setupRPMServer'"/>
+                              </sequence>
+                            </else>
+                            </if>
+                          </sequence>
+                        <else>
+                          <sequence>
+                            <if expr="machineHardware != 'ESX'">
+                              <call function="'verifySTAFisRunning'"/>
+                            </if>
+                          </sequence>
+                        </else>
+                        </if>
+                      </sequence>
+                    </if>
+                    <if expr="machineRole == 'proxy'">
+                      <sequence>
+                        <call function="'doMessageLog'">'TRACE', 'Detectected machine %s is a proxy. Configuring it now.' % (machineHostName)</call>
+                        <call function="'verifySTAFisRunning'"/>
+                        <call function="'setupProxy'"/>
+                        <!-- If we are running in softlayer, wait here until all appliances for this group are setup and ready to go
+                             (we need to get information from the appliances once they are setup)    -->
+                        <if expr="staxLocation == 'softlayer'">
+                          <sequence>
+                            <call function="'doMessageLog'">'TRACE', '%s is waiting for appliance setup to complete before continuing' % (machineHostName)</call>
+                            <call function="'waitForApplianceSetup'"/>
+                            <call function="'doMessageLog'">'TRACE', 'Appliance setup is done for %s' % (machineHostName)</call>
+                          </sequence>
+                        </if>
+                      </sequence>
+                    </if>
+                    <if expr="machineRole == 'bridge'">
+                      <sequence>
+                        <call function="'doMessageLog'">'TRACE', 'Detectected machine %s is a bridge. Configuring it now.' % (machineHostName)</call>
+                        <call function="'verifySTAFisRunning'"/>
+                        <call function="'setupBridgeRPM'"/>
+                        <!-- If we are running in softlayer, wait here until all appliances for this group are setup and ready to go
+                             (we need to get information from the appliances once they are setup)    -->
+                        <if expr="staxLocation == 'softlayer'">
+                          <sequence>
+                            <call function="'doMessageLog'">'TRACE', '%s is waiting for appliance setup to complete before continuing' % (machineHostName)</call>
+                            <call function="'waitForApplianceSetup'"/>
+                            <call function="'doMessageLog'">'TRACE', 'Appliance setup is done for %s' % (machineHostName)</call>
+                          </sequence>
+                        </if>
+                      </sequence>
+                    </if>
+                    <if expr="machineRole == 'client'">
+                      <sequence>
+                        <call function="'doMessageLog'">'TRACE', 'Detectected machine %s is a client. Configuring it now.' % (machineHostName)</call>
+                        <call function="'verifySTAFisRunning'"/>
+                        <call function="'setupIsmClient'"/>
+                        <call function="'setupTest'"/>
+                        <!-- If this is the test controller machine or we are running in softlayer, wait here until all appliances for this group are setup and ready to go
+                             (we need to get information from the appliances once they are setup)    -->
+                        <if expr="machineHostName == testController or staxLocation == 'softlayer'">
+                          <sequence>
+                            <call function="'doMessageLog'">'TRACE', '%s is waiting for appliance setup to complete before continuing' % (machineHostName)</call>
+                            <if expr="testGroup.find('bvt') == -1 or staxLocation == 'softlayer'">
+                              <call function="'waitForApplianceSetup'"/>
+                            </if>
+                            <call function="'doMessageLog'">'TRACE', 'Appliance setup is done for %s' % (machineHostName)</call>
+                          </sequence>
+                        </if>
+                      </sequence>
+                    </if>
+                    <call function="'createTestEnvScript'"/>
+                    <script>
+                      allHostList = STAXResult[0]
+                      allHostInfo = STAXResult[1]
+                      nonControllerClientIPs = STAXResult[2]
+                      allHostListScript = "allHostList = '%s'" % allHostList
+                      allHostInfoScript = "allHostInfo = '%s'" % allHostInfo
+                    </script>
+                    <call function="'doMessageLog'">'TRACE', 'In testHarness: %s allHostInfoScript = %s' % (machineHostIP, allHostInfoScript)</call>
+                    <call function="'doMessageLog'">'TRACE', 'Setting var for machine %s with READY_FOR_%s' % (machineHostName, allHostInfoScript.replace(' ', ''))</call>
+                    <call function="'processVAR'">'SET', 'HOLD', thisRelease, machineHostName, 'READY_FOR_%s' % (allHostList.replace(' ', ''))</call>
+                    <!-- Wait here until all machines for this group are setup and ready to go -->
+                    <call function="'waitForEnvSetup'"/>
+                    <if expr="machineHostName == testController">
+                      <sequence>
+                        <!-- Capture the environment info for all noncontroller clients -->
+                        <if expr="len(nonControllerClientIPs) > 0">
+                          <iterate var="client" in="nonControllerClientIPs">
+                            <call function="'doCommand'">machineHostIP, 'ssh', '%s set' % (client[1]), 'nodir', 'noenv', '%s/%s_ENVIRONMENT.log' % (testRoot, client[0]), 'nomode'</call>
+                          </iterate>
+                        </if>
+                        <!-- Run the script that handles replacing TAGS on all machines (only needs to be run on test controller) -->
+                        <call function="'doCommand'">machineHostIP, '%s/scripts/prepareReplaceCommon.sh' % (testRoot), ' ', '%s/scripts' % (testRoot), 'noenv', '%s/prepareReplaceCommon.log' % (testRoot), 'nomode'</call>
+                        <!-- Configuring TOPICS AND QUEUES on the MQ SERVER for this test run -->
+                        <script> mqsetup_ipList = '' </script>
+                        <if expr="len(nonControllerClientIPs) > 0 and testGroup.find('svt') == -1">
+                          <sequence>
+                            <!-- Get the list of client IP's and then run the script to configure the MQ AUTORIZATIONS, TOPICS, AND QUEUES -->
+                            <iterate var="client" in="nonControllerClientIPs">
+                              <script> mqsetup_ipList = mqsetup_ipList + ' ' + client[1] </script>
+                            </iterate>
+                            <!-- Copy and then run the current MQ scripts to the MQ SERVER from the controlling client -->
+                            <call function="'doCommand'">mqsrvIP1[0], 'scp', 'root@%s:%s/jms_td_tests/foreignmsg/jmsmq_setup.sh /jmsmq_setup.sh' % (machineHostIP, testRoot), '/', 'noenv', '/jmsmq_setup_%s.log' % (machineHostName), 'nomode', 'NO_CYGWIN'</call>
+                            <call function="'doCommand'">mqsrvIP1[0], '/jmsmq_setup.sh', '%s %s %s' % (machineHostName.replace('-', '_'), machineHostIP, mqsetup_ipList), '/', 'noenv', '/jmsmq_setup_%s.log' % (machineHostName), 'nomode', 'NO_CYGWIN'</call>
+                            <call function="'doCommand'">mqsrvIP1[0], 'scp', 'root@%s:%s/MQConnectivity_tests/mqSetup.sh /mqSetup.sh' % (machineHostIP, testRoot), '/', 'noenv', '/mqSetup_%s.log' % (machineHostName), 'nomode', 'NO_CYGWIN'</call>
+                            <call function="'doCommand'">mqsrvIP1[0], '/mqSetup.sh', '%s %s %s' % (machineHostName.replace('-', '_'), machineHostIP, mqsetup_ipList), '/', 'noenv', '/mqSetup_%s.log' % (machineHostName), 'nomode', 'NO_CYGWIN'</call>
+                            <!-- IF 2 MQ SERVERS, Copy and then run the current MQ scripts to the 2nd MQ SERVER from the controlling client -->
+                            <if expr="machineFlags.find('MQS2') != -1">
+                              <sequence>
+                                <call function="'doCommand'">mqsrvIP2[0], 'scp', 'root@%s:%s/MQConnectivity_tests/mqSetup.sh /mqSetup.sh' % (machineHostIP, testRoot), '/', 'noenv', '/mqSetup_%s.log' % (machineHostName), 'nomode', 'NO_CYGWIN'</call>
+                                <call function="'doCommand'">mqsrvIP2[0], '/mqSetup.sh', '%s %s %s' % (machineHostName.replace('-', '_'), machineHostIP, mqsetup_ipList), '/', 'noenv', '/mqSetup_%s.log' % (machineHostName), 'nomode', 'NO_CYGWIN'</call>
+                              </sequence>
+                            </if>
+                          </sequence>
+                        </if>
+                        <!-- Start the test run on the controller test machine -->
+                        <call function="'doMessageLog'">'INFO', 'Running %s %s on %s' % (thisRelease, testName, testMachineList)</call>
+                        <stafcmd name="'Running %s %s (%s):  %s' % (thisRelease, testName, testGroup, testMachineList)">
+                          <location>staxServiceMachine</location>
+                          <service>'stax'</service>
+                          <request>'EXECUTE FILE /staf/tools/amlen/%s.xml SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s SCRIPT %s JOBNAME "%s-%s %s(%s) %s (%s%s):  %s" CLEARLOGS Enabled' % (testName, STAFUtil.wrapData(machineHostNameScript), STAFUtil.wrapData(machineTestNameScript), STAFUtil.wrapData(machineHostIPScript), STAFUtil.wrapData(testGroupScript), STAFUtil.wrapData(machineOSNameScript), STAFUtil.wrapData(machineOSTypeScript), STAFUtil.wrapData(machineFlagsScript), STAFUtil.wrapData(bldTypeScript), STAFUtil.wrapData(userIDScript), STAFUtil.wrapData(serverReleaseScript), STAFUtil.wrapData(serverLabelScript), STAFUtil.wrapData(clientReleaseScript), STAFUtil.wrapData(clientLabelScript), STAFUtil.wrapData(testReleaseScript), STAFUtil.wrapData(testLabelScript), STAFUtil.wrapData(proxyReleaseScript), STAFUtil.wrapData(proxyLabelScript), STAFUtil.wrapData(migrateReleaseScript), STAFUtil.wrapData(migrateLabelScript), STAFUtil.wrapData(allHostListScript), STAFUtil.wrapData(allHostInfoScript), STAFUtil.wrapData(gitReleaseScript), STAFUtil.wrapData(aKeyScript), staxLocation, STAXJobID, thisRelease, bldType, testName, testGroup, ipVersion, testMachineList)</request>
+                        </stafcmd>
+                        <!-- Wait for tests on this client to complete before releasing the client machine back to the resource pool -->
+                        <call function="'waitForJobID'"/>
+                      </sequence>
+                    </if>
+                    <if expr="machineHostName != testController">
+                      <sequence>
+                      <call function="'doMessageLog'">'TRACE', '%s: CALLING waitForTestController' % (machineHostName)</call>
+                      <call function="'waitForTestController'"/>
+                      </sequence>
+                    </if>
+
+                    <!-- Delete the NAMESPACE Variable for this machine -->
+                    <call function="'processVAR'">'DELETE', 'HOLD', thisRelease, machineHostName</call>
+                    <stafcmd name="'Sleep for 30 seconds to allow other NAMESPACE variables from this group time to be deleted before continuing'">
+                      <location>staxServiceMachine</location>
+                      <service>'delay'</service>
+                      <request>'delay 30000'</request>
+                    </stafcmd>
+
+                    <!-- Delete the build label files  for DOCKER or RPM machine -->
+                    <if expr="machineHardware == 'DOCKER' or machineHardware == 'RPM'">
+                      <sequence>
+                        <call function="'doCommand'">machineHostIP, 'rm', '-f %s/%s' % (imaserverDir, serverLabel), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                      </sequence>
+                    </if>
+
+                    <!-- Cancel the CCI in Softlayer (does not work if there are still pending softlayer transactions, so try several times) -->
+                    <script> cancelCCI = 'TRUE' </script>
+                    <if expr="staxLocation == 'softlayer' and testGroup == 'bvt'">
+                      <sequence>
+                        <call function="'doCommand'">staxServiceMachine, 'grep', 'FAILED /staf/tools/amlen/reports/%s/%s.dat' % (thisRelease, testGroup), 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                        <script>
+                          if STAXResult[0] == 0:
+                            cancelCCI = 'FALSE'
+                          #### DON'T CANCEL BVT CCI EVEN IF BVT PASSED
+                          cancelCCI = 'FALSE'
+                        </script>
+                      </sequence>
+                    </if>
+                    <if expr="machineOSType.find('CCI') != -1 and cancelCCI == 'TRUE'">
+                      <sequence>
+                        <script> cciCancelled = 'FALSE' </script>
+                        <loop var="i" from="1" by="1" to="60">
+                        <sequence>
+                          <call function="'doCommand'">staxServiceMachine, 'slcli', '-y -C /root/.softlayer vs cancel %s' % (machineSoftlayerID), 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                          <if expr="STAXResult[0] == 0">
+                            <sequence>
+                              <script> cciCancelled = 'TRUE' </script>
+                              <break/>
+                            </sequence>
+                          </if>
+                          <call function="'sleepSeconds'">'30', 'Softalyer cancel failed for %s... sleep and try again (Attempts = %s)' % (machineHostName, i)</call>
+                        </sequence>
+                        </loop>
+                        <!-- If the CCI was not cancelled in the above loop, try 1 more time and catch the error this time -->
+                        <if expr="cciCancelled == 'FALSE'">
+                          <call function="'doCommand'">staxServiceMachine, 'slcli', '-y -C /root/.softlayer vs cancel %s' % (machineSoftlayerID), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                        </if>
+                        <call function="'doCommand'">staxServiceMachine, 'slcli', '-C /root/.softlayer vs edit %s -H AFdeleteme' % (machineSoftlayerID), 'nodir', 'noenv', 'nofile', 'nomode', 'NO_ERROR_CHECK'</call>
+                      </sequence>
+                    </if>
+                    <!-- Cancel the EC2 instance -->
+                    <if expr="machineOSType.find('EC2') != -1">
+                      <call function="'doCommand'">staxServiceMachine, 'ec2kill', '%s' % (machineEC2ID), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                    </if>
+                    <!-- Delete the MSA vm and it's disk -->
+                    <if expr="machineOSType.find('MSA') != -1">
+                      <call function="'doCommand'">staxServiceMachine, 'azure', 'vm delete -bq %s' % (machineHostName), 'nodir', 'noenv', 'nofile', 'nomode'</call>
+                    </if>
+                    <!-- Release the machine in the resource pool so it is available for other tests -->
+                    <call function="'hostRequestRelease'">machineHostName, 'RELEASE'</call>
+                    <call function="'doMessageLog'">'TRACE', 'Test machine %s is returned to the resource pool.' % (machineHostName)</call>
+                    <script>
+                      ### Calculate and Write Time machine was in use for this test
+                      endTime   = time.time() # get current time
+                      totalSecs = endTime - machStartTime # yields time elapsed in seconds
+                      hours     = totalSecs/3600
+                      minutes   = (totalSecs/60)%60
+                      seconds   = totalSecs%60
+                      totalTime = "%02d:%02d:%02d" % (hours, minutes, seconds)
+                      machineTotalSecs = machineTotalSecs + totalSecs
+
+                      file = open('/staf/tools/amlen/reports/' + thisRelease + '/' + testGroup + '_mach.dat', 'a')
+                      file.write(machineHostName.ljust(10) + machineOSType + ' (' + machineRole + ')'.ljust(35 - (len(machineRole) + len(machineOSType))) + testName.ljust(15) + totalTime.ljust(10) + "\n")
+                      file.flush()
+                      file.close()
+                    </script>
+                  </sequence>
+                </if>
+              </sequence>
+            </iterate>
+          </sequence>
+        </iterate>
+        <call function="'doMessageLog'">'INFO', 'Store test run execution time for: %s' % machineHostName</call>
+        <script>
+          ### Format and Write Time host was in use for entire test run
+          if testGroup.find('bvt') == -1 and machineTotalSecs != 0:
+            hours     = machineTotalSecs/3600
+            minutes   = (machineTotalSecs/60)%60
+            seconds   = machineTotalSecs%60
+            totalTime = "%02d:%02d:%02d" % (hours, minutes, seconds)
+            file = open('/staf/tools/amlen/reports/' + thisRelease + '/' + testGroup + '_mach.dat', 'a')
+            file.write(machineHostName.ljust(10) + "TOTAL TIME = " + totalTime + "\n")
+            file.flush()
+            file.close()
+        </script>
+      </sequence>
+    </paralleliterate>
+
+    <call function="'doMessageLog'">'INFO', 'Store execution time for entire test run'</call>
+    <script>
+      ### Calculate overall time for entire test run
+      endTime   = time.time() # get current time
+      totalSecs = endTime - startTime # yields time elapsed in seconds
+      hours     = totalSecs/3600
+      minutes   = (totalSecs/60)%60
+      seconds   = totalSecs%60
+      totalTime = "%02d:%02d:%02d" % (hours, minutes, seconds)
+    </script>
+
+    <if expr="testGroup.find('debug') == -1">
+      <sequence>
+        <call function="'doMessageLog'">'INFO', 'Generate Reports for this test run'</call>
+        <call function="'GenerateSummaryReport'"/>
+        <!-- call function="'GenerateMachTimesReport'"/-->
+        <call function="'updateRQM'"/>
+      </sequence>
+    </if>
+
+    <!-- reset namespace variables for next run -->
+    <if expr="testGroup.find('migrate') == -1 and testGroup.find('debug') == -1 and testGroup.find('request') == -1 and testGroup.find('bvt') == -1 and testGroup.find('compat') == -1">
+      <sequence>
+        <if expr="testGroup.find ('_prod') != -1">
+          <call function="'processVAR'">'GET', 'HOLD', nameSpace, testGroup[0:tgPrefixLen] + 'prod_' + thisRelease</call>
+        <else>
+          <call function="'processVAR'">'GET', 'HOLD', nameSpace, testGroup[0:tgPrefixLen] + thisRelease</call>
+        </else>
+        </if>
+        <script> releaseStatus = STAFResult </script>
+        <if expr="testGroup.find('_prod') != -1">
+          <sequence>
+            <call function="'processVAR'">'SET', 'HOLD', thisRelease, testGroup[0:tgPrefixLen] + 'prod_currentJOBID', 'NONE'</call>
+            <if expr="releaseStatus != 'DO_NOT_RUN'">
+              <call function="'processVAR'">'SET', 'HOLD', nameSpace, testGroup[0:tgPrefixLen] + 'prod_' + thisRelease, 'NOT_IN_USE'</call>
+            </if>
+          </sequence>
+        <else>
+          <sequence>
+            <call function="'processVAR'">'SET', 'HOLD', thisRelease, testGroup[0:tgPrefixLen] + 'currentJOBID', 'NONE'</call>
+            <if expr="releaseStatus != 'DO_NOT_RUN'">
+              <call function="'processVAR'">'SET', 'HOLD', nameSpace, testGroup[0:tgPrefixLen] + thisRelease, 'NOT_IN_USE'</call>
+            </if>
+          </sequence>
+        </else>
+        </if>
+      </sequence>
+    </if>
+  </sequence>
+  </function>
+</stax>

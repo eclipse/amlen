@@ -11,6 +11,9 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
+PXY_INSTALL_DIR=${IMA_PROXY_INSTALL_PATH}
+PXY_DATA_DIR=${IMA_PROXY_DATA_PATH}
+
 function print_help {
     echo "Usage: messagesight-must-gather.sh [ -d containerId  [ -e {true|false} ] ] "
     echo "                                   [ -a additional_directories ] [ -w working_dir ] [ -o output_file ]"
@@ -173,7 +176,7 @@ function gather_run_parameters {
 }
 
 IS_DOCKER=0
-ADDITIONAL_DIRECTORIES="/etc /var/log /var/imabridge"
+ADDITIONAL_DIRECTORIES="/etc /var/log ${PXY_DATA_DIR}"
 NOW=$(date +"%m%d%Y-%H%M%S")
 OUTPUT_FILE=messagesight-must-gather-${NOW}.tar.gz
 WORK_DIR="$(pwd)"
@@ -247,10 +250,10 @@ function process_cmd_args {
     fi
 
 # 3. Locate imaserver directory
-    IMASERVER_SOURCE=$(dirname "$(rpm -q --filesbypkg IBMWIoTPMessageGatewayBridge 2> /dev/null | grep lib64 | head -n 1  | awk '{print $2}')" 2> /dev/null)
+    IMASERVER_SOURCE=$(dirname "$(rpm -q --filesbypkg IBMWIoTPMessageGatewayProxy 2> /dev/null | grep lib64 | head -n 1  | awk '{print $2}')" 2> /dev/null)
     if [ -z "$IMASERVER_SOURCE" ]
     then
-        IMASERVER_SOURCE=/opt/ibm/imabridge
+        IMASERVER_SOURCE=${PXY_INSTALL_DIR}
     fi
 
 # 4. Check if container exists
@@ -642,9 +645,9 @@ then
         # Run commands in the container using docker exec
         echo "Collecting data in container $CONTAINER_ID"
 
-        docker exec -it "$CONTAINER_ID" /opt/ibm/imabridge/bin/internal_mustgather.sh > "${WORK_DIR}"/docker_mustgather.txt 2>&1
+        docker exec -it "$CONTAINER_ID" ${PXY_INSTALL_DIR}/bin/internal_mustgather.sh > "${WORK_DIR}"/docker_mustgather.txt 2>&1
 
-        docker cp "${CONTAINER_ID}":/var/imabridge/diag/cores/container_mustgather.tar.gz . 2> /dev/null
+        docker cp "${CONTAINER_ID}":${PXY_DATA_DIR}/diag/cores/container_mustgather.tar.gz . 2> /dev/null
     else
         # Container is not running, create a new temporary image and run it with another entrypoint
         echo "Creating temporary image $DEBUG_IMAGE_NAME from container $CONTAINER_ID"
@@ -656,11 +659,11 @@ then
 			ADDITIONAL_PARMS=$(gather_run_parameters)
 
             NEW_NAME=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
-            docker run "$ADDITIONAL_PARMS" --volumes-from "$CONTAINER_ID" --entrypoint=/opt/ibm/imabridge/bin/internal_mustgather.sh --name "$NEW_NAME" "$DEBUG_IMAGE_NAME" > "${WORK_DIR}"/docker_mustgather.txt 2>&1
+            docker run "$ADDITIONAL_PARMS" --volumes-from "$CONTAINER_ID" --entrypoint=${PXY_INSTALL_DIR}/bin/internal_mustgather.sh --name "$NEW_NAME" "$DEBUG_IMAGE_NAME" > "${WORK_DIR}"/docker_mustgather.txt 2>&1
             if [ $? -eq 0 ]
             then
                 NEW_ID=$(docker inspect -f '{{.Id}}' "$NEW_NAME" 2> /dev/null)
-                docker cp "${NEW_ID}":/var/imabridge/diag/cores/container_mustgather.tar.gz .
+                docker cp "${NEW_ID}":${PXY_DATA_DIR}/diag/cores/container_mustgather.tar.gz .
                 docker stop "$NEW_ID" > /dev/null 2>&1
                 docker rm --force=true "$NEW_ID" > /dev/null 2>&1
             fi
@@ -693,6 +696,6 @@ echo "Redirecting journalctl output to /var/log ..."
 journalctl | gzip > /var/log/journalctl.out.gz
 echo "Compressing must-gather"
 cd "${WORK_DIR}" || { echo "Could not find work dir."; exit 2; }
-tar --exclude="*shadow*" --exclude="pki" --exclude="/var/imabridge/keystore" -czf "$OUTPUT_FILE" $FILES_TO_COMPRESS $ADDITIONAL_DIRECTORIES --ignore-failed-read 2> /dev/null
+tar --exclude="*shadow*" --exclude="pki" --exclude="${PXY_DATA_DIR}/keystore" -czf "$OUTPUT_FILE" $FILES_TO_COMPRESS $ADDITIONAL_DIRECTORIES --ignore-failed-read 2> /dev/null
 rm -rf "$FILES_TO_COMPRESS" 2> /dev/null
 echo "Must-gather processing is complete: $OUTPUT_FILE"

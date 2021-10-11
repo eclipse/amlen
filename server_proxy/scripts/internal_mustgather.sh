@@ -11,12 +11,14 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-IMACFGDIR=/var/imabridge/data/config
+PXY_INSTALL_DIR=${IMA_PROXY_INSTALL_PATH}
+PXY_DATA_DIR=${IMA_PROXY_DATA_PATH}
+IMACFGDIR=${PXY_DATA_DIR}/data/config
 
 WORKING_DIR=$1
 if [ -z $WORKING_DIR ]
 then
-	WORKING_DIR=/var/imabridge/diag/cores
+	WORKING_DIR=${PXY_DATA_DIR}/diag/cores
 fi
 mkdir -p ${WORKING_DIR} > /dev/null 2>&1
 WORKING_DIR="$(cd $WORKING_DIR; pwd)"
@@ -27,10 +29,10 @@ then
 	PREFIX=container
 fi
 
-IMABRIDGE_SOURCE=$(dirname $(rpm -q --filesbypkg IBMWIoTPMessageGatewayBridge | grep lib64 | head -n 1  | awk '{print $2}') 2> /dev/null)
-if [ -z $IMABRIDGE_SOURCE ]
+IMAPROXY_SOURCE=$(dirname $(rpm -q --filesbypkg IBMWIoTPMessageGatewayProxy | grep lib64 | head -n 1  | awk '{print $2}') 2> /dev/null)
+if [ -z $IMAPROXY_SOURCE ]
 then
-	IMABRIDGE_SOURCE=/opt/ibm/imabridge
+	IMAPROXY_SOURCE=${PXY_INSTALL_DIR}
 fi
 
 
@@ -159,17 +161,17 @@ FILES_TO_COMPRESS="${FILES_TO_COMPRESS} ./${PREFIX}_environment_vars.txt"
 FILES_TO_CLEANUP="${FILES_TO_CLEANUP} ${WORKING_DIR}/${PREFIX}_environment_vars.txt"
 
 
-	tar -czf ${WORKING_DIR}/${PREFIX}_binaries.tar.gz ${IMABRIDGE_SOURCE}/bin ${IMABRIDGE_SOURCE}/lib64 --ignore-failed-read > /dev/null 2>&1
+	tar -czf ${WORKING_DIR}/${PREFIX}_binaries.tar.gz ${IMAPROXY_SOURCE}/bin ${IMAPROXY_SOURCE}/lib64 --ignore-failed-read > /dev/null 2>&1
 	FILES_TO_COMPRESS="${FILES_TO_COMPRESS} ./${PREFIX}_binaries.tar.gz"
 	FILES_TO_CLEANUP="${FILES_TO_CLEANUP} ${WORKING_DIR}/${PREFIX}_binaries.tar.gz"
-	${IMABRIDGE_SOURCE}/bin/extractstackfromcore.sh ${IMABRIDGE_SOURCE}
-	FILES_TO_COMPRESS="${FILES_TO_COMPRESS} /var/imabridge/diag/cores/messagesight_stack.*"
-	FILES_TO_COMPRESS="${FILES_TO_COMPRESS} /var/imabridge/data"
-	FILES_TO_COMPRESS="${FILES_TO_COMPRESS} /var/imabridge/diag/logs"
+	${IMAPROXY_SOURCE}/bin/extractstackfromcore.sh ${IMAPROXY_SOURCE}
+	FILES_TO_COMPRESS="${FILES_TO_COMPRESS} ${PXY_DATA_DIR}/diag/cores/messagesight_stack.*"
+	FILES_TO_COMPRESS="${FILES_TO_COMPRESS} ${PXY_DATA_DIR}/data"
+	FILES_TO_COMPRESS="${FILES_TO_COMPRESS} ${PXY_DATA_DIR}/diag/logs"
 	
-	for f in imabridge
+	for f in imaproxy
 	do
-		OUT=$(ldd ${IMABRIDGE_SOURCE}/bin/${f} 2>&1)
+		OUT=$(ldd ${IMAPROXY_SOURCE}/bin/${f} 2>&1)
 		if [ $? -eq 0 ]
 		then
 			echo "${COUNT}. ldd on $f"
@@ -177,12 +179,12 @@ FILES_TO_CLEANUP="${FILES_TO_CLEANUP} ${WORKING_DIR}/${PREFIX}_environment_vars.
 			COUNT=$(($COUNT+1)) 
 			echo "-------------------------------------"
 			echo "${COUNT}. version check on $f"
-			strings ${IMABRIDGE_SOURCE}/bin/$f | grep version_string 2> /dev/null
+			strings ${IMAPROXY_SOURCE}/bin/$f | grep version_string 2> /dev/null
 			COUNT=$(($COUNT+1))
 			echo "-------------------------------------"
 		fi		
 	done
-	for f in ${IMABRIDGE_SOURCE}/lib64/*
+	for f in ${IMAPROXY_SOURCE}/lib64/*
 	do
 		OUT=$(ldd $f 2>&1)
 		if [ $? -eq 0 ]
@@ -194,15 +196,15 @@ FILES_TO_CLEANUP="${FILES_TO_CLEANUP} ${WORKING_DIR}/${PREFIX}_environment_vars.
 		fi
 	done
 	
-    PID=$(ps -ef | grep "imabridge -d" | grep -v grep | tail -n 1 | awk '{print $2}')
+    PID=$(ps -ef | grep "imaproxy -d" | grep -v grep | tail -n 1 | awk '{print $2}')
     if [ ! -z $PID ]
     then
-        echo "${COUNT}. pmap -p imabridge"
+        echo "${COUNT}. pmap -p imaproxy"
         pmap -p $PID 2>&1
         COUNT=$(($COUNT+1))
         echo "-------------------------------------"
 
-        echo "${COUNT}. gstack imabridge"
+        echo "${COUNT}. gstack imaproxy"
         gstack $PID 2>&1
         COUNT=$(($COUNT+1))
         echo "-------------------------------------"

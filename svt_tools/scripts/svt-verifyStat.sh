@@ -122,13 +122,13 @@ Q_VALUE=${Q_OBJECT##*=}
 # Replace * with # to handle TopicStrings
 Q_VALUE=${Q_VALUE//\*/#}
 
-len=`echo $out | python -c "import json,sys;obj=json.load(sys.stdin);print len(obj[\"${TYPE}\"])"`
+len=`echo $out | python3 -c "import json,sys;obj=json.load(sys.stdin);print(len(obj[\"${TYPE}\"]))"`
 display "array_len=${len}"
 
 local n=0
 while [ ${n} -lt ${len} ]
 do
-    f=`echo $out | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"${TYPE}\"][${n}][\"${Q_NAME}\"]"`
+    f=`echo $out | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"${TYPE}\"][${n}][\"${Q_NAME}\"])"`
     if [[ "${Q_VALUE}" == "${f}" ]] ; then
         break;
     fi
@@ -137,7 +137,7 @@ done
 
 
 display "import json,sys;obj=json.load(sys.stdin);print obj[\"${TYPE}\"][${n}][\"${FIELD}\"]" ${LOG_FILE}
-f=`echo $out | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"${TYPE}\"][${n}][\"${FIELD}\"]"`
+f=`echo $out | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"${TYPE}\"][${n}][\"${FIELD}\"])"`
 
 #index=0
 #for line in ${out[@]}; do

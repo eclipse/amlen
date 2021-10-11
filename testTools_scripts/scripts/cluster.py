@@ -104,7 +104,7 @@ def traceExit(method):
   
 def traceRestCall(action, url, payload):
   if action == 'POST':
-    trace(0, '\n\t\t'+action+' PAYLOAD='+payload+'\n\t\tURL: '+url)
+    trace(0, '\n\t\t'+action+' PAYLOAD='+str(payload)+'\n\t\tURL: '+url)
   elif action == 'GET':
     trace(0, '\n\t\t'+action+' URL: '+url)
 
@@ -720,6 +720,7 @@ def buildClusterMembershipPayload(argv, serverID, enable, skipExtraProps):
     payload = '{"ClusterMembership":{'+enablecluster+name+controladdress+controlport+messagingaddress+messagingport+discoveryport+bootstrap+ttl+usemc+usetls+'}}'
   else:
     payload = '{"ClusterMembership":{'+enablecluster+name+'}}'
+    payload = payload.encode('utf-8')
 
   traceExit('buildClusterMembershipPayload')
   return ( payload )

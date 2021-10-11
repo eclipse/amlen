@@ -12,15 +12,19 @@
 #
 
 # Predefined directory locations for the instance
+
+PXY_INSTALL_DIR=${IMA_PROXY_INSTALL_PATH}
+PXY_DATA_DIR=${IMA_PROXY_DATA_PATH}
+
 CURDIR=`pwd`
 export CURDIR
-DATADIR=/var/imabridge
+DATADIR=${PXY_DATA_DIR}
 export DATADIR
-DIAGDIR=/var/imabridge/diag
+DIAGDIR=${PXY_DATA_DIR}/diag
 export DIAGDIR
-LOGDIR=/var/imabridge/diag/logs
+LOGDIR=${PXY_DATA_DIR}/diag/logs
 export LOGDIR
-COREDIR=/var/imabridge/diag/cores
+COREDIR=${PXY_DATA_DIR}/diag/cores
 export COREDIR
 
 # Determine if this is a docker container (by finding /docker in /proc/self/cgroup)
@@ -36,12 +40,12 @@ fi
 # Create install log file
 mkdir -p -m 770 ${LOGDIR}
 chmod -R 770 ${LOGDIR}
-INITLOG=${LOGDIR}/MessageSightBridgeInstall.log
+INITLOG=${LOGDIR}/MessageSightProxyInstall.log
 export INITLOG
 touch ${INITLOG}
 
 echo "--------------------------------------------------"  >> ${INITLOG}
-echo "Configure MessageSight Bridge " >> ${INITLOG}
+echo "Configure Amlen Proxy " >> ${INITLOG}
 echo "Date: `date` " >> ${INITLOG}
 echo "In Docker: ${INDOCKER} " >> ${INITLOG}
 
@@ -60,19 +64,19 @@ chmod -R 770 ${DATADIR}/keystore >> ${INITLOG} 2>&1 3>&1
 
 # Set default values
 IMACFGDIR=${DATADIR}
-IMASERVERCFG=/opt/ibm/imabridge/bin/imabridge.cfg
-IMADYNSERVERCFG=/var/imabridge/bridge.cfg
+IMASERVERCFG=${PXY_INSTALL_DIR}/bin/imaproxy.cfg
+IMADYNSERVERCFG=${PXY_DATA_DIR}/proxy.cfg
 
 # Check if container is already inited
 if [ -f ${IMACFGDIR}/MessageSightInstance.inited ]
 then
-    echo "MessageSight Bridge Instance is already initialized. " >> ${INITLOG}
+    echo "Amlen Proxy Instance is already initialized. " >> ${INITLOG}
     echo "---------------------------------------------"  >> ${INITLOG}
     echo  >> ${INITLOG}
 
 else
 
-    echo "Initialize MessageSight Bridge Instance -- " >> ${INITLOG}
+    echo "Initialize Amlen Proxy Instance -- " >> ${INITLOG}
 
     # Initialize the instance
     # No action currently required that is not idempotent

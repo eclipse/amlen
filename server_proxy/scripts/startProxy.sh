@@ -20,6 +20,9 @@ _term() {
     wait "$proxy"
 }
 
+PXY_INSTALL_DIR=${IMA_PROXY_INSTALL_PATH}
+PXY_DATA_DIR=${IMA_PROXY_DATA_PATH}
+
 # check if running in a docker container
 isDocker=0
 if [ -f /.dockerenv ]
@@ -27,8 +30,8 @@ then
     isDocker=1
 fi
 
-mkdir -p -m 770 /var/imaproxy/diag/logs
-INITLOG=/var/imaproxy/diag/logs/imaproxy_init.log
+mkdir -p -m 770 ${PXY_DATA_DIR}/diag/logs
+INITLOG=${PXY_DATA_DIR}/diag/logs/imaproxy_init.log
 export INITLOG
 
 exec 200> /tmp/imaproxy.lock
@@ -40,13 +43,13 @@ fi
 
 echo "" >> ${INITLOG}
 echo "-------------------------------------------------------------------"  >> ${INITLOG}
-echo "START IBM IoT MessageSight Proxy" >> ${INITLOG}
+echo "Starting Proxy" >> ${INITLOG}
 echo "Date: $(date) " >> ${INITLOG}
 
 # Initialize imaproxy service for docker container if running in a container
 if [ $isDocker -eq 1 ]
 then
-    /opt/ibm/imaproxy/bin/initProxy.sh
+    ${PXY_INSTALL_DIR}/bin/initProxy.sh
 fi
 
 # Start imaproxy
@@ -58,8 +61,8 @@ while [ $LOOP -gt 0 ];
 do
     # Start service
     echo "Running proxy"
-    cd /var/imaproxy
-    /opt/ibm/imaproxy/bin/imaproxy -d >>/var/imaproxy/diag/logs/console.log 2>&1 &
+    cd ${PXY_DATA_DIR}
+    ${PXY_INSTALL_DIR}/bin/imaproxy -d >>${PXY_DATA_DIR}/diag/logs/console.log 2>&1 &
     proxy=$!
     trap _term SIGTERM
     wait "$proxy"
@@ -67,22 +70,22 @@ do
     if [ "$?" = "2" ]
     then
         LOOP=0
-        /opt/ibm/imaproxy/bin/extractstackfromcore.sh
+        ${PXY_INSTALL_DIR}/bin/extractstackfromcore.sh
         exit 0
     fi
 
     if [ $LOOP -eq 0 ]
     then
         # Extract stack trace if previous run failed for any reason
-        /opt/ibm/imaproxy/bin/extractstackfromcore.sh
+        ${PXY_INSTALL_DIR}/bin/extractstackfromcore.sh
         echo "startProxy terminated" $?
         exit 15
     fi
 
     # Extract stack trace if previous run failed for any reason
-    /opt/ibm/imaproxy/bin/extractstackfromcore.sh
+    ${PXY_INSTALL_DIR}/bin/extractstackfromcore.sh
 done
 
 # Extract stack trace if previous run failed for any reason
-/opt/ibm/imaproxy/bin/extractstackfromcore.sh
+${PXY_INSTALL_DIR}/bin/extractstackfromcore.sh
 

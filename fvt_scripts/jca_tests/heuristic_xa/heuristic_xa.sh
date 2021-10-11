@@ -266,7 +266,7 @@ reply=`${cmd}`
 # Get the XID of our Prepared transaction
 echo -e "Get the XID of our prepared transaction\n" | tee -a ${LOG}
 
-XID=`curl -XGET -sS http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?TranState=Prepared | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0][\"XID\"]"`
+XID=`curl -XGET -sS http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?TranState=Prepared | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0][\"XID\"])"`
 
 if [[ "${XID}" == "" ]] ; then
     echo "FAILURE: No transactions were found" | tee -a ${LOG}
@@ -278,7 +278,7 @@ echo "Monitor transaction ?XID= should return the existing XID"
 cmd="curl -s -S -X GET http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?XID=${XID}"
 expectedRC=0
 runRESTAPI
-xidFilter=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0][\"XID\"]" 2>/dev/null`
+xidFilter=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0][\"XID\"])"`
 if [[ "${xidFilter}" == "" ]] ; then
   echo "FAILURE: Transaction monitor result empty for XID=${XID}"
   abort
@@ -289,7 +289,7 @@ echo "Monitor transaction ?TranState=Prepared should return the existing XID"
 cmd="curl -s -S -X GET http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?TranState=Prepared"
 expectedRC=0
 runRESTAPI
-preparedFilter=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0][\"XID\"]" 2>/dev/null`
+preparedFilter=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0][\"XID\"])"`
 if [[ "${preparedFilter}" == "" ]] ; then
   echo "FAILURE: Transaction monitor result empty for TranState=Prepared"
   abort
@@ -300,7 +300,7 @@ echo "Monitor transaction ?StatType=LastStateChangeTime should return the existi
 cmd="curl -s -S -X GET http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?StatType=LastStateChangeTime"
 expectedRC=0
 runRESTAPI
-lastChangedFilter=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0][\"XID\"]" 2>/dev/null`
+lastChangedFilter=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0][\"XID\"])" 2>/dev/null`
 if [[ "${lastChangedFilter}" == "" ]] ; then
   echo "FAILURE: Transaction monitor result empty for StatType=LastStateChangeTime"
   abort
@@ -311,7 +311,7 @@ echo "Monitor transaction ?ResultCount=10 should return the existing XID"
 cmd="curl -s -S -X GET http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?ResultCount=10"
 expectedRC=0
 runRESTAPI
-countFilter=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0][\"XID\"]" 2>/dev/null`
+countFilter=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0][\"XID\"])" 2>/dev/null`
 if [[ "${countFilter}" == "" ]] ; then
   echo -e "FAILURE: Transaction monitor result empty for ResultCount=10\n\t"
   abort
@@ -323,7 +323,7 @@ cmd="curl -s -S -X GET http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?T
 # expected RC 0 because succeeds but result array is empty
 expectedRC=0
 runRESTAPI
-emptyArr=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0]" 2>/dev/null`
+emptyArr=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0])" 2>/dev/null`
 if [[ "${emptyArr}" != "" ]] ; then
   echo -e "FAILURE: Transaction monitor result not empty for TranState=Heuristic\n\t${emptyArr}"
   abort
@@ -348,7 +348,7 @@ if [[ "${action}" == "commit" ]] ; then
     cmd="curl -s -S -X GET http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?TranState=HeuristicCommit"
     expectedRC=0
     runRESTAPI
-    heurCommitFilter=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0][\"XID\"]" 2>/dev/null`
+    heurCommitFilter=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0][\"XID\"])" 2>/dev/null`
     if [[ "${heurCommitFilter}" == "" ]] ; then
       echo -e "FAILURE: Transaction monitor result empty for TranState=HeuristicCommit\n\t"
       abort
@@ -365,7 +365,7 @@ elif [[ "${action}" == "rollback" ]] ; then
     cmd="curl -s -S -X GET http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?TranState=HeuristicRollback"
     expectedRC=0
     runRESTAPI
-    heurRollbackFilter=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0][\"XID\"]" 2>/dev/null`
+    heurRollbackFilter=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0][\"XID\"])" 2>/dev/null`
     if [[ "${heurRollbackFilter}" == "" ]] ; then
       echo -e "FAILURE: Transaction monitor result empty for TranState=HeuristicRollback\n\t"
       abort
@@ -378,7 +378,7 @@ echo "Monitor transaction ?TranState=Heuristic should return no XID"
 cmd="curl -sS http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?TranState=Heuristic"
 expectedRC=0
 runRESTAPI
-heuristicFilter=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0][\"XID\"]" 2>/dev/null`
+heuristicFilter=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0][\"XID\"])" 2>/dev/null`
 if [[ "${heuristicFilter}" == "" ]] ; then
   echo -e "FAILURE: Transaction monitor result empty for TranState=Heuristic\n\t"
   abort
@@ -389,7 +389,7 @@ echo "Monitor transaction ?TranState=Prepared should return no XID"
 cmd="curl -sS http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction?TranState=Prepared"
 expectedRC=0
 runRESTAPI
-emptyArr=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0]" 2>/dev/null`
+emptyArr=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0])" 2>/dev/null`
 if [[ "${emptyArr}" != "" ]] ; then
   echo -e "FAILURE: Transaction monitor result not empty for TranState=Heuristic\n\t${emptyArr}"
   abort
@@ -428,7 +428,7 @@ start_was
 cmd="curl -sS http://${A1_HOST}:${A1_PORT}/ima/v1/monitor/Transaction"
 expectedRC=0
 runRESTAPI
-emptyArr=`echo ${reply} | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Transaction\"][0]" 2>/dev/null`
+emptyArr=`echo ${reply} | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Transaction\"][0])" 2>/dev/null`
 if [[ "${emptyArr}" != "" ]] ; then
   echo -e "FAILURE: Transaction monitor result not empty for TranState=Heuristic\n\t${emptyArr}"
   abort

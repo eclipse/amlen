@@ -928,7 +928,7 @@ function evaluateResults {
                 cmd="curl -X GET ${curl_silent_options} ${curl_timeout_options} http://${a_hostVal[${appliance}]}:${a_portVal}/ima/v1/service/status"
                 reply=$($cmd)
                 RC=$?
-                StateDescription=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]")
+                StateDescription=$(echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])")
                 ##Status=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"Status\"]")
 
                 echo "$cmd" | tee -a $logfile
@@ -1561,7 +1561,7 @@ function rest_CleanStore {
             RC=$?
             # if not RC=0 no since checking reply
             if [ $RC -eq 0 ] ; then
-                StateDescription=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]")
+                StateDescription=$(echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])")
                 ##Status=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"Status\"]")
                 ##if [[ ("$Status" =~ "$StatusRunning" && ( "$StateDescription" =~ "$StateDescProduction" || "$StateDescription" =~ "$StateDescStandby" ) ) ]]
                 if [[ ("$StateDescription" =~ "$StateDescProduction" || "$StateDescription" =~ "$StateDescStandby") ]] ; then
@@ -1675,7 +1675,7 @@ function verify_imaserver_running {
                                 RC=$?
                                 # if not RC=0 no since checking reply
                                 if [ $RC -eq 0 ] ; then
-                                    StateDescription=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]")
+                                    StateDescription=$(echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])")
                                     ##Status=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"Status\"]")
 
                                     ##if [[ ("$Status" =~ "$StatusRunning" && ( "$StateDescription" =~ "$StateDescProduction" || "$StateDescription" =~ "$StateDescStandby" ) ) ]]
@@ -1710,7 +1710,7 @@ function verify_imaserver_running {
                         exit 1
                     fi
                 else ## RC=0 so service/status command was successful.
-                    StateDescription=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]")
+                    StateDescription=$(echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])")
                     ##Status=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"Status\"]")
                     echo "StateDescription=$StateDescription" | tee -a $logfile
                 fi
@@ -1741,7 +1741,7 @@ function verify_imaserver_running {
                         RC=$?
                         # if not RC=0 no since checking reply
                         if [ $RC -eq 0 ] ; then
-                            StateDescription=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]")
+                            StateDescription=$(echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])")
                             ##Status=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"Status\"]")
                             if [ $RC -eq 0 ] ; then
                                 ##if [[ ("$Status" =~ "$StatusRunning" && ( "$StateDescription" =~ "$StateDescProduction" || "$StateDescription" =~ "$StateDescStandby" ) ) ]]
@@ -1788,7 +1788,7 @@ function verify_imaserver_running {
                             RC=$?
                             # if not RC=0 no since checking reply
                             if [ $RC -eq 0 ] ; then
-                                StateDescription=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]")
+                                StateDescription=$(echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])")
                                 ##Status=$(echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"Status\"]")
                                 ##if [[ ("$Status" =~ "$StatusRunning" && ( "$StateDescription" =~ "$StateDescProduction" || "$StateDescription" =~ "$StateDescStandby" ) ) ]]
                                 if [[ ("$StateDescription" =~ "$StateDescProduction" || "$StateDescription" =~ "$StateDescStandby") ]] ; then

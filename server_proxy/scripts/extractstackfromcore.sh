@@ -11,9 +11,12 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
+PXY_INSTALL_DIR=${IMA_PROXY_INSTALL_PATH}
+PXY_DATA_DIR=${IMA_PROXY_DATA_PATH}
+
 # set -x
 
-LOCK="/tmp/imaextractstackfromcore_bridge.lock"
+LOCK="/tmp/imaextractstackfromcore_proxy.lock"
 
 exec 200>$LOCK
 flock -n 200 || exit 0
@@ -21,11 +24,11 @@ flock -n 200 || exit 0
 INSTALLDIR=$1
 if [ -z $INSTALLDIR ]
 then
-        INSTALLDIR=/opt/ibm/imabridge
+        INSTALLDIR=${PXY_INSTALL_DIR}
 fi
 export INSTALLDIR
 
-DIAGDIR=/var/imabridge/diag
+DIAGDIR=${PXY_DATA_DIR}/diag
 export DIAGDIR
 
 coretype=0
@@ -44,7 +47,7 @@ else
 fi
 
 FILEEXT=`date +%y%m%d_%H%M%S`
-OUTF=$DIAGDIR/cores/imabridge_stack.$FILEEXT
+OUTF=$DIAGDIR/cores/imaproxy.$FILEEXT
 export OUTF
 
 LOGF=$DIAGDIR/logs/coreProcess.log
@@ -52,14 +55,14 @@ GDBBATCH=${INSTALLDIR}/bin/gdb.batch
 export GDBBATCH
 
 echo "" > $OUTF
-echo "IBM IoT MessageSight Bridge - stack trace of last failed process" >> $OUTF
+echo "Amlen Proxy - stack trace of last failed process" >> $OUTF
 echo "----------------------------------------------------------------" >> $OUTF
 echo "" >> $OUTF
-echo "`strings /opt/ibm/imabridge/bin/imabridge | grep version | grep IBM`" >> $OUTF
+echo "`strings ${PXY_INSTALL_DIR}/bin/imaproxy | grep version | grep IBM`" >> $OUTF
 echo "Date and time: `date`" >> $OUTF
 echo >> $OUTF
 
-# check current core files and try to identify imabridge or other MessageSight executable code
+# check current core files and try to identify imaproxy or other MessageSight executable code
 cd $COREDIR
 found=0
 
@@ -80,13 +83,13 @@ do
         continue
     fi
 
-    TMPPROC=`gdb $i -q --batch 2>/dev/null 3>&2 | grep "Core was " | grep -o "imabridge"`
+    TMPPROC=`gdb $i -q --batch 2>/dev/null 3>&2 | grep "Core was " | grep -o "imaproxy"`
 
-    PROCBIN="imabridge"
-    TMPSTR=`echo $TMPPROC | grep -o imabridge`
+    PROCBIN="imaproxy"
+    TMPSTR=`echo $TMPPROC | grep -o imaproxy`
     if [ $? -eq 0 ]
     then
-        PROCBIN="/opt/ibm/imabridge/bin/imabridge"
+        PROCBIN="${PXY_INSTALL_DIR}/bin/imaproxy"
     fi
 
 

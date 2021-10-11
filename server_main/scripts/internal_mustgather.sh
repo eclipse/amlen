@@ -235,12 +235,12 @@ then
         echo "-------------------------------------"
 
         # imaserver is up, so flush the trace
-		ADMIN_PORT=$(cat ${IMACFGDIR}/server_dynamic.json 2>/dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["AdminEndpoint"]["AdminEndpoint"]["Port"];' 2>/dev/null)
+        ADMIN_PORT=$(cat ${IMACFGDIR}/server_dynamic.json 2>/dev/null | python3 -c 'import json,sys;obj=json.load(sys.stdin);print(obj["AdminEndpoint"]["AdminEndpoint"]["Port"]);' 2>/dev/null)
 		if [ -z $ADMIN_PORT ]
 		then
 			ADMIN_PORT=9089
 		fi
-		ADMIN_HOST=$(cat ${IMACFGDIR}/server_dynamic.json 2>/dev/null | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["AdminEndpoint"]["AdminEndpoint"]["Interface"];' 2>/dev/null)
+        ADMIN_HOST=$(cat ${IMACFGDIR}/server_dynamic.json 2>/dev/null | python3 -c 'import json,sys;obj=json.load(sys.stdin);print(obj["AdminEndpoint"]["AdminEndpoint"]["Interface"]);' 2>/dev/null)
 		if [ -z $ADMIN_HOST ] || [ "$ADMIN_HOST" == "All" ]
 		then
 			ADMIN_HOST="127.0.0.1"

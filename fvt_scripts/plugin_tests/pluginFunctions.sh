@@ -70,7 +70,7 @@ function statusloop {
         echo -n "*"
         sleep 1
         reply=`${cmd}`
-        status=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Plugin\"][\"Status\"]"`
+        status=`echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Plugin\"][\"Status\"])"`
         if [[ "${status}" == "${expected}" ]] ; then
             rc=0
             break
@@ -89,7 +89,7 @@ function statusloop {
 #------------------------------------------------------------------------------
 function getPluginsInstalled {
     run_rest_command 0 GET configuration/Plugin
-    pluginsInstalled=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Plugin\"]"`
+    pluginsInstalled=`echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Plugin\"])"`
     if [[ "${plugins}" =~ "${expected}" ]] ; then
         pluginInstalled="true"
     fi
@@ -158,7 +158,7 @@ function updatePlugin {
         run_rest_command 0 PUT file/${PLUGIN_CONFIG} ${M1_TESTROOT}/plugin_tests/${PLUGIN_CONFIG}
         run_rest_command 0 POST configuration \{\"Plugin\":\{\"${PLUGIN_NAME}\":\{\"PropertiesFile\":\"${PLUGIN_CONFIG}\"}}}
         run_rest_command 0 GET configuration/Plugin/${PLUGIN_NAME}
-        propertiesFile=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Plugin\"][\"${PLUGIN_NAME}\"][\"PropertiesFile\"]"`
+        propertiesFile=`echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Plugin\"][\"${PLUGIN_NAME}\"][\"PropertiesFile\"])"`
         trace "propertiesFile=${propertiesFile}"
         if [[ "${propertiesFile}" == "${PLUGIN_CONFIG}" ]] ; then
             trace "Plugin ${PLUGIN_NAME} successfully updated."

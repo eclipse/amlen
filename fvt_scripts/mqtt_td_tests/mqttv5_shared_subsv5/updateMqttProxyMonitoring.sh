@@ -54,8 +54,8 @@ if [ "$1" = "on" ]; then
   	echo "grep 'MqttProxyMonitoring' ${DIRPATH}/messagesight/data/config/server.cfg" | ssh ${aIPVal} 2>/dev/null
 
     statusResponse=`curl -sSf -XGET http://${aIPVal}:${aPORTVal}/ima/service/status 2>/dev/null`
-    StateDescription=`echo $statusResponse | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
-    haStatus=`echo $statusResponse | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"HighAvailability\"][\"Status\"]"`
+    StateDescription=`echo $statusResponse | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
+    haStatus=`echo $statusResponse | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"HighAvailability\"][\"Status\"])"`
 
     echo "Restarting A${appliance}.."
     if [[ "${haStatus}" =~ "Active" ]] ; then
@@ -99,8 +99,8 @@ else
 
 
       statusResponse=`curl -sSf -XGET http://${aIPVal}:${aPORTVal}/ima/service/status 2>/dev/null`
-      StateDescription=`echo $statusResponse | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
-      haStatus=`echo $statusResponse | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"HighAvailability\"][\"Status\"]"`
+      StateDescription=`echo $statusResponse | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
+      haStatus=`echo $statusResponse | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"HighAvailability\"][\"Status\"])"`
 
       echo "Restarting A${appliance}.."
       if [[ "${haStatus}" =~ "Active" ]] ; then

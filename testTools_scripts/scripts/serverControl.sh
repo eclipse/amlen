@@ -154,7 +154,7 @@ function checkRunning {
   statusResponse=`curl -sSf -XGET http://${aHostVal}:${aPortVal}/ima/service/status 2>/dev/null`
   echo "[`date +"%Y/%m/%d %T:%3N %Z"`] checkRunning > server status:" | tee -a ${LOG}
   echo -e "${statusResponse}\n" | tee -a ${LOG}
-  StateDescription=`echo $statusResponse| python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
+  StateDescription=`echo $statusResponse| python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
 
   if [[ "${StateDescription}" =~ "Running" ]] || [[ "${StateDescription}" =~ "Standby" ]] ; then
     echo "[`date +"%Y/%m/%d %T:%3N %Z"`] Server is running" | tee -a ${LOG}
@@ -234,7 +234,7 @@ function checkStatus {
   while [ ${elapsed} -lt ${timeout} ] ; do
     echo $(date) "[`date +"%Y/%m/%d %T:%3N %Z"`] Elapsed:" ${elapsed} | tee -a ${LOG}
     statusResponse=`curl -sSf -XGET http://${aHostVal}:${aPortVal}/ima/service/status 2>/dev/null`
-    StateDescription=`echo $statusResponse | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
+    StateDescription=`echo $statusResponse | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
 
     if [[ "${StateDescription}" =~ "${expectedStatus}" ]] ; then
       done=1

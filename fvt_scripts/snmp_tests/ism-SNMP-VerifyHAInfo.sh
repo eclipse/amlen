@@ -33,7 +33,7 @@ echo "RestSnmpStatusCmd=$RestSnmpStatusCmd"
 RestSnmpStatusReply=`${RestSnmpStatusCmd}`
 echo "RestSnmpStatusReply=$RestSnmpStatusReply"
 
-SnmpStatus=`echo $RestSnmpStatusReply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"SNMP\"][\"Status\"]"`
+SnmpStatus=`echo $RestSnmpStatusReply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"SNMP\"][\"Status\"])"`
 echo "SnmpStatus=$SnmpStatus"
 if [[ "$SnmpStatus" != "$StatusRunning" ]]
 then
@@ -98,7 +98,7 @@ if [[ ${#SNMPServerHAStaticList[@]} -eq 1 ]]
 then
     IFS=" "
     #echo $RestServerStatusReply
-    RestEnabledCmd=`echo $RestServerStatusReply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"HighAvailability\"][\"Enabled\"]"`
+    RestEnabledCmd=`echo $RestServerStatusReply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"HighAvailability\"][\"Enabled\"])"`
     declare -a ServerHAStaticContentList=($RestEnabledCmd)
 else
     # Now we need to parse the JSON response like our SNMP - Call our python helper script

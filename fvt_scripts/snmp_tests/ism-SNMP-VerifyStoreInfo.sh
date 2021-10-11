@@ -35,7 +35,7 @@ echo "RestSnmpStatusCmd=$RestSnmpStatusCmd"
 RestSnmpStatusReply=`${RestSnmpStatusCmd}`
 echo "RestSnmpStatusReply=$RestSnmpStatusReply"
 
-SnmpStatus=`echo $RestSnmpStatusReply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"SNMP\"][\"Status\"]"`
+SnmpStatus=`echo $RestSnmpStatusReply | python -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"SNMP\"][\"Status\"])"`
 echo "SnmpStatus=$SnmpStatus"
 
 if [[ "$SnmpStatus" != "$StatusRunning" ]]

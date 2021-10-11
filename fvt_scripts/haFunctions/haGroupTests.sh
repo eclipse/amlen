@@ -36,7 +36,7 @@ function verify_status {
       sleep 1
       cmd="${curlPrefix} GET ${server}/service/status"
       reply=`${cmd}`
-      StateDescription=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
+      StateDescription=`echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
       if [[ "${StateDescription}" =~ "${expected}" ]] ; then
         rc=0
         break

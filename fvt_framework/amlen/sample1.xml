@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE stax SYSTEM "stax.dtd">
+
+<!--
+    sample1.xml - Sample of a job definition file for STAX
+
+    Job Description:
+
+    This job executes various STAF commands and processes and
+    sends messages to the STAX Job Monitor.
+-->
+
+<stax>
+
+  <!--
+    Change the values specified for MachList and/or duration
+    and/or STAXJarFile as desired by changing the values passed to
+    function MonitorTest via the <defaultcall> element in this file
+    or override them by specifying the arguments parameter when
+    submitting the job for execution.  Examples of values for the
+    arguments parameter:
+      { 'duration': '10m', 'MachList': ['machA', machB', 'machC'] }
+      { 'MachList': ['myMachine'] }
+      { 'duration': '1h' }
+      { 'STAXJarFile': '/usr/local/staf/services/STAXMon.jar' }
+   -->
+
+  <script>
+    STAXServicesDir = '{STAF/Config/STAFRoot}{STAF/Config/Sep/File}services{STAF/Config/Sep/File}stax'
+    STAXJarFile = '%s{STAF/Config/Sep/File}STAXMon.jar' % STAXServicesDir
+  </script>
+
+  <defaultcall function="MonitorTest">
+    { 'MachList': ['local', 'local'], 'duration': '2m', 'STAXJarFile': STAXJarFile }
+  </defaultcall>
+
+  <function name="MonitorTest" scope="local" requires="RunProcesses">
+
+    <function-prolog>
+      For each machine specified by the MachList argument, function
+      RunProcesses is called and run in parallel.  This is done in a
+      continous loop until the time specified by the duration argument
+      is reached.
+    </function-prolog>
+
+    <function-map-args>
+
+      <function-optional-arg name="duration" default="'2m'">
+        Timer duration to run the test.  e.g. '5m', '1h', '90s', etc.
+      </function-optional-arg>
+
+      <function-optional-arg name="MachList" default="['local', 'local']">
+        List of machines where the test will be run
+      </function-optional-arg>
+
+      <function-optional-arg name="STAXJarFile" default="STAXJarFile">
+        Fully-qualified name of STAX jar file on each machine where the test will be run
+      </function-optional-arg>
+
+    </function-map-args>
+
+    <testcase name = "'Timer'">
+
+      <sequence>
+        <script>
+          import time
+          starttime = time.time(); # record starting time
+        </script>
+
+        <message>
+          'duration=%s, MachList=%s' % (duration, MachList)
+        </message>
+
+        <!-- Resolve the STAXJarFile which may contain STAF variables -->
+        <stafcmd>
+          <location>'local'</location>
+          <service>'var'</service>
+          <request>'resolve string %s' % STAXJarFile</request>
+        </stafcmd>
+
+        <if expr="RC == 0">
+          <sequence>
+            <script>STAXJarFile = STAFResult</script>
+            <message>'STAXJarFile=%s' % (STAXJarFile)</message>
+          </sequence>
+          <else>
+            <sequence>
+              <message>
+                'Error resolving STAXJarFile: RC=%s, STAFResult=%s, \
+                 STAXJarFile=%s' % (RC, STAFResult, STAXJarFile)
+              </message>
+              <message>'Terminating job'</message>
+              <terminate block="'main'"/>
+            </sequence>
+          </else>
+        </if>
+
+        <!-- Loop continuously for the specified duration -->
+        <timer duration="duration">
+          <loop var="loopNum">
+            <paralleliterate var="machName" in="MachList" indexvar="i">
+              <block name="'%s_%d' % (machName, i)">
+                <testcase name="machName">
+                  <call-with-map function="'RunProcesses'">
+                    <call-map-arg name="'machName'">machName</call-map-arg>
+                    <call-map-arg name="'loopNum'">loopNum</call-map-arg>
+                    <call-map-arg name="'blockNum'">i</call-map-arg>
+                  </call-with-map>
+                </testcase>
+              </block>
+            </paralleliterate>
+          </loop>
+        </timer>
+
+        <script>
+          stoptime = time.time()             # record ending time
+          elapsedSecs = stoptime - starttime # difference yields time elapsed in seconds
+        </script>
+
+        <message>'Test complete - ran for %d seconds' % elapsedSecs</message>
+
+        <if expr="RC == 1">
+          <tcstatus result="'pass'">
+            'Timer ran for %d seconds' % elapsedSecs
+          </tcstatus>
+          <else>
+            <tcstatus result="'fail'">
+             'Timer only ran for %d seconds. RC=%d' % (elapsedSecs, RC)
+            </tcstatus>
+          </else>
+        </if>
+
+      </sequence>
+
+    </testcase>
+
+  </function>
+
+  <function name="RunProcesses" scope="local"
+                                requires="PASS-if-0 RunSTAFCommands">
+
+    <function-prolog>
+      This function runs multiple processes.  Each process runs a Java
+      program called TestProcess (which is included in the STAXMon.jar file)
+      and passes it different parameters which effect how long it runs
+      until it completes and whether it is successful or not.
+      The parameters for TestProcess are number of loops, seconds to wait
+      between loops, and RC to return at the end of the process.
+    </function-prolog>
+
+    <function-map-args>
+
+      <function-required-arg name="machName">
+        Location (machine name) to run the process
+      </function-required-arg>
+
+      <function-required-arg name="blockNum">
+        Number used in conjunction with the machine name to get a unique
+        block name (in case running multiple times on the same machine)
+      </function-required-arg>
+
+      <function-required-arg name="loopNum">
+        Current loop number
+      </function-required-arg>
+
+    </function-map-args>
+
+    <sequence>
+
+      <message>
+        'Starting run #%d on %s' % (loopNum, machName)
+      </message>
+
+      <script>
+        className = 'com.ibm.staf.service.stax.TestProcess'
+      </script>
+
+      <process name="'TestProcess'">
+        <location>machName</location>
+        <command>'java'</command>
+        <parms>'%s 5 6 0' % className</parms>
+        <title>'First title example'</title>
+        <env>'CLASSPATH=%s{STAF/Config/Sep/Path}{STAF/Env/ClassPath}' % STAXJarFile</env>
+        <console use="'same'"/>
+      </process>
+
+      <call function="'PASS-if-0'">RC</call>
+
+      <message>
+        'Process RC=%d on machine %s' % (RC, machName)
+      </message>
+
+      <call function="'RunSTAFCommands'">
+        { 'machName': machName, 'blockNum': blockNum }
+      </call>
+
+      <call function="'PASS-if-0'">STAXResult</call>
+
+      <process name="'TestProcess'">
+        <location>machName</location>
+        <command>'java'</command>
+        <parms>'%s 3 4 99' % className</parms>
+        <env>'CLASSPATH=%s{STAF/Config/Sep/Path}{STAF/Env/ClassPath}' % STAXJarFile</env>
+        <console use="'same'"/>
+      </process>
+
+      <call function="'PASS-if-0'">RC</call>
+
+      <message>
+        'Process RC=%d on machine %s' % (RC, machName)
+      </message>
+
+      <process name="'TestProcess'">
+        <location>machName</location>
+        <command>'java'</command>
+        <parms>'%s 5 5 100' % className</parms>
+        <title>'Second title example with many Process elements'</title>
+        <workload>'STAX Monitor Workload'</workload>
+        <vars>['firstName=Dave','middleInitial=M.','lastName=Bender']</vars>
+        <vars>['pet=cat','petName=Fluffy']</vars>
+        <env>'CLASSPATH=%s{STAF/Config/Sep/Path}{STAF/Env/ClassPath}' % STAXJarFile</env>
+        <env>'JAVA_APP=javaw.exe'</env>
+        <useprocessvars/>
+        <disabledauth action="'ignore'"/>
+        <console use="'same'"/>
+      </process>
+
+      <call function="'PASS-if-0'">RC</call>
+
+      <message>
+        'Process RC=%d on machine %s' % (RC, machName)
+      </message>
+
+      <message>
+        'Finished run #%d on machine %s' % (loopNum, machName)
+      </message>
+
+    </sequence>
+
+  </function>
+
+
+  <function name="RunSTAFCommands" scope="local">
+
+    <function-prolog>
+      This function runs several STAF Commands using following
+      STAF services: DELAY, MISC, and SERVICE.
+    </function-prolog>
+
+    <function-map-args>
+
+      <function-required-arg name="machName">
+        Location (machine name) to run the process
+      </function-required-arg>
+
+      <function-required-arg name="blockNum">
+        Number used in conjunction with the machine name to get a unique
+        block name (in case running multiple times on the same machine)
+      </function-required-arg>
+
+    </function-map-args>
+
+    <block name="'STAFCommandBlock%d' % blockNum">
+
+      <sequence>
+
+        <script>from random import random;r=random();r=r*10000</script>
+
+        <message>'Delaying %d ms on machine %s' % (r,machName)</message>
+
+        <stafcmd name="'STAF Command: RANDOM DELAY'">
+          <location>machName</location>
+          <service>'delay'</service>
+          <request>'delay %d' % r</request>
+        </stafcmd>
+
+        <if expr="RC != 0">
+          <return>RC</return>
+        </if>
+
+        <stafcmd name="'STAF Command: MISC VERSION'">
+          <location>machName</location>
+          <service>'misc'</service>
+          <request>'version'</request>
+        </stafcmd>
+
+        <if expr="RC != 0">
+          <return>RC</return>
+          <else>
+            <message>
+              'Machine %s has STAF Version %s' % (machName,STAFResult)
+            </message>
+          </else>
+        </if>
+
+        <stafcmd name="'STAF Command: SERVICE LIST'">
+          <location>machName</location>
+          <service>'service'</service>
+          <request>'list'</request>
+        </stafcmd>
+
+        <if expr="RC != 0">
+          <return>RC</return>
+          <else>
+            <message>
+              'Machine %s has STAF services:\n%s' % (machName,STAFResult)
+            </message>
+          </else>
+        </if>
+
+        <return>0</return>
+
+      </sequence>
+
+    </block>
+
+  </function>
+
+  <function name="PASS-if-0" scope="local">
+
+    <function-prolog>
+      This function checks if a value is 0.  If 0, it sets the
+      testcase status result to 'pass'; otherwise, it sets it
+      to 'fail' and sends a message to the STAXMonitor.
+    </function-prolog>
+
+    <function-single-arg>
+      <function-required-arg name="value">
+        Value (usually RC or STAXResult variable) to compare with 0
+      </function-required-arg>
+    </function-single-arg>
+
+    <if expr="value == 0">
+      <tcstatus result="'pass'"/>
+      <else>
+        <tcstatus result="'fail'">
+          'value=%d. Expected 0.' % value
+        </tcstatus>
+      </else>
+    </if>
+  </function>
+
+</stax>

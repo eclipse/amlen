@@ -2781,7 +2781,7 @@ else
                     if [ "${A1_REST}" == "TRUE" ] ; then
                         cmd="curl -X GET ${curl_silent_options} ${curl_timeout_options} ${USERPW} http://${adminPort}${BASE_URI}service/status"
                         reply=`$cmd`
-                        StateDescription=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"StateDescription\"]"`
+                        StateDescription=`echo $reply | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj[\"Server\"][\"StateDescription\"])"`
                         ##Status=`echo $reply | python -c "import json,sys;obj=json.load(sys.stdin);print obj[\"Server\"][\"Status\"]"`
                     else
                         cmd="${sshcmd} status imaserver"
