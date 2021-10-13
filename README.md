@@ -2,7 +2,9 @@
 
 This repo contains the source for the Amlen Message Broker.
 It contains (amongst other things) the Amlen Server itself, a WebUI and
-a bridge (to MQTT brokers or Kafka)
+a bridge (to MQTT brokers or Kafka). 
+
+A website including documentation can be found at https://eclipse.org/amlen
 
 ## Building
 Requires an x86-64 Linux distribution. Amlen has been built on RHEL7, RHEL8
@@ -12,7 +14,7 @@ and recent versions of Fedora. Package names vary slightly between distributions
 Install the prereq packages:
 ```
 sudo dnf install openssl-devel openldap-devel boost-devel CUnit-devel pam-devel curl-devel 
-sudo dnf install gcc make vim-common gcc-c++ net-snmp-devel libicu-devel
+sudo dnf install gcc make vim-common gcc-c++ net-snmp-devel libicu-devel jansson-devel
 sudo dnf install ant ant-junit ant-contrib rpm-build icu libxslt dos2unix
 sudo dnf install java-1.8.0-openjdk-devel
 ```
