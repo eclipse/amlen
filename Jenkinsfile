@@ -1,16 +1,26 @@
 pipeline {
-    agent any
-    tools {
-        maven 'apache-maven-latest'
-        jdk 'adoptopenjdk-hotspot-jdk8-latest'
+  agent {
+    kubernetes {
+      label 'amlen-centos7-build-pod'
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: amlen-centos7-build
+    image: quay.io/jonquark/jontest1:latest
+    command:
+    - cat
+    tty: true
+"""
     }
+  }
     stages {
         stage('Build') {
             steps {
-                sh '''
-                    java -version
-                    mvn -v
-                '''
+                container('amlen-centos7-build') {
+                   sh 'ls -ltr && cd amlen/server_build && ls -ltr'
+                }
             }
         }
     }
