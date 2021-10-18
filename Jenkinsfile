@@ -19,7 +19,7 @@ spec:
         stage('Build') {
             steps {
                 container('amlen-centos7-build') {
-                   sh 'ls -ltr && cd amlen/server_build && ls -ltr'
+                   sh 'pwd && cd amlen/server_build && source buildcontainer/envvars && ant -f $SROOT/server_build/build.xml  2>&1 | tee $BROOT/ant.log'
                 }
             }
         }
