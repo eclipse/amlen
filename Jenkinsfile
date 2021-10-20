@@ -12,6 +12,13 @@ spec:
     command:
     - cat
     tty: true
+    resources:
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+      requests:
+        memory: "4Gi"
+        cpu: "1"
 """
     }
   }
@@ -19,7 +26,7 @@ spec:
         stage('Build') {
             steps {
                 container('amlen-centos7-build') {
-                   sh 'pwd && cd server_build && source buildcontainer/envvars && ant -f $SROOT/server_build/build.xml  2>&1 | tee $BROOT/ant.log'
+                   sh 'pwd && free -m && cd server_build && source buildcontainer/envvars && ant -f $SROOT/server_build/build.xml  2>&1 | tee $BROOT/ant.log'
                 }
             }
         }
