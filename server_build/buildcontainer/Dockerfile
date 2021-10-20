@@ -10,7 +10,7 @@ RUN yum --nogpgcheck -y install epel-release && \
     # Install system tools and build dependencies required to build all releases of MessageGateway/MSProxy
     yum -y install gcc gcc-c++ make cmake3 CUnit-devel junit ant ant-apache-xalan2 ant-junit ant-contrib libxslt && \
     # Install library dependencies (1/2)
-    yum -y install openssl-devel curl-devel openldap-devel net-snmp-devel icu-devel icu boost-devel && \
+    yum -y install openssl-devel curl-devel openldap-devel net-snmp-devel libicu-devel icu boost-devel && \
     # Install library dependencies (1/2)
     yum -y install jansson jansson-devel pam-devel curl-devel && \
     # Install some tools which developers find useful during basic testing
