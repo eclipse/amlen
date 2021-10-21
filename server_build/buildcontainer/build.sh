@@ -15,7 +15,7 @@ if [ "${HOME}" == "/" ]; then
 fi
     
 if [ -z "${HOME}" ]; then
-    export HOME=$(realpath $SROOT/..)/home
+    export HOME=$BROOT/home
     mkdir $HOME
 fi
 

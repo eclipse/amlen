@@ -26,7 +26,7 @@ spec:
         stage('Build') {
             steps {
                 container('amlen-centos7-build') {
-                   sh 'pwd && free -m && cd server_build && buildcontainer/build.sh'
+                   sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
                 }
             }
         }
