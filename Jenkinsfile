@@ -15,10 +15,10 @@ spec:
     resources:
       limits:
         memory: "4Gi"
-        cpu: "2"
+        cpu: "4"
       requests:
         memory: "4Gi"
-        cpu: "1"
+        cpu: "2"
 """
     }
   }
@@ -26,7 +26,7 @@ spec:
         stage('Build') {
             steps {
                 container('amlen-centos7-build') {
-                   sh 'pwd && free -m && cd server_build && source buildcontainer/envvars && ant -f $SROOT/server_build/build.xml  2>&1 | tee $BROOT/ant.log'
+                   sh 'pwd && free -m && cd server_build && buildcontainer/build.sh'
                 }
             }
         }
