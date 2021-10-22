@@ -3715,6 +3715,16 @@ int ism_transport_initTCP(void) {
 
     checkServerCert = ism_common_getBooleanConfig("CheckServerCertificate", 0);
 
+    /**
+     * Get TLS Security Level Configuration (if any)
+     * Support the setting of level 0 to 5.
+     * If the configuration is invalid, will set it to unset (-1)
+     **/
+    g_tlsseclevel = ism_common_getIntConfig("TlsSecurityLevel", -1);
+    if(g_tlsseclevel<0 || g_tlsseclevel > 5){
+    	g_tlsseclevel = -1;
+    }
+
     /*
      * Start a timer for cleanup
      */
@@ -3853,6 +3863,14 @@ int ism_transport_startTCPEndpoint(ism_endpoint_t * endpoint) {
             /* Set callback to handle SNI extension */
             SSL_CTX_set_tlsext_servername_callback(endpoint->sslCTX, ssl_servername_cb);
             SSL_CTX_set_tlsext_servername_arg(endpoint->sslCTX, NULL);
+
+            /*Set the TLS Security Level if the configuration TlsSecurityLevel is set*/
+            int defSecLevel =  SSL_CTX_get_security_level(endpoint->sslCTX);
+            if(g_tlsseclevel != -1 && g_tlsseclevel != defSecLevel){
+            	SSL_CTX_set_security_level(endpoint->sslCTX, g_tlsseclevel);
+            }
+            int currSecLevel = SSL_CTX_get_security_level(endpoint->sslCTX);
+            TRACE(5, "Transport TLS Security Level: default=%d current=%d\n", defSecLevel, currSecLevel);
         }
 
         /* Set up socket and listen for new connections */
