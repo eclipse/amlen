@@ -43,9 +43,13 @@ spec:
                 container('jnlp') {
                     sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
                         sh '''
+                            pwd
+                            ls
+                            ls ..
+                            echo ${GIT_BRANCH}
                             #ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org rm -rf /home/data/httpd/download.eclipse.org/projectname/snapshots
-                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots
-                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots
+                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/
+                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/
                         '''
                     }
                 }
