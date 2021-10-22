@@ -3722,6 +3722,8 @@ int ism_transport_initTCP(void) {
      **/
     g_tlsseclevel = ism_common_getIntConfig("TlsSecurityLevel", -1);
     if(g_tlsseclevel<0 || g_tlsseclevel > 5){
+    	if(g_tlsseclevel != -1)
+    		TRACE(5, "TLS Security Level (%d) is invalid. Default TLS Security Level will be used.\n", g_tlsseclevel);
     	g_tlsseclevel = -1;
     }
 
