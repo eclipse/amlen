@@ -273,6 +273,7 @@ extern uint64_t            g_metering_delta;
 static int                 checkServerCert = 0;
 static int                 useLCPolicy = 0;
        int                 g_isBridge = 0;
+       int				   g_tlsseclevel=-1;
 
 /*
  * Stats
