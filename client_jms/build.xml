@@ -26,7 +26,7 @@
 	<property name="client.jms.samples.bin.dir" location="${client.jms.bin.dir}/samples" />
 	<property name="server.translation.dir" value="${client.build.dir}/../server_translation"/>
 	<property name="server.tmstool.dir" value="${client.build.dir}/../server_tmsmsgtool"/>
-    <property name="client.deps.dir" value="${env.DEPS_HOME}"/>
+	<property name="client.deps.dir" value="${env.DEPS_HOME}"/>
 
 
 	<!-- Load contrib library -->
@@ -36,7 +36,18 @@
 	<available file="${client.jms.rpx.dir}" type="dir" property="rpx.path.exists" />
 	<available file="${client.common.dir}/msgcat" type="dir" property="msgcat.path.exists" />
 	<available file="${client.jms.ext.src.dir}" type="dir" property="extension.path.exists" />
-
+        
+	<!-- Tests currently rely on two old sun/oracle jars: fscontext.jar providerutil.jar -->
+	<available file="${client.deps.dir}/providerutil.jar" property="providerutil.exists" />
+	<available file="${client.deps.dir}/fscontext.jar" property="fscontext.exists" />
+	<condition property="providerutil.fscontext.exists">
+		<and>
+			<isset property="providerutil.exists" />
+			<isset property="fscontext.exists" />
+		</and>
+	</condition>
+        
+        
 	<!-- define client_jms jar file name -->
 	<property name="imaclientjms.jar" location="${client.jms.lib.dir}/imaclientjms.jar"/>
 	<property name="jmssamples.jar" location="${client.jms.lib.dir}/jmssamples.jar"/>
@@ -106,12 +117,12 @@
 			<fileset dir="${client.jms.lib.dir}" />
 		</copy>
        	<copy file="${client.deps.dir}/jms.jar" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
-       	<copy file="${client.deps.dir}/fscontext.jar" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
-       	<copy file="${client.deps.dir}/providerutil.jar" todir="${client.common.lib.dir}" preservelastmodified="yes"/>
+       	<copy file="${client.deps.dir}/fscontext.jar" todir="${client.common.lib.dir}" preservelastmodified="yes" failonerror="false" />
+       	<copy file="${client.deps.dir}/providerutil.jar" todir="${client.common.lib.dir}" preservelastmodified="yes" failonerror="false" />
         <copy file="${imaclientjms.jar}" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
         <copy file="${client.deps.dir}/jms.jar" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
-        <copy file="${client.deps.dir}/fscontext.jar" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
-        <copy file="${client.deps.dir}/providerutil.jar" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes"/>
+        <copy file="${client.deps.dir}/fscontext.jar" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes" failonerror="false" />
+        <copy file="${client.deps.dir}/providerutil.jar" todir="${client.common.jmssdk.dir}/lib" preservelastmodified="yes" failonerror="false" />
         <copy todir="${client.common.jmssdk.dir}/samples/com">
             <fileset dir="${client.jms.dir}/samples/com" />
         </copy>
@@ -249,11 +260,21 @@
    </target>
 
    <!-- Execute unit test for the project -->
-    <target name="jms_test" depends="jms_compile_test, jms_junittest_32, jms_junittest_64">
+    <target name="jms_test" depends="jms_test_jarscheck, jms_test_ifjars">
+    </target>
+    
+    <target name="jms_test_jarscheck" unless="providerutil.fscontext.exists">
+       <echo>WARNING: skipping jmsclient unit tests as fscontext.jar and providerutil.jar are not found in $DEPS_HOME</echo>
+    </target>
+    
+    <target name="jms_test_ifjars" if="providerutil.fscontext.exists">
+      <antcall target="jms_compile_test" inheritall="true" />
+      <antcall target="jms_junittest_32" inheritall="true" />
+      <antcall target="jms_junittest_64" inheritall="true" />
     </target>
 
     <!-- Execute unit test 32 for the project -->
-    <target name="jms_junittest_32" depends="jms_compile_test" >
+    <target name="jms_junittest_32" depends="jms_compile_test">
        <echo> ==  Unit tests with 32 bit JVM     ============== </echo>
        <antcall target="junit_test" inheritall="true">
           <param name="os.st" value="32"/>
@@ -261,7 +282,7 @@
     </target>
 
     <!-- Execute unit test 64 for the project -->
-    <target name="jms_junittest_64" if="do.unit.64" depends="jms_compile_test"  >
+    <target name="jms_junittest_64" if="do.unit.64" depends="jms_compile_test">
        <echo> ==  Unit tests with 64 bit JVM     ============== </echo>
        <antcall target="junit_test" inheritall="true">
           <param name="os.st" value="64"/>

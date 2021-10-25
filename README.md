@@ -6,6 +6,8 @@ a bridge (to MQTT brokers or Kafka).
 
 A website including documentation can be found at https://eclipse.org/amlen
 
+A community blog can be found at https://amlen.org/
+
 ## Building
 Requires an x86-64 Linux distribution. Amlen has been built on RHEL7, RHEL8
 and recent versions of Fedora. Package names vary slightly between distributions
@@ -33,20 +35,12 @@ export JAVA_HOME=<suitable Java 8 SDK e.g. /etc/alternatives/java_sdk>
 cd $SROOT/server_build
 ant -f $SROOT/server_build/build.xml  2>&1 | tee /tmp/ant.log
 ```
-# Using Amlen
-Amlen has evolved from an IBM Product called "IBM WIoTP Message Gateway" and since usage of Amlen
-is very similar, the best source of information is the Message Gateway documentation at:
-https://ibm.biz/messagegateway_v50_docs
-
-(We plan shortly to create "Getting Started" and "Migration" guides and host our own copy of the docs)
 
 # Dependencies
 Building the default set of components from this repository requires the following to be downloaded
 and placed into a directory (set the $DEP_HOME environment variable to point to this directory)
 
-* d3.zip
-    https://d3js.org/
-* openliberty-21.0.0.2.zip
+* openliberty-21.0.0.10.zip
     https://openliberty.io/downloads/
 * jackson-annotations-2.12.3.jar
     https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.12.3/
@@ -60,19 +54,22 @@ and placed into a directory (set the $DEP_HOME environment variable to point to 
     https://repo1.maven.org/maven2/com/fasterxml/jackson/jaxrs/jackson-jaxrs-json-provider/2.12.3/
 * jackson-module-jaxb-annotations-2.12.3.jar
     https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-jaxb-annotations/2.12.3/
-* dojo-webui-release-1.16.3-src.zip
-    https://download.dojotoolkit.org/release-1.16.3/ (download and rename src.zip_)
-* gridx-webui-1.3.9.zip
-    https://github.com/oria/gridx/releases (download and rename)
 * icu4j-69_1.jar
     https://github.com/unicode-org/icu/releases/tag/release-69-1
-* fscontext.jar
+* dojo-release-1.16.3-src.zip
+    https://download.dojotoolkit.org/release-1.16.3/ 
+* gridx-1.3.9.zip
+    https://github.com/oria/gridx/releases
+* d3-6.7.0.zip
+    https://d3js.org/ (download d3.zip and rename)
 * jms.jar
-* providerutil.jar
+    https://mvnrepository.com/artifact/org.apache.geronimo.specs/geronimo-jms_1.1_spec/1.1.1/
 * ibm-java-jre-8.0-6.15-linux-x86_64.tgz 
     https://www.ibm.com/support/pages/java-sdk-downloads-version-80
     Download the AMD64 simple unzip with license, run it to extract and then create tgz with
-    the correct name (we will streamline our handling of Java JRE's before first release)
+    the correct name (we will streamline our handling of Java JRE's before first release).
+    Without this the server but not the WebUI will be built
+    
 
 Some of the non-default components (e.g. the bridge to IBM MQ) require other dependencies - see
 the next section to see dependencies for individual components
@@ -82,3 +79,7 @@ Some components (like Amlen server) could be packaged by Linux distros. For sugg
 of building individual components see the [server_build/distrobuild](server_build/distrobuild) sub 
 directory.
 
+# Build container
+There is a a Docker file and build script that we use to do the build at Eclipse that show downloading
+of the dependencies and setting of the environment variables. There can be found in the 
+[server_build/buildcontainer](server_build/buildcontainer) directory.

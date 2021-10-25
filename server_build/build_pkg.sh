@@ -40,7 +40,8 @@
 # Script uses a number of env_vars, in particular
 # SHIP_OPENSSL - whether we are going to package openssl and the things that rely on it
 # SHIP_BOOST - whether we are going to package the boost libraries we were built against
-# SHIP_ICU - whether we are going to package the icu libraries we were built against     
+# SHIP_ICU - whether we are going to package the icu libraries we were built against
+# SHIP_IBM_JRE - whether are are going to package an IBM JRE
 
 set -e     #terminate on error
 set -x
@@ -97,6 +98,11 @@ if [ "${SHIP_OPENSSL}" == "yes" ]; then
     if [ -z "${SHIP_BOOST}" ]; then
         echo "SHIP_BOOST not set - defaulting to  SHIP_OPENSSL i.e. yes"
         SHIP_BOOST=yes
+    fi
+
+    if [ -z "${SHIP_IBM_JRE}"]; then
+        echo "SHIP_IBM_JRE not set - defaulting to  SHIP_OPENSSL i.e. yes"
+        SHIP_IBM_JRE=yes
     fi
 fi
 
@@ -460,7 +466,10 @@ function prep_mqcbridge {
       #in messagegatway build containers, the tarball we need is pre-extracted:
       cp --no-preserve=ownership ${DEPS_HOME}/mqc/${IBM_MQC_TARBALL_GLOB} $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/mqclient/.
     fi
-    cp -r --no-preserve=ownership ${DEPS_HOME}/${IBM_JRE_TARBALL_GLOB} $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/.
+
+    if [ "${SHIP_IBM_JRE}" == "yes" ]; then
+        cp -r --no-preserve=ownership ${DEPS_HOME}/${IBM_JRE_TARBALL_GLOB} $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/.
+    fi
 }
 
 function prep_protocolplugin {
@@ -543,8 +552,9 @@ function prep_webui {
     chmod +x wlp/bin/*
     chmod -R 775 wlp/usr/
 
-    cp -r --no-preserve=ownership ${DEPS_HOME}/${IBM_JRE_TARBALL_GLOB} $IMAGUI_BASE_DIR/${IMA_WEBUI_INSTALL_PATH}/.
-
+    if [ "${SHIP_IBM_JRE}" == "yes" ]; then
+        cp -r --no-preserve=ownership ${DEPS_HOME}/${IBM_JRE_TARBALL_GLOB} $IMAGUI_BASE_DIR/${IMA_WEBUI_INSTALL_PATH}/.
+    fi
     webui_minify
 
     cp --no-preserve=ownership ${BUILD_ROOT}/server_gui/config/imawebui_slapd.conf $IMAGUI_BASE_DIR/${IMA_WEBUI_INSTALL_PATH}/openldap/config/slapd.conf
