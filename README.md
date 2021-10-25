@@ -5,6 +5,7 @@ It contains (amongst other things) the Amlen Server itself, a WebUI and
 a bridge (to MQTT brokers or Kafka). 
 
 A website including documentation can be found at https://eclipse.org/amlen
+
 A community blog can be found at https://amlen.org/
 
 ## Building
@@ -62,7 +63,7 @@ and placed into a directory (set the $DEP_HOME environment variable to point to 
 * d3-6.7.0.zip
     https://d3js.org/ (download d3.zip and rename)
 * jms.jar
-    
+    https://mvnrepository.com/artifact/org.apache.geronimo.specs/geronimo-jms_1.1_spec/1.1.1/
 * ibm-java-jre-8.0-6.15-linux-x86_64.tgz 
     https://www.ibm.com/support/pages/java-sdk-downloads-version-80
     Download the AMD64 simple unzip with license, run it to extract and then create tgz with
