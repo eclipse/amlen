@@ -3875,12 +3875,14 @@ int ism_transport_startTCPEndpoint(ism_endpoint_t * endpoint) {
             SSL_CTX_set_tlsext_servername_arg(endpoint->sslCTX, NULL);
 
             /*Set the TLS Security Level if the configuration TlsSecurityLevel is set*/
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
             int defSecLevel =  SSL_CTX_get_security_level(endpoint->sslCTX);
             if(g_tlsseclevel != -1 && g_tlsseclevel != defSecLevel){
                 SSL_CTX_set_security_level(endpoint->sslCTX, g_tlsseclevel);
             }
             int currSecLevel = SSL_CTX_get_security_level(endpoint->sslCTX);
             TRACE(5, "Transport TLS Security Level: default=%d current=%d\n", defSecLevel, currSecLevel);
+#endif
         }
 
         /* Set up socket and listen for new connections */
