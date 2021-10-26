@@ -3721,11 +3721,19 @@ int ism_transport_initTCP(void) {
      * If the configuration is invalid, will set it to unset (-1)
      **/
     g_tlsseclevel = ism_common_getIntConfig("TlsSecurityLevel", -1);
-    if(g_tlsseclevel<0 || g_tlsseclevel > 5){
-    	if(g_tlsseclevel != -1)
-    		TRACE(5, "TLS Security Level (%d) is invalid. Default TLS Security Level will be used.\n", g_tlsseclevel);
-    	g_tlsseclevel = -1;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    if (g_tlsseclevel != -1) {
+        TRACE(5, "TLS Security Level (%d) ignored. Security level not supported with OpenSSL < 1.1\n", g_tlsseclevel);
+        g_tlsseclevel = -1;
     }
+#else
+    if(g_tlsseclevel<0 || g_tlsseclevel > 5){
+        if(g_tlsseclevel != -1) {
+    	    TRACE(5, "TLS Security Level (%d) is invalid. Default TLS Security Level will be used.\n", g_tlsseclevel);
+        }
+        g_tlsseclevel = -1;
+    }
+#endif
 
     /*
      * Start a timer for cleanup
@@ -3869,7 +3877,7 @@ int ism_transport_startTCPEndpoint(ism_endpoint_t * endpoint) {
             /*Set the TLS Security Level if the configuration TlsSecurityLevel is set*/
             int defSecLevel =  SSL_CTX_get_security_level(endpoint->sslCTX);
             if(g_tlsseclevel != -1 && g_tlsseclevel != defSecLevel){
-            	SSL_CTX_set_security_level(endpoint->sslCTX, g_tlsseclevel);
+                SSL_CTX_set_security_level(endpoint->sslCTX, g_tlsseclevel);
             }
             int currSecLevel = SSL_CTX_get_security_level(endpoint->sslCTX);
             TRACE(5, "Transport TLS Security Level: default=%d current=%d\n", defSecLevel, currSecLevel);
