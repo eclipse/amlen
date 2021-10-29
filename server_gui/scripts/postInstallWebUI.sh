@@ -13,6 +13,7 @@
 # Post install script to initialize ${IMA_PRODUCTNAME_FULL} WebUI service on a linux system
 
 # Directories
+export LDAP_INSTANCE="slapd-imawebui"
 export WLPDIR=${IMA_WEBUI_APPSRV_DATA_PATH}
 export WLPINSTALLDIR=${IMA_WEBUI_APPSRV_INSTALL_PATH}
 export LDAPDIR=${IMA_WEBUI_DATA_PATH}/openldap-data
@@ -23,13 +24,15 @@ export INSTALLCFGDIR=${IMA_WEBUI_INSTALL_PATH}/config
 export LDAPINSTANCEDIR=${IMA_WEBUI_DATA_PATH}/ldap-instance
 export NSSLAPD_INSTALL_ETC="/etc/dirsrv"
 export NSSLAPD_INSTALL_ETC_SCHEMA="${NSSLAPD_INSTALL_ETC}/schema"
-export NSSLAPD_INST_ETC_DIR="/etc/dirsrv/slapd-imawebui"
+export NSSLAPD_INST_ETC_DIR="/etc/dirsrv/$LDAP_INSTANCE"
 export NSSLAPD_INST_SCHEMA_DIR="${NSSLAPD_INST_ETC_DIR}/schema"
 export NSSLAPD_PID_FILE="/run/dirsrv/imawebui.pid"
 export NSSLAPD_VAR_RUN_DIR="/var/run/dirsrv"
-export NSSLAPD_VAR_LOCK_DIR="/var/lock/dirsrv/slapd-imawebui"
+export NSSLAPD_VAR_RUN_SOCKET="/var/run/${LDAP_INSTANCE}.socket"
+export NSSLAPD_VAR_LOCK_DIR="/var/lock/dirsrv/$LDAP_INSTANCE"
 export DSEFILE="${NSSLAPD_INST_ETC_DIR}/dse.ldif"
 export LDAP_SERVER_UP=0
+export LDAP_SUFFIX="dc=ism.ibm,dc=com"
 
 if [ -z "$LDAP_DEBUG" ]; then
     LDAP_DEBUG=0
@@ -112,13 +115,20 @@ function configure_openldap_server() {
     if ps -ef | grep slapd | grep "${CFGDIR}/slapd.conf" | grep -v grep > /dev/null; then
         echo "Embedded LDAP server already running." >> ${INSTALL_LOG}
     else
-        if [ "$IMAOS" = "sles" ]; then
+        if [ -f "/usr/lib/openldap/slapd" ]; then
             # set proper path to slapd command on SLES
             export slapdcmd="/usr/lib/openldap/slapd"
+        elif [ -f "/usr/libexec/slapd" ]; then
+            # location of slapd when openldap compiled in /usr prefix
+            export slapdcmd="/usr/libexec/slapd"
+        elif [ -f "/usr/local/libexec/slapd" ]; then
+            # location of slapd when openldap compiled in /usr/local prefix
+            export slapdcmd="/usr/local/libexec/slapd"
         else
             # otherwise use default location on RHEL/CENTOS
             export slapdcmd="/usr/sbin/slapd"
         fi
+
         if bash -c "ulimit -n 1024 && ${slapdcmd} -h \"ldap://127.0.0.1:9389\" -f ${CFGDIR}/slapd.conf" >> "${LOGDIR}/openldap.log" 2>&1; then
             echo "OpenLDAP server started successfully." >> ${INSTALL_LOG}
         else
@@ -129,53 +139,114 @@ function configure_openldap_server() {
 }
 
 function create_389_instance() {
-    # extract the 389 server config; might need to change this first "if condition" if
-    #  other distros keep the base 389 config files in another location
-    if [ -f ${INSTALLCFGDIR}/dse.ldif ] && [ -d "$NSSLAPD_INSTALL_ETC" ]; then
-        mkdir "$NSSLAPD_INST_ETC_DIR" || { echo "Failed to create directory ${NSSLAPD_INST_ETC_DIR}" >> "${INSTALL_LOG}"; exit 1; }
-        mkdir "$NSSLAPD_INST_SCHEMA_DIR" || { echo "Failed to create directory $NSSLAPD_INST_SCHEMA_DIR" >> "${INSTALL_LOG}"; exit 1; }
-
-        if cp "${INSTALLCFGDIR}/dse.ldif" "$NSSLAPD_INST_ETC_DIR"; then
-            echo "Successfully copied 389 server dse config file." >> ${INSTALL_LOG}
-        else
-            echo "Failed to copy 389 server dse config file." >> "${INSTALL_LOG}"
-            exit 1
-        fi
-
-        # This is the default installed location on RHEL-based distros. Look there first.
-        if [ -f "${NSSLAPD_INSTALL_ETC_SCHEMA}/99user.ldif" ]; then
-            cp "${NSSLAPD_INSTALL_ETC_SCHEMA}/99user.ldif" "${NSSLAPD_INST_SCHEMA_DIR}" || { echo "Failed to copy 99user.ldif to ${NSSLAPD_INST_SCHEMA_DIR}" >> "${INSTALL_LOG}"; exit 1; }
-        else
-            USER_SCHEMA_FILE=$(find /etc -name 99user.ldif | tail -n 1)
-            if [ -f "$USER_SCHEMA_FILE" ]; then
-                cp "$USER_SCHEMA_FILE" "${NSSLAPD_INST_SCHEMA_DIR}" || { echo "Failed to copy 99user.ldif to ${NSSLAPD_INST_SCHEMA_DIR}" >> "${INSTALL_LOG}"; exit 1; }
-            else
-                echo "Could not find the schema file for user entries: 99user.ldif." >> ${INSTALL_LOG}
-                exit 1
-            fi
-        fi
-
-        # This is the default installed location on RHEL-based distros. Look there first.
-        if [ -f "${NSSLAPD_INSTALL_ETC}/slapd-collations.conf" ]; then
-            cp "${NSSLAPD_INSTALL_ETC}/slapd-collations.conf" "$NSSLAPD_INST_ETC_DIR" || { echo "Failed to copy slapd-collations.conf to $NSSLAPD_INST_ETC_DIR" >> "${INSTALL_LOG}"; exit 1; }
-        else
-            NSSLAPD_COLLATIONS_FILE=$(find /etc -name slapd-collations.conf | tail -n 1)
-            cp "${NSSLAPD_COLLATIONS_FILE}" "$NSSLAPD_INST_ETC_DIR" || { echo "Failed to copy slapd-collations.conf to $NSSLAPD_INST_ETC_DIR" >> "${INSTALL_LOG}"; exit 1; }
-        fi
-    else
-        echo "There was a problem with either the imawebui package install or the 389 server install." >> "${INSTALL_LOG}"
+    if ! command -v dscreate > /dev/null 2>&1; then
+        echo "$(date): Could not find the dscreate command in the PATH." >> $INSTALL_LOG
         exit 1
     fi
+
+    # dsctl remove <instance> does not cleanup dbs in custom locations
+    if [ -f "$LDAPINSTANCEDIR/db/DBVERSION" ]; then
+        echo "$(date): Removing existing 389 LDAP database." >> $INSTALL_LOG
+        if [ -d "$LDAPINSTANCEDIR/db/userroot" ]; then
+            rm -rf "$LDAPINSTANCEDIR/db/userroot"
+        fi
+        rm -f "$LDAPINSTANCEDIR/db/*"
+    fi
+
+    cat << INFFILE > /tmp/imawebui_389.inf
+[general]
+defaults = 999999999
+full_machine_name = localhost.localdomain
+start = True
+strict_host_checking = False
+
+[slapd]
+instance_name = imawebui
+port = 9389
+root_password = $PWDCLR
+secure_port = 9636
+
+self_sign_cert = True
+self_sign_cert_valid_months = 120
+
+user = $IMAWEBUI_USER
+group = $IMAWEBUI_GROUP
+
+backup_dir = ${LDAPINSTANCEDIR}/backups
+db_dir = ${LDAPINSTANCEDIR}/db
+db_home_dir = ${LDAPINSTANCEDIR}/db
+ldif_dir = ${LDAPINSTANCEDIR}/ldifs
+log_dir = ${LDAPINSTANCEDIR}/logs
+[backend-userroot]
+create_suffix_entry = True
+suffix = $LDAP_SUFFIX
+INFFILE
+
+    if dscreate -v from-file /tmp/imawebui_389.inf >> ${LOGDIR}/dscreate.log 2>&1; then
+        echo "$(date): Successfully created new 389 LDAP instance." >> $INSTALL_LOG
+    else
+        ldapinstance=$(dsctl -l)
+        if [ "$ldapinstance" = "$LDAP_INSTANCE" ]; then
+            echo "$(date): There was an issue while creating the 389 LDAP instance, but it was created" >> $INSTALL_LOG
+        else
+            echo "$(date): We failed to create the 389 LDAP instance. See the ${LOGDIR}/dscreate.log file." >> $INSTALL_LOG
+            exit 1
+        fi
+    fi
+
+    if sed -i 's#^nsslapd-rootpw: supersecret#nsslapd-rootpw: '"$DSEPWD"'#' "${DSEFILE}"; then
+        echo "Successfully modified $DSEFILE." >> ${INSTALL_LOG}
+    else
+        echo "Failed to modify  $DSEFILE." >> ${INSTALL_LOG}
+    fi
+
+    # extract the 389 server config; might need to change this first "if condition" if
+    #  other distros keep the base 389 config files in another location
+    #if [ -f ${INSTALLCFGDIR}/dse.ldif ] && [ -d "$NSSLAPD_INSTALL_ETC" ]; then
+    #    mkdir "$NSSLAPD_INST_ETC_DIR" || { echo "Failed to create directory ${NSSLAPD_INST_ETC_DIR}" >> "${INSTALL_LOG}"; exit 1; }
+    #    mkdir "$NSSLAPD_INST_SCHEMA_DIR" || { echo "Failed to create directory $NSSLAPD_INST_SCHEMA_DIR" >> "${INSTALL_LOG}"; exit 1; }
+    #
+    #    if cp "${INSTALLCFGDIR}/dse.ldif" "$NSSLAPD_INST_ETC_DIR"; then
+    #        echo "Successfully copied 389 server dse config file." >> ${INSTALL_LOG}
+    #    else
+    #        echo "Failed to copy 389 server dse config file." >> "${INSTALL_LOG}"
+    #        exit 1
+    #    fi
+    #
+    #    # This is the default installed location on RHEL-based distros. Look there first.
+    #    if [ -f "${NSSLAPD_INSTALL_ETC_SCHEMA}/99user.ldif" ]; then
+    #        cp "${NSSLAPD_INSTALL_ETC_SCHEMA}/99user.ldif" "${NSSLAPD_INST_SCHEMA_DIR}" || { echo "Failed to copy 99user.ldif to ${NSSLAPD_INST_SCHEMA_DIR}" >> "${INSTALL_LOG}"; exit 1; }
+    #    else
+    #        USER_SCHEMA_FILE=$(find /etc -name 99user.ldif | tail -n 1)
+    #        if [ -f "$USER_SCHEMA_FILE" ]; then
+    #            cp "$USER_SCHEMA_FILE" "${NSSLAPD_INST_SCHEMA_DIR}" || { echo "Failed to copy 99user.ldif to ${NSSLAPD_INST_SCHEMA_DIR}" >> "${INSTALL_LOG}"; exit 1; }
+    #        else
+    #            echo "Could not find the schema file for user entries: 99user.ldif." >> ${INSTALL_LOG}
+    #            exit 1
+    #        fi
+    #    fi
+    #
+    #    # This is the default installed location on RHEL-based distros. Look there first.
+    #    if [ -f "${NSSLAPD_INSTALL_ETC}/slapd-collations.conf" ]; then
+    #        cp "${NSSLAPD_INSTALL_ETC}/slapd-collations.conf" "$NSSLAPD_INST_ETC_DIR" || { echo "Failed to copy slapd-collations.conf to $NSSLAPD_INST_ETC_DIR" >> "${INSTALL_LOG}"; exit 1; }
+    #    else
+    #        NSSLAPD_COLLATIONS_FILE=$(find /etc -name slapd-collations.conf | tail -n 1)
+    #        cp "${NSSLAPD_COLLATIONS_FILE}" "$NSSLAPD_INST_ETC_DIR" || { echo "Failed to copy slapd-collations.conf to $NSSLAPD_INST_ETC_DIR" >> "${INSTALL_LOG}"; exit 1; }
+    #    fi
+    #else
+    #    echo "There was a problem with either the imawebui package install or the 389 server install." >> "${INSTALL_LOG}"
+    #    exit 1
+    #fi
 }
 
 function find_389_instance() {
     local EXISTING_INST=$(/usr/sbin/dsctl -l)
 
-    if [ -n "$EXISTING_INST" ] && [ "$EXISTING_INST" = "slapd-imawebui" ]; then
+    if [ -n "$EXISTING_INST" ] && [ "$EXISTING_INST" = "$LDAP_INSTANCE" ]; then
         echo "Found an existing instance: ${EXISTING_INST}. Will attempt to verify it." >> ${INSTALL_LOG}
         if [ -f "$DSEFILE" ] && [ -d "$NSSLAPD_INST_ETC_DIR" ] && [ -d "${LDAPINSTANCEDIR}/db" ]; then
             echo "We will reuse the existing instance: $EXISTING_INST." >> ${INSTALL_LOG}
-            export IMA_EXISTING_389="slapd-imawebui"
+            export IMA_EXISTING_389="$LDAP_INSTANCE"
         else
             echo "Did not find a usable instance. We will create a new 389 instance." >> ${INSTALL_LOG}
         fi
@@ -196,78 +267,50 @@ function search_389_server() {
 }
 
 function configure_389_server() {
-    mkdir -p "$NSSLAPD_VAR_RUN_DIR"
-    mkdir -p "$NSSLAPD_VAR_LOCK_DIR"
-    mkdir -p ${LDAPINSTANCEDIR}/db
-    mkdir -p ${LDAPINSTANCEDIR}/backups
-    mkdir -p ${LDAPINSTANCEDIR}/logs
-    touch ${LDAPINSTANCEDIR}/logs/errors
+    #mkdir -p "$NSSLAPD_VAR_RUN_DIR"
+    #mkdir -p "$NSSLAPD_VAR_LOCK_DIR"
+    #mkdir -p ${LDAPINSTANCEDIR}/db
+    #mkdir -p ${LDAPINSTANCEDIR}/backups
+    #mkdir -p ${LDAPINSTANCEDIR}/logs
+    #touch ${LDAPINSTANCEDIR}/logs/errors
 
     # starting the server so we can configure it
 
-    start_389_server
-    search_389_server
-
-    # 389 has a different way of creating a suffix entry in the config on the server
-    echo "Creating the suffix config entry on the 389 server." >> "${INSTALL_LOG}"
-    ldapmodify -D 'cn=Directory Manager' -y ${LDAPDIR}/.key -x -H 'ldap://127.0.0.1:9389' >> "$INSTALL_LOG" 2>&1 <<LDAPHERE1
-dn: cn="dc=ism.ibm,dc=com",cn=mapping tree,cn=config
-changetype: add
-objectClass: top
-objectclass: extensibleObject
-objectclass: nsMappingTree
-nsslapd-state: backend
-nsslapd-backend: UserData
-cn: dc=ism.ibm,dc=com
-LDAPHERE1
-
-    # Check the outcome
-    rc=$?
-    if [ "$rc" = "0" ]; then
-        echo "Successfully added the suffix confing entry to the LDAP server config." >> ${INSTALL_LOG}
-    else
-        echo "Did not add the suffix config entry to the LDAP server config successfully." >> ${INSTALL_LOG}
-        exit $rc
-    fi
+    #start_389_server
+    #search_389_server
 
     # Creating the suffix base entry in the 389 server
-    echo "Creating the suffix entry on the 389 server." >> "${INSTALL_LOG}"
-    ldapmodify -D 'cn=Directory Manager' -y ${LDAPDIR}/.key -x -H 'ldap://127.0.0.1:9389' >> "$INSTALL_LOG" 2>&1 <<LDAPHERE2
-dn: cn=UserData,cn=ldbm database,cn=plugins,cn=config
-changetype: add
-objectclass: extensibleObject
-objectclass: nsBackendInstance
-nsslapd-suffix: dc=ism.ibm,dc=com
-LDAPHERE2
-
-    # Check the outcome
-    rc=$?
-    if [ "$rc" = "0" ]; then
-        echo "Successfully created the suffix entry in the LDAP server." >> ${INSTALL_LOG}
-    else
-        echo "Did not add the suffix entry to the LDAP server config successfully." >> ${INSTALL_LOG}
-        exit $rc
-    fi
+    # We already create this if using dscreate
+    #echo "Creating the suffix entry on the 389 server." >> "${INSTALL_LOG}"
+    #if dsconf -v $LDAP_INSTANCE backend create --suffix dc=ism.ibm,dc=com --be-name userRoot >> "${INSTALL_LOG}" 2>&1; then
+    #    echo "Successfully created the LDAP backend database for suffix dc=ism.ibm,dc=com" >> "${INSTALL_LOG}"
+    #else
+    #    echo "Failed to create the LDAP backend database for suffix dc=ism.ibm,dc=com" >> "${INSTALL_LOG}"
+    #    exit 1
+    #fi
 
     echo "Adding the base LDAP objects required by the WebUI service to the suffix." >> "${INSTALL_LOG}"
-    ldapadd -D 'cn=Directory Manager' -y ${LDAPDIR}/.key -x -H 'ldap://127.0.0.1:9389' -f ${LDAPDIR}/imawebui_users_389.ldif >> "$INSTALL_LOG" 2>&1
+    #ldapadd -D 'cn=Directory Manager' -y ${LDAPDIR}/.key -x -H 'ldap://127.0.0.1:9389' -f ${LDAPDIR}/imawebui_users_389.ldif >> "$INSTALL_LOG" 2>&1
+    cp "${LDIFFILE}" /tmp
+    chown $IMAWEBUI_USER /tmp/imawebui_users_389.ldif
 
-    # Check the outcome
-    rc=$?
-    if [ "$rc" = "0" ]; then
-        echo "Successfully added the base entries to the LDAP server." >> ${INSTALL_LOG}
+    stop_389_server
+
+    if dsctl -v $LDAP_INSTANCE ldif2db userRoot /tmp/imawebui_users_389.ldif >> "${LOGDIR}/dsctl-ldif2db.log" 2>&1; then
+        echo "Successfully imported LDAP entries for the WebUI suffix." >> "${INSTALL_LOG}"
     else
-        echo "Did not add the base entries to the LDAP server successfully." >> ${INSTALL_LOG}
-        exit $rc
+        echo "Failed to import LDAP entries for the WebUI suffix." >> "${INSTALL_LOG}"
     fi
 
-    # for some reason this user's password never works unless I modify it
-    echo "Adding an LDAP bind user required by the WebUI service to the suffix." >> "${INSTALL_LOG}"
-    ldapmodify -D 'cn=Directory Manager' -y ${LDAPDIR}/.key -x -H 'ldap://127.0.0.1:9389' >> "$INSTALL_LOG" 2>&1 <<LDAPHERE3
-dn: cn=Directory Manager,dc=ism.ibm,dc=com
+    start_389_server
+
+    # set cn=Directory Manager,dc=ism.ibm,dc=com as a password admin
+    echo "Configuring cn=Directory Manager,dc=ism.ibm,dc=com as a password admin." >> "${INSTALL_LOG}"
+    ldapmodify -v -D 'cn=Directory Manager' -y ${LDAPDIR}/.key -x -H 'ldap://127.0.0.1:9389' >> "$INSTALL_LOG" 2>&1 <<LDAPHERE3
+dn: cn=config
 changetype: modify
-replace: userPassword
-userPassword: $PWDCLR
+replace: passwordAdminDN
+passwordAdminDN: cn=Directory Manager,dc=ism.ibm,dc=com
 LDAPHERE3
 
     # Check the outcome
@@ -278,14 +321,31 @@ LDAPHERE3
         echo "Failed to modify the bind dn password." >> ${INSTALL_LOG}
         exit $rc
     fi
+
+    # allow hashed passwords
+    echo "Configuring the 389 server to allow hashed passwords in LDAP adds." >> "${INSTALL_LOG}"
+    ldapmodify -v -D 'cn=Directory Manager' -y ${LDAPDIR}/.key -x -H 'ldap://127.0.0.1:9389' >> "$INSTALL_LOG" 2>&1 <<LDAPHERE4
+dn: cn=config
+changetype: modify
+replace: nsslapd-allow-hashed-passwords
+nsslapd-allow-hashed-passwords: on
+LDAPHERE4
+
+    # Check the outcome
+    rc=$?
+    if [ "$rc" = "0" ]; then
+        echo "Successfully enabled hashed passwords on add." >> ${INSTALL_LOG}
+    else
+        echo "Failed to enabled hashed passwords on add." >> ${INSTALL_LOG}
+        exit $rc
+    fi
 }
 
 function generate_389_passwords() {
 
     LDIFFILE="${LDAPDIR}/imawebui_users_389.ldif"
-    if [ -f "${INSTALLCFGDIR}/imawebui_users_389.ldif" ]; then
-        cp "${INSTALLCFGDIR}/imawebui_users_389.ldif" "$LDIFFILE" || { echo "Failed to copy imawebui_users_389.ldif" >> "${INSTALL_LOG}"; exit 1; }
-    fi
+    
+    cp "${INSTALLCFGDIR}/imawebui_users_389.ldif" "$LDIFFILE" || { echo "Failed to copy imawebui_users_389.ldif" >> "${INSTALL_LOG}"; exit 1; }
 
     cd "${LDAPDIR}" || { echo "Failed to change to directory $LDAPDIR" >> "${INSTALL_LOG}"; exit 1; }
 
@@ -321,13 +381,13 @@ function generate_389_passwords() {
 
     chmod 600 ${LDAPDIR}/.key
 
-    # modify the password in the dse.ldif file
-    if sed -i 's#^nsslapd-rootpw: supersecret#nsslapd-rootpw: '"$DSEPWD"'#' "${DSEFILE}"; then
-        echo "Successfully modified $DSEFILE." >> ${INSTALL_LOG}
-    fi
+    #Can't do this - haven't created the instance et
+    ## modify the password in the dse.ldif file
 
-    if sed -i 's#userPassword: secret#userPassword: '"$PWHASH"'#' "${LDIFFILE}"; then
+    if sed -i 's#userPassword: supersecret#userPassword: '"$PWDHASH"'#' "${LDIFFILE}"; then
         echo "Successfully modified ldif file: $LDIFFILE." >> ${INSTALL_LOG}
+    else
+        echo "Failed to modify ldif file: $LDIFFILE." >> ${INSTALL_LOG}
     fi
 }
 
@@ -349,33 +409,60 @@ function check_389_server() {
     fi
 }
 
+#function start_389_server() {
+#    local pid389=$(check_389_server)
+#    if [ -z "$pid389" ]; then
+#        if /usr/sbin/ns-slapd -D "$NSSLAPD_INST_ETC_DIR" -i "$NSSLAPD_PID_FILE" >> "${LOGDIR}/ns-slapd.log" 2>&1; then
+#            # server takes roughly 10 seconds to be responsive
+#            search_389_server
+#            while (( LDAP_SERVER_UP == 0 )); do
+#                sleep 2
+#                search_389_server
+#            done
+#        else
+#            echo "Failed to start the 389 server." >> ${INSTALL_LOG}
+#            exit 1
+#        fi
+#    else
+#        echo "389 server is already running."
+#    fi
+#}
+
+#function stop_389_server() {
+#    local pid389=""
+#    if [ -z "$1" ]; then
+#        pid389=$(ps -ef | grep "ns-slapd -D $NSSLAPD_INST_ETC_DIR" | grep -v grep | awk '{print $2}')
+#    else
+#        pid389="$1"
+#    fi
+#
+#    if [ -z "$pid389" ]; then
+#        echo "Could not find pid for the 389 directory server." >> "${INSTALL_LOG}"
+#        return 0
+#    fi
+#
+#    count=1
+#    while (( count <= 10 )); do
+#        echo "Attempt $count to stop the 389 server." >> "${INSTALL_LOG}"
+#        kill "$pid389"
+#        sleep 3
+#        pid389=$(ps -ef | grep "ns-slapd -D $NSSLAPD_INST_ETC_DIR" | grep -v grep | awk '{print $2}')
+#        if [ -z "$pid389" ]; then
+#            echo "Could not find pid for the 389 directory server. Server must be stopped." >> "${INSTALL_LOG}"
+#            return 0
+#        fi
+#        count=$(( count+1 ))
+#    done
+#    echo "Could not stop the 389 directory server." >> "${INSTALL_LOG}"
+#    return 1
+#}
+
 function start_389_server() {
-    local pid389=$(check_389_server)
-    if [ -z "$pid389" ]; then
-        if /usr/sbin/ns-slapd -D "$NSSLAPD_INST_ETC_DIR" -i "$NSSLAPD_PID_FILE" >> "${LOGDIR}/ns-slapd.log" 2>&1; then
-            # server takes roughly 10 seconds to be responsive
-            search_389_server
-            while (( LDAP_SERVER_UP == 0 )); do
-                sleep 2
-                search_389_server
-            done
-        else
-            echo "Failed to start the 389 server." >> ${INSTALL_LOG}
-            exit 1
-        fi
-    else
-        echo "389 server is already running."
-    fi
+    dsctl $LDAP_INSTANCE start
 }
 
 function stop_389_server() {
-    local pid389="$1"
-    if [ -n "$pid389" ]; then
-        kill $pid389
-        sleep 2
-    else
-        echo "No pid for 389 server found."
-    fi
+    dsctl $LDAP_INSTANCE stop
 }
 
 function stop_openldap_server() {
@@ -396,6 +483,7 @@ function generate_openldap_password() {
     fi
 
     cd "${LDAPDIR}" || exit 2
+    install -m 600 /dev/null "${LDAPDIR}/.key"
     slappasswd -g -n > "${LDAPDIR}/.key"
 
     PWDHASH=$(/usr/sbin/slappasswd -h {SSHA} -T ${LDAPDIR}/.key)
@@ -410,7 +498,6 @@ function generate_openldap_password() {
         exit 1
     fi
 
-    chmod 600 ${LDAPDIR}/.key
     cp "${IMA_WEBUI_INSTALL_PATH}/openldap/config/slapd.conf" "${CFGDIR}"/. || { echo "Failed to copy slapd.conf" >> "${INSTALL_LOG}"; exit 1; }
     sed -i 's#rootpw .*#rootpw '"${PWDHASH}"'#' "${CFGDIR}"/slapd.conf
 }
@@ -477,7 +564,7 @@ if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     # slapd is in /usr/lib/openldap/slapd on SLES
     # if we need to support other distros we may need to update this test below
     # openldap server is the default so we check for it first
-    if [ -f "/usr/sbin/slapd" ] || [ -f "/usr/lib/openldap/slapd" ]; then
+    if [ -f "/usr/sbin/slapd" ] || [ -f "/usr/lib/openldap/slapd" ] || [ -f "/usr/libexec/slapd" ]; then
         # we found openldap server
         generate_openldap_password
         configure_openldap_server
@@ -485,11 +572,11 @@ if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     elif [ -f "/usr/sbin/ns-slapd" ]; then
         # we found 389 ds server
         find_389_instance
-        if [ "$IMA_EXISTING_389" = "slapd-imawebui" ]; then
+        if [ "$IMA_EXISTING_389" = "$LDAP_INSTANCE" ]; then
             echo "Existing 389 server instance $IMA_EXISTING_INSTANCE will be used." >> ${INSTALL_LOG}
         else
-            create_389_instance
             generate_389_passwords
+            create_389_instance
             configure_389_server
             touch "${LDAPDIR}"/.configured389
         fi
@@ -528,10 +615,23 @@ fi
 ${WEBUIBINDIR}/setUserGroupWebUI.sh    "${IMAWEBUI_USER}" "${IMAWEBUI_GROUP}" >> ${INSTALL_LOG}
 
 if (( NONROOT == 1 )); then
-    if [ -f "/usr/sbin/ns-slapd" ]; then
+    if [ -f "${LDAPDIR}/.configured389" ]; then
         sed -i 's/^nsslapd-localuser:.*/nsslapd-localuser: '"${IMAWEBUI_USER}"'/' "$DSEFILE"
+
+        # disable the ldapi socket since it requires root and we don't need it
+        sed -i '/^nsslapd-ldapifilepath/d' "$DSEFILE"
+        sed -i '/^nsslapd-ldapilisten/d' "$DSEFILE"
+        sed -i '/^nsslapd-ldapiautobind/d' "$DSEFILE"
+        sed -i '/^nsslapd-ldapimaprootdn/d' "$DSEFILE"
+
         chown -R ${IMAWEBUI_USER}:${IMAWEBUI_GROUP} "$NSSLAPD_VAR_RUN_DIR"
         chown -R ${IMAWEBUI_USER}:${IMAWEBUI_GROUP} "$NSSLAPD_VAR_LOCK_DIR"
         chown -R ${IMAWEBUI_USER}:${IMAWEBUI_GROUP} "$NSSLAPD_INST_ETC_DIR"
+        if [ -f "$NSSLAPD_VAR_RUN_SOCKET" ]; then
+            chown -R ${IMAWEBUI_USER}:${IMAWEBUI_GROUP} "$NSSLAPD_VAR_RUN_SOCKET"
+        fi
+    else
+        chown -R ${IMAWEBUI_USER}:${IMAWEBUI_GROUP} "${IMA_WEBUI_INSTALL_PATH}"
+        chown -R ${IMAWEBUI_USER}:${IMAWEBUI_GROUP} "${IMA_WEBUI_DATA_PATH}"
     fi
 fi
