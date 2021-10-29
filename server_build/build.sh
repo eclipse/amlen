@@ -30,6 +30,10 @@ fi
 JOBS=1
 if [ $(nproc) -gt 1 ] ; then
     JOBS=$((`nproc` - 1))
+    
+    if [ ${JOBS} -gt ${AMLEN_MAX_BUILD_JOBS} ] ; then
+        JOBS=${AMLEN_MAX_BUILD_JOBS}
+    fi
 fi
 
 START_DIR=`pwd`
