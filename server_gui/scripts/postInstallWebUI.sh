@@ -552,8 +552,13 @@ else
     fi
 fi
 
+# Use Java if we shipped it
+if [ -d "${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80" ]
+then
+    export JAVA_HOME="${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80"
+fi
+
 # Configure LDAP
-export JAVA_HOME="${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80"
 if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     if ps -ef | grep slapd | grep "webui/config/slapd.conf" | grep -v grep > /dev/null; then
         echo "Found an old WebUI ldap process running.  Killing this process before we continue." >> ${INSTALL_LOG}

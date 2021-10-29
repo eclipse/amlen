@@ -21,11 +21,18 @@ export WLPINSTALLDIR=${IMA_WEBUI_APPSRV_INSTALL_PATH}
 export LDAPDIR=${IMA_WEBUI_DATA_PATH}/openldap-data
 export LOGDIR=${IMA_WEBUI_DATA_PATH}/diag/logs
 export CFGDIR=${IMA_WEBUI_DATA_PATH}/config
-export PATH=${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin:$PATH
 export PID_FILE="${CFGDIR}/imawebui.pid"
 export NSSLAPD_INST_ETC_DIR="/etc/dirsrv/slapd-imawebui"
 export NSSLAPD_PID_FILE="/run/dirsrv/imawebui.pid"
 export START_LOG=${LOGDIR}/startWebUI.log
+
+# Use Java if we shipped it
+if [ -d "${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80" ]
+then
+    export JAVA_HOME="${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80/jre"
+    export PATH=${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin:$PATH
+fi
+
 
 if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     echo "There was a problem with the rpm post-install script. Please reinstall the rpm." >> "$START_LOG"
