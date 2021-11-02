@@ -21,11 +21,18 @@ export WLPINSTALLDIR=${IMA_WEBUI_APPSRV_INSTALL_PATH}
 export LDAPDIR=${IMA_WEBUI_DATA_PATH}/openldap-data
 export LOGDIR=${IMA_WEBUI_DATA_PATH}/diag/logs
 export CFGDIR=${IMA_WEBUI_DATA_PATH}/config
-export PATH=${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin:$PATH
-export PID_FILE="{$CFGDIR}/imawebui.pid"
+export PID_FILE="${CFGDIR}/imawebui.pid"
 export NSSLAPD_INST_ETC_DIR="/etc/dirsrv/slapd-imawebui"
 export NSSLAPD_PID_FILE="/run/dirsrv/imawebui.pid"
 export START_LOG=${LOGDIR}/startWebUI.log
+
+# Use Java if we shipped it
+if [ -d "${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80" ]
+then
+    export JAVA_HOME="${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80/jre"
+    export PATH=${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin:$PATH
+fi
+
 
 if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     echo "There was a problem with the rpm post-install script. Please reinstall the rpm." >> "$START_LOG"
@@ -77,7 +84,7 @@ if [ -f "${LDAPDIR}"/.configured389 ]; then
         echo "389-ds server was already started." >> "$START_LOG"
     fi
 elif [ -f "${LDAPDIR}"/.configuredOpenLDAP ]; then
-    if ps -ef | grep slapd | grep "/var/messagesight/webui/config/slapd.conf" | grep -v grep > /dev/null; then
+    if ps -ef | grep slapd | grep "${IMA_WEBUI_DATA_PATH}/config/slapd.conf" | grep -v grep > /dev/null; then
         echo "Embedded LDAP server already running." >> "$START_LOG"
     else
         # I think slapd was not in $PATH on SLES, so had to find full path to run it
@@ -87,6 +94,12 @@ elif [ -f "${LDAPDIR}"/.configuredOpenLDAP ]; then
         elif [ -f "/usr/sbin/slapd" ]; then
             # otherwise use default location on RHEL/CENTOS
             export slapdcmd="/usr/sbin/slapd"
+	elif [ -f "/usr/libexec/slapd" ]; then
+             # location of slapd when openldap compiled in /usr prefix
+            export slapdcmd="/usr/libexec/slapd"
+        elif [ -f "/usr/local/libexec/slapd" ]; then
+            # location of slapd when openldap compiled in /usr/local prefix
+            export slapdcmd="/usr/local/libexec/slapd"
         else
             export slapdcmd=$(which slapd)
         fi

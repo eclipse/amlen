@@ -32,7 +32,7 @@ fi
 
 echo "$SCRIPTNAME: Updating file/dir ownerships so that MessageSight WebUI can be run as user $USERNAME and group $GROUPNAME"
 
-chown -RH $USERNAME:$GROUPNAME ${IMA_SVR_DATA_PATH}
+chown -RH $USERNAME:$GROUPNAME ${IMA_WEBUI_DATA_PATH}
 chown -RH $USERNAME:$GROUPNAME ${IMA_WEBUI_INSTALL_PATH}
 chown -RH $USERNAME:$GROUPNAME ${IMA_WEBUI_APPSRV_INSTALL_PATH}
 
