@@ -1,25 +1,22 @@
-#Build on oldest supported distro
-FROM centos:centos7.9.2009 as builder
+
+FROM quay.io/fedora/fedora:34-x86_64 as builder
 
 ENV DEPS_HOME ${HOME}/deps
 
 RUN mkdir -p ${DEPS_HOME}
 
-RUN yum --nogpgcheck -y install epel-release && \
-    yum -y update && \
+RUN dnf -y update && \
     # Install system tools and build dependencies required to build all releases of MessageGateway/MSProxy
-    yum -y install gcc gcc-c++ make cmake3 CUnit-devel junit ant ant-apache-xalan2 ant-junit ant-contrib libxslt && \
+    dnf -y install --nobest gcc gcc-c++ make cmake3 CUnit CUnit-devel junit ant ant-apache-xalan2 ant-junit ant-contrib libxslt && \
     # Install library dependencies (1/2)
-    yum -y install openssl-devel curl-devel openldap-devel net-snmp-devel libicu-devel icu boost-devel && \
+    dnf -y install openssl-devel curl-devel openldap-devel net-snmp-devel libicu-devel icu boost-devel && \
     # Install library dependencies (1/2)
-    yum -y install jansson jansson-devel pam-devel curl-devel && \
+    dnf -y install jansson jansson-devel pam-devel curl-devel && \
     # Install some tools which developers find useful during basic testing
-    yum -y install less wget vim-enhanced dos2unix bc gdb net-tools openssh-clients sysvinit-tools bzip2 unzip zip && \
-    yum -y install man file which lsof strace python-devel python-pip nodejs npm valgrind nc nmap logrotate dsniff && \
-    # Temporarily installing cunit packages from DEPS_HOME while EPEL mirrors are down
-    yum -y install CUnit CUnit-devel && \
+    dnf -y install less wget vim-enhanced dos2unix bc gdb net-tools openssh-clients bzip2 unzip zip && \
+    dnf -y install man file which lsof strace python3-devel python3-pip nodejs npm valgrind nc nmap logrotate && \
     # Needed to build rpms in container
-    yum -y install rpm-build
+    dnf -y install rpm-build
 
 #Get the dependencies we need that aren't packaged (JMS and java treated separately)
 RUN wget https://github.com/d3/d3/releases/download/v6.7.0/d3.zip -O ${DEPS_HOME}/d3-6.7.0.zip && \
@@ -36,6 +33,3 @@ RUN wget https://github.com/d3/d3/releases/download/v6.7.0/d3.zip -O ${DEPS_HOME
     
 #Get the JMS jars (separate as need to consider whether these are right locations/jars to grab - consider fscontext.jar/providerutil.jar)
 RUN wget https://repo1.maven.org/maven2/org/apache/geronimo/specs/geronimo-jms_1.1_spec/1.1.1/geronimo-jms_1.1_spec-1.1.1.jar  -O ${DEPS_HOME}/jms.jar 
-
-#Get Java (switch to OS provided version)
-#RUN wget "http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?popup=Y&la_formnum=&li_formnum=L-SMKR-AVSEUH&title=IBM%20SDK%20Java%20Technology%20Edition%20Version%208&accepted_url=http%3A%2F%2Fpublic.dhe.ibm.com%2Fibmdl%2Fexport%2Fpub%2Fsystems%2Fcloud%2Fruntimes%2Fjava%2F8.0.6.36%2Flinux%2Fx86_64%2Fibm-java-sdk-8.0-6.36-x86_64-archive.bin"  -O ${DEPS_HOME}/ibm-java-sdk-8.0-6.36-x86_64-archive.bin

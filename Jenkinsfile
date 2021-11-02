@@ -8,7 +8,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-centos7-build
-    image: quay.io/jonquark/jontest1:latest
+    image: quay.io/amlen/amlen-builder-centos7:latest
     command:
     - cat
     tty: true
