@@ -1,4 +1,6 @@
 #!/bin/bash
+#This assumes we're cd'd into the server_build dir of
+#the source code
 
 export BUILD_LABEL="$(date +%Y%m%d-%H%M)_eclipsebuild"
 export SROOT=$(realpath `pwd`/..)
