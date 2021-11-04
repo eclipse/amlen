@@ -1,3 +1,7 @@
+# By default we build on the oldest supported distro (centos7)
+# Jenkinsfiles for other distros (with associated build container Dockerfiles
+# are in server_build/buildcontainer
+#
 pipeline {
   agent {
     kubernetes {
