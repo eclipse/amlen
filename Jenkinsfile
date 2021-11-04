@@ -48,8 +48,8 @@ spec:
                             ls ..
                             echo ${GIT_BRANCH}
                             #ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org rm -rf /home/data/httpd/download.eclipse.org/projectname/snapshots
-                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/
-                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/
+                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/centos7/
+                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/centos7/
                         '''
                     }
                 }
