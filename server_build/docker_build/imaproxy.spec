@@ -24,7 +24,7 @@ AutoReqProv: no
 Group: Applications/Communications
 Source: %{name}.tar.gz
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-Requires: gdb, openssl, tar, zip, bzip2, unzip
+Requires: gdb, openssl, tar, zip, bzip2, unzip, libicu
 Obsoletes: IBMIoTMessageSightProxy
 
 %description
