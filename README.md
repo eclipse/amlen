@@ -60,16 +60,10 @@ and placed into a directory (set the $DEP_HOME environment variable to point to 
     https://download.dojotoolkit.org/release-1.16.3/ 
 * gridx-1.3.9.zip
     https://github.com/oria/gridx/releases
-* d3-6.7.0.zip
-    https://d3js.org/ (download d3.zip and rename)
+* d3-3.5.6.zip
+    https://github.com/d3/d3/releases/download/v3.5.6/d3.zip (download d3.zip and rename)
 * jms.jar
     https://mvnrepository.com/artifact/org.apache.geronimo.specs/geronimo-jms_1.1_spec/1.1.1/
-* ibm-java-jre-8.0-6.15-linux-x86_64.tgz 
-    https://www.ibm.com/support/pages/java-sdk-downloads-version-80
-    Download the AMD64 simple unzip with license, run it to extract and then create tgz with
-    the correct name (we will streamline our handling of Java JRE's before first release).
-    Without this the server but not the WebUI will be built
-    
 
 Some of the non-default components (e.g. the bridge to IBM MQ) require other dependencies - see
 the next section to see dependencies for individual components
