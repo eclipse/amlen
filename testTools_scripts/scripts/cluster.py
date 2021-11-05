@@ -497,7 +497,9 @@ def updateClusterMembership(serverID, payload):
   try:
     url = OPTIONS['A'+serverID+'_REST_ARGS']+'/ima/configuration'
     traceRestCall('POST', url, payload)
-    response = requests.post(url=url, data=payload)
+    response = requests.post(url=url, 
+                             data=payload,
+                             headers={'Content-type': 'text/plain; charset=utf-8'})
     if response.status_code != 200:
       if LAST_MEMBER in response.content:
         trace(1, 'last member to leave cluster, not an error' )
@@ -720,7 +722,6 @@ def buildClusterMembershipPayload(argv, serverID, enable, skipExtraProps):
     payload = '{"ClusterMembership":{'+enablecluster+name+controladdress+controlport+messagingaddress+messagingport+discoveryport+bootstrap+ttl+usemc+usetls+'}}'
   else:
     payload = '{"ClusterMembership":{'+enablecluster+name+'}}'
-    payload = payload.encode('utf-8')
 
   traceExit('buildClusterMembershipPayload')
   return ( payload )
