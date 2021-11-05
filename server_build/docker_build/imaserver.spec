@@ -24,7 +24,7 @@ AutoReqProv: no
 Group: Applications/Communications
 Source: %{name}.tar.gz
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-Requires: gdb, net-tools, openssl, tar, perl, procps >= 3.3.9, libjansson.so.4()(64bit), logrotate, zip, bzip2, unzip, net-snmp
+Requires: gdb, net-tools, openssl, tar, perl, procps >= 3.3.9, libjansson.so.4()(64bit), logrotate, zip, bzip2, unzip, boost, libicu, net-snmp
 Obsoletes: IBMIoTMessageSightServer
 
 %description

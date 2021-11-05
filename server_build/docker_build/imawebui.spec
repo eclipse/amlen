@@ -24,7 +24,7 @@ AutoReqProv: no
 Group: Applications/Communications
 Source: %{name}.tar.gz
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-Requires: net-tools, openldap, openldap-servers, openldap-clients, tar, openssl, procps
+Requires: net-tools, openldap, openldap-servers, openldap-clients, tar, openssl, procps, java-1.8.0-openjdk-headless
 Obsoletes: IBMIoTMessageSightWebUI
 
 %description
