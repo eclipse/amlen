@@ -27,7 +27,7 @@ def parseFileToTree(filepath):
     """returns the generated XML tree"""
     instring = ""
 
-    with open(filepath, "r") as infile:
+    with open(filepath, "r", encoding='utf-8') as infile:
         instring = infile.read()
 
     varreplacedstring = path_parser.parseString(instring)
