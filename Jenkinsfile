@@ -37,6 +37,11 @@ spec:
     stages {
         stage('Build') {
             steps {
+                if (env['BUILD_LABEL'] == null ) {
+                    env['BUILD_LABEL'] = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                }
+                echo "BUILD_LABEL is ${env['BUILD_LABEL']}"
+
                 container('amlen-centos7-build') {
                    sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
                 }
@@ -48,12 +53,11 @@ spec:
                     sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
                         sh '''
                             pwd
-                            ls
-                            ls ..
                             echo ${GIT_BRANCH}
+                            echo "BUILD_LABEL is ${env['BUILD_LABEL']}"
                             #ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org rm -rf /home/data/httpd/download.eclipse.org/projectname/snapshots
-                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/centos7/
-                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/centos7/
+                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/${env['BUILD_LABEL']}/centos7/
+                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/${env['BUILD_LABEL']}/centos7/
                         '''
                     }
                 }
