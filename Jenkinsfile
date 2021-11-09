@@ -37,11 +37,12 @@ spec:
     stages {
         stage('Build') {
             steps {
-                if (env['BUILD_LABEL'] == null ) {
-                    env['BUILD_LABEL'] = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                script {
+                    if (env['BUILD_LABEL'] == null ) {
+                        env['BUILD_LABEL'] = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                    }
+                    echo "BUILD_LABEL is ${env['BUILD_LABEL']}"
                 }
-                echo "BUILD_LABEL is ${env['BUILD_LABEL']}"
-
                 container('amlen-centos7-build') {
                    sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
                 }
