@@ -48,13 +48,13 @@ spec:
                         }
                         buildId=env.BUILD_LABEL
                     }
-                    echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${buildId}"    
+                    echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${buildId}"    
                 }
             }
         }
         stage('Build') {
             steps {
-                //echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${buildId}"
+                echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${buildId}"
 
                 container('amlen-centos7-build') {
                    sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
