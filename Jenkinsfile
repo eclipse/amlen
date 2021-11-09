@@ -44,18 +44,18 @@ spec:
                 container('amlen-centos7-build') {
                     echo "Hello"
                     script {
-                        if (env['BUILD_LABEL'] == null ) {
-                            env['BUILD_LABEL'] = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                        if (env.BUILD_LABEL == null ) {
+                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
                         }
-                        buildId=env['BUILD_LABEL']
+                        buildId=env.BUILD_LABEL
                     }
-                    echo "In Build, BUILD_LABEL is ${env['BUILD_LABEL']} buildId = ${build}"    
+                    echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${build}"    
                 }
             }
         }
         stage('Build') {
             steps {
-                echo "In Build, BUILD_LABEL is ${env['BUILD_LABEL']} buildId = ${build}"
+                echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${build}"
 
                 container('amlen-centos7-build') {
                    sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
@@ -69,7 +69,7 @@ spec:
                         sh '''
                             pwd
                             echo ${GIT_BRANCH}
-                            echo "BUILD_LABEL is ${env['BUILD_LABEL']}"
+                            echo "BUILD_LABEL is ${env.BUILD_LABEL}"
                             #ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org rm -rf /home/data/httpd/download.eclipse.org/projectname/snapshots
                             ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/${env['BUILD_LABEL']}/centos7/
                             scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/${env['BUILD_LABEL']}/centos7/
