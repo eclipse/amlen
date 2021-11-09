@@ -1,5 +1,16 @@
 pipeline {
-    agent any
+  agent {
+    kubernetes {
+      label 'amlen-buildalltier1-pod'
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+"""
+    }
+  }
     parameters {
         string(name: 'branchName', defaultValue: 'origin/master, description: 'GitHub branch to build'),
         string(name: 'buildId',    defaultValue: '',             description: 'Build Identifier to ensure build can be easily identified')
@@ -8,25 +19,28 @@ pipeline {
     stages {
         stage('Init') {
             steps {
-                script {
-                    if (buildId != null && buildId != '') {
-                        env.BUILD_LABEL = buildId
+                container('jnlp') {
+                    script {
+                        if (buildId != null && buildId != '') {
+                            env.BUILD_LABEL = buildId
+                        }
+                        if (env.BUILD_LABEL == null ) {
+                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse"
+                        }
                     }
-                    if (env.BUILD_LABEL == null ) {
-                        env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse"
-                    }
-                }
-                echo "In BuildAll Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
+                    echo "In BuildAll Init, BUILD_LABEL is ${env.BUILD_LABEL}"
+                }  
             }
         }
         stage('BuildFanOut') {
             steps {
-                echo "In BuildFanout, BUILD_LABEL is ${env.BUILD_LABEL}"
+                container('jnlp') {
+                    echo "In BuildFanout, BUILD_LABEL is ${env.BUILD_LABEL}"
                 
-                
-                build job: 'SingleBranchBuild_Fedora', parameters: [
+                    build job: 'SingleBranchBuild_Fedora', parameters: [
                              string(name: 'branchName', value: String.valueOf(branchName)),
                              string(name: 'buildId', value: String.valueOf(buildId))]
+                }
             }
         }
     }
