@@ -1,10 +1,17 @@
 pipeline {
     agent any
+    parameters {
+        string(name: 'branchName', defaultValue: 'origin/master, description: 'GitHub branch to build'),
+        string(name: 'buildId',    defaultValue: '',             description: 'Build Identifier to ensure build can be easily identified')
+    }
     
     stages {
         stage('Init') {
             steps {
                 script {
+                    if (buildId != null && buildId != '') {
+                        env.BUILD_LABEL = buildId
+                    }
                     if (env.BUILD_LABEL == null ) {
                         env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse"
                     }
@@ -16,24 +23,10 @@ pipeline {
             steps {
                 echo "In BuildFanout, BUILD_LABEL is ${env.BUILD_LABEL}"
                 
-                sh '''
-                   echo "JON pwd"
-                   pwd
-                   echo "JON ls in curr dir"
-                   ls -ltr
-                   echo "JON ls in parent dir"
-                   ls -ltr ..
-                '''
                 
                 build job: 'SingleBranchBuild_Fedora', parameters: [
-                             string(name: 'branchNane', value: String.valueOf(branchName))]
-                //Build other distros
-                script {
-                    build job: 'server_build/buildcontainer/Jenkinsfile.alma8'
-                }
-                script {
-                    build job: 'server_build/buildcontainer/Jenkinsfile.fedora'
-                }
+                             string(name: 'branchName', value: String.valueOf(branchName)),
+                             string(name: 'buildId', value: String.valueOf(buildId))]
             }
         }
     }
