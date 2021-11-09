@@ -3,7 +3,7 @@
 // are in server_build/buildcontainer
 //
 
-#Not sure if env vars can be movwed betwen containers, so we have a global groovy var too
+//Not sure if env vars can be moved betwen containers, so we have a global groovy var too
 def buildId
 
 pipeline {
