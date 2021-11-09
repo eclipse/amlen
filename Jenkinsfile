@@ -3,9 +3,6 @@
 // are in server_build/buildcontainer
 //
 
-//Not sure if env vars can be moved betwen containers, so we have a global groovy var too
-def buildId
-
 pipeline {
   agent {
     kubernetes {
@@ -47,15 +44,14 @@ spec:
                         if (env.BUILD_LABEL == null ) {
                             env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
                         }
-                        buildId=env.BUILD_LABEL
                     }
-                    echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${buildId}"    
+                    echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
                 }
             }
         }
         stage('Build') {
             steps {
-                echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${buildId}"
+                echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
 
                 container('amlen-centos7-build') {
                    sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
@@ -65,7 +61,7 @@ spec:
         stage('Deploy') {
             steps {
                 container('jnlp') {
-                    echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${buildId}"
+                    echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
                     sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
                         sh '''
                             pwd
