@@ -42,12 +42,9 @@ spec:
         stage('Init') {
             steps {
                 container('amlen-centos7-build') {
-                    echo "Hello"
                     script {
                         if (env.BUILD_LABEL == null ) {
                             env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
-                            //env.BUILD_LABEL = sh(script: "echo output", returnStdout: true).toString().trim()
-                            echo "We got ${env.BUILD_LABEL}"
                         }
                         buildId=env.BUILD_LABEL
                     }
@@ -67,6 +64,7 @@ spec:
         stage('Deploy') {
             steps {
                 container('jnlp') {
+                    echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${buildId}"
                     sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
                         sh '''
                             pwd
