@@ -45,17 +45,19 @@ spec:
                     echo "Hello"
                     script {
                         if (env.BUILD_LABEL == null ) {
-                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                            //env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                            env.BUILD_LABEL = sh(script: "echo output", returnStdout: true).toString().trim()
+                            echo "We got ${env.BUILD_LABEL}"
                         }
-                        buildId=env.BUILD_LABEL
+                        //buildId=env.BUILD_LABEL
                     }
-                    echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${build}"    
+                    //echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${build}"    
                 }
             }
         }
         stage('Build') {
             steps {
-                echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${build}"
+                //echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL} buildId = ${build}"
 
                 container('amlen-centos7-build') {
                    sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
