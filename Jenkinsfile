@@ -2,6 +2,9 @@
 // Jenkinsfiles for other distros (with associated build container Dockerfiles
 // are in server_build/buildcontainer
 //
+
+def buildId
+
 pipeline {
   agent {
     kubernetes {
@@ -33,16 +36,27 @@ spec:
       name: known-hosts
 """
     }
-  }
-    stages {
+  } 
+
+  stages {
+        stage('Init') {
+            steps {
+                container('amlen-centos7-build') {
+                    echo "Hello"
+                    script {
+                        if (${env['BUILD_LABEL']} == null ) {
+                            ${env['BUILD_LABEL']} = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                        }
+                        ${buildId}=${env['BUILD_LABEL']}
+                    }
+                    
+                }
+            }
+        }
         stage('Build') {
             steps {
-                script {
-                    if (env['BUILD_LABEL'] == null ) {
-                        env['BUILD_LABEL'] = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
-                    }
-                    echo "BUILD_LABEL is ${env['BUILD_LABEL']}"
-                }
+                echo "BUILD_LABEL is ${env['BUILD_LABEL']}"
+
                 container('amlen-centos7-build') {
                    sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
                 }
