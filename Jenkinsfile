@@ -3,6 +3,7 @@
 // are in server_build/buildcontainer
 //
 
+#Not sure if env vars can be movwed betwen containers, so we have a global groovy var too
 def buildId
 
 pipeline {
@@ -69,10 +70,11 @@ spec:
                         sh '''
                             pwd
                             echo ${GIT_BRANCH}
-                            echo "BUILD_LABEL is ${env.BUILD_LABEL}"
+                            echo "BUILD_LABEL is ${BUILD_LABEL}"
+                            NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                             #ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org rm -rf /home/data/httpd/download.eclipse.org/projectname/snapshots
-                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/${env['BUILD_LABEL']}/centos7/
-                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${GIT_BRANCH}/${env['BUILD_LABEL']}/centos7/
+                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
                         '''
                     }
                 }
