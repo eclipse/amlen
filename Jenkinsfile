@@ -1,6 +1,6 @@
 // By default we build on the oldest supported distro (centos7)
-// Jenkinsfiles for other distros (with associated build container Dockerfiles
-// are in server_build/buildcontainer
+// A Jenkinsfile used for other distros (with associated build container Dockerfiles)
+// along with other jenkins files we use are all in server_build/buildcontainer
 //
 
 pipeline {
