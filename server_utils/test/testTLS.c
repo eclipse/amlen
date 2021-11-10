@@ -269,9 +269,16 @@ xUNUSED void snitest(void) {
     g_disableCRL = 1;
     g_keystore = "keystore";
     g_truststore = "truststore";
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L 
+    printf("Skipping sni test due to openssl <1.1\n");
+    return;
+#endif 
+
     if (g_verbose)
         ism_common_setTraceLevel(8);
     ism_common_setTraceFile("stdout", 0);
+       
     ism_log_init();
     ism_ssl_SNI_init();
     //Test NULL Key
