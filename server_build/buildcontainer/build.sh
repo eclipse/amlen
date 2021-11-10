@@ -23,6 +23,10 @@ if [ -z "${HOME}" ]; then
     mkdir $HOME
 fi
 
+#Unitest tests require some diskspace and we have to be careful where that is...
+export STOREROOT=$BROOT/unitteststore
+mkdir $STOREROOT
+
 echo "HOME is $HOME"
 echo "free mem:"
 free -g
