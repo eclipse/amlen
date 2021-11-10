@@ -2,7 +2,9 @@
 #This assumes we're cd'd into the server_build dir of
 #the source code
 
-export BUILD_LABEL="$(date +%Y%m%d-%H%M)_eclipsebuild"
+if [ -z "${BUILD_LABEL}" ]; then
+    export BUILD_LABEL="$(date +%Y%m%d-%H%M)_build"
+fi
 export SROOT=$(realpath `pwd`/..)
 export BROOT=${SROOT}
 export DEPS_HOME=/deps

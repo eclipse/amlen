@@ -1,0 +1,57 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'amlen-buildalltier1-pod'
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    resources:
+      limits:
+        memory: "300Mi"
+        cpu: "200m"
+      requests:
+        memory: "300Mi"
+        cpu: "200m"
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+"""
+    }
+  }
+    parameters{
+        string(name: 'snapshotpath',  defaultValue: '', description: 'Path to existing snapshot e.g. snapshots/master/20211109-2203_eclipse')
+        string(name: 'releasepath', defaultValue: '', description: 'Path to releases e.g. 0.1rc1')
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: 'master', name: 'branchName', type: 'PT_BRANCH', description: 'Branch to get the server_build/buildcontainer/jenkins.promotebuild script from'
+    }
+    
+    stages {
+        stage('PromoteSnapshot') {
+            steps {
+                container('jnlp') {
+		    script {
+                        srcdirpath='/home/data/httpd/download.eclipse.org/amlen/'
+                        env.releasedirpath=srcdirpath+'releases/'
+                        
+                        env.snapshotfilepath=srcdirpath+snapshotpath
+                        env.releasefilepath=releasedirpath+releasepath
+                    }
+                    
+                    sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                        sh """
+                            echo "Promoting ${snapshotfilepath} to ${releasefilepath}"
+                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p ${releasedirpath}
+                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org cp -r ${snapshotfilepath} ${releasefilepath}
+                        """
+                    }
+                }
+            }
+        }
+    }
+}

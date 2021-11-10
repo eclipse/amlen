@@ -1,0 +1,66 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'amlen-buildalltier1-pod'
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    resources:
+      limits:
+        memory: "300Mi"
+        cpu: "200m"
+      requests:
+        memory: "300Mi"
+        cpu: "200m"
+"""
+    }
+  }
+    parameters{
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: 'master', name: 'branchName', type: 'PT_BRANCH'
+        string(name: 'buildId',    defaultValue: '',   description: 'Build Identifier to ensure build can be easily identified (set blank to autogenerate - default)')
+    }
+    
+    stages {
+        stage('Init') {
+            steps {
+                container('jnlp') {
+                    script {
+                        if (buildId != null && buildId != '') {
+                            env.BUILD_LABEL = buildId
+                        }
+                        if (env.BUILD_LABEL == null ) {
+                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse"
+                        }
+                    }
+                    echo "In BuildAll Init, BUILD_LABEL is ${env.BUILD_LABEL}"
+                }  
+            }
+        }
+        stage('BuildFanOut') {
+            steps {
+                container('jnlp') {
+                    echo "In BuildFanout, BUILD_LABEL is ${env.BUILD_LABEL}"
+                    
+                    build job: 'SingleBranchBuild_ChooseDistro', parameters: [
+                             string(name: 'branchName', value: String.valueOf(branchName)),
+                             string(name: 'buildId', value: String.valueOf(env.BUILD_LABEL)),
+                             string(name: 'distro', value: "centos7")
+                             ]
+
+                    build job: 'SingleBranchBuild_ChooseDistro', parameters: [
+                             string(name: 'branchName', value: String.valueOf(branchName)),
+                             string(name: 'buildId', value: String.valueOf(env.BUILD_LABEL)),
+                             string(name: 'distro', value: "alma8")]
+                
+                    build job: 'SingleBranchBuild_ChooseDistro', parameters: [
+                             string(name: 'branchName', value: String.valueOf(branchName)),
+                             string(name: 'buildId', value: String.valueOf(env.BUILD_LABEL)),
+                             string(name: 'distro', value: "fedora")]
+                }
+            }
+        }
+    }
+}

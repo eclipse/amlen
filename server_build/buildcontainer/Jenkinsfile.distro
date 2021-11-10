@@ -1,19 +1,23 @@
-// By default we build on the oldest supported distro (centos7)
-// A Jenkinsfile used for other distros (with associated build container Dockerfiles)
-// along with other jenkins files we use are all in server_build/buildcontainer
-//
-
+//This is a more customisable version of the default Jenkinsfile stored at in the root folder of the project
+//This version allows (in particular) choosing which Linux distribution to build on
 pipeline {
+
+    parameters{
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: 'master', name: 'branchName', type: 'PT_BRANCH'
+        choice(name: 'distro', choices: ['centos7','alma8','fedora'], description: 'Linux distribution to build on')
+        string(name: 'buildId',    defaultValue: '',   description: 'Build Identifier to ensure build can be easily identified (set blank to autogenerate - default)')
+    }
+
   agent {
     kubernetes {
-      label 'amlen-centos7-build-pod'
+      label "amlen-${distro}-build-pod"
       yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
-  - name: amlen-centos7-build
-    image: quay.io/amlen/amlen-builder-centos7:latest
+  - name: amlen-${distro}-build
+    image: "quay.io/amlen/amlen-builder-${distro}:latest"
     command:
     - cat
     tty: true
@@ -34,15 +38,20 @@ spec:
       name: known-hosts
 """
     }
-  } 
+  }
+  
 
-  stages {
+
+    stages {
         stage('Init') {
             steps {
-                container('amlen-centos7-build') {
+                container("amlen-${distro}-build") {
                     script {
+                        if (buildId != null && buildId != '') {
+                            env.BUILD_LABEL = buildId
+                        }
                         if (env.BUILD_LABEL == null ) {
-                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse${distro}"
                         }
                     }
                     echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
@@ -52,8 +61,8 @@ spec:
         stage('Build') {
             steps {
                 echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
-
-                container('amlen-centos7-build') {
+                
+                container("amlen-${distro}-build") {
                    sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
                 }
             }
@@ -69,8 +78,8 @@ spec:
                             echo "BUILD_LABEL is ${BUILD_LABEL}"
                             NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                             #ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org rm -rf /home/data/httpd/download.eclipse.org/projectname/snapshots
-                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}
+                            scp -o BatchMode=yes -r rpms/*.tar.gz rpms/*rpm genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                         '''
                     }
                 }
