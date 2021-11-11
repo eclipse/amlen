@@ -24,6 +24,9 @@ spec:
       requests:
         memory: "4Gi"
         cpu: "2"
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
   - name: jnlp
     volumeMounts:
     - name: volume-known-hosts
@@ -32,6 +35,9 @@ spec:
   - name: volume-known-hosts
     configMap:
       name: known-hosts
+  - name: dshm
+    emptyDir:
+      medium: Memory
 """
     }
   } 
