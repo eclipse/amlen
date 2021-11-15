@@ -31,7 +31,7 @@ Source0: %{sourcename}.zip
 Source1: imasdk-deps.zip
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-BuildRequires: libicu-devel,rpm-build,junit,ant-contrib,ant,icu,javapackages-local,libxslt,ant-junit
+BuildRequires: libicu-devel,rpm-build,junit,ant-contrib,icu,libxslt,ant-junit,python3
 #Requires: 
 
 %description
