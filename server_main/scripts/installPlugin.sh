@@ -24,7 +24,12 @@ echo "Plugin install: Date: $DATE " >> ${LOGFILE} 2>&1 3>&1
 echo "" >> ${LOGFILE} 2>&1 3>&1
 
 
-JAVA=${IMA_SVR_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin/java
+# Use Java if we shipped it
+if [ -d "${IMA_SVR_INSTALL_PATH}/ibm-java-x86_64-80" ]
+then
+    export JAVA_HOME="${IMA_SVR_INSTALL_PATH}/ibm-java-x86_64-80"
+    export JAVA=${IMA_SVR_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin/java
+fi
 $JAVA -version >> ${LOGFILE} 2>&1 3>&1
 rc=$?
 if [ "$rc" != "0" ]; then

@@ -119,7 +119,14 @@ if [ "$LOCAL_PORT" != "" ]; then
      PORT_OPT="-p $LOCAL_PORT"
 fi 
 export IMA_CONFIG_DIR=$CONFIG_FOLDER/
-JAVA=${IMA_SVR_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin/java
+
+# Use Java if we shipped it
+if [ -d "${IMA_SVR_INSTALL_PATH}/ibm-java-x86_64-80" ]
+then
+    export JAVA_HOME="${IMA_SVR_INSTALL_PATH}/ibm-java-x86_64-80"
+    export JAVA=${IMA_SVR_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin/java
+fi
+
 #echo "$TASKSET $JAVA $SM $DUMP_PARAM $BOOT_CP $MS $MX  $DEBUG_OPT $VMARG -jar $JAR_FILE -d $IP_OPT $PORT_OPT >$OUT_LOG 2>$ERR_LOG"
 $TASKSET $JAVA $SM $DUMP_PARAM $BOOT_CP $MS $MX $DEBUG_OPT $VMARG -jar $JAR_FILE -d $IP_OPT $PORT_OPT >$OUT_LOG 2>$ERR_LOG &
 jpid=$!

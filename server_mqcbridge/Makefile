@@ -52,15 +52,7 @@ endif
 ifeq (,$(wildcard $(MQ_CLIENT_TGZ)))
 $(error Cannot find MQ Redistributable client $(MQ_CLIENT_TGZ) - Looking in $$DEPS_HOME/mqc or $(OUTDIR)/$(ROOTREL)/mqfiles)
 endif
-#We have a client tar.gz that we need to extract...make everything depend
-#on a header file that we extract from the client
 MQC=$(OUTDIR)/mqc_extract
-$(BINDIR)/mqcbridge$(EXE)::$(MQC)/inc/cmqc.h
-$(DEBUG_BINDIR)/mqcbridge$(EXE)::$(MQC)/inc/cmqc.h
-$(COVERAGE_BINDIR)/mqcbridge$(EXE)::$(MQC)/inc/cmqc.h
-$(LIBDIR)/libtest_mqcbridge$(SO)::$(MQC)/inc/cmqc.h
-$(DEBUG_LIBDIR)/libtest_mqcbridge$(SO)::$(MQC)/inc/cmqc.h
-$(COVERAGE_LIBDIR)/libtest_mqcbridge$(SO)::$(MQC)/inc/cmqc.h
 else
 MQC=$(MQC_HOME)
 endif
@@ -155,6 +147,8 @@ $(COVERAGE_LIBDIR)/libtest_mqcbridge$(SO):: $(call coverage-objects, $(mqcbridge
 
 COVERAGE-CFG-TARGETS += $(COVERAGE_BINDIR)/mqcbridge.cfg
 
+
+
 # ------------------------------------------------
 # Build the unit tests
 # ------------------------------------------------
@@ -237,14 +231,15 @@ $(MQC)/inc/cmqc.h: $(MQ_CLIENT_TGZ)
 	mkdir -p $(MQC)/inc
 	mkdir -p $(MQC)/lib64
 	tar -xvf $(MQ_CLIENT_TGZ) -C $(MQC)/tmpextract
+	CURDIR=`pwd`
 	mkdir -p $(MQC)/tmpextract/client
-	rpm2cpio $(MQC)/tmpextract/MQSeriesClient-*.x86_64.rpm | cpio -id -D $(MQC)/tmpextract/client
+	cd $(MQC)/tmpextract/client  && rpm2cpio $(MQC)/tmpextract/MQSeriesClient-*.x86_64.rpm | cpio -id && cd ${CURDIR}
 	mkdir -p $(MQC)/tmpextract/runtime
-	rpm2cpio $(MQC)/tmpextract/MQSeriesRuntime-*.x86_64.rpm | cpio -id -D $(MQC)/tmpextract/runtime
+	cd $(MQC)/tmpextract/runtime && rpm2cpio $(MQC)/tmpextract/MQSeriesRuntime-*.x86_64.rpm | cpio -id && cd ${CURDIR}
 	mkdir -p $(MQC)/tmpextract/sdk
-	rpm2cpio $(MQC)/tmpextract/MQSeriesSDK-*.x86_64.rpm | cpio -id -D $(MQC)/tmpextract/sdk
+	cd $(MQC)/tmpextract/sdk && rpm2cpio $(MQC)/tmpextract/MQSeriesSDK-*.x86_64.rpm | cpio -id && cd ${CURDIR}
 	mkdir -p $(MQC)/tmpextract/samples
-	rpm2cpio $(MQC)/tmpextract/MQSeriesSamples-*.x86_64.rpm | cpio -id -D $(MQC)/tmpextract/samples
+	cd $(MQC)/tmpextract/samples && rpm2cpio $(MQC)/tmpextract/MQSeriesSamples-*.x86_64.rpm | cpio -id && cd ${CURDIR}
 	rm -f $(MQC)/lib64/*.so
 	rm -f $(MQC)/inc/*.h
 	cp $(MQC)/tmpextract/client/opt/mqm/lib64/libmqdc_r.so   $(MQC)/lib64/
@@ -259,6 +254,19 @@ $(MQC)/inc/cmqc.h: $(MQ_CLIENT_TGZ)
 	cp $(MQC)/tmpextract/*IBM-MQC-Redist-*.tar.gz            $(MQC)/
 	chmod -R 770 $(MQC)/tmpextract
 	rm -rf $(MQC)/tmpextract
+
+
+#We have a client tar.gz that we need to extract...make everything depend
+#on a header file that we extract from the client
+ifeq ($(MQC_HOME),)
+$(BINDIR)/mqcbridge$(EXE)::$(MQC)/inc/cmqc.h
+$(DEBUG_BINDIR)/mqcbridge$(EXE)::$(MQC)/inc/cmqc.h
+$(COVERAGE_BINDIR)/mqcbridge$(EXE)::$(MQC)/inc/cmqc.h
+$(LIBDIR)/libtest_mqcbridge$(SO)::$(MQC)/inc/cmqc.h
+$(DEBUG_LIBDIR)/libtest_mqcbridge$(SO)::$(MQC)/inc/cmqc.h
+$(COVERAGE_LIBDIR)/libtest_mqcbridge$(SO)::$(MQC)/inc/cmqc.h
+$(mqcbridge-FILES)::$(MQC)/inc/cmqc.h
+endif
 
 # Typical order: Directories, Targets, Debug-Targets
 production: $(DIR-TARGETS) $(TARGETS)
@@ -280,3 +288,4 @@ coveragefulltest: coverage $(COVERAGE_LEGACY_BASIC) $(COVERAGE_LEGACY_FULL) $(CO
          test fulltest \
          debugtest debugfulltest \
          coveragetest coveragefulltest
+

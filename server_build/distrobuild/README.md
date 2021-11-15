@@ -78,8 +78,8 @@ mock -r fedora-34-x86_64 -n  ~/rpmbuild/SRPMS/AmlenWebUI-0.1.0.0-1.fc34.src.rpm
 This is a separate rpm to the server (as it depends on the closed source MQClient). 
 Ensure you can build the server (above) then:
 
-1. Put the MQClient and IBM JRE in ~/rpmbuild/SOURCES
-2. Alter the spec file `server_build/distrobuild/mqcbridge.spec` to match the versions used in step 1
+1. Put the MQClient in ~/rpmbuild/SOURCES
+2. Alter the spec file `server_build/distrobuild/mqcbridge.spec` to match the version used in step 1
 3. `rpmbuild -bs mqcbridge.spec`
 4. `mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenMQCBridge-0.1.0.0-1.fc34.src.rpm`
 
@@ -118,11 +118,11 @@ dependencies exist) the WAS RA as well.
 
 To build the SDK including the WAS RA download dependencies and create the zip file like:
 ```
-zip ~/rpmbuild/SOURCES/imasdk-deps.zip com.ibm.ws.admin.core.jar  com.ibm.ws.runtime.jar  com.ibm.ws.sib.server.jar  fscontext.jar  j2ee.jar  jms.jar  providerutil.jar
+zip ~/rpmbuild/SOURCES/imasdk-deps.zip com.ibm.ws.admin.core.jar  com.ibm.ws.runtime.jar  com.ibm.ws.sib.server.jar  j2ee.jar  jms.jar
 ```
 To build without the RA then create the zip file like:
 ```
-zip ~/rpmbuild/SOURCES/imasdk-deps.zip fscontext.jar jms.jar  providerutil.jar
+zip ~/rpmbuild/SOURCES/imasdk-deps.zip jms.jar
 ```
 Once the dependencies have been created build in the usual way:
 ```
@@ -132,7 +132,7 @@ mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenSDK-0.1.0.0-1.fc34.src.rpm
 ```
 
 
-## Rebranding/Renamig Amlen
+## Rebranding/Renaming Amlen
 
 By setting `IMA_PATH_PROPERTIES` in a spec file we can control filepaths/Product Names/Versions,
 the defaults for which are kept in server_build/paths.properties

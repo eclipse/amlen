@@ -24,11 +24,10 @@ AutoReqProv: no
 Group: Applications/Communications
 
 Source0: %{sourcename}.zip
-Source1: ibm-java-jre-8.0-6.15-linux-x86_64.tgz
-Source2: 9.0.0.8-IBM-MQC-LinuxX64.tar.gz
+Source1: 9.0.0.8-IBM-MQC-LinuxX64.tar.gz
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-BuildRequires: openssl-devel,curl-devel,openldap-devel,net-snmp-devel,libicu-devel,rpm-build,vim-common,gcc,gcc-c++,make,CUnit-devel,junit,ant-contrib,boost-devel,dos2unix,ant
+BuildRequires: openssl-devel,curl-devel,openldap-devel,net-snmp-devel,libicu-devel,rpm-build,python3,vim-common,gcc,gcc-c++,make,CUnit-devel,junit,ant-contrib,boost-devel,dos2unix,ant,jansson-devel
 Requires: gdb, net-tools, openssl, tar, perl, procps >= 3.3.9, libjansson.so.4()(64bit), logrotate, zip, bzip2, unzip, AmlenServer
 
 %description
@@ -37,10 +36,8 @@ Amlen Bridge to IBM MQ for Linux x86_64
 
 %prep
 %setup -n %{sourcename}
-mkdir -p $RPM_BUILD_DIR/broot/deps
-cp %{SOURCE1} $RPM_BUILD_DIR/broot/deps/
 mkdir -p $RPM_BUILD_DIR/broot/deps/mqc
-cp %{SOURCE2} $RPM_BUILD_DIR/broot/deps/mqc
+cp %{SOURCE1} $RPM_BUILD_DIR/broot/deps/mqc
 
 %build
 export BUILD_LABEL="$(date +%Y%m%d-%H%M)_git_private"
@@ -55,7 +52,7 @@ export IMASERVER_BASE_DIR=$BROOT/rpmtree
 export SLESNORPMS=yes
 mkdir -p $BROOT
 cd $SROOT/server_build
-export IMA_PATH_PROPERTIES=${SROOT}/server_build/ossbuild/samplerebrand/amlen-paths.properties
+#export IMA_PATH_PROPERTIES=${SROOT}/server_build/ossbuild/samplerebrand/amlen-paths.properties
 ant -f $SROOT/server_build/build.xml buildmqcbridge-oss
 
 %install

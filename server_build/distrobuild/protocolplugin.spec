@@ -20,7 +20,7 @@
 
 Summary: Amlen Protocol Plugin Support for Linux x86_64
 Name: AmlenProtocolPlugin
-Version: 0.1.0.
+Version: 0.1.0.0
 Release: 1%{?dist}
 License: EPL-2.0
 Packager: IMA Build
@@ -30,7 +30,7 @@ Group: Applications/Communications
 Source0: %{sourcename}.zip
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-BuildRequires: junit,ant-contrib,ant,python3,java-devel,icu,javapackages-local,libxslt,ant-junit
+BuildRequires: junit,ant-contrib,python3,java-devel,icu,libxslt,ant-junit
 Requires:  AmlenServer
 
 %description
