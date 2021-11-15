@@ -78,7 +78,17 @@ export RPM_BUILD_LABEL=$(echo $BUILD_LABEL | sed 's/-/./')
 export RPM_BUILD_NCPUS=1
 if [ $(nproc) -gt 1 ] ; then
     export RPM_BUILD_NCPUS=$((`nproc` - 1))
+
+    if [ ${RPM_BUILD_NCPUS} -gt ${AMLEN_MAX_BUILD_JOBS} ] ; then
+        RPM_BUILD_NCPUS=${AMLEN_MAX_BUILD_JOBS}
 fi
+fi
+
+export LINUXDISTRO_ID=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
+export LINUXDISTRO_VERSION=$(grep -oP '(?<=^VERSION_ID=).+' /etc/os-release | tr -d '"')
+export LINUXDISTRO_FULL=${LINUXDISTRO_ID}${LINUXDISTRO_VERSION}
+
+echo "Packaging on ${LINUXDISTRO_FULL}"
 
 if [ "${SHIP_OPENSSL}" == "yes" ]; then
     # OSS lib dependencies
@@ -227,8 +237,8 @@ function bld_imabridge_rpm {
 
     # BUILD RPMS --------------------------------------------
     mkdir -p $BRIDGE_RPMBUILD_DIR
-    # CENTOS rpm build
-    export RPMBUILD_ROOT_BRIDGE_EL=$BRIDGE_RPMBUILD_DIR/centos/rpmbuild
+    
+    export RPMBUILD_ROOT_BRIDGE_EL=$BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild
 
     # Create rpmbuild dirs
     mkdir -p $RPMBUILD_ROOT_BRIDGE_EL/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,tmp}
@@ -250,20 +260,20 @@ function bld_imabridge_rpm {
     rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_BRIDGE_EL/BUILDROOT imamqttbridge.spec
 
     # create Bridge tar file
-    mkdir -p $BRIDGE_RPMBUILD_DIR/centos/temp
-    cp --no-preserve=ownership $BRIDGE_RPMBUILD_DIR/centos/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm $BRIDGE_RPMBUILD_DIR/centos/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imamqttbridge $BRIDGE_RPMBUILD_DIR/centos/temp/Dockerfile
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imabridge-docker.env $BRIDGE_RPMBUILD_DIR/centos/temp
-    dos2unix $BRIDGE_RPMBUILD_DIR/centos/temp/Dockerfile
-    dos2unix $BRIDGE_RPMBUILD_DIR/centos/temp/imabridge-docker.env
+    mkdir -p $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    cp --no-preserve=ownership $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imamqttbridge $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imabridge-docker.env $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    dos2unix $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    dos2unix $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imabridge-docker.env
 
     # Copy tarballs and rpms
-    cd $BRIDGE_RPMBUILD_DIR/centos/temp
-    tar czf $RPMDIR/${BRIDGE_NAME}-CENTOS-${ISM_VERSION_ID}-${BUILD_LABEL}.tar.gz *
-    cp $BRIDGE_RPMBUILD_DIR/centos/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm $RPMDIR
+    cd $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    tar czf $RPMDIR/${BRIDGE_NAME}-${LINUXDISTRO_FULL}-${ISM_VERSION_ID}-${BUILD_LABEL}.tar.gz *
+    cp $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm $RPMDIR
     
     if [ "${ASAN_BUILD}" == "yes" ] ; then
-        mv $RPMDIR/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm $RPMDIR/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.asan.centos.x86_64.rpm
+        mv $RPMDIR/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm $RPMDIR/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.asan.${LINUXDISTRO_FULL}.x86_64.rpm
     fi
 
     if [ "$SLESNORPMS" = "yes" ]; then
@@ -587,9 +597,8 @@ function webui_minify {
 #added to the tree
 function rpmbuild_server {
     # BUILD RPMS --------------------------------------------
-    # CENTOS RPM Build
-    mkdir -p $IMASERVER_RPMBUILD_DIR/centos
-    export RPMBUILD_ROOT_EL=$IMASERVER_RPMBUILD_DIR/centos/rpmbuild
+    mkdir -p $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}
+    export RPMBUILD_ROOT_EL=$IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild
 
     # Create rpmbuild dirs
     mkdir -p $RPMBUILD_ROOT_EL/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,tmp}
@@ -599,7 +608,7 @@ function rpmbuild_server {
     tar czf $RPMBUILD_ROOT_EL/SOURCES/${IMASERVER_NAME}.tar.gz $IMASERVER_NAME
 
     # Copy spec file to rpm build root
-    #cd $RPMDIR/build/server/centos
+    #cd $RPMDIR/build/server/${LINUXDISTRO_FULL}
     dos2unix ${BUILD_ROOT}/server_build/docker_build/imaserver.spec
     cp ${BUILD_ROOT}/server_build/docker_build/imaserver.spec $RPMBUILD_ROOT_EL/SPECS/imaserver.spec
 
@@ -611,20 +620,20 @@ function rpmbuild_server {
     rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_EL/BUILDROOT imaserver.spec
 
     # create imaserver tar file
-    mkdir -p $IMASERVER_RPMBUILD_DIR/centos/temp
-    cp --no-preserve=ownership $IMASERVER_RPMBUILD_DIR/centos/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm $IMASERVER_RPMBUILD_DIR/centos/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/centos/temp/Dockerfile
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaserver-docker.env $IMASERVER_RPMBUILD_DIR/centos/temp
-    dos2unix $IMASERVER_RPMBUILD_DIR/centos/temp/Dockerfile
-    dos2unix $IMASERVER_RPMBUILD_DIR/centos/temp/imaserver-docker.env
+    mkdir -p $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    cp --no-preserve=ownership $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaserver-docker.env $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    dos2unix $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    dos2unix $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imaserver-docker.env
 
     # Copy tarballs and rpms
-    cd $IMASERVER_RPMBUILD_DIR/centos/temp
-    tar czf $RPMDIR/${IMASERVER_NAME}-CENTOS-${ISM_VERSION_ID}-${BUILD_LABEL}.tar.gz *
-    cp $IMASERVER_RPMBUILD_DIR/centos/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm $RPMDIR
+    cd $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    tar czf $RPMDIR/${IMASERVER_NAME}-${LINUXDISTRO_FULL}-${ISM_VERSION_ID}-${BUILD_LABEL}.tar.gz *
+    cp $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm $RPMDIR
     
     if [ "${ASAN_BUILD}" == "yes" ] ; then
-        mv $RPMDIR/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm $RPMDIR/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.asan.centos.x86_64.rpm
+        mv $RPMDIR/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm $RPMDIR/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.asan.${LINUXDISTRO_FULL}.x86_64.rpm
     fi
 
     if [ "$SLESNORPMS" == "yes" ]; then
@@ -705,9 +714,8 @@ function bld_imagui_rpm {
     IMAGUI_RPMBUILD_DIR=$RPM_BUILD_DIR/imawebui
 
     # Temporary dir locations to build imawebui RPM
-    # CENTOS RPM Build
-    mkdir -p $IMAGUI_RPMBUILD_DIR/centos
-    export RPMBUILD_ROOT_WEBUI_EL=$IMAGUI_RPMBUILD_DIR/centos/rpmbuild
+    mkdir -p $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}
+    export RPMBUILD_ROOT_WEBUI_EL=$IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild
 
     # Create rpmbuild dirs
     mkdir -p $RPMBUILD_ROOT_WEBUI_EL/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,tmp}
@@ -727,17 +735,17 @@ function bld_imagui_rpm {
     rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_WEBUI_EL/BUILDROOT imawebui.spec
 
     # create imawebui tar file
-    mkdir -p $IMAGUI_RPMBUILD_DIR/centos/temp
-    cp --no-preserve=ownership $IMAGUI_RPMBUILD_DIR/centos/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm $IMAGUI_RPMBUILD_DIR/centos/temp/${IMAGUI_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imawebui $IMAGUI_RPMBUILD_DIR/centos/temp/Dockerfile
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imawebui-docker.env $IMAGUI_RPMBUILD_DIR/centos/temp
-    dos2unix $IMAGUI_RPMBUILD_DIR/centos/temp/Dockerfile
-    dos2unix $IMAGUI_RPMBUILD_DIR/centos/temp/imawebui-docker.env
+    mkdir -p $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    cp --no-preserve=ownership $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMAGUI_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imawebui $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imawebui-docker.env $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    dos2unix $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    dos2unix $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imawebui-docker.env
 
     # Copy tarballs and rpms
-    cd $IMAGUI_RPMBUILD_DIR/centos/temp
-    tar czf $RPMDIR/${IMAGUI_NAME}-CENTOS-${ISM_VERSION_ID}-${BUILD_LABEL}.tar.gz *
-    cp $IMAGUI_RPMBUILD_DIR/centos/temp/${IMAGUI_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm $RPMDIR
+    cd $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    tar czf $RPMDIR/${IMAGUI_NAME}-${LINUXDISTRO_FULL}-${ISM_VERSION_ID}-${BUILD_LABEL}.tar.gz *
+    cp $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMAGUI_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm $RPMDIR
 
     # SLES RPM Build
     if [ "$SLESNORPMS" = "yes" ]; then
@@ -850,7 +858,7 @@ function bld_imaproxy_rpm {
 
     # BUILD RPMS --------------------------------------------
     mkdir -p $PROXY_RPMBUILD_DIR
-    export RPMBUILD_ROOT_PROXY=$PROXY_RPMBUILD_DIR/centos/rpmbuild
+    export RPMBUILD_ROOT_PROXY=$PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild
 
     # Create rpmbuild dirs
     mkdir -p $RPMBUILD_ROOT_PROXY/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,tmp}
@@ -873,19 +881,19 @@ function bld_imaproxy_rpm {
     rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_PROXY/BUILDROOT imaproxy.spec
 
     # create Proxy tar file
-    mkdir -p $PROXY_RPMBUILD_DIR/centos/temp
-    cp --no-preserve=ownership $PROXY_RPMBUILD_DIR/centos/rpmbuild/RPMS/x86_64/${PROXY_NAME}*.rpm $PROXY_RPMBUILD_DIR/centos/temp/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaproxy $PROXY_RPMBUILD_DIR/centos/temp/Dockerfile
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaproxy-docker.env $PROXY_RPMBUILD_DIR/centos/temp
-    dos2unix $PROXY_RPMBUILD_DIR/centos/temp/Dockerfile
-    dos2unix $PROXY_RPMBUILD_DIR/centos/temp/imaproxy-docker.env
+    mkdir -p $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    cp --no-preserve=ownership $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${PROXY_NAME}*.rpm $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaproxy $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaproxy-docker.env $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    dos2unix $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    dos2unix $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imaproxy-docker.env
 
     # Copy tarballs and rpms
-    cd $PROXY_RPMBUILD_DIR/centos/temp
-    tar czf $RPMDIR/${PROXY_NAME}-CENTOS-${ISM_VERSION_ID}-${BUILD_LABEL}.tar.gz *
-    cp $PROXY_RPMBUILD_DIR/centos/temp/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm $RPMDIR
+    cd $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    tar czf $RPMDIR/${PROXY_NAME}-${LINUXDISTRO_FULL}-${ISM_VERSION_ID}-${BUILD_LABEL}.tar.gz *
+    cp $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm $RPMDIR
     if [ "${ASAN_BUILD}" == "yes" ] ; then
-        mv $RPMDIR/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.centos.x86_64.rpm $RPMDIR/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.asan.centos.x86_64.rpm
+        mv $RPMDIR/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm $RPMDIR/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.asan.${LINUXDISTRO_FULL}.x86_64.rpm
     fi
 }
 function bld_all_rpms {
