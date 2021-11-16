@@ -31,7 +31,7 @@ Source0: %{sourcename}.zip
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
 BuildRequires: junit,ant-contrib,python3,java-devel,icu,libxslt,ant-junit
-Requires:  AmlenServer
+Requires:  EclipseAmlenServer
 
 %description
 Amlen Server Protocol Plugin Support for Linux x86_64
