@@ -28,7 +28,7 @@ Source1: 9.0.0.8-IBM-MQC-LinuxX64.tar.gz
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
 BuildRequires: openssl-devel,curl-devel,openldap-devel,net-snmp-devel,libicu-devel,rpm-build,python3,vim-common,gcc,gcc-c++,make,CUnit-devel,junit,ant-contrib,boost-devel,dos2unix,ant,jansson-devel
-Requires: gdb, net-tools, openssl, tar, perl, procps >= 3.3.9, libjansson.so.4()(64bit), logrotate, zip, bzip2, unzip, AmlenServer
+Requires: gdb, net-tools, openssl, tar, perl, procps >= 3.3.9, libjansson.so.4()(64bit), logrotate, zip, bzip2, unzip, EclipseAmlenServer
 
 %description
 Amlen Bridge to IBM MQ for Linux x86_64

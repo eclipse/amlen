@@ -15,7 +15,7 @@
 %define sourcename messagegateway-buildoss
 
 Summary: Amlen Messaging Server for Linux x86_64
-Name: AmlenServer
+Name: EclipseAmlenServer
 Version: 0.1.0.0
 Release: 1%{?dist}
 License: EPL-2.0

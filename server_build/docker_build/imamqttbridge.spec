@@ -13,6 +13,7 @@
 %define _topdir %(echo $PWD)/..
 %define distrel %(day="`date +%j`"; echo "0.$day")
 %define _tmppath %{_topdir}/tmp
+%global _build_id_links none
 
 Summary: ${IMA_PRODUCTNAME_FULL} Bridge for Linux x86_64
 Name: ${IMA_PKG_BRIDGE}
