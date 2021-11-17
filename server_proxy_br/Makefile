@@ -35,12 +35,15 @@ IFLAGS += -I$(PRJDIR)/../server_transport/include
 IFLAGS += -I$(PRJDIR)/../server_snmp/src
 
 
+#Find out the RPATH directory
+IMABRIDGE_RUNPATH_DIR := $(shell python3 $(PRJDIR)/$(ROOTREL)/server_build/path_parser.py -p IMA_RPATH_BRIDGE -m=value)
+
 # Add any required flags not specified in $(ROOTREL)/server_build/common.mk
 IDFLAGS +=
 # Try it either in the JVM or in build_tools
 IFLAGS += -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux
 CFLAGS += -DIMAPROXY -DHAS_BRIDGE -DNO_PXACT -DNO_SQS -DNO_CURL -DNO_PROXY -DGAI_SIG
-LDFLAGS += -Wl,-rpath,$(IMA_BRIDGE_RPATH)
+LDFLAGS += -Wl,-rpath,$(IMABRIDGE_RUNPATH_DIR)
 LDLIBS += $(IMA_ICU_LIBS) -licuuc -licui18n -licudata -lanl $(SSL_LIB) -lssl -lcrypto -ldl
 XFLAGS +=
 SHARED_FLAGS +=
