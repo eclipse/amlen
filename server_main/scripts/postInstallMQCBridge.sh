@@ -31,6 +31,8 @@ then
     STANDALONE=0 #running as part of server install => not standalone
 fi
 
+if [ "$STANDALONE" == "1" ];
+then
     #Work out what user and group we should be running as
     source ${SVR_INSTALL_DIR}/bin/getUserGroup.sh >> ${INITLOG}
 
