@@ -39,7 +39,7 @@ then
     #Set up server writable directories (repeated on startup in containers in case they change)
     source ${SVR_INSTALL_DIR}/bin/initImaserverInstance.sh >> ${INITLOG}
 else
-    echo "Running as part of standalone bridge install" >> ${INITLOG}
+    echo "Running as part of broader install" >> ${INITLOG}
 fi
 
 # Unpack the newest MQ client redistributable if one exists
