@@ -40,7 +40,7 @@ IDFLAGS +=
 # Try it either in the JVM or in build_tools
 IFLAGS += -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux
 CFLAGS += -DIMAPROXY -DHAS_BRIDGE -DNO_PXACT -DNO_SQS -DNO_CURL -DNO_PROXY -DGAI_SIG
-LDFLAGS += -Wl,-rpath,$(IMABRIDGE_RUNPATH_DIR)
+LDFLAGS += -Wl,-rpath,$(IMA_RPATH_BRIDGE)
 LDLIBS += $(IMA_ICU_LIBS) -licuuc -licui18n -licudata -lanl $(SSL_LIB) -lssl -lcrypto -ldl
 XFLAGS +=
 SHARED_FLAGS +=
