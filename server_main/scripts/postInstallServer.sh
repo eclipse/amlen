@@ -62,6 +62,9 @@ then
     fi 
 fi
 
+#Do MQBridge related setup (in case we're bundling MQ Bridge)
+${SVR_INSTALL_DIR}/bin/postInstallMQCBridge.sh serverinstall
+
 # Unpack the newest IBM Java JRE TGZ file
 unset -v latestjava
 for f in ${SVR_INSTALL_DIR}/ibm-java-jre-8.0-*.tgz
