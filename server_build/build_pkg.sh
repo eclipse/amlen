@@ -86,7 +86,10 @@ fi
 
 export LINUXDISTRO_ID=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
 export LINUXDISTRO_VERSION=$(grep -oP '(?<=^VERSION_ID=).+' /etc/os-release | tr -d '"')
-export LINUXDISTRO_FULL=${LINUXDISTRO_ID}${LINUXDISTRO_VERSION}
+
+#Remove anything after a . do 8.4->8 but 34 is unchanged
+export LINUXDISTRO_VERSION_MAJOR=${LINUXDISTRO_VERSION%.*}
+export LINUXDISTRO_FULL=${LINUXDISTRO_ID}${LINUXDISTRO_VERSION_MAJOR}
 
 echo "Packaging on ${LINUXDISTRO_FULL}"
 
