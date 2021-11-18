@@ -30,20 +30,21 @@ SVR_INSTALL_DIR=${IMA_SVR_INSTALL_PATH}
 SVR_DATA_DIR=${IMA_SVR_DATA_PATH}
 
 mkdir -p -m 770 ${SVR_DATA_DIR}/diag/logs
-INITLOG=${SVR_DATA_DIR}/diag/logs/imaserver_init.log
+INITLOG=${SVR_DATA_DIR}/diag/logs/imaserver_start.log
 export INITLOG
 
 exec 200> /tmp/imaserver.lock
 flock -e -n 200 2> /dev/null
 if [ "$?" != "0" ]; then
-    echo "IBM IoT MessageSight server process is already running." >&2
+    echo "imaserver process is already running." >&2
     exit 255
 fi
 
 echo "" >> ${INITLOG}
 echo "-------------------------------------------------------------------"  >> ${INITLOG}
-echo "START IBM IoT MessageSight Server" >> ${INITLOG}
+echo "START imaserver" >> ${INITLOG}
 echo "Date: $(date) " >> ${INITLOG}
+echo "User: `whoami` " >> ${INITLOG}
 
 # Predefined configuration file location in the container
 IMASERVERCFG=${SVR_DATA_DIR}/data/config/server.cfg

@@ -10,15 +10,16 @@
 # 
 # SPDX-License-Identifier: EPL-2.0
 #
+# This script does some initial setup for the server. It can be run as root
+# by systemd before the server runs or (esp in a container) called from startServer.
 
-#This is a strange path for a log outside a container (likely to be changed in a future release)
-INITLOG=${IMA_SVR_DATA_PATH}/diag/logs/docker_imaserver_init.log
+INITLOG=${IMA_SVR_DATA_PATH}/diag/logs/imaserver_init.log
 touch ${INITLOG}
 
 echo "-------------------------------------------------------------------"  >> ${INITLOG}
-echo "Initialize IBM IoT MessageSight Server" >> ${INITLOG}
+echo "Initialize imaserver" >> ${INITLOG}
 echo "Date: `date` " >> ${INITLOG}
-
+echo "User: `whoami` " >> ${INITLOG}
 
 #Try and find some way to identify this instance so if there are multiple clashing servers
 #e.g. in "duelling" containers writing to same logs, they can be identified
@@ -42,11 +43,11 @@ if [ "${UUID}" != "" ]
 then
     SHORT_UUID=`echo ${UUID} | cut -c1-12`
     export SHORT_UUID
-    echo "Start MessageSight container: ${SHORT_UUID}" >> ${INITLOG}
+    echo "Start imaserver container: ${SHORT_UUID}" >> ${INITLOG}
 else
     SHORT_UUID="imaserver"
     export SHORT_UUID
-    echo "Start MessageSight instance: ${SHORT_UUID}" >> ${INITLOG}
+    echo "Start imaserver instance: ${SHORT_UUID}" >> ${INITLOG}
 fi
 
 # Set default values
@@ -97,7 +98,7 @@ then
     touch ${IMACFGDIR}/.serverCFGUpdated
 fi
 
-echo "IBM IoT MessageSight instance is initialized. " >> ${INITLOG}
+echo "imaserver instance is initialized. " >> ${INITLOG}
 echo "-------------------------------------------------------------------"  >> ${INITLOG}
 echo  >> ${INITLOG}
 
