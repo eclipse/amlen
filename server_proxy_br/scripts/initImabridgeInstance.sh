@@ -11,8 +11,8 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-# This script is called by initBridge if the marker it creates is not
-# found (e.g. first time or data directories gone)
+# This script is called by install and by initBridge if the marker it 
+# creates is not found (e.g. first time or data directories gone)
 #
 # This tries to create all the writeable directories that the Bridge
 # uses. It may be run as root before the service runs (called by

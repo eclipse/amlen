@@ -12,6 +12,8 @@
 #
 # This script does some initial setup for the bridge. It can be run as root
 # by systemd before the bridge runs or (esp in a container) called from startBridge.
+# (unlike initImabridgeInstance.sh it is not run during install so this happens
+#  for the first time at first run and then on subsequent starts)
 
 INITLOG=${IMA_BRIDGE_DATA_PATH}/diag/logs/imabridge_init.log
 export INITLOG

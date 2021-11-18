@@ -12,6 +12,8 @@
 #
 # This script does some initial setup for the server. It can be run as root
 # by systemd before the server runs or (esp in a container) called from startServer.
+# (unlike initImaserverInstance.sh it is not run during install so this happens 
+#  for the first time at first run and then on subsequent starts)
 
 INITLOG=${IMA_SVR_DATA_PATH}/diag/logs/imaserver_init.log
 touch ${INITLOG}

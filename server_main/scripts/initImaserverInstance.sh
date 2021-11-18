@@ -11,8 +11,9 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-# This script is called by initServer if the marker it creates is not
-# found (e.g. first time or data directories gone)
+# This script is called during install and is called by initServer 
+# if the marker it creates is not found (e.g. first time or data 
+# directories gone) 
 #
 # This tries to create all the writeable directories that the server
 # uses. It may be run as root before the service runs (called by
