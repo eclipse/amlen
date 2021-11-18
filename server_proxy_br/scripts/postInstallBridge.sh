@@ -21,7 +21,7 @@ touch ${INITLOG}
 source ${IMA_BRIDGE_INSTALL_PATH}/bin/getUserGroup.sh >> ${INITLOG}
 
 #Set up server writable directories (repeated on startup esp. in containers in case they change)
-source ${SVR_INSTALL_DIR}/bin/initImaserverInstance.sh >> ${INITLOG}
+source ${IMA_BRIDGE_INSTALL_DIR}/bin/initImabridgeInstance.sh >> ${INITLOG}
 
 # system tuning
 mkdir -p -m 770 /etc/imabridge
