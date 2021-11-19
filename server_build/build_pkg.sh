@@ -618,6 +618,11 @@ function rpmbuild_server {
     # Change Version and Release in SPEC file
     sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_EL/SPECS/imaserver.spec
 
+    # If we are shipping boost, stop the server rpm depending on it:
+    if [ "$SHIP_BOOST" == "yes" ] ; then
+        sed -i -E 's/^Requires: (.*)boost,(.*)/Requires: \1\2/' $RPMBUILD_ROOT_EL/SPECS/imaserver.spec
+    fi
+
     # start rpm build
     cd $RPMBUILD_ROOT_EL/SPECS
     rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_EL/BUILDROOT imaserver.spec
