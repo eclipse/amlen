@@ -20,31 +20,25 @@ _term() {
     wait "$bridge"
 }
 
-# check if running in a docker container
-isDocker=0
-if [ -f /.dockerenv ]
-then
-    isDocker=1
-fi
-
 mkdir -p -m 770 ${IMA_BRIDGE_DATA_PATH}/diag/logs
-INITLOG=${IMA_BRIDGE_DATA_PATH}/diag/logs/imabridge_init.log
+INITLOG=${IMA_BRIDGE_DATA_PATH}/diag/logs/imabridge_start.log
 export INITLOG
 
 exec 200> /tmp/imabridge.lock
 flock -e -n 200 2> /dev/null
 if [ "$?" != "0" ]; then
-    echo "IBM IoT MessageSight bridge process is already running." >&2
+    echo "imabridge process is already running." >&2
     exit 255
 fi
 
 echo "" >> ${INITLOG}
 echo "-------------------------------------------------------------------"  >> ${INITLOG}
-echo "START IBM IoT MessageSight Bridge" >> ${INITLOG}
+echo "START imabridge" >> ${INITLOG}
 echo "Date: $(date) " >> ${INITLOG}
+echo "User: `whoami` " >> ${INITLOG}
 
-# Initialize imabridge service for docker container if running in a container
-if [ $isDocker -eq 1 ]
+# Initialize bridge if systemd hasn't already done it
+if [ "$SYSTEMD_STARTED_IMABRIDGE" != "1" ]
 then
     ${IMA_BRIDGE_INSTALL_PATH}/bin/initBridge.sh
 fi

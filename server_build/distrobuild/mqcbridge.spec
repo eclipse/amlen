@@ -63,7 +63,9 @@ mv $IMASERVER_BASE_DIR/* "$RPM_BUILD_ROOT/"
 
 %files
 %defattr (-, root, bin)
-/usr/share/amlen-server
+/usr/share/amlen-server/bin/mqcbridge
+/usr/share/amlen-server/config/mqclient.ini
+/usr/share/amlen-server/mqclient
 
 %clean
 rm -rf "$RPM_BUILD_ROOT"
@@ -74,6 +76,7 @@ mkdir -p /var/lib/amlen-server/markers
 touch /var/lib/amlen-server/markers/install-mqcbridge
 
 %post
+/usr/share/amlen-server/bin/postInstallMQCBridge.sh
 
 %preun
 

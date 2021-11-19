@@ -35,6 +35,9 @@ IFLAGS += -I$(PRJDIR)/../server_transport/include
 IFLAGS += -I$(PRJDIR)/../server_snmp/src
 
 
+#Find out the RPATH directory
+IMABRIDGE_RUNPATH_DIR := $(shell python3 $(PRJDIR)/$(ROOTREL)/server_build/path_parser.py -p IMA_RPATH_BRIDGE -m=value)
+
 # Add any required flags not specified in $(ROOTREL)/server_build/common.mk
 IDFLAGS +=
 # Try it either in the JVM or in build_tools

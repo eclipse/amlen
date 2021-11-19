@@ -11,6 +11,17 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
+# This script is called by install and by initBridge if the marker it 
+# creates is not found (e.g. first time or data directories gone)
+#
+# This tries to create all the writeable directories that the Bridge
+# uses. It may be run as root before the service runs (called by
+# systemd->initBridge.sh->this script or (usually in a container,
+# run as the same user as the server runs as startBridge->initBridge->
+# this script.))
+
+
+
 # Predefined directory locations for the instance
 CURDIR=`pwd`
 export CURDIR
@@ -23,27 +34,16 @@ export LOGDIR
 COREDIR=${IMA_BRIDGE_DATA_PATH}/diag/cores
 export COREDIR
 
-# Determine if this is a docker container (by finding /docker in /proc/self/cgroup)
-grep /docker /proc/self/cgroup >/dev/null
-
-if [ $? == 0 ]
-then
-   INDOCKER=1
-else
-   INDOCKER=0
-fi
-
 # Create install log file
 mkdir -p -m 770 ${LOGDIR}
 chmod -R 770 ${LOGDIR}
-INITLOG=${LOGDIR}/MessageSightBridgeInstall.log
+INITLOG=${LOGDIR}/imabridge_initinstance.log
 export INITLOG
 touch ${INITLOG}
 
 echo "--------------------------------------------------"  >> ${INITLOG}
-echo "Configure MessageSight Bridge " >> ${INITLOG}
+echo "Configure imabridge " >> ${INITLOG}
 echo "Date: `date` " >> ${INITLOG}
-echo "In Docker: ${INDOCKER} " >> ${INITLOG}
 
 echo "Create required directories" >> ${INITLOG}
 mkdir -p -m 770 ${COREDIR} >> ${INITLOG} 2>&1 3>&1
@@ -66,16 +66,25 @@ IMADYNSERVERCFG=${IMA_BRIDGE_DATA_PATH}/bridge.cfg
 # Check if container is already inited
 if [ -f ${IMACFGDIR}/MessageSightInstance.inited ]
 then
-    echo "MessageSight Bridge Instance is already initialized. " >> ${INITLOG}
+    echo "imabridge is already initialized. " >> ${INITLOG}
     echo "---------------------------------------------"  >> ${INITLOG}
     echo  >> ${INITLOG}
 
 else
 
-    echo "Initialize MessageSight Bridge Instance -- " >> ${INITLOG}
+    echo "Initialize imabridge instance -- " >> ${INITLOG}
 
-    # Initialize the instance
-    # No action currently required that is not idempotent
+    #Do things that are not-idempotent...(nothing strictly 
+    #non-idempotent for the bridge at the mo)
 
     touch ${IMACFGDIR}/MessageSightInstance.inited
+
+    #Ensure all data files owned by the right user (if we are running as
+    #root with the power to change ownership)... this actually can be rerun
+    #but we avoid doing it unnecessarily
+    if [ "`whoami`" == "root" ]
+    then
+        source ${IMA_BRIDGE_INSTALL_PATH}/bin/getUserGroup.sh
+        chown -RH $IMABRIDGE_USER:$IMABRIDGE_GROUP ${IMA_BRIDGE_DATA_PATH}
+    fi
 fi

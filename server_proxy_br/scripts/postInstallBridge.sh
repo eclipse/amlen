@@ -20,10 +20,8 @@ touch ${INITLOG}
 #Work out what user and group we should be running as
 source ${IMA_BRIDGE_INSTALL_PATH}/bin/getUserGroup.sh >> ${INITLOG}
 
-
-perl -pi -e 's/\r\n$/\n/g' ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1 3>&1
-chmod 770 ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1 3>&1
-
+#Set up server writable directories (repeated on startup esp. in containers in case they change)
+source ${IMA_BRIDGE_INSTALL_PATH}/bin/initImabridgeInstance.sh >> ${INITLOG}
 
 # system tuning
 mkdir -p -m 770 /etc/imabridge

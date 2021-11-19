@@ -10,6 +10,11 @@
 # 
 # SPDX-License-Identifier: EPL-2.0
 #
+# This script does some initial setup for the bridge. It can be run as root
+# by systemd before the bridge runs or (esp in a container) called from startBridge.
+# (unlike initImabridgeInstance.sh it is not run during install so this happens
+#  for the first time at first run and then on subsequent starts)
+
 INITLOG=${IMA_BRIDGE_DATA_PATH}/diag/logs/imabridge_init.log
 export INITLOG
 mkdir -p -m 770 $(dirname $INITLOG)
@@ -19,33 +24,33 @@ export CURDIR
 touch ${INITLOG}
 
 echo "-------------------------------------------------------------------"  >> ${INITLOG}
-echo "Initialize IBM IoT MessageSight Bridge " >> ${INITLOG}
+echo "Initialize imabridge " >> ${INITLOG}
 echo "Date: `date` " >> ${INITLOG}
+echo "User: `whoami` " >> ${INITLOG}
 
-
-isDocker=0
-if [ -f /.dockerenv ]
+# Find container UUID
+UUID=`cat /proc/self/cgroup | grep -o  -e "docker-.*.scope" | head -n 1 | sed "s/docker-\(.*\).scope/\\1/"`
+# Alternative form of information containing container ID
+if [ "${UUID}" == "" ]
 then
-    isDocker=1
+    UUID=`cat /proc/self/cgroup | grep -o -e ".*:/docker/.*" | head -n 1 | sed "s/.*:\/docker\/\(.*\)/\\1/"`
 fi
 
-
-if [ $isDocker -eq 1 ]
+#If we haven't found a UUID yet, try a k8s style pod....
+if [ "${UUID}" == "" ]
 then
-    # Find container UUID
-    UUID=`cat /proc/self/cgroup | grep -o  -e "docker-.*.scope" | head -n 1 | sed "s/docker-\(.*\).scope/\\1/"`
-    # Alternative form of information containing container ID
-    if [ "${UUID}" == "" ]
-    then
-        UUID=`cat /proc/self/cgroup | grep -o -e ".*:/docker/.*" | head -n 1 | sed "s/.*:\/docker\/\(.*\)/\\1/"`
-    fi
+    UUID=`cat /proc/self/cgroup | grep -o -E -e "pod[^s/]+" | head -n 1`
+fi
+
+if [ "${UUID}" != "" ]
+then
     SHORT_UUID=`echo ${UUID} | cut -c1-12`
     export SHORT_UUID
-    echo "Start MessageSight Bridge container: ${SHORT_UUID}" >> ${INITLOG}
+    echo "Start imabridge container: ${SHORT_UUID}" >> ${INITLOG}
 else
     SHORT_UUID="imabridge"
     export SHORT_UUID
-    echo "Start MessageSight Bridge instance: ${SHORT_UUID}" >> ${INITLOG}
+    echo "Start imabridge instance: ${SHORT_UUID}" >> ${INITLOG}
 fi
 
 # Set default values
@@ -77,7 +82,7 @@ IMADYNBRIDGECFG=${IMA_BRIDGE_DATA_PATH}/bridge.cfg
 # Initialize instance if required
 if [ ! -f ${IMACFGDIR}/MessageSightInstance.inited ]
 then
-    ${IMA_BRIDGE_INSTALL_PATH}/bin/initImaserverInstance.sh >> ${INITLOG}
+    ${IMA_BRIDGE_INSTALL_PATH}/bin/initImabridgeInstance.sh >> ${INITLOG}
 fi
 
 # Initialize container specific data
@@ -148,7 +153,7 @@ then
 fi
 
 
-echo "IBM IoT MessageSight Bridge instance is initialized. " >> ${INITLOG}
+echo "imabridge instance is initialized. " >> ${INITLOG}
 echo "-------------------------------------------------------------------"  >> ${INITLOG}
 echo  >> ${INITLOG}
 

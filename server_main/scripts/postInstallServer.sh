@@ -62,19 +62,8 @@ then
     fi 
 fi
 
-# Unpack the newest MQ client redistributable if one exists
-unset -v latestmq
-for f in ${SVR_INSTALL_DIR}/mqclient/*MQC-Redist*.tar.gz
-do 
-    [[ $f -nt $latestmq ]] && latestmq=$f
-done
-if [ -e "$latestmq" ]
-then
-    echo "Unpack the MQ client: $latestmq" >>${INITLOG} 2>&1
-    tar -xzf "$latestmq" -C ${SVR_INSTALL_DIR}/mqclient >>${INITLOG} 2>&1
-    # if we remove this file, we'll get warnings from rpm when we rpm -e
-    #/usr/bin/rm "$latestmq" >>${INITLOG} 2>&1
-fi
+#Do MQBridge related setup (in case we're bundling MQ Bridge)
+${SVR_INSTALL_DIR}/bin/postInstallMQCBridge.sh serverinstall
 
 # Unpack the newest IBM Java JRE TGZ file
 unset -v latestjava
