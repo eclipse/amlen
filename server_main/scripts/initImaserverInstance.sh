@@ -35,7 +35,7 @@ INITLOG=${LOGDIR}/imaserver_initinstance.log
 touch ${INITLOG}
 
 echo "--------------------------------------------------"  >> ${INITLOG}
-echo "Configure imaerver " >> ${INITLOG}
+echo "Configure imaserver " >> ${INITLOG}
 echo "Date: `date` " >> ${INITLOG}
 
 echo "Create required directories" >> ${INITLOG}
