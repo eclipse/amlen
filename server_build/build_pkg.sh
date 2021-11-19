@@ -620,7 +620,7 @@ function rpmbuild_server {
 
     # If we are shipping boost, stop the server rpm depending on it:
     if [ "$SHIP_BOOST" == "yes" ] ; then
-        sed -iE 's/^Requires: (.*)boost,(.*)/Requires: \1\2/' $RPMBUILD_ROOT_EL/SPECS/imaserver.spec
+        sed -i -E 's/^Requires: (.*)boost,(.*)/Requires: \1\2/' $RPMBUILD_ROOT_EL/SPECS/imaserver.spec
     fi
 
     # start rpm build
