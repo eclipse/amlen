@@ -2300,6 +2300,7 @@ void ism_security_reValidatePoliciesInSecContext(ismSecurity_t *secContext) {
     }
     secContext->policy_slot_alloc = SEC_CTX_POLICY_SLOTS;
     secContext->policies = secContext->policy_slots;
+    secContext->policy_slot_pos=0;
 
     /* revalidate connection or configuration Policies */
     if (tport && tport->listener && tport->listener->conpolicies) {
