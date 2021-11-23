@@ -27,6 +27,12 @@ xUNUSED static const char * ima_static_copyright_string =
 "" IMA_PRODUCTNAME_FULL ""
 "(C) Copyright Contributors to the Eclipse Foundation 2012-2021. ";
 
+//Deliberately not marking static so it can be printed in gdb
+//(when it's static we need a frame in this source file)
+//If this reliably doesn't get removed from binaries we can
+//remove the static from the above strings as well
+xUNUSED char *ima_copyright_sourcelevel_string = IMA_PRODUCTNAME_FULL " source level info: " XTR(IMA_SOURCELEVEL_INFO);
+
 /*
  * Return the version of the library
  */
@@ -43,3 +49,11 @@ xUNUSED const char * ima_libraryVersion(void) {
 xUNUSED const char * ima_getCopyrightString(void) {
     return ima_static_copyright_string;
 }
+
+/*
+ * Return the source level string. Never called but
+ * helps to ensure not optimised out of binaries
+ */
+ xUNUSED const char * ima_getSourceLevelString(void) {
+     return ima_copyright_sourcelevel_string;
+ }

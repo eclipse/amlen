@@ -359,6 +359,7 @@ int main (int argc, char * * argv) {
     ism_common_initTrace();
     TRACE(1, "Initialize the " IMA_SVR_COMPONENT_NAME_FULL "\n");
     TRACE(2, "version   = %s %s %s\n", ism_common_getVersion(), ism_common_getBuildLabel(), ism_common_getBuildTime());
+    TRACE(2, "source = %s\n", ism_common_getSourceLevel());
     TRACE(2, "platform  = %s %s\n", ism_common_getPlatformInfo(), ism_common_getKernelInfo());
     TRACE(2, "processor = %s\n", ism_common_getProcessorInfo());
 
