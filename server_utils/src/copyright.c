@@ -31,7 +31,7 @@ xUNUSED static const char * ima_static_copyright_string =
 //(when it's static we need a frame in this source file)
 //If this reliably doesn't get removed from binaries we can
 //remove the static from the above strings as well
-xUNUSED char *ima_copyright_sourcelevel_string = IMA_PRODUCTNAME_FULL " source level info: " XTR(IMA_SOURCELEVEL_INFO);
+xUNUSED char *ima_copyright_sourcelevel_string = IMA_PRODUCTNAME_FULL " source level info: " XSTR(IMA_SOURCELEVEL_INFO);
 
 /*
  * Return the version of the library
