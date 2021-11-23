@@ -1736,7 +1736,7 @@ XAPI const char * ism_common_getBuildLabel(void);
  *
  * @return string with source level identifier.
  */
-const char * ism_common_getSourceLevel(void)
+XAPI const char * ism_common_getSourceLevel(void);
 
 /**
  * Get the date and time of the build.
