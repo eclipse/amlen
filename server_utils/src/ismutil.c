@@ -231,7 +231,7 @@ const char * ism_common_getBuildLabel(void) {
  * build.
  */
 const char * ism_common_getSourceLevel(void) {
-    return XSTR(IMA_SOURCELEVEL_INFO)
+    return XSTR(IMA_SOURCELEVEL_INFO);
 }
 
 /*
