@@ -1727,6 +1727,17 @@ XAPI const char * ism_common_getVersion(void);
  */
 XAPI const char * ism_common_getBuildLabel(void);
 
+/* 
+ * Get info to uniquely identify level of source used in the build.
+ * For example a git commit hash or tag.
+ *
+ * May be 0-length if IMA_SOURCELEVEL_INFO env var not set during
+ * build.
+ *
+ * @return string with source level identifier.
+ */
+XAPI const char * ism_common_getSourceLevel(void);
+
 /**
  * Get the date and time of the build.
  *

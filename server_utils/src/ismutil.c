@@ -223,6 +223,16 @@ const char * ism_common_getBuildLabel(void) {
     return XSTR(BUILD_LABEL);
 }
 
+/* 
+ * Get info to uniquely identify level of source used in the build.
+ * For example a git commit hash or tag.
+ *
+ * May be 0-length if IMA_SOURCELEVEL_INFO env var not set during
+ * build.
+ */
+const char * ism_common_getSourceLevel(void) {
+    return XSTR(IMA_SOURCELEVEL_INFO);
+}
 
 /*
  * Get the date and time of the build.

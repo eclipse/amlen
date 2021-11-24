@@ -36,5 +36,8 @@ nproc
 #We're getting out of mem errors in Eclipse infrastructure
 export AMLEN_MAX_BUILD_JOBS=3
 
+#Get the git commit that we are building with embedded in the build
+export IMA_SOURCELEVEL_INFO=${GIT_COMMIT}
+echo "Git commit info is ${IMA_SOURCELEVEL_INFO}"
 
 ant -f $SROOT/server_build/build.xml  2>&1 | tee $BROOT/ant.log
