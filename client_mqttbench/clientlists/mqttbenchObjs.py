@@ -248,7 +248,9 @@ class MBClient:
                                         #                        the command line parameter -s <minSizeBytes>-<maxSizeBytes> is used to sent binary messages. Clients which are pure subscribers do not require a messageDirPath to be set
                                         #                        or the -s param, but clients which are publish require either a messageDirPath or the -s param.  The messageDirPath field takes precedence over the -s command line parameter.
     lastWillMsg = None                  # obj:  CONNECT:   3.1.3.2 - instance of MBLastWillMsg object. configuration of the Last Will and Testament(LWT) message to send if client remained disconnected or disconnected "uncleanly", i.e. w/o sending DISCONNECT message
-    
+    pingTimeoutSecs = 60                # int:  MQTTBENCH  maximum time in seconds to wait for a PINGRESP message from the server, in response to a PINGREQ. Default is 60 seconds.
+    pingIntervalSecs = 0                # int:  MQTTBENCH  the interval in seconds between transmission of PINGREQ messages from a client.  Default is 0, i.e. do not send PINGREQ messages.
+
     #### Fields allowed for MQTT protocol version 5 or later
     cleanStart = True                   # bool: CONNECT:   3.1.2.4     - Clean start flag, 1 = discard previous session state (if any) for this client. Default is 1.
     sessionExpiryIntervalSecs = 0       # int:  CONNECT:   3.1.2.11.2  - Session expiry interval (seconds), 0 = session ends at disconnect. Default is 0. MAX_INT (0xFFFFFFFF) means the session does not expire (can be overruled by connection policy on broker)

@@ -91,6 +91,7 @@
 #define MQTT_MAX_TOPIC_NAME 				256        	/* the maximum length of an MQTT topic name allowed in mqttbench */
 #define MQTT_MAX_TOPIC_NAME_PAD128   		384
 #define MQTT_CONN_DEFAULT_TIMEOUT			120			/* how long the client will wait for a CONNACK after sending the CONNECT message, or wait in HANDSHAKE_IN_PROCESS state */
+#define MQTT_PING_DEFAULT_TIMEOUT			60			/* how long the client will wait for a PINGRESP after sending the PINGREQ message */
 #define MQTT_CONN_RETRIES					3			/* how many time to retransmit the CONNECT message */
 #define MAX_CONN_RETRIES					10000   	/* maximum number of times to call createConnection per client without receiving EINPROGRESS from connect call */
 #define MAX_CONN_BASIC_RETRIES				3			/* maximum number of reconnect attempts for a basic TCP client connection */

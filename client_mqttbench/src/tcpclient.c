@@ -60,6 +60,9 @@ extern pthread_spinlock_t connTime_lock;
 extern pskArray_t *pIDSharedKeyArray;   /* declared in env.c - used for preshared key. */
 extern ism_threadh_t g_thrdHandleDoCommands;
 
+extern unsigned char *g_alpnList;       /* declared in env.c - ALPN protocol list - https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_alpn_protos.html */
+extern unsigned int g_alpnListLen;      /* declares in env.c - ALPN protocol list length */
+
 
 /* ******************************** GLOBAL VARIABLES ********************************** */
 /* Statics */
@@ -577,6 +580,9 @@ SSL_CTX * initSSLCtx (char *sslClientMethod, const char *ciphers)
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
         rc=SSL_CTX_set_cipher_list(ctx, ciphers);
 #else
+        if(g_alpnListLen > 0) {
+            SSL_CTX_set_alpn_protos(ctx, g_alpnList, g_alpnListLen);  /* set application level protocols if configured by env variable */
+		}
         rc=SSL_CTX_set_ciphersuites(ctx, ciphers);
 #endif
         if(!rc) {
@@ -2892,9 +2898,14 @@ void resetLatencyStats (void *dataIOP, void *dataTrans)
 	}
 } /* resetLatencyStats */
 
-/* Callback function invoked from client scan timer task */
+/* Callback function scheduled from the client scan timer task and invoked from ioProcessorThread */
 void scheduleReconnectCallback (void *dataIOP, void *dataTrans) {
 	scheduleReconnect(dataTrans, __FILE__, __LINE__);
+}
+
+/* Callback function scheduled from the client ping timer task and invoked from ioProcessorThread */
+void schedulePingCallback (void *dataIOP, void *dataTrans) {
+	submitPing(((transport_t*) dataTrans)->client);
 }
 
 /* *************************************************************************************

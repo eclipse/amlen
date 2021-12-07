@@ -40,6 +40,7 @@ extern pskArray_t 	   *pIDSharedKeyArray;
 
 /* Globals - Initial declaration */
 int g_numClientsWithConnTimeout = 0;     /* Total number of clients with a non-zero connection timeout set */
+int g_numClientsWithPingInterval = 0;    /* Total number of clients with a non-zero ping interval set */
 int g_TotalNumSubscribedTopics = 0;      /* Total number of topics subscribed to. */
 int g_LongestClientIDLen = 8;			 /* Keep track of the longest client ID, used for displaying client stats to the screen (min pad length of 8)*/
 uint32_t g_TopicID = 1;        			 /* Topic ID, the lower 32 bits of the stream ID (0 is not a valid Topic ID/Stream ID) */
@@ -53,7 +54,7 @@ ismHashMap *g_srcIPMap  = NULL;          /* Source IP Address Hash Map */
  * a client list file see the Python helper script at clientlists/mqttbenchObjs.py
  */
 ism_enumList mbcl_FieldsEnum [] = {
-	{ "Fields",						44,								},  // IMPORTANT: you must always update this field, when adding/removing items from enumList
+	{ "Fields",						46,								},  // IMPORTANT: you must always update this field, when adding/removing items from enumList
     { "_id",  			 			MB_id,             				},
     { "cleanSession",        		MB_cleanSession, 				},
     { "dst",	           			MB_dst,		    				},
@@ -107,8 +108,10 @@ ism_enumList mbcl_FieldsEnum [] = {
 	{ "retainHandling",				MB_retainHandling,				},
 
 	{ "connectionTimeoutSecs",		MB_connectionTimeoutSecs,		},
+	{ "pingTimeoutSecs",			MB_pingTimeoutSecs,				},
+	{ "pingIntervalSecs",			MB_pingIntervalSecs,			},
 	// IMPORTANT: you must always update the value of the "Fields" field at the top of this array when adding/removing items from this enumList array, so that it matches
-	// the number of fields in the array.  Failure to do say may result in SIGSEGV or INVALID_ENUM.
+	// the number of fields in the array.  Failure to do so may result in SIGSEGV or INVALID_ENUM.
 };
 
 /*
@@ -1974,6 +1977,12 @@ static int initializeClient(mqttclient_t *client, mqttbenchInfo_t * mqttbenchInf
 	client->lingerTime_ns 			= mqttbenchInfo->mbSysEnvSet->lingerTime_ns;
 	client->keepAliveInterval 		= mqttbenchInfo->mbSysEnvSet->mqttKeepAlive;
 	client->connectionTimeoutSecs	= MQTT_CONN_DEFAULT_TIMEOUT;
+	client->pingTimeoutSecs			= mqttbenchInfo->mbCmdLineArgs->pingTimeoutSecs;   // default is MQTT_PING_DEFAULT_TIMEOUT
+	client->pingIntervalSecs		= mqttbenchInfo->mbCmdLineArgs->pingIntervalSecs;  // default is 0, i.e. do not send PINGREQ
+	client->lastPingSubmitTime		= 0;
+	client->pingWindowStartTime		= 0;
+	client->unackedPingReqs			= 0;
+	client->pingTimeouts			= 0;
 	client->retryInterval 			= MQTT_CONN_RETRIES;
 
 	client->ioProcThreadIdx 		= assignedIOPThread;
@@ -2119,6 +2128,10 @@ static int processClientEntry(mqttclient_t *client, ism_json_parse_t *clientList
 					rc = jsonGetInteger(ent, &tmpVal, 0, MAX_INT32); client->currRetryDelayTime_ns=client->initRetryDelayTime_ns=tmpVal*NANO_PER_MICRO; break;
 				case MB_connectionTimeoutSecs:
 					rc = jsonGetInteger(ent, &tmpVal, 0, MAX_INT32); client->connectionTimeoutSecs = tmpVal; break;
+				case MB_pingTimeoutSecs:
+					rc = jsonGetInteger(ent, &tmpVal, 0, MAX_INT32); client->pingTimeoutSecs = tmpVal; break;
+				case MB_pingIntervalSecs:
+					rc = jsonGetInteger(ent, &tmpVal, 0, MAX_INT32); client->pingIntervalSecs = tmpVal; break;
 				case MB_cleanSession:
 					client->cleansession = ent->objtype == JSON_True; break;
 				case MB_cleanStart:
@@ -2286,6 +2299,10 @@ static int buildClientLists(ism_json_parse_t *clientListJSON, mqttbenchInfo_t * 
 
 				if((client->txQoSBitMap & (MQTT_QOS_1_BITMASK | MQTT_QOS_2_BITMASK)) > 0) {
 					numQ12PubClients++; // need this count to autotune the inflight window allocations per client
+				}
+
+				if(client->pingTimeoutSecs > 0) {
+					g_numClientsWithPingInterval++;
 				}
 
 				// Add client to the client tuples list for the assigned submitter thread

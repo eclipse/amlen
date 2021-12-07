@@ -261,6 +261,7 @@ void performMQTTDisconnect (void *, void *);										/* iopjob_callback_t */
 void performMQTTUnSubscribe (void *, void *);										/* iopjob_callback_t */
 void resetLatencyStats (void *, void *);											/* iopjob_callback_t */
 void scheduleReconnectCallback (void *dataIOP, void *dataTrans);					/* iopjob_callback_t */
+void schedulePingCallback (void *dataIOP, void *dataTrans);							/* iopjob_callback_t */
 int  submitCreateConnectionJob (transport_t * trans);
 int  submitCreateSocketJob (transport_t * trans);
 int  submitIOJob (transport_t * trans, ism_byte_buffer_t *bb);						/* Application producer and consumer threads submit I/O jobs to the transport layer through this interface */

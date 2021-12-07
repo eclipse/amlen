@@ -161,6 +161,9 @@ typedef struct mqttclient_t {
 	int      lastErrorNo;
 	int      socketErrorCt;
 	int      connectionTimeoutSecs;
+	int      pingTimeoutSecs;          /* maximum time in seconds to wait for a PINGRESP from server before disconnecting */
+	int      pingIntervalSecs;         /* interval in seconds between transmission of a PINGREQ message to the server server */
+	int      unackedPingReqs;          /* number of PINGREQ messages sent without receiving a PINGRESP from the server */
 
 	/* Topic/Subscription related fields */
 	int      destRxListCount;
@@ -249,7 +252,8 @@ typedef struct mqttclient_t {
 	double   resetConnTime;            /* The time at which a client was reset (e.g. beginning of a reconnect) */
 	double   subscribeConnReqSubmitTime;/* The time at which a Subscribe message was submitted. */
 	double   pubSubmitTime;            /* The time at which PUBLISH message was submitted, used to calculate Server PUBACK latency */
-	double   nextPingReqTime;          /* The time when the next PINGREQ message must be sent. */
+	double   lastPingSubmitTime;       /* Last time a PINGREQ message was submitted */
+	double   pingWindowStartTime;      /* the point in time at which the server is being measured for PINGRESP response time */
 	double   lastMqttConnAckTime;      /* If performing RTT latency, then keep last MQTT CONNACK Time.  Used for deploys
 	                                      and also for reconnects. */
 
@@ -284,6 +288,8 @@ typedef struct mqttclient_t {
 	uint64_t badRxRCCount;			   /* Number of BAD MQTT Return Codes received */
 	uint64_t badTxRCCount;			   /* Number of BAD MQTT Return Codes transmitted */
 	uint64_t failedSubscriptions;      /* Number of failed subscriptions */
+
+	uint64_t pingTimeouts;             /* Number of ping timeouts this client has observed */
 } mqttclient_t;
 
 typedef struct {

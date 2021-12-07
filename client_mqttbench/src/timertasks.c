@@ -33,6 +33,7 @@ extern double   g_ConnRetryFactor;
 extern int      g_MBTraceLevel;
 extern uint8_t  g_ClkSrc;
 extern int      g_numClientsWithConnTimeout;
+extern int      g_numClientsWithPingInterval;
 
 extern mqttbenchInfo_t *g_MqttbenchInfo;
 extern ioProcThread_t **ioProcThreads;
@@ -279,6 +280,66 @@ int onTimerClientScan (ism_timer_t clientScanKey, ism_time_t timestamp, void *us
 
 	return rc;
 } /* onTimerClientScan */
+
+/* *************************************************************************************
+ * onTimerPingRequest
+ *
+ * Description:  Timer task which is used to check if it is time for clients to send a PINGREQ
+ *
+ *   @param[in]  clientPingKey       = Identifier for the client ping timer task.
+ *   @param[in]  timestamp           = x
+ *   @param[in]  userdata            = The mqttbenchInfo structure.
+ *
+ *   @return 0   = Timer has been cancelled
+ *           1   = Timer has been rescheduled
+ * *************************************************************************************/
+int onTimerPingRequest (ism_timer_t clientPingKey, ism_time_t timestamp, void *userdata)
+{
+	mqttbenchInfo_t *mqttbenchInfo = (mqttbenchInfo_t *)userdata;
+	mbCmdLineArgs_t *pCmdLineArgs = mqttbenchInfo->mbCmdLineArgs;
+	mqttbench_t **mbInstArray = mqttbenchInfo->mbInstArray;
+
+	int rc = 1;           /* Reschedule timer task by default */
+
+	if (g_RequestedQuit == 0) {
+		double now = g_ClkSrc == 0 ? ism_common_readTSC() : getCurrTime();
+
+		/* Iterate through the list of submitter threads */
+		for (int i=0 ; i < pCmdLineArgs->numSubmitterThreads ; i++) {
+			/* Iterate through client list per submitter thread */
+			ism_common_listIterator iter;
+			ism_common_list *clients = mbInstArray[i]->clientTuples;
+			ism_common_list_iter_init(&iter, clients);
+			ism_common_list_node *currTuple;
+			while ((currTuple = ism_common_list_iter_next(&iter)) != NULL) {
+				mqttclient_t *client = (mqttclient_t *) currTuple->data;
+				if (client->pingIntervalSecs == 0) {
+					continue; // skip clients which do not specify a ping interval 
+				}
+
+				transport_t *trans = client->trans;
+				if (client->unackedPingReqs && now - client->pingWindowStartTime > client->pingTimeoutSecs) {
+					MBTRACE(MBWARN, 5, "%s client @ line %d, ID=%s did not receive a PINGRESP from the server within the ping timeout (%d secs), initiating reconnect\n",
+										"TIMER: ping scan: ", client->line, client->clientID, client->pingTimeoutSecs);
+					client->pingTimeouts++;
+					addJob2IOP(trans->ioProcThread, trans, 0, scheduleReconnectCallback); // schedule callback job to disconnect/reconnect due to ping timeout
+					continue;
+				}
+
+				if (now - client->lastPingSubmitTime > client->pingIntervalSecs){
+					addJob2IOP(trans->ioProcThread, trans, 0, schedulePingCallback); // schedule callback job to submit PINGREQ
+				}
+			}
+		}
+	} else {
+		/* Shutting down so cancel the Client Ping timer. */
+		rc = ism_common_cancelTimer(clientPingKey);
+		MBTRACE(MBINFO, 7, "Cancelled the Client Ping Timer Task due to requested quit.\n");
+		rc = 0;  /* Cancel the timer since the user requested a quit. */
+	}
+
+	return rc;
+} /* onTimerPingRequest */
 
 /* *************************************************************************************
  * onTimerSnapRequests
@@ -856,6 +917,20 @@ int addMqttbenchTimerTasks (mqttbenchInfo_t *mqttbenchInfo)
 														   TS_SECONDS);
 		if (pTimerInfo->clientScanKey == NULL) {
 			MBTRACE(MBERROR, 1, "Unable to schedule the Client Scan timer.\n");
+			rc = RC_TIMER_KEY_NULL;
+		}
+    }
+
+	/* Create a timer task for sending PINGREQ for client, if -p parameter is set, or clients have been configured with a ping timeout in the json config file. */
+    if(g_numClientsWithPingInterval > 0) {
+		pTimerInfo->clientPingKey = ism_common_setTimerRate(ISM_TIMER_LOW,
+														   (ism_attime_t) onTimerPingRequest,
+														   (void *) mqttbenchInfo,
+														   10,
+														   5,
+														   TS_SECONDS);
+		if (pTimerInfo->clientPingKey == NULL) {
+			MBTRACE(MBERROR, 1, "Unable to schedule the Client Ping timer.\n");
 			rc = RC_TIMER_KEY_NULL;
 		}
     }

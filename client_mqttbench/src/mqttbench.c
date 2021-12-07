@@ -2593,6 +2593,22 @@ static int doPubREC(mqttclient_t *client, char *buf, int msgLen, mqttmessage_t *
 } /* doPUBREC */
 
 /* *************************************************************************************
+ * Process a PINGRESP message received from the MQTT server
+ *
+ *   @param[in]  client              = the mqtt client receiving the PINGRESP
+ *   @param[in]  buf              	 = pointer to the current offset into the PINGRESP message
+ *   @param[in]  msgLen              = length of the PINGRESP message (including Fixed Header)
+ *   @param[in]  mmsg				 = object used to store data parsed from the received MQTT packet
+ *
+ *   @return 0 on successful completion, or a non-zero value
+ * *************************************************************************************/
+static int doPingResp(mqttclient_t *client, char *buf, int msgLen, mqttmessage_t * mmsg) {
+	int rc = 0;
+	client->unackedPingReqs = 0;
+	return rc;
+}
+
+/* *************************************************************************************
  * Process a PUBACK message received from the MQTT server
  *
  *   @param[in]  client              = the mqtt client receiving the PUBACK
@@ -2809,7 +2825,8 @@ HOT static inline void doProcessMessage (mqttclient_t *client, char *ptr, Header
 		case UNSUBACK: /* Server to consumer */
 			rc = doUnSubACK(client, ptr, msgLen, &mmsg);
 			break;
-		case PINGRESP: /* Server toissuedDisconnect consumer */
+		case PINGRESP: /* Server to client in response to PINGREQ */
+			rc = doPingResp(client, ptr, msgLen, &mmsg);
 			break;
 		default:
 			MBTRACE(MBWARN, 1, "Not handling this type of MQTT message: %d\n", msgType);
@@ -3835,30 +3852,39 @@ HOT int onMessage (mqttclient_t *client,
 } /*  */
 
 /* *************************************************************************************
- * doPing
+ * submitPing
  *
- * Description:  Send ping message to Server.
+ * Description:  Send PINGREQ message to Server.
  *
  *   @param[in]  client              = Specific mqttclient to use.
- *   @param[in]  txBuf               = TX Buffer to use for the PING message
  * *************************************************************************************/
-void doPing (mqttclient_t *client, ism_byte_buffer_t *txBuf)
+void submitPing (mqttclient_t *client)
 {
 	int rc = 0;
-	mqttbench_t *mbinst = client->mbinst;
+	volatile ioProcThread_t *iop = client->trans->ioProcThread;
+
+	/* Get a buffer from the TX buffer pool to send the PINGREQ message */
+	ism_byte_buffer_t *txBuf = iop->txBuffer;
+	if (txBuf == NULL) {
+		iop->txBuffer = getIOPTxBuffers(iop->sendBuffPool, iop->numBfrs, 1);
+		txBuf = iop->txBuffer;
+	}
+	iop->txBuffer = txBuf->next;
 
 	/* Create the PING REQUEST message. */
 	createMQTTMessagePingReq(txBuf, (int)client->useWebSockets);
-
+	
 	/* Submit the job to the IO Thread and check return code. */
 	rc = submitIOJob(client->trans, txBuf);
 	if (rc == 0) {
-		volatile ioProcThread_t * iop = client->trans->ioProcThread;
+		client->lastPingSubmitTime = g_ClkSrc == 0 ? ism_common_readTSC() : getCurrTime();
+		if (client->unackedPingReqs++)
+			client->pingWindowStartTime = client->lastPingSubmitTime;
 		client->currTxMsgCounts[PINGREQ]++;   /* per client publish count */
 		__sync_add_and_fetch(&(iop->currTxMsgCounts[PINGREQ]),1);
-		mbinst->submitCnt++;				/* per producer thread message submit count */
-	} else
+	} else {
 		MBTRACE(MBERROR, 1, "Unable to submit PINGREQ message to I/O thread (rc: %d).\n", rc);
+	}
 } /* doPing */
 
 /* *************************************************************************************

@@ -210,6 +210,7 @@ typedef struct {
 	int		 GraphitePort;				 /* Port number that the Graphite server is listening on, currently supports Non-TLS connections only */
 	char    *GraphiteMetricRoot;		 /* A user provided metric path root to which all metrics will be appended
 	 	 	 	 	 	 	 	 	 	 	<GraphiteMetricRoot>.<mqttbench instance id>.<metric name>, the default metric root is loadtests.mqttbench */
+	char    *ALPNList;                   /* space separated list of application level protocols sent by the client during TLS handshake https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_alpn_protos.html*/
 	double   connRetryFactor;
 } environmentSet_t;
 
@@ -255,8 +256,8 @@ typedef struct {
 	int      maxInflightMsgs;            /* -mim          = Maximum number of inflight message IDs (default = 65535 == (64K - 1)). */
 	int      maxMsgIDSearch;             /* -mim          = Maximum number of Msg ID Searches to make. */
 	int      maxPubRecSearch;            /* -mim          = Maximum number of PUBREC Searches to make. */
-	int      sendPingReqFreq;            /* -p            = Frequency to send PINGREQ to server from client. */
-
+	int      pingTimeoutSecs;            /* -pt           = Maximum time in seconds to wait for a PINGRESP from server, default is MQTT_PING_DEFAULT_TIMEOUT */
+	int      pingIntervalSecs;           /* -pi           = For each client, this is the time in seconds between transmission of PINGREQ to server, default is 0 (i.e. don't send PINGREQ) */
 	int      resetLatStatsSecs;          /* -rl           = Number of seconds to wait before clearing latency stats. */
 
 	int      resetTStampXMsgs;           /* -rr           = Number of messages to receive before starting statistics on receiver */
@@ -293,6 +294,7 @@ typedef struct {
  * ------------------------------------------------------------------------------------ */
 typedef struct {
 	ism_timer_t clientScanKey;
+	ism_timer_t clientPingKey;
 	ism_timer_t snapTimerKey;
 	ism_timer_t delayTimeoutTimerKey;
 	ism_timer_t resetLatTimerKey;
@@ -642,7 +644,7 @@ void * doHandleClients (void * thread_parm, void * context, int value);
 int    doStartClients (mqttbenchInfo_t *, mqttbench_t *);
 void   stopSubmitterThreads (mqttbenchInfo_t *);
 void   doUnSubscribeAllTopics (mqttbench_t *, int *);
-void   doPing (mqttclient *, ism_byte_buffer_t *);
+void   submitPing (mqttclient *);
 HOT int onMessage (mqttclient *, ism_byte_buffer_t *, char *, int, Header *, mqttmessage_t *);
 
 mbThreadInfo_t * initMBThreadInfo (int, mqttbenchInfo_t *);

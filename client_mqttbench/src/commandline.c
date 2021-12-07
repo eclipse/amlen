@@ -371,11 +371,12 @@ void doDisplayClientDetail (mqttclient_t *client, int numThrdsPub)
 					client->protocolState,
 					trans->reconnect,
 					trans->socket);
-    fprintf(stdout, "Elapsed time (seconds) since: reset=%f tcpconnect=%f mqttconnect=%f mqttdisconnect=%f\n",
+    fprintf(stdout, "Elapsed time (seconds) since: reset=%f tcpconnect=%f mqttconnect=%f mqttdisconnect=%f ping=%f\n",
     				client->resetConnTime == 0 ? 0 : now - client->resetConnTime,
     				client->tcpConnReqSubmitTime == 0 ? 0 : now - client->tcpConnReqSubmitTime,
     				client->mqttConnReqSubmitTime == 0 ? 0 : now - client->mqttConnReqSubmitTime,
-					client->mqttDisConnReqSubmitTime == 0 ? 0 : now - client->mqttDisConnReqSubmitTime);
+					client->mqttDisConnReqSubmitTime == 0 ? 0 : now - client->mqttDisConnReqSubmitTime,
+					client->pingWindowStartTime == 0 ? 0 : now - client->pingWindowStartTime);
 	fprintf(stdout, "MsgIDs: available=%d, inuse=%d\n",
 					client->maxInflightMsgs - (client->currInflightMessages),
 					client->currInflightMessages);
@@ -392,10 +393,11 @@ void doDisplayClientDetail (mqttclient_t *client, int numThrdsPub)
 			        trans->serverPort,
 					(int) (client->lingerTime_ns / NANO_PER_SECOND));
 	fprintf(stdout, "\tTransport Addr:  %p\n", trans);
-	fprintf(stdout, "\tTCP Conn Count:  %llu    TLS Conn Count:  %llu    TLS Error Count:  %llu\n",
+	fprintf(stdout, "\tTCP Conn Count:  %llu    TLS Conn Count:  %llu    TLS Error Count:  %llu    Ping Timeouts:  %llu\n",
 			        (ULL)client->tcpConnCtr,
 					(ULL)client->tlsConnCtr,
-					(ULL)client->tlsErrorCtr);
+					(ULL)client->tlsErrorCtr,
+					(ULL)client->pingTimeouts);
     fprintf(stdout, "\tsocket error ct: %d   last errno: %d   bind failures: %llu\n\n",
 	                client->socketErrorCt,
 	                client->lastErrorNo,

@@ -75,7 +75,9 @@ typedef enum mbc_fields_e {
 	MB_topicAliasMaxOut				= 41,
 	MB_lingerMsgsCount              = 42,
 
-	MB_connectionTimeoutSecs        = 43
+	MB_connectionTimeoutSecs        = 43,
+	MB_pingTimeoutSecs              = 44,
+	MB_pingIntervalSecs             = 45
 } mbc_fields_e;
 
 int processConfig(mqttbenchInfo_t *mqttbenchInfo);

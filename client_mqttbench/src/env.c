@@ -71,6 +71,9 @@ double g_StartTimeConnTest   = 0.0;
 double g_EndTimeConnTest     = 0.0;
 double g_ConnRetryFactor     = 0.0;
 
+unsigned char *g_alpnList    = NULL;     /* ALPN protocol list - https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_alpn_protos.html */
+unsigned int g_alpnListLen   = 0;
+
 mqttbench_t *pMQTTBench      = NULL;
 
 pskArray_t *pIDSharedKeyArray = NULL;
@@ -363,8 +366,9 @@ int parseArgs (int argc, char **argv)
     int totalMsgPubCount = 0;            /* Total number of messages to be published and then stop publishing.  */
     int resetLatStatsSecs = 0;           /* Number of seconds to wait before clearing latency stats. */
     int resetTStampXMsgs = 0;            /* Number of messages to receive before starting statistics on receiver (this is for thruput) */
-    int sendPingReqFreq = 0;             /* Frequency to send PINGREQ to server from client. */
-    int snapInterval = 0;
+    int pingTimeoutSecs = MQTT_PING_DEFAULT_TIMEOUT;  /* The maximum number of seconds to wait for a PINGRESP from the server. */
+    int pingIntervalSecs = 0;            /* For each client, the number of seconds between send of the PINGREQ message to the server.  By default clients do not send the PINGREQ message. */
+	int snapInterval = 0;
     int testDuration = 0;                /* Duration in seconds of the test */
     int tmpVar;
 
@@ -410,7 +414,8 @@ int parseArgs (int argc, char **argv)
 	uint8_t parm_NoReconnect = 0;
 	uint8_t parm_NoWait = 0;
 	uint8_t parm_NumSubmitThrds = 0;
-	uint8_t parm_PingReq = 0;
+	uint8_t parm_PingInterval = 0;
+	uint8_t parm_PingTimeout = 0;
 	uint8_t parm_PredefinedMsg = 0;
 	uint8_t parm_PreSharedKey = 0;
 	uint8_t parm_Quit = 0;
@@ -1220,41 +1225,76 @@ int parseArgs (int argc, char **argv)
         } /* -nw option */
 
         /* ----------------------------------------------------------------------------
-         * option:  -p (NOT IMPLEMENTED)
+         * option:  -pi 
          *
-         * Having connection send a PINGREQ to the server every x seconds to
-         * avoid disconnection due to inactivity timeout.
+         * for each client this is the interval in seconds between PINGREQ messages sent to the server 
          * ---------------------------------------------------------------------------- */
-        if (strcmp(argv[argIndex], "-p") == 0) {
+        if (strcmp(argv[argIndex], "-pi") == 0) {
         	/* ------------------------------------------------------------------------
         	 * Perform a check on the parameter whether it was already specified
         	 * and if an additional argument is needed. Increment the argument
         	 * index to get the next arg value.
         	 * ------------------------------------------------------------------------ */
-        	rc = checkParms(parm_PingReq++, "-p", 1, argc, argIndex++);
+        	rc = checkParms(parm_PingInterval++, "-pi", 1, argc, argIndex++);
         	if (rc == 0) {
         		/* Check if the next argument is a valid number. */
         		validArg = valStrIsNum(argv[argIndex]);
         		if (validArg == 1) {
-                    /* Set local variable - Number of seconds between PING requests. */
+                    /* Set local variable - Number of seconds between PINGREQ messages. */
         			tmpVar = atoi(argv[argIndex]);
-                    /* Check that perDestMsgCount is greater than 0. */
+                    /* Verify value is greater than 0. */
                     if (tmpVar < 1)
                     	validArg = 0;
         		}
 
                	/* Check that the argument was valid. If not, provide error message. */
                 if (validArg == 0) {
-               		syntaxhelp(HELP_ALL, "Topic Prefix Index is not valid (units in seconds).");
+               		syntaxhelp(HELP_ALL, "ping interval is not valid (units in seconds).");
                		rc = RC_INVALID_VALUE;
                		break;
                	} else
-               		sendPingReqFreq = tmpVar;
+               		pingIntervalSecs = tmpVar;
         	} else
         		break;
 
     		continue;
-        } /* -p option */
+        } /* -pi option */
+
+		/* ----------------------------------------------------------------------------
+         * option:  -pt
+         *
+         * maximum number of seconds to wait for PINGRESP from server after sending PINGREQ
+         * ---------------------------------------------------------------------------- */
+        if (strcmp(argv[argIndex], "-pt") == 0) {
+        	/* ------------------------------------------------------------------------
+        	 * Perform a check on the parameter whether it was already specified
+        	 * and if an additional argument is needed. Increment the argument
+        	 * index to get the next arg value.
+        	 * ------------------------------------------------------------------------ */
+        	rc = checkParms(parm_PingTimeout++, "-pt", 1, argc, argIndex++);
+        	if (rc == 0) {
+        		/* Check if the next argument is a valid number. */
+        		validArg = valStrIsNum(argv[argIndex]);
+        		if (validArg == 1) {
+                    /* Set local variable - Number of seconds to wait for PINGRESP messages. */
+        			tmpVar = atoi(argv[argIndex]);
+                    /* Verify value is greater than 0. */
+                    if (tmpVar < 1)
+                    	validArg = 0;
+        		}
+
+               	/* Check that the argument was valid. If not, provide error message. */
+                if (validArg == 0) {
+               		syntaxhelp(HELP_ALL, "ping timeout is not valid (units in seconds).");
+               		rc = RC_INVALID_VALUE;
+               		break;
+               	} else
+               		pingTimeoutSecs = tmpVar;
+        	} else
+        		break;
+
+    		continue;
+        } /* -pi option */
 
         /* ----------------------------------------------------------------------------
          * option:  -psk
@@ -2450,7 +2490,8 @@ int parseArgs (int argc, char **argv)
 	pCmdLineArgs->resetLatStatsSecs = resetLatStatsSecs;
 	pCmdLineArgs->resetTStampXMsgs = resetTStampXMsgs;
 	pCmdLineArgs->roundRobinSendSub = roundRobinSendSub;
-	pCmdLineArgs->sendPingReqFreq = sendPingReqFreq;
+	pCmdLineArgs->pingTimeoutSecs = pingTimeoutSecs;
+	pCmdLineArgs->pingIntervalSecs = pingIntervalSecs;
 	pCmdLineArgs->snapInterval = snapInterval;
 	pCmdLineArgs->snapStatTypes = snapStatTypes;
 	pCmdLineArgs->testDuration = testDuration;
@@ -2561,6 +2602,7 @@ int readEnv (void)
 	char  *cTLSBufferPoolSize;
 	char  *cUseEphemeralPorts;
     char  *cUseNagle;
+	char  *cALPNList;
 
 	char  *savePtr1 = NULL;
 	char  *tok = NULL;
@@ -2606,6 +2648,33 @@ int readEnv (void)
 	cUseEphemeralPorts      = getenv("UseEphemeralPorts");  /* Indication to let OS select the source port using the ephemeral source port selection algorithm (do NOT bind source port) */
     cUseNagle               = getenv("UseNagle");           /* Enable/Disable Nagle's Algorithm. Default = 0 (setSockOpt w/TCP_NODELAY*/
 	cMqttbenchTLSBfrPool    = getenv("UseTLSBfrPool");      /* Manage the TLS Buffer Pool internally */
+	cALPNList               = getenv("ALPNList");           /* space separated list of application level protocols (i.e. ALPN protos) sent by the client during the TLS handshake 
+                                                               e.g. export ALPNList="mqtt/3.1.1 mqtt/5.0"
+															   https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_alpn_protos.html */
+
+	/* --------------------------------------------------------------------------------
+     * Check to see if there were any source IPs (SIPList) specified and parse the
+     * string and put in a global array.
+     * -------------------------------------------------------------------------------- */
+    if (cALPNList && (strcmp(cALPNList, "") > 0)) {
+		pSysEnvSet->ALPNList = strdup(cALPNList); /* Copy the current cALPNList into the System Environment Structure. */
+		unsigned char alpn[4096] = {0};
+		unsigned char *start, *end;
+		start = end = alpn;
+		char *token;
+		char *rest = cALPNList;
+		
+		while ((token = strtok_r(rest, " ", &rest)) != NULL) {
+			unsigned char len = strlen(token);
+			*end = len;
+			end++;
+			memcpy(end, token, len);
+			end+=len;
+		}
+		g_alpnListLen = end - start;
+		g_alpnList = malloc(g_alpnListLen);
+		memcpy(g_alpnList, alpn, g_alpnListLen);
+	}
 
     /* --------------------------------------------------------------------------------
      * Check to see if there were any source IPs (SIPList) specified and parse the

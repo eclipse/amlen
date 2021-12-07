@@ -194,7 +194,9 @@ void resetMQTTClient (mqttclient_t *client)
 	client->mqttDisConnReqSubmitTime = 0.0;    /* time a MQTT DISCONNECT message was submitted. */
 	client->subscribeConnReqSubmitTime = 0.0;  /* time a Subscribe message was submitted. */
 	client->pubSubmitTime = 0.0;               /* time PUBLISH message was submitted, used to calculate Server PUBACK latency */
-	client->nextPingReqTime = 0.0;             /* time the next PINGREQ message must be sent. */
+	client->lastPingSubmitTime = 0.0;          /* last PINGREQ submit time */
+	client->pingWindowStartTime = 0.0;         /* the ping window start time */
+	client->unackedPingReqs = 0;               /* unacked PINGREQ messages */
 	client->tcpLatency = 0;                    /* TCP Latency for TCP-MQTT or TCP-Subscribe Latency */
 	client->mqttLatency = 0;                   /* MQTT Latency for TCP-Subscribe Latency */
 	client->connRetries = 0;                   /* Reset the connection retry counter. */
