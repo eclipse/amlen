@@ -522,7 +522,7 @@ static void sendGlobalACL(ism_transport_t * transport) {
     xbuf[18] = EXIV_EndExtension;
     for (i=0; i<9; i++) {
         aclname[1] = i+'0';
-        acl = ism_protocol_findACL(aclname, 0);
+        acl = ism_protocol_findACL(aclname, 0, NULL);
         if (acl) {
             found = 1;
             ism_protocol_getACL(&buf, acl);

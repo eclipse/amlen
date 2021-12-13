@@ -777,7 +777,7 @@ static int httpFindACL(ism_transport_t * transport) {
 	char xbuf [2048];
 	concat_alloc_t buf = {xbuf, sizeof xbuf, 19};
 	const char * aclKey = ism_proxy_getACLKey(transport);
-	ism_acl_t * acl = ism_protocol_findACL(aclKey, 0);
+	ism_acl_t * acl = ism_protocol_findACL(aclKey, 0, NULL);
 
 	xbuf[16] = 0;
     xbuf[17] = 1;
@@ -1056,7 +1056,7 @@ static int httpPublish(ism_http_t * http, int sendDataNow) {
 		        key[dtLen] = '/';
 		        memcpy(key+dtLen+1, devId, idLen+1);
 		        aclKey = ism_proxy_getACLKey(transport);
-		        rcCheckACL = ism_protocol_checkACL(key, aclKey);
+		        rcCheckACL = ism_protocol_checkACL(key, aclKey, NULL);
 				if (rcCheckACL != 0) {
 					rcCheckACL = ISMRC_NotAuthorized;
 					TRACEL(6, transport->trclevel, "httpPublish: ACL check failed connect=%u user=%s client=%s devType=%s devId=%s subprot=%d, rcCheckACL=%d\n",
@@ -2333,7 +2333,7 @@ void ism_iotmsg_doneConnection(int32_t rc, ism_transport_t * transport) {
     /* Remove transport from ACL */
     if(transport->has_acl){
 		const char * aclKey = ism_proxy_getACLKey(transport);
-		ism_acl_t * acl = ism_protocol_findACL(aclKey, 0);
+		ism_acl_t * acl = ism_protocol_findACL(aclKey, 0, NULL);
 		if (acl) {
 			TRACEL(8, transport->trclevel, "Remove connection from ACL: connect=%u name=%s rc=%u was=%p\n",
 					transport->index, aclKey, rc, acl->object);

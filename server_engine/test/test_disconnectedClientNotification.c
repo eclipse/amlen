@@ -584,7 +584,8 @@ bool test_msgCallback(ismEngine_ConsumerHandle_t      hConsumer,
                       ismMessageAreaType_t            areaTypes[areaCount],
                       size_t                          areaLengths[areaCount],
                       void *                          pAreaData[areaCount],
-                      void *                          pContext)
+                      void *                          pContext,
+                      ismEngine_DelivererContext_t *  _delivererContext )
 {
     msgCallbackContext_t *context = *((msgCallbackContext_t **)pContext);
 
@@ -1205,7 +1206,8 @@ bool test_msgNotificationCallback(ismEngine_ConsumerHandle_t      hConsumer,
                                   ismMessageAreaType_t            areaTypes[areaCount],
                                   size_t                          areaLengths[areaCount],
                                   void *                          pAreaData[areaCount],
-                                  void *                          pContext)
+                                  void *                          pContext,
+                                  ismEngine_DelivererContext_t *  _delivererContext )
 {
     msgNotificationCallbackContext_t *context = *((msgNotificationCallbackContext_t **)pContext);
 

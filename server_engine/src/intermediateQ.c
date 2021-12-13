@@ -82,7 +82,8 @@
 static int32_t ieiq_putToWaitingGetter( ieutThreadData_t *pThreadData
                                       , ieiqQueue_t *q
                                       , ismEngine_Message_t *msg
-                                      , uint8_t msgFlags );
+                                      , uint8_t msgFlags 
+                                      , ismEngine_DelivererContext_t * delivererContext );
 static inline ieiqQNodePage_t *ieiq_createNewPage(ieutThreadData_t *pThreadData,
                                                   ieiqQueue_t *Q,
                                                   uint32_t nodesInPage,
@@ -166,7 +167,8 @@ static void ieiq_deliverMessage( ieutThreadData_t *pThreadData
                                , ismEngine_Message_t *hmsg
                                , ismMessageHeader_t *pMsgHdr
                                , bool *pCompleteWaiterActions
-                               , bool *pDeliverMoreMsgs);
+                               , bool *pDeliverMoreMsgs
+                               , ismEngine_DelivererContext_t * delivererContext);
 
 static inline void ieiq_rewindCursorToNode( ieutThreadData_t *pThreadData
                                           , ieiqQueue_t *Q
@@ -1301,7 +1303,8 @@ int32_t ieiq_putMessage( ieutThreadData_t *pThreadData
                        , ieqPutOptions_t putOptions
                        , ismEngine_Transaction_t *pTran
                        , ismEngine_Message_t *inmsg
-                       , ieqMsgInputType_t inputMsgTreatment)
+                       , ieqMsgInputType_t inputMsgTreatment
+                       , ismEngine_DelivererContext_t * delivererContext)
 {
     ieiqQueue_t *Q = (ieiqQueue_t *)Qhdl;
     ismEngine_Message_t  *qmsg = NULL;
@@ -1433,7 +1436,7 @@ int32_t ieiq_putMessage( ieutThreadData_t *pThreadData
     {
         if (Q->bufferedMsgs == 0)
         {
-            rc = ieiq_putToWaitingGetter(pThreadData, Q, qmsg, msgFlags);
+            rc = ieiq_putToWaitingGetter(pThreadData, Q, qmsg, msgFlags, delivererContext);
             if (rc == OK)
             {
                 // We've given the message to someone..we're done
@@ -1520,7 +1523,7 @@ mod_exit:
 
         // We don't care about any error encountered while attempting
         // to deliver a message to a waiter.
-        (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+        (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
     }
 
     ieutTRACEL(pThreadData, rc,  ENGINE_FNC_TRACE, FUNCTION_EXIT "rc=%d\n", __func__, rc);
@@ -3006,7 +3009,7 @@ static void  ieiq_completeConsumeAck ( ieutThreadData_t *pThreadData
     // delivered, we need to call checkWaiters
     if (oldInflightDeqs == Q->maxInflightDeqs)
     {
-        (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+        (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
     }
     else if (oldInflightDeqs == 1)
     {
@@ -3341,7 +3344,7 @@ int32_t ieiq_acknowledge( ieutThreadData_t *pThreadData
 
             // Because a message is now available to be sent we need to call
             // checkWaiters to attempt re-delivery.
-            (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+            (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
 
             if (oldinflightdeqs == 1)
             {
@@ -3661,7 +3664,7 @@ mod_exit:
                                      , IEQ_COMPLETEWAITERACTION_OPT_NODELIVER //going to call checkWaiters
                                      , true);
         }
-        ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+        ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
     }
 
     ieutTRACEL(pThreadData, rc,  ENGINE_FNC_TRACE, FUNCTION_EXIT "rc=%d\n", __func__, rc);
@@ -3986,7 +3989,7 @@ void ieiq_dumpQ( ieutThreadData_t *pThreadData
                                               IEQ_COMPLETEWAITERACTION_OPT_NODELIVER,
                                               (previousState == IEWS_WAITERSTATUS_ENABLED));
                 }
-                (void)ieiq_checkWaiters(pThreadData, Qhdl, NULL);
+                (void)ieiq_checkWaiters(pThreadData, Qhdl, NULL, NULL);
             }
             else
             {
@@ -4132,7 +4135,7 @@ static inline int32_t ieiq_postTranPutWork( ieutThreadData_t *pThreadData
         __sync_fetch_and_add(&(Q->preDeleteCount), 1); // Cannot rely on subscription any more
 
         // Attempt to deliver the messages
-        rc = ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, pAsyncData);
+        rc = ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, pAsyncData, NULL);
         assert(rc == OK || rc == ISMRC_AsyncCompletion);
 
         if (rc != ISMRC_AsyncCompletion)
@@ -4155,7 +4158,7 @@ static inline int32_t ieiq_postTranPutWork( ieutThreadData_t *pThreadData
     else
     {
         completePostCommitInfo.deleteCountDecrement--;
-        (void) ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+        (void) ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
     }
 
     if (rc == OK)
@@ -4359,7 +4362,7 @@ int32_t ieiq_SLEReplayPut( ietrReplayPhase_t Phase
                 // While this message does not need to be delivered, it may
                 // have been blocking the delivery of other messages so attempt
                 // to deliver blocked messages now.
-                (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+                (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
 
                 // Having effectively removed a message then we may
                 // need to cleanup the page if it was the last
@@ -5780,7 +5783,8 @@ static void ieiq_deliverMessages( ieutThreadData_t *pThreadData
                                 , ieiqQNode_t **pnodes
                                 , bool *pCompleteWaiterActions
                                 , bool *pDeliverMoreMessages
-                                , uint64_t *pStoreOps)
+                                , uint64_t *pStoreOps
+                                , ismEngine_DelivererContext_t * delivererContext)
 {
     //Does the user explicitly call suspend or do we disable if the return code is false
     bool fExplicitSuspends = Q->pConsumer->pSession->fExplicitSuspends;
@@ -5828,7 +5832,8 @@ static void ieiq_deliverMessages( ieutThreadData_t *pThreadData
                                       hmsg,
                                       &msgHdr,
                                       newState,
-                                      deliveryId);
+                                      deliveryId,
+                                      delivererContext);
 
         if (!wantsMoreMessages)
         {
@@ -5943,7 +5948,8 @@ static int32_t ieiq_asyncMessageDelivery(ieutThreadData_t           *pThreadData
                         , deliveryInfo->pnodes
                         , &callCompleteWaiterActions
                         , &deliverMoreMsgs
-                        , &storeOps);
+                        , &storeOps
+                        , NULL );
 
     //We've finished delivering this message... remove the entry that calls this function
     //so if checkWaiters goes async we don't try to deliver this message again
@@ -5983,7 +5989,7 @@ static int32_t ieiq_asyncMessageDelivery(ieutThreadData_t           *pThreadData
         }
         else if (deliverMoreMsgs)
         {
-            rc = ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, asyncInfo);
+            rc = ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, asyncInfo, NULL);
         }
         assert (rc == OK || rc == ISMRC_AsyncCompletion);
     }
@@ -6179,7 +6185,8 @@ static void ieiq_deliverMessage( ieutThreadData_t *pThreadData
                                , ismEngine_Message_t *hmsg
                                , ismMessageHeader_t *pMsgHdr
                                , bool *pCompleteWaiterActions
-                               , bool *pDeliverMoreMsgs)
+                               , bool *pDeliverMoreMsgs
+                               , ismEngine_DelivererContext_t * delivererContext )
 {
     //Does the user explicitly call suspend or do we disable if the return code is false
     bool fExplicitSuspends = Q->pConsumer->pSession->fExplicitSuspends;
@@ -6194,7 +6201,8 @@ static void ieiq_deliverMessage( ieutThreadData_t *pThreadData
                             hmsg,
                             pMsgHdr,
                             msgState,
-                            deliveryId);
+                            deliveryId,
+                            delivererContext);
 
     if (reenableWaiter)
     {
@@ -6359,7 +6367,8 @@ static uint32_t ieiq_redeliverMessage( ieutThreadData_t *pThreadData
                            , pnode->msg
                            , &msgHdr
                            , &completeWaiterActions
-                           , &deliverAnother);
+                           , &deliverAnother
+                           , NULL);
     }
     else
     {
@@ -6393,7 +6402,7 @@ static uint32_t ieiq_redeliverMessage( ieutThreadData_t *pThreadData
     }
     else if (deliverAnother)
     {
-        rc = ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+        rc = ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
     }
 
 mod_exit:
@@ -6483,7 +6492,8 @@ static inline uint32_t ieiq_chooseDeliveryBatchSizeFromMaxInflight(uint32_t maxI
 
 int32_t ieiq_checkWaiters( ieutThreadData_t *pThreadData
                          , ismEngine_Queue_t *Qhdl
-                         , ismEngine_AsyncData_t *asyncInfo)
+                         , ismEngine_AsyncData_t * asyncInfo
+                         , ismEngine_DelivererContext_t * delivererContext )
 {
     int32_t rc = OK;
     bool loopAgain = true;
@@ -6811,7 +6821,8 @@ int32_t ieiq_checkWaiters( ieutThreadData_t *pThreadData
                                         , deliveryData.pnodes
                                         , &completeWaiterActions
                                         , &loopAgain
-                                        , &storeOps);
+                                        , &storeOps
+                                        , NULL );
 
                     if (storeOps > 0)
                     {
@@ -6960,7 +6971,8 @@ mod_exit:
 static int32_t ieiq_putToWaitingGetter( ieutThreadData_t *pThreadData
                                       , ieiqQueue_t *Q
                                       , ismEngine_Message_t *msg
-                                      , uint8_t msgFlags )
+                                      , uint8_t msgFlags
+                                      , ismEngine_DelivererContext_t * delivererContext )
 {
     int32_t rc = OK;
     bool deliveredMessage = false;
@@ -6998,7 +7010,8 @@ static int32_t ieiq_putToWaitingGetter( ieutThreadData_t *pThreadData
                     , msg
                     , &msgHdr
                     , ismMESSAGE_STATE_CONSUMED
-                    , 0);
+                    , 0
+                    , delivererContext);
 
             if (reenableWaiter)
             {
@@ -7056,7 +7069,7 @@ static int32_t ieiq_putToWaitingGetter( ieutThreadData_t *pThreadData
             // The only valid return codes from this function is OK
             // or ISMRC_NoAvailWaiter. If checkWaiters encounters a
             // problem we do not care.
-            (void) ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+            (void) ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
         }
     }
     else

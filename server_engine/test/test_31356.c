@@ -120,7 +120,8 @@ bool ConsumeNoAckExplicitSuspend(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext )
 {
     bool keepingGoing = true;
     ConsumerInfo_t *pConsumerInfo =*(ConsumerInfo_t **)pConsumerContext;

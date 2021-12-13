@@ -473,7 +473,7 @@ static bool replyMessage(ismEngine_ConsumerHandle_t consumerh,
         uint32_t seqnum, ismMessageState_t state, uint32_t options,
         ismMessageHeader_t * hdr, uint8_t areas,
         ismMessageAreaType_t areatype[areas], size_t areasize[areas],
-        void * areaptr[areas], void * vaction) {
+        void * areaptr[areas], void * vaction, ismEngine_DelivererContext_t * _delivererContext) {
 
 	char xbuf[12000];
     concat_alloc_t buf = { xbuf, sizeof xbuf, 6 };

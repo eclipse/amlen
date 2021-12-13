@@ -43,7 +43,8 @@ bool ism_engine_deliverMessage(ieutThreadData_t *pThreadData,
                                ismEngine_Message_t *pMessage,
                                ismMessageHeader_t *pMsgHdr,
                                ismMessageState_t messageState,
-                               uint32_t deliveryId)
+                               uint32_t deliveryId,
+                               ismEngine_DelivererContext_t * delivererContext)
 {
     bool reenableWaiter = true;
     ismEngine_DeliveryHandle_t hDeliveryHandle;
@@ -126,7 +127,8 @@ bool ism_engine_deliverMessage(ieutThreadData_t *pThreadData,
                                                    pMessage->AreaTypes,
                                                    pMessage->AreaLengths,
                                                    pMessage->pAreaData,
-                                                   pConsumer->pMsgCallbackContext);
+                                                   pConsumer->pMsgCallbackContext,
+                                                   delivererContext);
     }
     ieutTRACEL(pThreadData, reenableWaiter, ENGINE_CEI_TRACE,
                FUNCTION_EXIT "reenableWaiter='%s'\n", __func__,

@@ -96,7 +96,8 @@ bool ConsumerCallback( ismEngine_ConsumerHandle_t hConsumer
                      , ismMessageAreaType_t       areaTypes[areaCount]
                      , size_t                     areaLengths[areaCount]
                      , void *                     pAreaData[areaCount]
-                     , void *                     pConsumerContext);
+                     , void *                     pConsumerContext
+                     , ismEngine_DelivererContext_t * _delivererContext );
 void *ProducerThread(void *arg);
 int ProcessArgs( int argc
                , char **argv
@@ -534,7 +535,8 @@ bool ConsumerCallback( ismEngine_ConsumerHandle_t hConsumer
                      , ismMessageAreaType_t       areaTypes[areaCount]
                      , size_t                     areaLengths[areaCount]
                      , void *                     pAreaData[areaCount]
-                     , void *                     pConsumerContext)
+                     , void *                     pConsumerContext
+                     , ismEngine_DelivererContext_t * _delivererContext )
 {
     uint32_t rc;
     Consumer_t *pConsumer = *(Consumer_t **)pConsumerContext;

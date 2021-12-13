@@ -73,7 +73,8 @@ bool test_markMessagesCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext);
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext );
 
 void test_pubMessages( const char *topicString
                      , uint8_t persistence

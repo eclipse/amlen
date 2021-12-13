@@ -43,6 +43,23 @@ typedef struct
     uint8_t  MessageType;     ///< Message type - MTYPE_*
 } ismMessageHeader_t;
 
+/***********************************************************************************/
+/*                                                                                 */
+/* Lock Strategy to allow read locks to be held across multiple callS              */
+/*                                                                                 */
+/* no_lock_held - lock is currently not held                                       */
+/* read_lock_held - holding read lock will not be released by standard unlock call */
+/* write_lock_held - holding write lock                                            */
+/* dont_persist_lock - lock will not persist when unlocked                         */
+/*                                                                                 */
+/***********************************************************************************/
+enum lockStrategy_e {LS_NO_LOCK_HELD , LS_READ_LOCK_HELD , LS_WRITE_LOCK_HELD , LS_DONT_PERSIST_LOCK };
+typedef struct
+{ 
+    enum lockStrategy_e rlac;
+    uint32_t lock_persisted_counter;
+    uint32_t lock_dropped_counter;
+} ismMessageSelectionLockStrategy_t;
 
 //
 // Message persistence

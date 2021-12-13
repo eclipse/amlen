@@ -241,13 +241,14 @@ extern int ism_protocol_selectMessage(
         void *                     areaptr[areas],
         const char *               topic,
         void *                     rule,
-        size_t                     rulelen);
+        size_t                     rulelen,
+        ismMessageSelectionLockStrategy_t * lockStrategy );
 HOT bool ism_mqtt_replyMessage(ismEngine_ConsumerHandle_t consumerh,
         ismEngine_DeliveryHandle_t deliveryh, ismEngine_MessageHandle_t msgh,
         uint32_t seqnum, ismMessageState_t state, uint32_t options,
         ismMessageHeader_t * hdr, uint8_t areas,
         ismMessageAreaType_t areatype[areas], size_t areasize[areas],
-        void * areaptr[areas], void * vaction);
+        void * areaptr[areas], void * vaction, ismEngine_DelivererContext_t * delivererContext);
 static int packetLength(int buflen) ;
 const char * ism_common_getErrorRepl(int which);
 
@@ -6524,7 +6525,7 @@ HOT bool ism_mqtt_replyMessage(ismEngine_ConsumerHandle_t consumerh,
         uint32_t seqnum, ismMessageState_t state, uint32_t options,
         ismMessageHeader_t * hdr, uint8_t areas,
         ismMessageAreaType_t areatype[areas], size_t areasize[areas],
-        void * areaptr[areas], void * vaction) {
+        void * areaptr[areas], void * vaction, ismEngine_DelivererContext_t * delivererContext ) {
     mqtt_prodcons_t * consumer = (mqtt_prodcons_t *) vaction;
     ism_transport_t * transport = consumer->transport;
     mqttProtoObj_t * pobj = (mqttProtoObj_t *) transport->pobj;
@@ -6641,7 +6642,7 @@ HOT bool ism_mqtt_replyMessage(ismEngine_ConsumerHandle_t consumerh,
                 int sellen = BIGINT16(sel+2);
                 memcpy(xbuf, sel+4, sellen);   /* Align the rule */
                 rc = ism_protocol_selectMessage(hdr, areas, areatype, areasize, areaptr,
-                        ftopic.type == VT_String ? ftopic.val.s : NULL, xbuf, sellen);
+                        ftopic.type == VT_String ? ftopic.val.s : NULL, xbuf, sellen, &delivererContext->lockStrategy);
                 if (rc == SELECT_FALSE) {
                     pthread_spin_lock(&pobj->sessionlock);
                     if (deliveryh && pobj->session_handle) {

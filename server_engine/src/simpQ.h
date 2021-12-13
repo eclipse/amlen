@@ -38,7 +38,8 @@ int32_t iesq_putMessage(ieutThreadData_t *pThreadData,
                         ieqPutOptions_t putOptions,
                         ismEngine_Transaction_t *pTran,
                         ismEngine_Message_t *pMessage,
-                        ieqMsgInputType_t inputMsgTreatment);
+                        ieqMsgInputType_t inputMsgTreatment,
+                        ismEngine_DelivererContext_t * unused);
 
 /* Used to import messages */
 int32_t iesq_importMessage( ieutThreadData_t *pThreadData
@@ -86,7 +87,8 @@ int32_t iesq_checkAvailableMsgs(ismQHandle_t Qhdl, ismEngine_Consumer_t *pConsum
 
 int32_t iesq_checkWaiters( ieutThreadData_t *pThreadData
                          , ismQHandle_t Qhdl
-                         , ismEngine_AsyncData_t *asyncInfo);
+                         , ismEngine_AsyncData_t * asyncInfo
+                         , ismEngine_DelivererContext_t * delivererContext);
 
 
 int32_t iesq_drainQ(ieutThreadData_t *pThreadData, ismQHandle_t Qhdl);

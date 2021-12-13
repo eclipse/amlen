@@ -142,7 +142,8 @@ bool ConsumeDeleteRollbackCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     ismEngine_TransactionHandle_t hTran= *(ismEngine_TransactionHandle_t *)pConsumerContext;
 
@@ -244,7 +245,8 @@ bool StashHandleForLaterAckCB(
 		ismMessageAreaType_t            areaTypes[areaCount],
 		size_t                          areaLengths[areaCount],
 		void *                          pAreaData[areaCount],
-		void *                          pConsumerContext)
+		void *                          pConsumerContext,
+                ismEngine_DelivererContext_t *  _delivererContext )
 {
 	stashedAckData_t *pStashedAckData = *(stashedAckData_t **)pConsumerContext;
 
@@ -1283,7 +1285,8 @@ bool receivedMsgCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     bool moreMsgsWanted = false;
 
@@ -2017,7 +2020,8 @@ static bool MsgArrivedTestDestroyConsumer(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext )
 {
     TestDestroyConsumer_ThreadInfo_t *pDestroyerInfo = *(TestDestroyConsumer_ThreadInfo_t **)pConsumerContext;
     uint32_t *msgsReceived = pDestroyerInfo->MsgsReceived;

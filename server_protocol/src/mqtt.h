@@ -371,7 +371,7 @@ extern HOT bool ism_mqtt_replyMessage(ismEngine_ConsumerHandle_t consumerh,
 		ismEngine_DeliveryHandle_t deliveryh, ismEngine_MessageHandle_t  msgh,
         uint32_t seqnum, ismMessageState_t state,
         uint32_t options, ismMessageHeader_t * hdr, uint8_t areas, ismMessageAreaType_t areatype[areas],
-        size_t areasize[areas], void * areaptr[areas], void * vaction);
+        size_t areasize[areas], void * areaptr[areas], void * vaction, ismEngine_DelivererContext_t * delivererContext);
 extern void ism_mqtt_replyClosing(int32_t rc, void * handle, void * vaction);
 extern void ism_mqtt_replyPublish(int32_t rc, void * handle, void * vaction);
 extern void ism_mqtt_replyPutMessage(int32_t rc, void * handle, void * vaction);

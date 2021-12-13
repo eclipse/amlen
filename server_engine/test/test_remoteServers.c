@@ -2301,7 +2301,8 @@ bool remoteServerDeliveryCallback(ismEngine_ConsumerHandle_t      hConsumer,
                                   ismMessageAreaType_t            areaTypes[areaCount],
                                   size_t                          areaLengths[areaCount],
                                   void *                          pAreaData[areaCount],
-                                  void *                          pContext)
+                                  void *                          pContext,
+                                  ismEngine_DelivererContext_t *  _delivererContext)
 {
     remoteServerMessagesCbContext_t *context = *((remoteServerMessagesCbContext_t **)pContext);
 
@@ -5263,7 +5264,8 @@ void test_capability_RecoverUnClustered_Phase1(void)
                      ieqPutOptions_THREAD_LOCAL_MESSAGE,
                      hTran[t],
                      hMessage,
-                     IEQ_MSGTYPE_REFCOUNT);
+                     IEQ_MSGTYPE_REFCOUNT,
+                     NULL);
         TEST_ASSERT_EQUAL(rc, OK);
 
         ism_engine_releaseMessage(hMessage);

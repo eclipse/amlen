@@ -322,7 +322,7 @@ int ism_bridge_getConnectionList(const char * match, ism_json_t * jobj, int json
 void ism_bridge_getConnectionJson(ism_json_t * jobj, ism_connection_t * connection, const char * name);
 static void completeQoS2NotPresent(ism_transport_t * transport);
 static void completeQoS2Present(ism_transport_t * transport, ism_transport_t * dtransport);
-int ism_mqtt_propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, ism_field_t * f, void * extra);
+int ism_mqtt_propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, ism_field_t * f, void * extra, ismMessageSelectionLockStrategy_t * lockStrategy );
 extern void ism_protocol_ensureBuffer(concat_alloc_t * buf, int len);
 int  ism_tenant_createObfus(const char * user, const char * pw, char * buf, int buflen, int otype);
 const char * ism_transport_makepw(const char * data, char * buf, int len, int dir);
@@ -1497,7 +1497,7 @@ int selectMsg(ism_forwarder_t * forwarder, mqttbrMsg_t * mmsg) {
     emsg.otherprops = (char *)mmsg->props;
     emsg.proplen = mmsg->prop_len;
     emsg.topic = mmsg->topic;
-    selected = ism_common_filter(forwarder->selector, forwarder->props, ism_mqtt_propgen, &emsg);
+    selected = ism_common_filter(forwarder->selector, forwarder->props, ism_mqtt_propgen, &emsg, NULL);
     pthread_spin_unlock(&forwarder->lock);
     return selected;
 }

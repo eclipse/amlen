@@ -368,7 +368,8 @@ static void putMsgArray( ismEngine_SessionHandle_t hSession
                     , putFlags
                     , pTransaction
                     , pMsgs[counter].pMessage
-                    , IEQ_MSGTYPE_REFCOUNT );
+                    , IEQ_MSGTYPE_REFCOUNT
+                    , NULL );
         TEST_ASSERT(rc == 0, ("Failed to put message %d - rc = %d",
                     counter,  rc));
 
@@ -535,7 +536,8 @@ static bool MessageCallback(ismEngine_ConsumerHandle_t  hConsumer,
                             ismMessageAreaType_t        areaTypes[areaCount],
                             size_t                      areaLengths[areaCount],
                             void *                      pAreaData[areaCount],
-                            void *                      pConsumerContext)
+                            void *                      pConsumerContext,
+                            ismEngine_DelivererContext_t * _delivererContext)
 {
     tiqConsumerContext_t *pContext = *(tiqConsumerContext_t **)pConsumerContext;
     uint32_t msgNum;

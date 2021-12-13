@@ -435,7 +435,8 @@ int32_t ism_engine_getRetainedMessageAPI_CB(ismEngine_SessionHandle_t hSession,
                                                      areaTypes,
                                                      areaLengths,
                                                      areaData,
-                                                     pMessageContext);
+                                                     pMessageContext,
+                                                     NULL);
                 }
             }
         }

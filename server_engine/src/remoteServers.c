@@ -359,7 +359,8 @@ static inline int32_t iers_putAllRetained(ieutThreadData_t *pThreadData,
                                  ieqPutOptions_NONE, // RETAINED?
                                  pTran,
                                  pMessage,
-                                 IEQ_MSGTYPE_INHERIT); // already incremented
+                                 IEQ_MSGTYPE_INHERIT,
+                                 NULL ); // already incremented
 
                     if (rc != OK) break;
                 }

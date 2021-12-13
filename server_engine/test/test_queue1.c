@@ -239,7 +239,8 @@ static bool CallbackTestSimplePut(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     SimplePut_ContextInfo_t *pContext = (SimplePut_ContextInfo_t *)pConsumerContext;
 
@@ -300,7 +301,7 @@ static void testPut(ismQueueType_t qtype)
     ismEngine_MessageHandle_t hMsg1 = createTestMessage(0,0);
 
     //Put a message to the Queue without enabling waiter
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg1, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg1, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, OK);
     ism_engine_releaseMessage(hMsg1);
 
@@ -319,7 +320,7 @@ static void testPut(ismQueueType_t qtype)
     //Now put another and check it is delivered
     ismEngine_MessageHandle_t hMsg2 = createTestMessage(0,1);
     Context.msgsExpected = 1;
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg2, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg2, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, OK);
     ism_engine_releaseMessage(hMsg2);
     TEST_ASSERT_EQUAL(0, Context.msgsExpected);
@@ -347,7 +348,8 @@ static bool CallbackTestPutSomeGetFew(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     SimplePut_ContextInfo_t *pContext = (SimplePut_ContextInfo_t *)pConsumerContext;
 
@@ -411,7 +413,7 @@ static void testPutSomeGetFew(ismQueueType_t qtype)
     for (i=0; i< msgsToPut; i++)
     {
         ismEngine_MessageHandle_t hMsg = createTestMessage(0,i);
-        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
         TEST_ASSERT_EQUAL(rc, OK);
         ism_engine_releaseMessage(hMsg);
     }
@@ -449,7 +451,8 @@ static bool CallbackTestMaxMessages(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     SimplePut_ContextInfo_t *pContext = (SimplePut_ContextInfo_t *)pConsumerContext;
 
@@ -529,7 +532,7 @@ static void testMaxMessages(ismQueueType_t qtype)
     for (i=0; i < initialMaxMessages; i++)
     {
         hMsg = createTestMessage(0,msgNum++);
-        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
         TEST_ASSERT_EQUAL(rc, OK);
         ism_engine_releaseMessage(hMsg);
     }
@@ -537,7 +540,7 @@ static void testMaxMessages(ismQueueType_t qtype)
 
     //And now a message that shouldn't
     hMsg = createTestMessage(0,msgNum);
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, ISMRC_DestinationFull);
     ism_engine_releaseMessage(hMsg);
 
@@ -550,13 +553,13 @@ static void testMaxMessages(ismQueueType_t qtype)
 
     //Check we can put another message...
     hMsg = createTestMessage(0,msgNum++);
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, OK);
     ism_engine_releaseMessage(hMsg);
 
     //But the queue should now be full...
     hMsg = createTestMessage(0,msgNum);
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, ISMRC_DestinationFull);
     ism_engine_releaseMessage(hMsg);
 
@@ -565,7 +568,7 @@ static void testMaxMessages(ismQueueType_t qtype)
     for (i=0; i < initialMaxMessages; i++)
     {
         hMsg = createTestMessage(0,msgNum++);
-        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
         TEST_ASSERT_EQUAL(rc, OK);
         ism_engine_releaseMessage(hMsg);
     }
@@ -573,7 +576,7 @@ static void testMaxMessages(ismQueueType_t qtype)
 
     //But the queue should now be full...
     hMsg = createTestMessage(0,msgNum);
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, ISMRC_DestinationFull);
     ism_engine_releaseMessage(hMsg);
     checkTotalMessages(Q, 2*initialMaxMessages);
@@ -581,7 +584,7 @@ static void testMaxMessages(ismQueueType_t qtype)
     //Decrease the max messages and check still can't put
     fakePolicy1->maxMessageCount = initialMaxMessages;
     hMsg = createTestMessage(0,msgNum);
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, ISMRC_DestinationFull);
     ism_engine_releaseMessage(hMsg);
     checkTotalMessages(Q, 2*initialMaxMessages);
@@ -595,14 +598,14 @@ static void testMaxMessages(ismQueueType_t qtype)
 
     //Check we can put a message
     hMsg = createTestMessage(0,msgNum++);
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, OK);
     ism_engine_releaseMessage(hMsg);
     checkTotalMessages(Q, initialMaxMessages);
 
     //But check it's now full
     hMsg = createTestMessage(0,msgNum);
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, ISMRC_DestinationFull);
     ism_engine_releaseMessage(hMsg);
     checkTotalMessages(Q, initialMaxMessages);
@@ -629,7 +632,8 @@ static bool CallbackTestFlow(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     SimplePut_ContextInfo_t *pContext = (SimplePut_ContextInfo_t *)pConsumerContext;
 
@@ -708,7 +712,7 @@ static void testFlow(ismQueueType_t qtype)
     for (i=0; i < target_depth; i++)
     {
         ismEngine_MessageHandle_t hMsg= createTestMessage(0,msgNum++);
-        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
         TEST_ASSERT_EQUAL(rc, OK);
         ism_engine_releaseMessage(hMsg);
     }
@@ -731,7 +735,7 @@ static void testFlow(ismQueueType_t qtype)
     for (i=0; i < msgs; i++)
     {
         ismEngine_MessageHandle_t hMsg= createTestMessage(0,msgNum++);
-        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+        rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
         TEST_ASSERT_EQUAL(rc, OK);
         ism_engine_releaseMessage(hMsg);
     }
@@ -774,7 +778,7 @@ static void *MultiFlowPutter(void *threadarg)
     {
         ismEngine_MessageHandle_t hMsg= createTestMessage( putterInfo->putterNum
                                                          , i);
-        rc = ieq_put(pThreadData, putterInfo->Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+        rc = ieq_put(pThreadData, putterInfo->Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
         TEST_ASSERT_EQUAL(rc, OK);
         ism_engine_releaseMessage(hMsg);
     }
@@ -796,7 +800,8 @@ static bool CallbackTestMultiFlow(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     MultiPut_ContextInfo_t *pContext = (MultiPut_ContextInfo_t *)pConsumerContext;
 
@@ -940,7 +945,8 @@ static bool CallbackTestNestedPut(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     ieutThreadData_t *pThreadData = ieut_getThreadData();
     NestedPut_ContextInfo_t *context = (NestedPut_ContextInfo_t *)pConsumerContext;
@@ -957,7 +963,7 @@ static bool CallbackTestNestedPut(
                                                              - context->remainingMessages);
 
         //Put a message to the Queue nested in this callback
-        int32_t rc = ieq_put(pThreadData, context->Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+        int32_t rc = ieq_put(pThreadData, context->Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
         TEST_ASSERT_EQUAL(rc, OK);
         ism_engine_releaseMessage(hMsg);
     }
@@ -1023,7 +1029,7 @@ static void testNestedPut(ismQueueType_t qtype)
     ismEngine_MessageHandle_t hMsg = createTestMessage(0,0);
 
     //Put a message to the Queue without enabling waiter
-    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+    rc = ieq_put(pThreadData, Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
     TEST_ASSERT_EQUAL(rc, OK);
     ism_engine_releaseMessage(hMsg);
 
@@ -1116,7 +1122,8 @@ static bool CallbackTestDisable(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     uint32_t *msgsReceived = (uint32_t *)pConsumerContext;
 
@@ -1176,7 +1183,7 @@ static void *TestDisablePutter(void *threadarg)
             {
                 ismEngine_MessageHandle_t hMsg= createTestMessage( putterInfo->putterNum
                                                                  , i);
-                rc = ieq_put(pThreadData, putterInfo->Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT);
+                rc = ieq_put(pThreadData, putterInfo->Q, ieqPutOptions_NONE, NULL, hMsg, IEQ_MSGTYPE_REFCOUNT, NULL);
                 TEST_ASSERT_EQUAL(rc, OK);
                 ism_engine_releaseMessage(hMsg);
             }

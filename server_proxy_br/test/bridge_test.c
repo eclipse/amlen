@@ -209,19 +209,19 @@ void propgenTest(void) {
     emsg.otherprop_len = buf.used;
     f.type = VT_Integer;
 
-    rc = ism_mqtt_propgen(props, &emsg, "another", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "another", &f, NULL, NULL);
     CU_ASSERT(rc == 1);
     CU_ASSERT(f.type == VT_Null);
 
-    rc = ism_mqtt_propgen(props, &emsg, "_ContentType", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "_ContentType", &f, NULL, NULL);
     CU_ASSERT(rc == 1);
     CU_ASSERT(f.type == VT_Null);
 
-    rc = ism_mqtt_propgen(props, &emsg, "_ReplyTo", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "_ReplyTo", &f, NULL, NULL);
     CU_ASSERT(rc == 1);
     CU_ASSERT(f.type == VT_Null);
 
-    rc = ism_mqtt_propgen(props, &emsg, "_Correlation", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "_Correlation", &f, NULL, NULL);
     CU_ASSERT(rc == 1);
     CU_ASSERT(f.type == VT_Null);
 
@@ -231,33 +231,33 @@ void propgenTest(void) {
     ism_common_putMqttPropNamePair(&buf, MPI_UserProperty, g_ctx5, "another", -1, "anotherval", -1);
     ism_common_putMqttPropField(&buf, MPI_TopicAlias, g_ctx5, 456);
 
-    rc = ism_mqtt_propgen(props, &emsg, "another", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "another", &f, NULL, NULL);
     CU_ASSERT(rc == 1);
     CU_ASSERT(f.type == VT_Null);
 
     emsg.otherprop_len = buf.used;
     ism_common_clearProperties(props);
-    rc = ism_mqtt_propgen(props, &emsg, "prop1", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "prop1", &f, NULL, NULL);
     CU_ASSERT(rc == 0);
     CU_ASSERT(f.type == VT_String);
     CU_ASSERT(f.val.s && !strcmp(f.val.s, "val2"));
 
-    rc = ism_mqtt_propgen(props, &emsg, "_ContentType", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "_ContentType", &f, NULL, NULL);
     CU_ASSERT(rc == 0);
     CU_ASSERT(f.type == VT_String);
     CU_ASSERT(f.val.s && !strcmp(f.val.s, "fred"));
 
-    rc = ism_mqtt_propgen(props, &emsg, "_Correlation", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "_Correlation", &f, NULL, NULL);
     CU_ASSERT(rc == 0);
     CU_ASSERT(f.type == VT_String);
     CU_ASSERT(f.val.s && !strcmp(f.val.s, "abcd"));
 
-    rc = ism_mqtt_propgen(props, &emsg, "_ReplyTo", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "_ReplyTo", &f, NULL, NULL);
     CU_ASSERT(rc == 0);
     CU_ASSERT(f.type == VT_String);
     CU_ASSERT(f.val.s && !strcmp(f.val.s, "output/topic"));
 
-    rc = ism_mqtt_propgen(props, &emsg, "another", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "another", &f, NULL, NULL);
     CU_ASSERT(rc == 0);
     CU_ASSERT(f.type == VT_String);
     CU_ASSERT(f.val.s && !strcmp(f.val.s, "anotherval"));
@@ -268,11 +268,11 @@ void propgenTest(void) {
     emsg.otherprop_len = buf.used;
     ism_common_clearProperties(props);
 
-    rc = ism_mqtt_propgen(props, &emsg, "_Correlation", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "_Correlation", &f, NULL, NULL);
     CU_ASSERT(rc == 1);
     CU_ASSERT(f.type == VT_Null);
 
-    rc = ism_mqtt_propgen(props, &emsg, "prop1", &f, NULL);
+    rc = ism_mqtt_propgen(props, &emsg, "prop1", &f, NULL, NULL);
     CU_ASSERT(rc == 0);
     CU_ASSERT(f.type == VT_String);
     CU_ASSERT(f.val.s && !strcmp(f.val.s, "val2"));

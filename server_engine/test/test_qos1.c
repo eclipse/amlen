@@ -49,7 +49,8 @@ static bool deliveryCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 /*
  * Publish message with a single QoS 1 subscription
@@ -228,7 +229,8 @@ static bool deliveryCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     bool moreMessagesPlease = true;
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;

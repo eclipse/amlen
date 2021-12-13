@@ -281,7 +281,8 @@ static bool MessageCallback(ismEngine_ConsumerHandle_t  hConsumer,
                             ismMessageAreaType_t        areaTypes[areaCount],
                             size_t                      areaLengths[areaCount],
                             void *                      pAreaData[areaCount],
-                            void *                      pConsumerContext)
+                            void *                      pConsumerContext,
+                            ismEngine_DelivererContext_t * _delivererContext)
 {
     int32_t rc;
     tiqConsumerContext_t *pContext = *(tiqConsumerContext_t **)pConsumerContext;

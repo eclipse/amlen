@@ -171,7 +171,7 @@ int32_t ieq_enableWaiter( ieutThreadData_t *pThreadData,
          && ((oldState == IEWS_WAITERSTATUS_DISABLED) ||
              (oldState & IEWS_WAITERSTATUSMASK_ACTIVE)))
     {
-        rc = ieq_checkWaiters(pThreadData, Qhdl, NULL);
+        rc = ieq_checkWaiters(pThreadData, Qhdl, NULL, NULL);
     }
 mod_exit:
     ieutTRACEL(pThreadData, rc,  ENGINE_FNC_TRACE, FUNCTION_EXIT "rc=%d old=%u\n", __func__, rc, (uint32_t)oldState);
@@ -717,7 +717,7 @@ void iews_unlockAfterQOperation( ieutThreadData_t *pThreadData
 
         //We locked it in delivering state and that promises to call checkWaiters
         //...honour the promise
-        ieq_checkWaiters(pThreadData, Q, NULL);
+        ieq_checkWaiters(pThreadData, Q, NULL, NULL);
     }
     else
     {
@@ -787,7 +787,7 @@ void ieq_completeWaiterActions(ieutThreadData_t *pThreadData,
                     //We've re-enabled a waiter that was in delivering: deliver any messages
                     if (allowDelivery)
                     {
-                        ieq_checkWaiters(pThreadData, Q, NULL);
+                        ieq_checkWaiters(pThreadData, Q, NULL, NULL);
                     }
                 }
                 else
@@ -865,7 +865,7 @@ void ieq_completeWaiterActions(ieutThreadData_t *pThreadData,
                         //We have enabled a waiter that was in *_PEND/DELIVERING
                         if (doneDisable && allowDelivery)
                         {
-                           ieq_checkWaiters(pThreadData, Q, NULL);
+                           ieq_checkWaiters(pThreadData, Q, NULL, NULL);
                         }
                     }
                     else

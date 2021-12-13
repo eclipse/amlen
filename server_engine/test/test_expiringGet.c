@@ -53,7 +53,8 @@ bool basicGetCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     testBasicGetContext_t *pGetContext = *(testBasicGetContext_t **)pConsumerContext;
     uint32_t dlvySlot = __sync_fetch_and_add(&(pGetContext->numUnackedMsgs), 1);
@@ -536,7 +537,8 @@ bool HangUntilReadyGetCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     testTimingWindowGetContext_t *pGetContext = *(testTimingWindowGetContext_t **)pConsumerContext;
 

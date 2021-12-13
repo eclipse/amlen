@@ -127,7 +127,8 @@ typedef struct tag_iemqAsyncDestroyMessageBatchInfo_t {
 #if 0
 static int32_t iemq_putToWaitingGetter( iemqQueue_t *q
                                       , ismEngine_Message_t *msg
-                                      , uint8_t msgFlags );
+                                      , uint8_t msgFlags
+                                      , ismEngine_DelivererContext_t * delivererContext );
 #endif
 
 static inline iemqQNodePage_t *iemq_createNewPage( ieutThreadData_t *pThreadData
@@ -1707,7 +1708,8 @@ int32_t iemq_putMessage( ieutThreadData_t *pThreadData
                        , ieqPutOptions_t putOptions
                        , ismEngine_Transaction_t *pTran
                        , ismEngine_Message_t *inmsg
-                       , ieqMsgInputType_t inputMsgTreatment)
+                       , ieqMsgInputType_t inputMsgTreatment
+                       , ismEngine_DelivererContext_t * delivererContext)
 {
     iemqQueue_t *Q = (iemqQueue_t *) Qhdl;
     ismEngine_Message_t *qmsg = NULL;
@@ -1890,7 +1892,7 @@ int32_t iemq_putMessage( ieutThreadData_t *pThreadData
     {
         if (Q->bufferedMsgs == 0)
         {
-            rc = iemq_putToWaitingGetter(Q, qmsg, msgFlags);
+            rc = iemq_putToWaitingGetter(Q, qmsg, msgFlags, delivererContext);
             if (rc == OK)
             {
                 // We've given the message to someone..we're done
@@ -1977,7 +1979,7 @@ mod_exit:
 
         // We don't care about any error encountered while attempting
         // to deliver a message to a waiter.
-        (void) iemq_checkWaiters(pThreadData, (ismQHandle_t) Q, NULL);
+        (void) iemq_checkWaiters(pThreadData, (ismQHandle_t) Q, NULL, NULL);
     }
 
 #if TRACETIMESTAMP_PUTMESSAGE
@@ -6280,6 +6282,7 @@ static int32_t iemq_completeConsumeAck( ieutThreadData_t *pThreadData
             {
                 (void)iemq_checkWaiters( pThreadData
                                        , (ismQHandle_t) Q
+                                       , NULL
                                        , NULL);
             }
         }
@@ -6315,6 +6318,7 @@ static int32_t iemq_completeConsumeAck( ieutThreadData_t *pThreadData
                 {
                     (void)iemq_checkWaiters( pThreadData
                                            , (ismQHandle_t) Q
+                                           , NULL
                                            , NULL);
                 }
 
@@ -6775,6 +6779,7 @@ void iemq_processNack( ieutThreadData_t *pThreadData
         {
             (void)iemq_checkWaiters( pThreadData
                                    , (ismQHandle_t) Q
+                                   , NULL
                                    , NULL);
         }
     }
@@ -6792,7 +6797,7 @@ void iemq_processNack( ieutThreadData_t *pThreadData
     // check-waiters in that case.
     if (pAckState == NULL)
     {
-        (void) iemq_checkWaiters(pThreadData, (ismQHandle_t) Q, NULL);
+        (void) iemq_checkWaiters(pThreadData, (ismQHandle_t) Q, NULL, NULL);
 
         //Now deack the consumer which could cause Q to be deleted...
         if (pConsumerToDeack != NULL)
@@ -7062,7 +7067,7 @@ void iemq_completeAckBatch( ieutThreadData_t *pThreadData
     {
         if (pAckState->deliverOnCompletion)
         {
-            (void) iemq_checkWaiters(pThreadData, Qhdl, NULL);
+            (void) iemq_checkWaiters(pThreadData, Qhdl, NULL, NULL);
         }
 
         // We've now finished with the queue handle, reduce the ackcount
@@ -7172,6 +7177,7 @@ int32_t iemq_relinquish( ieutThreadData_t *pThreadData
         {
             (void)iemq_checkWaiters( pThreadData
                                    , (ismQHandle_t) Q
+                                   , NULL
                                    , NULL);
         }
     }
@@ -7669,6 +7675,7 @@ void iemq_SLEReplayConsume( ietrReplayPhase_t Phase
            {
                (void)iemq_checkWaiters( pThreadData
                                       , (ismQHandle_t) Q
+                                      , NULL
                                       , NULL);
            }
 
@@ -7732,7 +7739,7 @@ void iemq_SLEReplayConsume( ietrReplayPhase_t Phase
 
        case PostRollback:
            // Attempt to deliver the messages
-           (void) iemq_checkWaiters(pThreadData, (ismQHandle_t) Q, NULL);
+           (void) iemq_checkWaiters(pThreadData, (ismQHandle_t) Q, NULL, NULL);
 
            //Now reduce the pre delete count which Q to be deleted...
            iemq_reducePreDeleteCount_internal(pThreadData, Q);
@@ -7868,7 +7875,7 @@ static inline int32_t iemq_postTranPutWork( ieutThreadData_t *pThreadData
          __sync_fetch_and_add(&Q->preDeleteCount, 1);
 
          // Attempt to deliver the messages
-         rc = iemq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, pAsyncData);
+         rc = iemq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, pAsyncData, NULL);
          assert(rc == OK || rc == ISMRC_AsyncCompletion);
 
          if (rc != ISMRC_AsyncCompletion)
@@ -7892,7 +7899,7 @@ static inline int32_t iemq_postTranPutWork( ieutThreadData_t *pThreadData
      else
      {
          completePostCommitInfo.deleteCountDecrement--;
-         (void) iemq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL);
+         (void) iemq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
      }
 
      if (rc == OK)
@@ -8115,6 +8122,7 @@ int32_t iemq_SLEReplayPut( ietrReplayPhase_t Phase
            {
                (void)iemq_checkWaiters( pThreadData
                                       , (ismQHandle_t) Q
+                                      , NULL
                                       , NULL);
            }
 
@@ -9039,7 +9047,8 @@ static inline int32_t iemq_increaseMessageUsageIfGettable( ieutThreadData_t *pTh
                                     pMessage->AreaTypes, pMessage->AreaLengths,
                                     pMessage->pAreaData, NULL,
                                     pConsumer->selectionRule,
-                                    (size_t) pConsumer->selectionRuleLen);
+                                    (size_t) pConsumer->selectionRuleLen,
+                                    NULL);
 
             ieutTRACEL(pThreadData, selResult, ENGINE_HIFREQ_FNC_TRACE,
                        "Selection function for selection string (%s) (%d:%p) completed with rc=%d. Q %u,  oId %lu\n",
@@ -9402,7 +9411,8 @@ static inline int32_t iemq_lockMessageIfGettable( ieutThreadData_t *pThreadData
                                         pMessage->AreaTypes, pMessage->AreaLengths,
                                         pMessage->pAreaData, NULL,
                                         pConsumer->selectionRule,
-                                        (size_t) pConsumer->selectionRuleLen);
+                                        (size_t) pConsumer->selectionRuleLen,
+                                        NULL);
 
                 ieutTRACEL(pThreadData, selResult, ENGINE_HIFREQ_FNC_TRACE,
                            "Selection function for selection string (%s) (%d:%p) completed with rc=%d. Q %u,  oId %lu\n",
@@ -11337,7 +11347,8 @@ mod_exit:
 //rc is ok or ISMRC_AsyncCompletion
 static uint32_t iemq_deliverMessages( ieutThreadData_t *pThreadData
                                     , iemqAsyncMessageDeliveryInfo_t *pDeliveryData
-                                    , ismEngine_AsyncData_t *asyncInfo)
+                                    , ismEngine_AsyncData_t *asyncInfo
+                                    , ismEngine_DelivererContext_t * delivererContext )
 {
     ieutTRACE_HISTORYBUF(pThreadData, pDeliveryData->pConsumer);
     ieutTRACEL(pThreadData, pDeliveryData->usedNodes, ENGINE_HIFREQ_FNC_TRACE,
@@ -11405,7 +11416,8 @@ static uint32_t iemq_deliverMessages( ieutThreadData_t *pThreadData
                                           hmsg,
                                           &msgHdr,
                                           newState,
-                                          deliveryId);
+                                          deliveryId,
+                                          delivererContext);
 
             if (!wantsMoreMessages)
             {
@@ -11680,7 +11692,8 @@ static inline int32_t iemq_locateAndDeliverMessageBatchToBrowser(
                                             pMessage,
                                             &msgHdr,
                                             ismMESSAGE_STATE_CONSUMED,
-                                            0);
+                                            0,
+                                            NULL);
 
             msgsDelivered++;
 
@@ -11818,6 +11831,7 @@ void iemq_jobDiscardExpiryCheckWaiters(ieutThreadData_t *pThreadData,
 
     DEBUG_ONLY int32_t rc = iemq_checkWaiters( pThreadData
                                              , (ismEngine_Queue_t *)Q
+                                             , NULL
                                              , NULL);
     assert (rc == OK || rc == ISMRC_AsyncCompletion);
 
@@ -11949,7 +11963,8 @@ static int32_t iemq_asyncMessageDelivery(ieutThreadData_t           *pThreadData
 
     rc = iemq_deliverMessages( pThreadData
                              , deliveryInfo
-                             , asyncInfo);
+                             , asyncInfo
+                             , NULL );
 
     assert(rc == OK || rc == ISMRC_AsyncCompletion);
 
@@ -11987,7 +12002,8 @@ static int32_t iemq_asyncMessageDelivery(ieutThreadData_t           *pThreadData
 
             rc = iemq_checkWaiters(pThreadData
                                   , (ismEngine_Queue_t *)(deliveryInfo->Q)
-                                  , asyncInfo);
+                                  , asyncInfo
+                                  , NULL);
             assert (rc == OK || rc == ISMRC_AsyncCompletion);
         }
     }
@@ -12412,7 +12428,8 @@ static inline int32_t iemq_locateAndDeliverMessageBatchToWaiter(
 
             rc = iemq_deliverMessages( pThreadData
                                      , &deliveryData
-                                     , asyncInfo);
+                                     , asyncInfo
+                                     , NULL);
 
             //deliverMessages will have released our grip on the waiter...
             //check we aren't fiddling
@@ -12571,7 +12588,8 @@ mod_exit:
 ///////////////////////////////////////////////////////////////////////////////
 int32_t iemq_checkWaiters( ieutThreadData_t *pThreadData
                          , ismQHandle_t Qhdl
-                         , ismEngine_AsyncData_t *asyncInfo)
+                         , ismEngine_AsyncData_t * asyncInfo
+                         , ismEngine_DelivererContext_t *delivererContext)
 {
     int32_t rc = OK;
     bool loopAgain = true;
@@ -12752,7 +12770,8 @@ mod_exit:
 #if 0
 static int32_t iemq_putToWaitingGetter( iemqQueue_t *q
                                       , ismEngine_Message_t *msg
-                                      , uint8_t msgFlags )
+                                      , uint8_t msgFlags
+                                      , ismEngine_DelivererContext_t * delivererContext )
 {
     int32_t rc = OK;
     bool deliveredMessage = false;
@@ -12785,7 +12804,8 @@ static int32_t iemq_putToWaitingGetter( iemqQueue_t *q
                                  , msg
                                  , &msgHdr
                                  , ismMESSAGE_STATE_CONSUMED
-                                 , 0);
+                                 , 0
+                                 , delivererContext);
 
             iewsWaiterStatus_t oldStatus;
 

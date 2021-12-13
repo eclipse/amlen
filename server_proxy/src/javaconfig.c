@@ -408,26 +408,26 @@ void ism_proxy_changeMsgRouting(ism_tenant_t * tenant, int old_msgRouting) {
     ism_acl_t * acl;
 
     if (msgroute & FILTER_UNRELIABLE) {
-        acl = ism_protocol_findACL("_0", 1);
+        acl = ism_protocol_findACL("_0", 1, NULL);
         ism_protocol_addACLitem(acl, tenant->name);
         ism_protocol_unlockACL(acl);
         updateACL(tenant, 0, 1);
     } else {
         if (old_msgRouting & FILTER_UNRELIABLE) {
-            acl = ism_protocol_findACL("_0", 1);
+            acl = ism_protocol_findACL("_0", 1, NULL);
             ism_protocol_delACLitem(acl, tenant->name);
             ism_protocol_unlockACL(acl);
             updateACL(tenant, 0, 0);
         }
     }
     if (msgroute & FILTER_RELIABLE) {
-        acl = ism_protocol_findACL("_1", 1);
+        acl = ism_protocol_findACL("_1", 1, NULL);
         ism_protocol_addACLitem(acl, tenant->name);
         ism_protocol_unlockACL(acl);
         updateACL(tenant, 1, 1);
     } else {
         if (old_msgRouting & FILTER_RELIABLE) {
-            acl = ism_protocol_findACL("_1", 1);
+            acl = ism_protocol_findACL("_1", 1, NULL);
             ism_protocol_delACLitem(acl, tenant->name);
             ism_protocol_unlockACL(acl);
             updateACL(tenant, 1, 0);
@@ -507,7 +507,7 @@ void ism_proxy_sendAllACLs(const char * aclsrc, int acllen) {
         case '!':
             {
                 concat_alloc_t buf = {xbuf, sizeof xbuf, 19};
-                ism_acl_t * acl = ism_protocol_findACL(ap+1, 0);
+                ism_acl_t * acl = ism_protocol_findACL(ap+1, 0, NULL);
                 if (acl) {
                     if (acl->object) {
                         ism_transport_t * transport = (ism_transport_t *)acl->object;

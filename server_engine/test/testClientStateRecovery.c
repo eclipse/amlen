@@ -175,7 +175,8 @@ bool messageDeliveryPreRestartCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     verbose(2, "Message order id %lu delivered, delivery id %lu. \"%s\".",
             pMsgDetails->OrderId, deliveryId, pAreaData[1]);
@@ -205,7 +206,8 @@ bool messageDeliveryCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     verbose(2, "Message order id %lu delivered, delivery id %lu. \"%s\".",
             pMsgDetails->OrderId, deliveryId, pAreaData[1]);

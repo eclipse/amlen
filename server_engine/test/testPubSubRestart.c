@@ -288,7 +288,8 @@ bool messageArrivedCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     subscriberStateComplete_t *subState = *(subscriberStateComplete_t **)pConsumerContext;
     uint64_t *pCallbacksInProgress = &(CallbacksInProgress);

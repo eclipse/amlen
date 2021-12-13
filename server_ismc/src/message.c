@@ -364,7 +364,7 @@ ismc_message_t * ismc_makeMessage(ismc_consumer_t * consumer, action_t * action)
  * Do message selection on a message
  */
 int ismc_filterMessage(ismc_message_t * message, ismRule_t * rule) {
-    return ism_common_filter(rule, message->h.props, NULL, NULL);
+    return ism_common_filter(rule, message->h.props, NULL, NULL, NULL);
 }
 
 

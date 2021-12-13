@@ -348,7 +348,8 @@ bool markRcvdMessagesCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     testMarkRcvdContext_t *context = *(testMarkRcvdContext_t **)pConsumerContext;
 
@@ -403,7 +404,8 @@ bool countMessagesCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     testGetMsgContext_t *context = *(testGetMsgContext_t **)pConsumerContext;
     bool doAck = false;

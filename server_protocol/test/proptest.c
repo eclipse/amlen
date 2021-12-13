@@ -151,7 +151,8 @@ extern int ism_protocol_selectMessage(
         void *                     areaptr[areas],
         const char *               topic,
         const void *               rule,
-        size_t                     rulelen);
+        size_t                     rulelen,
+        ismMessageSelectionLockStrategy_t * lockStrategy);
 
 /*
  * Selection test
@@ -182,7 +183,7 @@ void testSelect(void) {
     ism_protocol_putStringValue(&props, "part0/p1/p2");
     areasize[0] = props.used;
     areaptr[0] = props.buf;
-    acl = ism_protocol_findACL("_3", 1);
+    acl = ism_protocol_findACL("_3", 1, NULL);
     ism_protocol_addACLitem(acl, "part1");
     ism_protocol_unlockACL(acl);
 
@@ -208,7 +209,7 @@ void testSelect(void) {
         ism_common_dumpSelectRule(rule, dbuf, sizeof xbuf);
         if (g_verbose)
             printf("\nrule buscon =\n%s\n", dbuf);
-        selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, "part0/part1/part2", rule, 0);
+        selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, "part0/part1/part2", rule, 0, NULL);
         CU_ASSERT(selected == SELECT_FALSE);
     }
     CU_ASSERT(rc == 0);
@@ -219,7 +220,7 @@ void testSelect(void) {
         printf("\nrule 1 =%s\n", dbuf);
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -228,7 +229,7 @@ void testSelect(void) {
     rc = ism_common_compileSelectRule(&rule, &rulelen, "sam = 'fred'");
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -237,7 +238,7 @@ void testSelect(void) {
     rc = ism_common_compileSelectRule(&rule, &rulelen, "int = 33");
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -246,7 +247,7 @@ void testSelect(void) {
     rc = ism_common_compileSelectRule(&rule, &rulelen, "JMS_IBM_Retain = 0");
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -255,7 +256,7 @@ void testSelect(void) {
     rc = ism_common_compileSelectRule(&rule, &rulelen, "garbage = 999");
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_UNKNOWN);
     }
     if (rule)
@@ -264,7 +265,7 @@ void testSelect(void) {
     rc = ism_common_compileSelectRule(&rule, &rulelen, "garbage = junk");
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_UNKNOWN);
     }
     if (rule)
@@ -273,7 +274,7 @@ void testSelect(void) {
     rc = ism_common_compileSelectRuleOpt(&rule, &rulelen, "Topic = 'part0/p1/p2'", 1);
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -282,7 +283,7 @@ void testSelect(void) {
     rc = ism_common_compileSelectRuleOpt(&rule, &rulelen, "Topic = 'p0/part1/part2'", 1);
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, "p0/part1/part2", rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, "p0/part1/part2", rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -293,7 +294,7 @@ void testSelect(void) {
     if (rc == 0) {
         // ism_common_dumpSelectRule(rule, dbuf, sizeof xbuf);
         // printf("qos=%s\n", dbuf);
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -304,7 +305,7 @@ void testSelect(void) {
     if (rc == 0) {
         // ism_common_dumpSelectRule(rule, dbuf, sizeof xbuf);
         // printf("topicpart=%s\n", dbuf);
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, "p0/part1/part2", rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, "p0/part1/part2", rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -314,7 +315,7 @@ void testSelect(void) {
     rc = ism_common_compileSelectRule(&rule, &rulelen, "JMS_IBM_Retain = 1");
     CU_ASSERT(rc == 0);
     if (rc == 0) {
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
     if (rule)
@@ -350,7 +351,7 @@ void testACLCheck(void) {
         ism_common_dumpSelectRule(rule, zbuf, sizeof zbuf);
         if (g_verbose)
             printf("\n%s\n", zbuf);
-        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0);
+        selected = ism_protocol_selectMessage(&hdr, 2, areatype, areasize, areaptr, NULL, rule, 0, NULL);
         CU_ASSERT(selected == SELECT_TRUE);
     }
 }

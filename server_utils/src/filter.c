@@ -25,7 +25,7 @@ static int  promote_var(ism_field_t * var1, ism_field_t * var2);
 static int  compare_var(ism_prop_t * props, ism_field_t * var1, ism_field_t * var2, int op);
 static int  calc_var(ism_field_t * var1, ism_field_t * var2, int op);
 static int  in_hash(ism_field_t * var1, ism_field_t * var2, int op);
-static int  checkACL(ism_field_t * f, const char * extra);
+static int  checkACL(ism_field_t * f, const char * extra, ismMessageSelectionLockStrategy_t * lockStrategy);
 static int  topicpart(const char * topic, const char * * part, int which);
 
 #define CHECK_LEVEL(n) if (level<(n)) return SELECT_UNKNOWN
@@ -70,7 +70,7 @@ XAPI void ism_common_setSelectorDebug(int val) {
 /*
  * Generate properties from the message
  */
-static int propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, ism_field_t * f, void * extra) {
+static int propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, ism_field_t * f, void * extra, ismMessageSelectionLockStrategy_t * lockStrategy) {
     ism_actionbuf_t props = {0};
     props.buf = (char *)emsg->props;
     props.len = emsg->proplen;
@@ -91,7 +91,7 @@ static int propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, is
                 break;
             case 'A':
                 if (!strcmp(name+4, "ACLCheck")) {
-                    return checkACL(f, (const char *)extra);
+                    return checkACL(f, (const char *)extra, lockStrategy);
                 }
                 break;
             case 'I':
@@ -195,7 +195,8 @@ int ism_common_selectMessage(
         void *                     areaptr[areas],
         const char *               topic,
         void *                     rule,
-        size_t                     rulelen) {
+        size_t                     rulelen,
+        ismMessageSelectionLockStrategy_t * lockStrategy) {
     int       i;
     uint32_t  proplen = 0;
     char *    propp = NULL;
@@ -218,7 +219,7 @@ int ism_common_selectMessage(
     emsg.props = propp;
     emsg.proplen = proplen;
     emsg.topic = topic;
-    int rc = ism_common_filter(rule, NULL, propgen, &emsg);
+    int rc = ism_common_filter(rule, NULL, propgen, &emsg, lockStrategy);
     TRACE(9, "filter message: topic=%s rc=%d\n", topic, rc);
     return rc;
 }
@@ -829,7 +830,7 @@ static int topicSegment(char * topic, char * * segments, int count) {
 /*
  *
  */
-static int selectACLCheck(ism_field_t * field, ismRule_t * rule, ism_prop_t * props, property_gen_t generator, ism_emsg_t * emsg) {
+static int selectACLCheck(ism_field_t * field, ismRule_t * rule, ism_prop_t * props, property_gen_t generator, ism_emsg_t * emsg, ismMessageSelectionLockStrategy_t * lockStrategy) {
     char * levels [32];
     char * topic;
     const uint8_t * wp;
@@ -870,7 +871,7 @@ static int selectACLCheck(ism_field_t * field, ismRule_t * rule, ism_prop_t * pr
         /* Call the generator function to do the ACL check */
         f.type = VT_String;
         f.val.s = key;
-        generator(props, emsg, "JMS_ACLCheck", &f, extra);  /* Prop names starting JMS are reserved for system use */
+        generator(props, emsg, "JMS_ACLCheck", &f, extra, lockStrategy);  /* Prop names starting JMS are reserved for system use */
         if (f.type != VT_Boolean)
             return SELECT_UNKNOWN;
         return !f.val.i;
@@ -899,7 +900,7 @@ static int selectLike(ism_field_t * field, ismRule_t * rule) {
  * @param props   The property environment
  * @return The filter result: 0=good, <0=error
  */
-int ism_common_filter(ismRule_t * rule, ism_prop_t * props, property_gen_t generator, ism_emsg_t * emsg) {
+int ism_common_filter(ismRule_t * rule, ism_prop_t * props, property_gen_t generator, ism_emsg_t * emsg, ismMessageSelectionLockStrategy_t * lockStrategy) {
     char * rp = (char *)rule;
     int   result = SELECT_TRUE;
     ism_field_t stack [320];
@@ -1158,7 +1159,7 @@ int ism_common_filter(ismRule_t * rule, ism_prop_t * props, property_gen_t gener
         /* Load a named field to the stack */
         case SELRULE_Var:
             if (generator)   /* Use a generator */
-                generator(props, emsg, rp+sizeof(ismRule_t), stack+level, NULL);
+                generator(props, emsg, rp+sizeof(ismRule_t), stack+level, NULL, lockStrategy);
             else             /* Use existing properties */
                 ism_common_getProperty(props, rp+sizeof(ismRule_t), stack+level);
             level++;
@@ -1167,7 +1168,7 @@ int ism_common_filter(ismRule_t * rule, ism_prop_t * props, property_gen_t gener
         /* Do an ACL check */
         case SELRULE_ACLCheck:
             CHECK_LEVEL(1);
-            result = selectACLCheck(stack+level-1, rule, props, generator, emsg);
+            result = selectACLCheck(stack+level-1, rule, props, generator, emsg, lockStrategy);
             setResult(stack+level-1, result);
             break;
 
@@ -1190,7 +1191,7 @@ int ism_common_filter(ismRule_t * rule, ism_prop_t * props, property_gen_t gener
                     topic = emsg->topic;
                 if (!topic && generator) {
                     ism_field_t tf;
-                    generator(props, emsg, "JMS_Topic", &tf, NULL);
+                    generator(props, emsg, "JMS_Topic", &tf, NULL, lockStrategy);
                     if (tf.type == VT_String)
                         topic = tf.val.s;
                 }
@@ -1206,7 +1207,7 @@ int ism_common_filter(ismRule_t * rule, ism_prop_t * props, property_gen_t gener
                     topic = emsg->topic;
                 if (!topic && generator) {
                     ism_field_t tf;
-                    generator(props, emsg, "JMS_Topic", &tf, NULL);
+                    generator(props, emsg, "JMS_Topic", &tf, NULL, lockStrategy);
                     if (tf.type == VT_String)
                         topic = tf.val.s;
                 }
@@ -2040,8 +2041,8 @@ ismHashMap * acl_list = NULL;
  * @param  aclname The name of the ACL
  * @return 0=found, 1=not-found, -1=no-ACL
  */
-int ism_protocol_checkACL(const char * key, const char * aclname) {
-    ism_acl_t * acl = ism_protocol_findACL(aclname, 0);
+int ism_protocol_checkACL(const char * key, const char * aclname, ismMessageSelectionLockStrategy_t * lockStrategy) {
+    ism_acl_t * acl = ism_protocol_findACL(aclname, 0, lockStrategy);
     int rc;
     if (!acl)
         return -1;
@@ -2051,9 +2052,78 @@ int ism_protocol_checkACL(const char * key, const char * aclname) {
 }
 
 /*
+ * check the lock strategy when taking a lock if there is a strategy and it isn't set
+ * to not persist locks then update it to say which lock is held
+ */  
+void ism_protocol_lockACLList(bool write, ismMessageSelectionLockStrategy_t * lockStrategy) {
+    bool takeLock = true;
+    if ( lockStrategy != NULL ) {
+        if ( lockStrategy->rlac == LS_WRITE_LOCK_HELD ) {
+            TRACE(5, "ism_protocol_lockACList write lock has persisted\n");
+            takeLock = false;
+        }
+        else if ( lockStrategy->rlac == LS_READ_LOCK_HELD && write) {
+            TRACE(3, "ism_protocol_lockACList upgrading from read to write lock\n");
+            pthread_rwlock_unlock(&acl_lock);
+            lockStrategy->rlac = LS_NO_LOCK_HELD;
+            lockStrategy->lock_dropped_counter++;
+        }
+        else if ( lockStrategy->rlac == LS_READ_LOCK_HELD && !write) {
+            lockStrategy->lock_persisted_counter++;
+            if (lockStrategy->lock_persisted_counter % 1000 == 0) {
+                TRACE(6, "Dropping RLAC read lock to give writers a chance");
+                pthread_rwlock_unlock(&acl_lock);
+                lockStrategy->rlac = LS_NO_LOCK_HELD;
+            } else {
+                takeLock = false;
+            }
+        }
+    }
+
+    if ( takeLock == true && write == true ) {
+        pthread_rwlock_wrlock(&acl_lock);
+        if ( lockStrategy != NULL && lockStrategy->rlac != LS_DONT_PERSIST_LOCK ) {
+            lockStrategy->rlac = LS_WRITE_LOCK_HELD;
+            TRACE(5, "ism_protocol_lockACList Taking write lock using lockStrategy");
+        }
+    } else if ( takeLock == true ) {
+        pthread_rwlock_rdlock(&acl_lock);
+        if ( lockStrategy != NULL && lockStrategy->rlac != LS_DONT_PERSIST_LOCK ) {
+            lockStrategy->rlac = LS_READ_LOCK_HELD;
+            TRACE(9, "ism_protocol_lockACList Taking read lock using lockStrategy");
+        }
+    }
+}
+
+/*
+ * if a lock strategy is in place allow the read lock to persist
+ * write lock is always released
+ */  
+void ism_protocol_unlockACLList(ismMessageSelectionLockStrategy_t * lockStrategy) {
+    bool releaseLock = true;
+    if ( lockStrategy != NULL ) {
+        if ( lockStrategy->rlac == LS_WRITE_LOCK_HELD ) {
+            releaseLock = true;
+            TRACE(9, "ism_protocol_lockACList persisting read lock using lockStrategy");
+        }
+        else if ( lockStrategy->rlac == LS_READ_LOCK_HELD ) {
+            releaseLock = false;
+        }
+    }
+
+    if ( releaseLock == true ) {
+        if ( lockStrategy != NULL && lockStrategy->rlac != LS_DONT_PERSIST_LOCK ) {
+            lockStrategy->rlac = LS_NO_LOCK_HELD;
+        }
+        pthread_rwlock_unlock(&acl_lock);
+    }
+}
+
+
+/*
  * Find the ACL and create it if requested.
  */
-ism_acl_t * ism_protocol_findACL(const char * name, int create) {
+ism_acl_t * ism_protocol_findACL(const char * name, int create, ismMessageSelectionLockStrategy_t * lockStrategy) {
     int namelen;
     ism_acl_t * acl = NULL;
 
@@ -2064,57 +2134,63 @@ ism_acl_t * ism_protocol_findACL(const char * name, int create) {
     if (namelen == 2 && create != 9 && *name == '_' && (name[1]>='0' && name[1]<='9')) {
         acl = g_acl_array[name[1]-'0'];
         if (!acl && create) {
-            acl = ism_protocol_findACL(name, 9);
+            acl = ism_protocol_findACL(name, 9, lockStrategy);
             return acl;
         }
         if (acl)
             pthread_spin_lock(&acl->lock);
         return acl;
     }
-    if (create) {
-        pthread_rwlock_wrlock(&acl_lock);
-    } else {
-        pthread_rwlock_rdlock(&acl_lock);
-    }
+
     /*
      * If there is no ACL list, create it
      */
-    if (!acl_list) {
-        if (create) {
+    if (!acl_list && create ) {
+        ism_protocol_lockACLList(true,lockStrategy);
+        if (!acl_list) {
             acl_list = ism_common_createHashMap(1000, HASH_STRING);
             if (!acl_list)
                 ism_common_setError(ISMRC_AllocateError);
         }
+        ism_protocol_unlockACLList(lockStrategy);
     }
 
     /*
      * If the ACL list exists, look  up the ACL, and create it if requested
      */
     if (acl_list) {
+        ism_protocol_lockACLList(false,lockStrategy);
         acl = ism_common_getHashMapElement(acl_list, name, namelen);
-        if (!acl && create) {
-            acl = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,222),1, sizeof(ism_acl_t) + namelen + 1);
-            if (acl) {
-                acl->hash = ism_common_createHashMap(100, HASH_STRING);
-                if (!acl->hash) {
-                    ism_common_setError(ISMRC_AllocateError);
-                    ism_common_free(ism_memory_utils_misc,acl);
-                    acl = NULL;
-                } else {
-                    acl->name = (char *)(acl+1);
-                    strcpy(acl->name, name);
-                    pthread_spin_init(&acl->lock, 0);
-                }
-            }
-            ism_common_putHashMapElement(acl_list, name, namelen, acl, NULL);
-            if (create == 9 && namelen == 2 && *name == '_' && (name[1]>='0' && name[1]<='9')) {
-                g_acl_array[name[1]-'0'] = acl;
-            }
-        }
         if (acl)
             pthread_spin_lock(&acl->lock);
+        ism_protocol_unlockACLList(lockStrategy);
+
+        if (!acl && create) {
+            ism_protocol_lockACLList(true,lockStrategy);
+            acl = ism_common_getHashMapElement(acl_list, name, namelen);
+            if (!acl) {
+                acl = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,222),1, sizeof(ism_acl_t) + namelen + 1);
+                if (acl) {
+                    acl->hash = ism_common_createHashMap(100, HASH_STRING);
+                    if (!acl->hash) {
+                        ism_common_setError(ISMRC_AllocateError);
+                        ism_common_free(ism_memory_utils_misc,acl);
+                        acl = NULL;
+                    } else {
+                        acl->name = (char *)(acl+1);
+                        strcpy(acl->name, name);
+                        pthread_spin_init(&acl->lock, 0);
+                    }
+                }
+                ism_common_putHashMapElement(acl_list, name, namelen, acl, NULL);
+                if (create == 9 && namelen == 2 && *name == '_' && (name[1]>='0' && name[1]<='9')) {
+                    g_acl_array[name[1]-'0'] = acl;
+                }
+            }
+            pthread_spin_lock(&acl->lock);
+            ism_protocol_unlockACLList(lockStrategy);
+        }
     }
-    pthread_rwlock_unlock(&acl_lock);
     return acl;
 }
 
@@ -2145,7 +2221,7 @@ static int  in_hash(ism_field_t * var1, ism_field_t * var2, int op) {
     /*
      * Do a calculation on two varaibles.
      */
-    return ism_protocol_checkACL(var1->val.s, var2->val.s);
+    return ism_protocol_checkACL(var1->val.s, var2->val.s, NULL);
 }
 
 
@@ -2153,13 +2229,13 @@ static int  in_hash(ism_field_t * var1, ism_field_t * var2, int op) {
 /*
  * Do an ACL check within the filter
  */
-int checkACL(ism_field_t * f, const char * extra) {
+int checkACL(ism_field_t * f, const char * extra, ismMessageSelectionLockStrategy_t * lockStrategy) {
     if (f->type != VT_String) {
         f->type = VT_Null;
         f->val.s = NULL;
         return 1;
     } else {
-        int zrc = ism_protocol_checkACL(f->val.s, extra);
+        int zrc = ism_protocol_checkACL(f->val.s, extra, lockStrategy);
         if (zrc < 0) {
             f->type = VT_Null;
             f->val.s = NULL;
@@ -2226,7 +2302,7 @@ int ism_protocol_deleteACL(const char * name, ism_ACLcallback_f create_cb) {
 int ism_protocol_getACLcount(const char * name) {
     ism_acl_t * acl;
     int  ret = -1;
-    acl = ism_protocol_findACL(name, 0);
+    acl = ism_protocol_findACL(name, 0, NULL);
     if (acl) {
         ret = ism_common_getHashMapNumElements(acl->hash);
         ism_protocol_unlockACL(acl);
@@ -2440,7 +2516,7 @@ int ism_protocol_setACL(const char * aclsrc, int acllen, int opt, ism_ACLcallbac
                 ism_protocol_unlockACL(acl);
                 acl = NULL;
             }
-            acl = ism_protocol_findACL(ap+1, 1);
+            acl = ism_protocol_findACL(ap+1, 1, NULL);
             if (create_cb && ism_common_getHashMapNumElements(acl->hash) == 0) {
                 create_cb(acl);
             }
@@ -2456,7 +2532,7 @@ int ism_protocol_setACL(const char * aclsrc, int acllen, int opt, ism_ACLcallbac
                 ism_protocol_unlockACL(acl);
                 acl = NULL;
             }
-            acl = ism_protocol_findACL(ap+1, 1);
+            acl = ism_protocol_findACL(ap+1, 1, NULL);
             fixacl(acl, 0);
             fixneeded = 1;
             if (create_cb) {
@@ -2616,7 +2692,7 @@ static int printACL(ism_acl_t * acl) {
 int ism_protocol_getACLs(concat_alloc_t * buf, const char * aclname) {
     int rc = 0;
     ism_acl_t * acl;
-    acl = ism_protocol_findACL(aclname, 0);
+    acl = ism_protocol_findACL(aclname, 0, NULL);
     if (acl) {
         ismHashMapEntry * * items;
         ismHashMapEntry * * itemlist;
@@ -2703,6 +2779,21 @@ int ism_protocol_printACL(const char * name) {
     return 0;
 }
 
+int ism_common_tryReadLockACLList( void ) {
+    return pthread_rwlock_tryrdlock(&acl_lock);
+}
+
+int ism_common_tryWriteLockACLList( void ) {
+    return pthread_rwlock_trywrlock(&acl_lock);
+}
+
+/*
+ * Unlock the ACL list if a previous call
+ * has left it locked
+ */
+void ism_common_unlockACLList( void ) {
+    pthread_rwlock_unlock(&acl_lock);
+}
 
 /*
  * Initialize the mqtt optional fields

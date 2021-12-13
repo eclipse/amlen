@@ -388,7 +388,8 @@ bool asyncMessageCallback(
         ismMessageAreaType_t areaTypes[areaCount],
         size_t areaLengths[areaCount],
         void * pAreaData[areaCount],
-        void * pConsumerContext);
+        void * pConsumerContext,
+        ismEngine_DelivererContext_t * _delivererContext);
 
 void durableHQSubsCB(
         ismEngine_SubscriptionHandle_t subHandle,
@@ -785,7 +786,8 @@ bool asyncMessageCallback(
         ismMessageAreaType_t areaTypes[areaCount],
         size_t areaLengths[areaCount],
         void * pAreaData[areaCount],
-        void * pConsumerContext)
+        void * pConsumerContext,
+        ismEngine_DelivererContext_t * _delivererContext)
 {
     int32_t rc = OK;
     msgDetails_t *temp_msg = pAreaData[0];

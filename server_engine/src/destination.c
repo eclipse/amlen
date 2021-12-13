@@ -639,7 +639,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                  putOptions,
                                                  pTran,
                                                  pMessage,
-                                                 IEQ_MSGTYPE_INHERIT); // no usageCount increment
+                                                 IEQ_MSGTYPE_INHERIT,
+                                                 NULL); // no usageCount increment
 
                         if (msg_rc != OK)
                         {
@@ -665,6 +666,10 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                     iepiSelectionInfo_t *cachedDefaultSelectionInfo = NULL;
                     bool cacheThisSelectionResult;
                     int32_t cachedSubPolicySelectionResult = SELECT_TRUE;
+                    ismEngine_DelivererContext_t delivererContext;
+                    delivererContext.lockStrategy.rlac = LS_NO_LOCK_HELD;
+                    delivererContext.lockStrategy.lock_persisted_counter = 0;
+                    delivererContext.lockStrategy.lock_dropped_counter = 0;
 
                     while ((pSubscription = *(subscribers++)) != NULL)
                     {
@@ -769,7 +774,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                                                   , pMessage->pAreaData
                                                                                   , pTopicString
                                                                                   , selectionRule
-                                                                                  , selectionRuleLen );
+                                                                                  , selectionRuleLen
+                                                                                  , &delivererContext.lockStrategy );
 
                             if (cacheThisSelectionResult == true) cachedSubPolicySelectionResult = selResult;
 
@@ -786,7 +792,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                  putOptions,
                                                  pTran,
                                                  pMessage,
-                                                 IEQ_MSGTYPE_INHERIT); // no usageCount increment
+                                                 IEQ_MSGTYPE_INHERIT,
+                                                 &delivererContext ); // no usageCount increment
 
                         if (msg_rc != OK)
                         {
@@ -803,6 +810,18 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                             firstRecipientResourceSet = pSubscription->resourceSet;
                         }
                     }
+                    if ( delivererContext.lockStrategy.rlac == LS_READ_LOCK_HELD || delivererContext.lockStrategy.rlac == LS_WRITE_LOCK_HELD ) {
+                        ieutTRACEL(pThreadData, 0, ENGINE_PERFDIAG_TRACE,
+                            "RLAC Lock was held and has now been released, debug: %d,%d\n",
+                            delivererContext.lockStrategy.lock_persisted_counter,delivererContext.lockStrategy.lock_dropped_counter);
+                        ism_common_unlockACLList();
+                    } else {
+                        ieutTRACEL(pThreadData, 0, ENGINE_PERFDIAG_TRACE,
+                            "RLAC Lock was not held, debug: %d,%d\n",
+                            delivererContext.lockStrategy.lock_persisted_counter,delivererContext.lockStrategy.lock_dropped_counter);
+                    } 
+
+                    delivererContext.lockStrategy.rlac = LS_NO_LOCK_HELD;
                 }
 
                 subsSkipped = totalSkipped;
@@ -834,7 +853,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                  putOptions,
                                                  pTran,
                                                  pRemoteMsg,
-                                                 IEQ_MSGTYPE_INHERIT); // no usageCount increment
+                                                 IEQ_MSGTYPE_INHERIT,
+                                                 NULL ); // no usageCount increment
 
                         if (msg_rc != OK) totalRejected++;
                     }
@@ -849,7 +869,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                  putOptions,
                                                  pTran,
                                                  pRemoteMsg,
-                                                 IEQ_MSGTYPE_INHERIT); // no usageCount increment
+                                                 IEQ_MSGTYPE_INHERIT,
+                                                 NULL); // no usageCount increment
 
                         if (msg_rc != OK)
                         {
@@ -1226,7 +1247,8 @@ int32_t ieds_put(ieutThreadData_t *pThreadData,
                      ieqPutOptions_THREAD_LOCAL_MESSAGE,
                      pTran,
                      pMessage,
-                     IEQ_MSGTYPE_REFCOUNT);
+                     IEQ_MSGTYPE_REFCOUNT,
+                     NULL);
 
         // If this is a QoS0 message, ignore the failure but ensure that this message
         // contributes to the dropped message count.

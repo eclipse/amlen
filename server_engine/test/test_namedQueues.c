@@ -274,7 +274,8 @@ bool queueMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                            ismMessageAreaType_t            areaTypes[areaCount],
                            size_t                          areaLengths[areaCount],
                            void *                          pAreaData[areaCount],
-                           void *                          pContext)
+                           void *                          pContext,
+                           ismEngine_DelivererContext_t *  _delivererContext)
 {
     queueMessagesCbContext_t *context = *((queueMessagesCbContext_t **)pContext);
 

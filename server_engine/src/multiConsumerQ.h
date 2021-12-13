@@ -57,7 +57,8 @@ int32_t iemq_putMessage(ieutThreadData_t *pThreadData,
                         ieqPutOptions_t putOptions,
                         ismEngine_Transaction_t *pTran,
                         ismEngine_Message_t *pMessage,
-                        ieqMsgInputType_t inputMsgTreatment);
+                        ieqMsgInputType_t inputMsgTreatment,
+                        ismEngine_DelivererContext_t * unused);
 // Completes the rehydrate of a queue
 int32_t iemq_completeRehydrate( ieutThreadData_t *pThreadData,
                                 ismQHandle_t Qhdl );
@@ -149,7 +150,8 @@ int32_t iemq_checkAvailableMsgs(ismQHandle_t Qhdl, ismEngine_Consumer_t *pConsum
 // see whether there are available messages for a queue
 int32_t iemq_checkWaiters( ieutThreadData_t *pThreadData
                          , ismQHandle_t Qhdl
-                         , ismEngine_AsyncData_t *asyncInfo);
+                         , ismEngine_AsyncData_t *asyncInfo
+                         , ismEngine_DelivererContext_t *delivererContext);
 
 
 // Queue Debug

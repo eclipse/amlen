@@ -229,7 +229,7 @@ bool ism_rmsg_replyMessage(ismEngine_ConsumerHandle_t consumerh,
         uint32_t seqnum, ismMessageState_t state, uint32_t options,
         ismMessageHeader_t * hdr, uint8_t areas,
         ismMessageAreaType_t areatype[areas], size_t areasize[areas],
-        void * areaptr[areas], void * vaction) {
+        void * areaptr[areas], void * vaction, ismEngine_DelivererContext_t * unused) {
     uint32_t proplen = 0;
     uint32_t bodylen = 0;
     char * propp = NULL;

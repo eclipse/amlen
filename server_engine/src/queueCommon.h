@@ -226,8 +226,11 @@ typedef int32_t (*ieqCheckAvailableMsgs_t)(ismQHandle_t, ismEngine_Consumer_t *)
 ///  @param[in] ismEngine_Message_t - message to put
 ///  @param[in] ieqMsgInputType_t   - IEQ_MSGTYPE_REFCOUNT (re-use & increment refcount)
 ///                                   or IEQ_MSGTYPE_INHERIT (re-use)
+///  @param[in] delivererContext    - Context from the deliverer contains the lock strategy
+///                       allows locks to persist rather than being repeatedly released and retaken 
+///                       when putting messages onto the queue from within a loop
 ///  @return                        - OK on success or an ISMRC error code
-typedef int32_t (*ieqPut_t)(ieutThreadData_t *, ismQHandle_t, ieqPutOptions_t, ismEngine_Transaction_t *, ismEngine_Message_t *, ieqMsgInputType_t);
+typedef int32_t (*ieqPut_t)(ieutThreadData_t *, ismQHandle_t, ieqPutOptions_t, ismEngine_Transaction_t *, ismEngine_Message_t *, ieqMsgInputType_t, ismEngine_DelivererContext_t *);
 
 ///////////////////////////////////////////////////////////////////////////////
 ///  @brief
@@ -271,8 +274,12 @@ typedef int32_t (*ieqTermWaiter_t)(ieutThreadData_t *, ismQHandle_t, ismEngine_C
 ///    Type of the common checkWaiters function
 ///  @param[in] ieutThreadData_t * - Thread Data structure
 ///  @param[in] ismQHandle_t       - Queue
+///  @param[in] asyncData          - Some async data
+///  @param[in] delivererContext   - Context from the deliverer contains the lock strategy
+///                       allows locks to persist rather than being repeatedly released and retaken
+///                       when putting messages onto the queue from within a loop
 ///  @return                       - OK on success or an ISMRC error code
-typedef int32_t (*ieqCheckWaiters_t)(ieutThreadData_t *, ismQHandle_t, ismEngine_AsyncData_t *);
+typedef int32_t (*ieqCheckWaiters_t)(ieutThreadData_t *, ismQHandle_t, ismEngine_AsyncData_t * ,ismEngine_DelivererContext_t *);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -596,11 +603,11 @@ typedef struct ismEngine_Queue_t
 #define ieq_checkAvailableMsgs(qhdl, consumer) \
   ((ismEngine_Queue_t *)qhdl)->pInterface->checkAvailableMsgs(qhdl, consumer)
 ///Calls the correct checkWaiters function for the given queue
-#define ieq_checkWaiters(thrd,qhdl,asyncdata) \
-  ((ismEngine_Queue_t *)qhdl)->pInterface->checkWaiters(thrd, qhdl,asyncdata)
+#define ieq_checkWaiters(thrd,qhdl,asyncdata,delivererContext) \
+  ((ismEngine_Queue_t *)qhdl)->pInterface->checkWaiters(thrd, qhdl,asyncdata,delivererContext)
 /// Macro used to invoke the appropriate put function for the supplied Queue Handle
-#define ieq_put(thrd, qhdl, options, tran, msg, mtype) \
-  ((ismEngine_Queue_t *)qhdl)->pInterface->put(thrd, qhdl, options, tran, msg, mtype)
+#define ieq_put(thrd, qhdl, options, tran, msg, mtype, context) \
+  ((ismEngine_Queue_t *)qhdl)->pInterface->put(thrd, qhdl, options, tran, msg, mtype, context)
 /// Macro used to invoke the appropriate rehydrate function for the supplied Queue Handle
 #define ieq_rehydrateMsg(thrd, qhdl, msg, tran, hdl, ref) \
   ((ismEngine_Queue_t *)qhdl)->pInterface->rehydrateMsg(thrd, qhdl, msg, tran, hdl, ref)

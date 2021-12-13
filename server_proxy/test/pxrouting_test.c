@@ -218,7 +218,7 @@ void pxrouting_test_parseRouteRuleOnly(void){
 		int totalRun=1;
 		for (cindex=0; cindex < totalRun; cindex++){
 			ism_time_t beginTime = ism_common_currentTimeNanos();
-			selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, topic, routeRule->selector, 0);
+			selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, topic, routeRule->selector, 0, NULL);
 			ism_time_t endTime = ism_common_currentTimeNanos();
 			elapsed = (endTime-beginTime);
 			total+=elapsed;
@@ -284,7 +284,7 @@ void pxrouting_test_parseRouteRuleOnlyFalseSelection(void){
 		int totalRun=1;
 		for (cindex=0; cindex < totalRun; cindex++){
 			ism_time_t beginTime = ism_common_currentTimeNanos();
-			selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, topic, routeRule->selector, 0);
+			selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, topic, routeRule->selector, 0, NULL);
 			ism_time_t endTime = ism_common_currentTimeNanos();
 			elapsed = (endTime-beginTime);
 			total+=elapsed;

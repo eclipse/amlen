@@ -151,7 +151,8 @@ bool checkExpiryCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     test_SubscriptionData_t *pSubData = *(test_SubscriptionData_t **)pConsumerContext;
     uint32_t  expectedExpiry = pSubData->ConsumerExpectedExpiry;
@@ -184,7 +185,8 @@ bool claimExpiredCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     test_SubscriptionData_t *pSubData = *(test_SubscriptionData_t **)pConsumerContext;
 
@@ -217,7 +219,8 @@ bool neverCalledCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     //This callback should never fire
     TEST_ASSERT_EQUAL(1, 0);

@@ -66,7 +66,8 @@ bool ConsumerCallback( ismEngine_ConsumerHandle_t hConsumer
                      , ismMessageAreaType_t       areaTypes[areaCount]
                      , size_t                     areaLengths[areaCount]
                      , void *                     pAreaData[areaCount]
-                     , void *                     pConsumerContext);
+                     , void *                     pConsumerContext
+                     , ismEngine_DelivererContext_t * _delivererContext );
 
 /********************************************************************/
 /* Global data                                                      */
@@ -113,7 +114,8 @@ bool ConsumerCallback( ismEngine_ConsumerHandle_t hConsumer
                      , ismMessageAreaType_t       areaTypes[areaCount]
                      , size_t                     areaLengths[areaCount]
                      , void *                     pAreaData[areaCount]
-                     , void *                     pConsumerContext)
+                     , void *                     pConsumerContext
+                     , ismEngine_DelivererContext_t * _delivererContext )
 {
     ismEngine_SessionHandle_t hSession = (ismEngine_SessionHandle_t)pConsumerContext;
 

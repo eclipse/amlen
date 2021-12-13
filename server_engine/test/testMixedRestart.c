@@ -334,7 +334,8 @@ bool noAckCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     ism_engine_releaseMessage(hMessage);
     return true; //We'd like more messages
@@ -576,11 +577,12 @@ void createGenerations(uint32_t numGens)
 		TEST_ASSERT(rc == OK, ("%d != %d", rc, OK));
 
 		rc = ieq_put( pThreadData
-		        , hQueue
-				, ieqPutOptions_NONE
-				, NULL
-				, hBigMsg
-				, IEQ_MSGTYPE_INHERIT );
+                              , hQueue
+                              , ieqPutOptions_NONE
+                              , NULL
+                              , hBigMsg
+                              , IEQ_MSGTYPE_INHERIT
+                              , NULL );
 
 		//We're going to look at hBigMsg - in a real appliance it could have been got and freed
 		//by now but we know there is no consumer
@@ -677,7 +679,8 @@ bool messageArrivedCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     subsContext_t *ctxt = *((subsContext_t **)pConsumerContext);
 

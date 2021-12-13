@@ -115,7 +115,8 @@ bool test_markMessagesCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     testMarkMsgsContext_t *context = *(testMarkMsgsContext_t **)pConsumerContext;
     bool considerMsg = true;
@@ -224,7 +225,8 @@ static bool countMessagesCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     testGetMsgContext_t *context = *(testGetMsgContext_t **)pConsumerContext;
     bool doAck = false;

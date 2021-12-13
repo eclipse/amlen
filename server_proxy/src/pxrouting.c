@@ -898,7 +898,7 @@ static int messageRoutingInternal(ism_transport_t * transport, const char * buf,
 			areasize[0] = props.used;
 			areaptr[0] = props.buf;
 
-			selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, (const char*)topic, routeRule->selector, 0);
+			selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, (const char*)topic, routeRule->selector, 0, NULL);
 			TRACE(7, "ism_route_routeMessage: Selection topic=%s qos=%d selected=%d\n", topic, qos, selected );
 			if(selected==SELECT_TRUE){
 				rulesMatched++;
@@ -1216,7 +1216,7 @@ int ism_route_routeMessage(ism_transport_t * transport, const char * buf, int bu
 			ism_routing_route_t * route = g_internalKafkaRoute;
 
 			if(g_IMMessagingSelector != NULL){
-				selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, (const char*)topic, g_IMMessagingSelector, 0);
+				selected = ism_common_selectMessage(&hdr, 2, areatype, areasize, areaptr, (const char*)topic, g_IMMessagingSelector, 0, NULL);
 			}else{
 				selected = SELECT_TRUE;
 			}
