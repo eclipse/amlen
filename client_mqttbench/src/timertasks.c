@@ -313,8 +313,8 @@ int onTimerPingRequest (ism_timer_t clientPingKey, ism_time_t timestamp, void *u
 			ism_common_list_node *currTuple;
 			while ((currTuple = ism_common_list_iter_next(&iter)) != NULL) {
 				mqttclient_t *client = (mqttclient_t *) currTuple->data;
-				if (client->pingIntervalSecs == 0) {
-					continue; // skip clients which do not specify a ping interval 
+				if (client->pingIntervalSecs == 0 || client->protocolState != MQTT_PUBSUB) {
+					continue; // skip clients which do not specify a ping interval or they are not in PUB/SUB state (i.e. not completed MQTT handshake)
 				}
 
 				transport_t *trans = client->trans;

@@ -3862,7 +3862,7 @@ void submitPing (mqttclient_t *client)
 {
 	int rc = 0;
 	volatile ioProcThread_t *iop = client->trans->ioProcThread;
-
+	
 	/* Get a buffer from the TX buffer pool to send the PINGREQ message */
 	ism_byte_buffer_t *txBuf = iop->txBuffer;
 	if (txBuf == NULL) {
@@ -3874,11 +3874,18 @@ void submitPing (mqttclient_t *client)
 	/* Create the PING REQUEST message. */
 	createMQTTMessagePingReq(txBuf, (int)client->useWebSockets);
 	
+	if(client->traceEnabled || g_MBTraceLevel == 9) {
+		char obuf[256] = {0};
+		sprintf(obuf, "DEBUG: %10s client @ line=%d, ID=%s submitting an MQTT PINGREQ packet",
+						"PINGREQ:", client->line, client->clientID);
+		traceDataFunction(obuf, 0, __FILE__, __LINE__, txBuf->buf, txBuf->used, 512);
+	}
+
 	/* Submit the job to the IO Thread and check return code. */
 	rc = submitIOJob(client->trans, txBuf);
 	if (rc == 0) {
 		client->lastPingSubmitTime = g_ClkSrc == 0 ? ism_common_readTSC() : getCurrTime();
-		if (client->unackedPingReqs++)
+		if (client->unackedPingReqs++ == 0)
 			client->pingWindowStartTime = client->lastPingSubmitTime;
 		client->currTxMsgCounts[PINGREQ]++;   /* per client publish count */
 		__sync_add_and_fetch(&(iop->currTxMsgCounts[PINGREQ]),1);
