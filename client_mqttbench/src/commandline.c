@@ -376,7 +376,7 @@ void doDisplayClientDetail (mqttclient_t *client, int numThrdsPub)
     				client->tcpConnReqSubmitTime == 0 ? 0 : now - client->tcpConnReqSubmitTime,
     				client->mqttConnReqSubmitTime == 0 ? 0 : now - client->mqttConnReqSubmitTime,
 					client->mqttDisConnReqSubmitTime == 0 ? 0 : now - client->mqttDisConnReqSubmitTime,
-					client->pingWindowStartTime == 0 ? 0 : now - client->pingWindowStartTime);
+					client->lastPingSubmitTime == 0 ? 0 : now - client->lastPingSubmitTime);
 	fprintf(stdout, "MsgIDs: available=%d, inuse=%d\n",
 					client->maxInflightMsgs - (client->currInflightMessages),
 					client->currInflightMessages);

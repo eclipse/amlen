@@ -2,8 +2,8 @@
 
 WKSP=$(realpath ..)
 SRVSHIP=$WKSP/server_ship
-OPENSSLDIR=/usr/local/openssl-1.1.1g/openssl-1.1.1g
-ICUDIR=/usr/local/icu
+OPENSSLDIR=/usr/local/openssl
+ICUDIR=/usr/local/icu4c
 SHIPDIR=ship
 
 rm -rf $SHIPDIR

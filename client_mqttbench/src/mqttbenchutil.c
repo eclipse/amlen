@@ -852,6 +852,8 @@ void provideEnvInfo (int runDataType, int actionType, mqttbenchInfo_t *pMBInfo)
 	/* Display and log all the environment variables that are set. */
 	sprintf(infoLine, "\tSIPList                : %s", pSysEnvSet->strSIPList);
 	putDataLocation(dataDestination, infoLine);
+	sprintf(infoLine, "\tALPNList               : %s", pSysEnvSet->ALPNList);
+	putDataLocation(dataDestination, infoLine);
 	sprintf(infoLine, "\tSourcePortLo           : %d", pSysEnvSet->sourcePortLo);
 	putDataLocation(dataDestination, infoLine);
 

@@ -2905,7 +2905,11 @@ void scheduleReconnectCallback (void *dataIOP, void *dataTrans) {
 
 /* Callback function scheduled from the client ping timer task and invoked from ioProcessorThread */
 void schedulePingCallback (void *dataIOP, void *dataTrans) {
-	submitPing(((transport_t*) dataTrans)->client);
+	transport_t *trans = (transport_t*) dataTrans;
+	/* check if client is in a state that it can send a PINGREQ */
+	if (trans && (trans->state & (SOCK_ERROR | SOCK_DISCONNECTED | SHUTDOWN_IN_PROCESS)) == 0) {
+		submitPing(trans->client);
+	}
 }
 
 /* *************************************************************************************
