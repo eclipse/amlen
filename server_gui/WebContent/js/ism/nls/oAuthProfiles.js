@@ -23,6 +23,7 @@ define({
         tokenSendMethodTooltip: "Determine how the access token is transmitted to the OAuth server",
         tokenSendMethodURLParamOpt: "URL Parameter",
         tokenSendMethodHTTPHeaderOpt: "HTTP Header",
+        tokenSendMethodHTTPPostOpt: "HTTP Post",
         checkcertLabel: "Check Server Certificate",
         checkcertTooltip: "Specify how to check the OAuth2 server certificate.",
         checkcertTStoreOpt: "Use messaging server trust store",
