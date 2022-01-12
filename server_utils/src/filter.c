@@ -2030,7 +2030,7 @@ int ism_common_putExtensionValue(concat_alloc_t * buf, int which, uint64_t value
     return 0;
 }
 
-pthread_rwlock_t acl_lock = PTHREAD_RWLOCK_PREFER_WRITER_NP;
+pthread_rwlock_t acl_lock = PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP;
 
 ismHashMap * acl_list = NULL;
 
