@@ -29,6 +29,7 @@
 #define P_LEN 8192
 #include <dlfcn.h>
 #define CANEXECUTE 1
+#define CANREAD 4
 #define JVMDLLNAME "libjvm.so"
 
 #define JSON_OPTION_CLEARNULL 0x80
@@ -2233,18 +2234,18 @@ int ism_proxy_javainit(int step) {
 static int findjvm(char * jvmdll, int len, const char * jvmname) {
     if (!jvmname || !*jvmname) {
         snprintf(jvmdll, len, "%s/jre/lib/amd64/classic/%s", java_home, JVMDLLNAME);
-        if (!access(jvmdll, CANEXECUTE))
+        if (!access(jvmdll, CANREAD))
             return 0;
         snprintf(jvmdll, len, "%s/lib/amd64/classic/%s", java_home, JVMDLLNAME);
-        if (!access(jvmdll, CANEXECUTE))
+        if (!access(jvmdll, CANREAD))
             return 0;
         jvmname = "lib/amd64/server";
     }
     snprintf(jvmdll, len, "%s/jre/%s/%s", java_home, jvmname, JVMDLLNAME);
-    if (!access(jvmdll, CANEXECUTE))
+    if (!access(jvmdll, CANREAD))
         return 0;
     snprintf(jvmdll, len, "%s/%s/%s", java_home, jvmname, JVMDLLNAME);
-    if (!access(jvmdll, CANEXECUTE))
+    if (!access(jvmdll, CANREAD))
         return 0;
     TRACE(4, "JVM not found: %s\n", jvmdll);
     return -1;
