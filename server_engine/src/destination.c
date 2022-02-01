@@ -639,8 +639,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                  putOptions,
                                                  pTran,
                                                  pMessage,
-                                                 IEQ_MSGTYPE_INHERIT,
-                                                 NULL); // no usageCount increment
+                                                 IEQ_MSGTYPE_INHERIT, // no usageCount increment
+                                                 NULL);
 
                         if (msg_rc != OK)
                         {
@@ -792,8 +792,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                  putOptions,
                                                  pTran,
                                                  pMessage,
-                                                 IEQ_MSGTYPE_INHERIT,
-                                                 &delivererContext ); // no usageCount increment
+                                                 IEQ_MSGTYPE_INHERIT, // no usageCount increment
+                                                 &delivererContext );
 
                         if (msg_rc != OK)
                         {
@@ -853,8 +853,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                  putOptions,
                                                  pTran,
                                                  pRemoteMsg,
-                                                 IEQ_MSGTYPE_INHERIT,
-                                                 NULL ); // no usageCount increment
+                                                 IEQ_MSGTYPE_INHERIT, // no usageCount increment
+                                                 NULL );
 
                         if (msg_rc != OK) totalRejected++;
                     }
@@ -869,8 +869,8 @@ int32_t ieds_publish(ieutThreadData_t *pThreadData,
                                                  putOptions,
                                                  pTran,
                                                  pRemoteMsg,
-                                                 IEQ_MSGTYPE_INHERIT,
-                                                 NULL); // no usageCount increment
+                                                 IEQ_MSGTYPE_INHERIT, // no usageCount increment
+                                                 NULL);
 
                         if (msg_rc != OK)
                         {

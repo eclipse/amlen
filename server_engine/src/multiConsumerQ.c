@@ -1979,7 +1979,7 @@ mod_exit:
 
         // We don't care about any error encountered while attempting
         // to deliver a message to a waiter.
-        (void) iemq_checkWaiters(pThreadData, (ismQHandle_t) Q, NULL, NULL);
+        (void) iemq_checkWaiters(pThreadData, (ismQHandle_t) Q, NULL, delivererContext);
     }
 
 #if TRACETIMESTAMP_PUTMESSAGE

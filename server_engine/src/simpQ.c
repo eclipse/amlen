@@ -940,7 +940,7 @@ int32_t iesq_putMessage( ieutThreadData_t *pThreadData
     }
 
     //And try and deliver any messages
-    rc = iesq_checkWaiters(pThreadData, (ismQHandle_t)Q, NULL, NULL);
+    rc = iesq_checkWaiters(pThreadData, (ismQHandle_t)Q, NULL, delivererContext);
 
     //If we've hit maximum do a quick check for expired messages
     if (Q->bufferedMsgs >= pPolicyInfo->maxMessageCount)
@@ -2761,7 +2761,7 @@ static int32_t iesq_putToWaitingGetter( ieutThreadData_t *pThreadData
             // The only valid return codes from this function is OK
             // or ISMRC_NoAvailWaiter. If checkWaiters encounters a
             // problem we do not care.
-            (void) iesq_checkWaiters(pThreadData, (ismQHandle_t)q, NULL, NULL);
+            (void) iesq_checkWaiters(pThreadData, (ismQHandle_t)q, NULL, delivererContext);
         }
     }
     else

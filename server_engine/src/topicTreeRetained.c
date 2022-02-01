@@ -306,8 +306,8 @@ int32_t iett_putRetainedMessagesToSubscription(ieutThreadData_t *pThreadData,
                              ieqPutOptions_RETAINED,
                              pTran,
                              pMessage,
-                             IEQ_MSGTYPE_INHERIT,
-                             NULL ); // already incremented
+                             IEQ_MSGTYPE_INHERIT, // already incremented
+                             NULL );
 
                 // Release the remaining messages if there was an error
                 if (rc != OK)

@@ -1523,7 +1523,7 @@ mod_exit:
 
         // We don't care about any error encountered while attempting
         // to deliver a message to a waiter.
-        (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, NULL);
+        (void)ieiq_checkWaiters(pThreadData, (ismEngine_Queue_t *)Q, NULL, delivererContext);
     }
 
     ieutTRACEL(pThreadData, rc,  ENGINE_FNC_TRACE, FUNCTION_EXIT "rc=%d\n", __func__, rc);
@@ -6822,7 +6822,7 @@ int32_t ieiq_checkWaiters( ieutThreadData_t *pThreadData
                                         , &completeWaiterActions
                                         , &loopAgain
                                         , &storeOps
-                                        , NULL );
+                                        , delivererContext );
 
                     if (storeOps > 0)
                     {
