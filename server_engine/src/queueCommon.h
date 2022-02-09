@@ -229,6 +229,14 @@ typedef int32_t (*ieqCheckAvailableMsgs_t)(ismQHandle_t, ismEngine_Consumer_t *)
 ///  @param[in] delivererContext    - Context from the deliverer contains the lock strategy
 ///                       allows locks to persist rather than being repeatedly released and retaken 
 ///                       when putting messages onto the queue from within a loop
+///
+/// The delivererContext is not guarenteed to be passed all the way to delivery.
+/// It is to hold state for cases where multiple messages are processed as a
+/// batch in a loop where actions within the loop could cause performance
+/// problems if knowledge is not passed itterations of the loop.
+/// The context is not placed on the queue with the message and any asynchronous paths will
+/// not contain it.
+///
 ///  @return                        - OK on success or an ISMRC error code
 typedef int32_t (*ieqPut_t)(ieutThreadData_t *, ismQHandle_t, ieqPutOptions_t, ismEngine_Transaction_t *, ismEngine_Message_t *, ieqMsgInputType_t, ismEngine_DelivererContext_t *);
 

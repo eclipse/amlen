@@ -1020,6 +1020,11 @@ typedef void (*ismEngine_CompletionCallback_t)(
 /// to disable the consumer and must NOT have be called if the callback
 /// returns true
 ///
+/// The delivererContext is not guarenteed to be passed all the way to delivery. 
+/// It is to hold state for cases where multiple messages are processed as a 
+/// batch in a loop where actions within the loop could cause performance
+/// problems if knowledge is not passed itterations of the loop.
+///
 /// @remark The callback can call other Engine operations, bearing in mind
 /// that the stack must be allowed to unwind.
 //****************************************************************************
