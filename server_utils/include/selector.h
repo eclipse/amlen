@@ -169,7 +169,8 @@ XAPI int ism_common_selectMessage(
         void *                     areaptr[areas],
         const char *               topic,
         void *                     rule,
-        size_t                     rulelen);
+        size_t                     rulelen,
+        ismMessageSelectionLockStrategy_t * lockStrategy);
 
 /**
  * Compute the length of the match string.
@@ -211,7 +212,7 @@ typedef struct ism_acl_t {
  * @param  aclname The name of the ACL
  * @return 0=found, 1=not-found, -1=no-ACL
  */
-XAPI int ism_protocol_checkACL(const char * key, const char * aclname);
+XAPI int ism_protocol_checkACL(const char * key, const char * aclname, ismMessageSelectionLockStrategy_t * lockStrategy);
 
 /*
  * Find the ACL and create it if requested.
@@ -219,7 +220,7 @@ XAPI int ism_protocol_checkACL(const char * key, const char * aclname);
  * @param create If non-zero, create the ACL if it does not exist
  * @return The locked ACL or NULL
  */
-XAPI ism_acl_t * ism_protocol_findACL(const char * name, int create);
+XAPI ism_acl_t * ism_protocol_findACL(const char * name, int create, ismMessageSelectionLockStrategy_t * lockStrategy);
 
 /*
  * Complete the handling of an ACL
@@ -227,6 +228,8 @@ XAPI ism_acl_t * ism_protocol_findACL(const char * name, int create);
  * @param acl  The ACL
  */
 XAPI void ism_protocol_unlockACL(ism_acl_t * acl);
+
+XAPI void ism_common_unlockACLList( void ); 
 
 /*
  * Add an item to an ACL set.
@@ -310,7 +313,7 @@ XAPI int ism_protocol_getACL(concat_alloc_t * buf, ism_acl_t * acl);
  * @param extra    A field with additional data.  This is based on the name to generate
  */
 typedef int (* property_gen_t)(ism_prop_t * props, ism_emsg_t * emsg, const char * name,
-        ism_field_t * field, void * extra);
+        ism_field_t * field, void * extra, ismMessageSelectionLockStrategy_t * lockStrategy);
 
 /*
  * Do message selection.
@@ -323,7 +326,8 @@ typedef int (* property_gen_t)(ism_prop_t * props, ism_emsg_t * emsg, const char
  * @param emsg    Data for the properties generator
  *
  */
-XAPI int ism_common_filter(ismRule_t * rule, ism_prop_t * props, property_gen_t generator, ism_emsg_t * emsg);
+XAPI int ism_common_filter(ismRule_t * rule, ism_prop_t * props, property_gen_t generator, ism_emsg_t * emsg, ismMessageSelectionLockStrategy_t * lockStrategy);
+
 
 
 

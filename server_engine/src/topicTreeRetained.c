@@ -269,7 +269,8 @@ int32_t iett_putRetainedMessagesToSubscription(ieutThreadData_t *pThreadData,
                                                                pMessage->pAreaData,
                                                                NULL,
                                                                selectionRule,
-                                                               selectionRuleLen);
+                                                               selectionRuleLen,
+                                                               NULL);
             }
             else
             {
@@ -305,7 +306,8 @@ int32_t iett_putRetainedMessagesToSubscription(ieutThreadData_t *pThreadData,
                              ieqPutOptions_RETAINED,
                              pTran,
                              pMessage,
-                             IEQ_MSGTYPE_INHERIT); // already incremented
+                             IEQ_MSGTYPE_INHERIT, // already incremented
+                             NULL );
 
                 // Release the remaining messages if there was an error
                 if (rc != OK)
@@ -534,7 +536,8 @@ int32_t iett_putRetainedMessageToNewSubs(ieutThreadData_t *pThreadData,
                                                                        message->pAreaData,
                                                                        topicString,
                                                                        selectionRule,
-                                                                       selectionRuleLen );
+                                                                       selectionRuleLen,
+                                                                       NULL );
 
                         if (cacheThisSelectionResult == true) cachedSubPolicySelectionResult = selResult;
                     }
@@ -572,7 +575,8 @@ int32_t iett_putRetainedMessageToNewSubs(ieutThreadData_t *pThreadData,
                                                  ieqPutOptions_NONE,
                                                  NULL, // no transaction
                                                  message,
-                                                 IEQ_MSGTYPE_REFCOUNT);
+                                                 IEQ_MSGTYPE_REFCOUNT,
+                                                 NULL );
 
                         if (msg_rc != OK)
                         {
@@ -2662,7 +2666,8 @@ XAPI int32_t WARN_CHECKRC ism_engine_getRetainedMessage(
                                                   pMessage->AreaTypes,
                                                   pMessage->AreaLengths,
                                                   pMessage->pAreaData,
-                                                  pMessageContext);
+                                                  pMessageContext,
+                                                  NULL);
 
             if (keepRunning == false)
             {

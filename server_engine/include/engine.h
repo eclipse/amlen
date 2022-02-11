@@ -952,6 +952,15 @@ typedef void                            * ismEngine_QMgrXidRecordHandle_t;
 
 /**@}*/
 
+//*********************************************************************
+/// @brief DelivererContext
+///
+/// Context for when delivering messages onto a queue
+/// allows for lock optimizations
+//*********************************************************************
+typedef struct ismEngine_DelivererContext_t {
+    ismMessageSelectionLockStrategy_t lockStrategy;
+} ismEngine_DelivererContext_t;
 
 //****************************************************************************
 /** @name Callback functions
@@ -998,6 +1007,7 @@ typedef void (*ismEngine_CompletionCallback_t)(
 /// @param[in]     areaLengths[]    Array of area lengths - some may be 0
 /// @param[in]     pAreaData[]      Pointers to area data - some may be NULL
 /// @param[in]     pConsumerContext Consumer context
+/// @param[in]     delivererContext Context from the deliverer that allows lock optimizations
 ///
 /// @return The callback controls the delivery of further messages.
 /// If the callback returns true and message delivery has not been stopped
@@ -1009,6 +1019,11 @@ typedef void (*ismEngine_CompletionCallback_t)(
 /// ism_engine_suspendMessageDelivery must be in addition to returning false
 /// to disable the consumer and must NOT have be called if the callback
 /// returns true
+///
+/// The delivererContext is not guarenteed to be passed all the way to delivery. 
+/// It is to hold state for cases where multiple messages are processed as a 
+/// batch in a loop where actions within the loop could cause performance
+/// problems if knowledge is not passed itterations of the loop.
 ///
 /// @remark The callback can call other Engine operations, bearing in mind
 /// that the stack must be allowed to unwind.
@@ -1025,7 +1040,8 @@ typedef bool (*ismEngine_MessageCallback_t)(
     ismMessageAreaType_t            areaTypes[msgAreaCount],
     size_t                          areaLengths[msgAreaCount],
     void *                          pAreaData[msgAreaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  delivererContext);
 
 
 //****************************************************************************
@@ -1190,7 +1206,8 @@ typedef int32_t (*ismEngine_MessageSelectionCallback_t) (
     void *                          pAreaData[msgAreaCount],
     const char *                    pTopic,
     const void *                    pSelectorRule,
-    size_t                          selectorRuleLen);
+    size_t                          selectorRuleLen,
+    ismMessageSelectionLockStrategy_t * lockStrategy);
 
 
 //****************************************************************************

@@ -1492,7 +1492,8 @@ bool deliveryErrorsMsgArrivedCB(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     uint32_t *pMsgCount = *(uint32_t **)pConsumerContext;
     __sync_add_and_fetch(pMsgCount, 1);

@@ -358,7 +358,8 @@ static bool replyReceive (
         ismMessageAreaType_t       areatype[areas],
         size_t                     areasize[areas],
         void *                     areaptr[areas],
-        void *                     vaction);
+        void *                     vaction,
+        ismEngine_DelivererContext_t * _delivererContext);
 static void replyRollbackSession(int32_t rc, void * handle, void * vaction);
 static void replyUnsubscribeDurable(int32_t rc, void * handle, void * vaction);
 static void replyUpdateDurable(int32_t rc, void * handle, void * vaction);
@@ -758,8 +759,9 @@ int ism_protocol_selectMessage(
         void *                     areaptr[areas],
         const char *               topic,
         void *                     rule,
-        size_t                     rulelen) {
-    return ism_common_selectMessage(hdr, areas, areatype, areasize, areaptr, topic, rule, rulelen);
+        size_t                     rulelen,
+        ismMessageSelectionLockStrategy_t * lockStrategy) {
+    return ism_common_selectMessage(hdr, areas, areatype, areasize, areaptr, topic, rule, rulelen, lockStrategy);
 }
 
 

@@ -288,7 +288,8 @@ static void putMsgArray( ismQHandle_t hQueue
                     , ieqPutOptions_NONE
                     , pTran
                     , pMsgs[counter].pMessage
-                    , IEQ_MSGTYPE_REFCOUNT );
+                    , IEQ_MSGTYPE_REFCOUNT 
+                    , NULL );
         TEST_ASSERT_EQUAL(rc, OK);
 
         verbose(5, "Put message %d", counter);
@@ -384,7 +385,8 @@ static bool MessageCallback(ismEngine_ConsumerHandle_t  hConsumer,
                             ismMessageAreaType_t        areaTypes[areaCount],
                             size_t                      areaLengths[areaCount],
                             void *                      pAreaData[areaCount],
-                            void *                      pConsumerContext)
+                            void *                      pConsumerContext,
+                            ismEngine_DelivererContext_t * _delivererContext)
 {
     int32_t rc;
     tiqConsumerContext_t *pContext = *(tiqConsumerContext_t **)pConsumerContext;
@@ -603,7 +605,8 @@ static bool MessageCallback2(ismEngine_ConsumerHandle_t  hConsumer,
                              ismMessageAreaType_t        areaTypes[areaCount],
                              size_t                      areaLengths[areaCount],
                              void *                      pAreaData[areaCount],
-                             void *                      pConsumerContext)
+                             void *                      pConsumerContext,
+                             ismEngine_DelivererContext_t * _delivererContext)
 {
     int32_t rc;
     tiqConsumerContext_t *pContext = *(tiqConsumerContext_t **)pConsumerContext;
@@ -772,7 +775,8 @@ static void *putterThread( void *arg )
                     , ieqPutOptions_NONE
                     , NULL
                     , pMessage
-                    , IEQ_MSGTYPE_REFCOUNT );
+                    , IEQ_MSGTYPE_REFCOUNT
+                    , NULL );
         TEST_ASSERT(rc == OK, ("ieq_put returned %rc",rc));
 
 
@@ -979,7 +983,8 @@ static bool receiveCallback( ismEngine_ConsumerHandle_t  hConsumer
                            , ismMessageAreaType_t        areaTypes[areaCount]
                            , size_t                      areaLengths[areaCount]
                            , void *                      pAreaData[areaCount]
-                           , void *                      pConsumerContext)
+                           , void *                      pConsumerContext
+                           , ismEngine_DelivererContext_t * _delivererContext)
 {
     uint32_t rc;
     bool cont = true;
@@ -2755,7 +2760,8 @@ static void Queue2_BatchNack( ismQueueType_t type
                     , ieqPutOptions_NONE
                     , NULL
                     , msgArray[loop].pMessage
-                    , IEQ_MSGTYPE_REFCOUNT );
+                    , IEQ_MSGTYPE_REFCOUNT
+                    , NULL );
         TEST_ASSERT_EQUAL(rc, OK);
 
         verbose(5, "Put message %d", loop);
@@ -3099,7 +3105,8 @@ static void Queue2_BatchTranAck( ismQueueType_t type
                     , ieqPutOptions_NONE
                     , NULL
                     , msgArray[loop].pMessage
-                    , IEQ_MSGTYPE_REFCOUNT );
+                    , IEQ_MSGTYPE_REFCOUNT
+                    , NULL );
         TEST_ASSERT_EQUAL(rc, OK);
 
         verbose(5, "Put message %d", loop);
@@ -3257,7 +3264,8 @@ static bool RedeliverReopenCB(ismEngine_ConsumerHandle_t  hConsumer,
                               ismMessageAreaType_t        areaTypes[areaCount],
                               size_t                      areaLengths[areaCount],
                               void *                      pAreaData[areaCount],
-                              void *                      pConsumerContext)
+                              void *                      pConsumerContext,
+                              ismEngine_DelivererContext_t * _delivererContext )
 {
     tiqRedeliverContext_t *pContext = *(tiqRedeliverContext_t **)pConsumerContext;
 

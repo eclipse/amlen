@@ -40,7 +40,8 @@ bool ism_engine_deliverMessage(ieutThreadData_t *pThreadData,
                                ismEngine_Message_t *pMessage,
                                ismMessageHeader_t *pMsgHdr,
                                ismMessageState_t messageState,
-                               uint32_t deliveryId);
+                               uint32_t deliveryId,
+                               ismEngine_DelivererContext_t * delivererContext );
 
 // Callback from destination when delivery status changes, such as
 // an empty destination or disabling a waiter

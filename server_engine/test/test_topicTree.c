@@ -65,7 +65,8 @@ bool genericMessageCallback(ismEngine_ConsumerHandle_t hConsumer,
                             ismMessageAreaType_t areaTypes[areaCount],
                             size_t areaLengths[areaCount],
                             void *pAreaData[areaCount],
-                            void *pContext)
+                            void *pContext,
+                            ismEngine_DelivererContext_t * _delivererContext)
 {
     genericMsgCbContext_t *context = *((genericMsgCbContext_t **)pContext);
 
@@ -401,7 +402,8 @@ int32_t test_selectionCallback(ismMessageHeader_t * pMsgDetails,
                                void *               pareaData[areaCount],
                                const char *         topic,
                                const void *         pselectorRule,
-                               size_t               selectorRuleLen )
+                               size_t               selectorRuleLen,
+                               ismMessageSelectionLockStrategy_t * lockStrategy )
 {
     TEST_ASSERT_PTR_NOT_NULL(OriginalSelectionCallback);
 
@@ -433,7 +435,7 @@ int32_t test_selectionCallback(ismMessageHeader_t * pMsgDetails,
         }
     }
 
-    return OriginalSelectionCallback(pMsgDetails, areaCount, areaTypes, areaLengths, pareaData, topic, pselectorRule, selectorRuleLen);
+    return OriginalSelectionCallback(pMsgDetails, areaCount, areaTypes, areaLengths, pareaData, topic, pselectorRule, selectorRuleLen, lockStrategy);
 }
 
 /*********************************************************************/
@@ -2885,7 +2887,8 @@ bool nolocalMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                              ismMessageAreaType_t            areaTypes[areaCount],
                              size_t                          areaLengths[areaCount],
                              void *                          pAreaData[areaCount],
-                             void *                          pContext)
+                             void *                          pContext,
+                             ismEngine_DelivererContext_t *  _delivererContext)
 {
     nolocalMessagesCbContext_t *context = *((nolocalMessagesCbContext_t **)pContext);
 
@@ -4480,7 +4483,8 @@ bool maxMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                          ismMessageAreaType_t            areaTypes[areaCount],
                          size_t                          areaLengths[areaCount],
                          void *                          pAreaData[areaCount],
-                         void *                          pContext)
+                         void *                          pContext,
+                         ismEngine_DelivererContext_t *  _delivererContext)
 {
     maxMessagesCbContext_t *context = *((maxMessagesCbContext_t **)pContext);
 
@@ -5061,7 +5065,8 @@ bool NDSubsMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                             ismMessageAreaType_t            areaTypes[areaCount],
                             size_t                          areaLengths[areaCount],
                             void *                          pAreaData[areaCount],
-                            void *                          pContext)
+                            void *                          pContext,
+                            ismEngine_DelivererContext_t *  _delivererContext)
 {
     NDSubsMessagesCbContext_t *context = *((NDSubsMessagesCbContext_t **)pContext);
 

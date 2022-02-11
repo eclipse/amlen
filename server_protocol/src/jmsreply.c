@@ -1698,7 +1698,8 @@ static bool replyReceive (
         ismMessageAreaType_t       areatype[areas],
         size_t                     areasize[areas],
         void *                     areaptr[areas],
-        void *                     vaction) {
+        void *                     vaction,
+        ismEngine_DelivererContext_t * _delivererContext ) {
     ism_jms_prodcons_t * cons = vaction;
     ism_transport_t * transport = cons->transport;
     jmsProtoObj_t  * pobj = (jmsProtoObj_t*)transport->pobj;

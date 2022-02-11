@@ -134,7 +134,8 @@ bool asyncHQ2CarMessageCallback(
         ismMessageAreaType_t areaTypes[areaCount],
         size_t areaLengths[areaCount],
         void * pAreaData[areaCount],
-        void * pConsumerContext)
+        void * pConsumerContext,
+        ismEngine_DelivererContext_t * unused)
 {
     int32_t rc = OK;
     char *temp_msg = (char *)pAreaData[1];
@@ -477,7 +478,8 @@ bool asyncMessageCallback(
         ismMessageAreaType_t areaTypes[areaCount],
         size_t areaLengths[areaCount],
         void * pAreaData[areaCount],
-        void * pConsumerContext)
+        void * pConsumerContext,
+        ismEngine_DelivererContext_t * unused )
 {
     int32_t rc = OK;
     msgDetails_t *temp_msg = pAreaData[0];

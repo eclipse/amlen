@@ -63,7 +63,8 @@ static bool deliveryCallbackBeforeReconnect(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static bool deliveryCallbackAfterReconnect(
     ismEngine_ConsumerHandle_t      hConsumer,
@@ -77,7 +78,8 @@ static bool deliveryCallbackAfterReconnect(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static bool deliveryCallbackAfterRepeatedReconnect(
     ismEngine_ConsumerHandle_t      hConsumer,
@@ -91,7 +93,8 @@ static bool deliveryCallbackAfterRepeatedReconnect(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static void unreleasedCallback(
     uint32_t                        deliveryId,
@@ -857,7 +860,8 @@ static bool deliveryCallbackBeforeReconnect(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext )
 {
     bool moreMessagesPlease = true;
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
@@ -906,7 +910,8 @@ static bool deliveryCallbackAfterReconnect(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     bool moreMessagesPlease = true;
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
@@ -974,7 +979,8 @@ static bool deliveryCallbackAfterRepeatedReconnect(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     bool moreMessagesPlease = true;
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;

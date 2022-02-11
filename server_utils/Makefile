@@ -97,7 +97,7 @@ libismutil-FILES = execinfo.c      \
 CUNITFILES = testUtilCUnit.c testTLS.c testProtoex.c testTimerCUnit.c \
     testLoggingCUnit.c testLinkedListCUnit.c testHashMapCUnit.c testArrayCUnit.c testTracingCUnit.c \
     testTimeUtilsCUnit.c testUtilsOtherFuncsCUnit.c testGlobalCUnit.c testDelayCUnit.c testBufferPoolCUnit.c \
-    test_utils_file.c test_utils_log.c testUtilsMemHandlerCUnit.c testSASLScram.c
+    test_utils_file.c test_utils_log.c testUtilsMemHandlerCUnit.c testSASLScram.c testFilterCUnit.c
 
 LIB-TARGETS += $(LIBDIR)/libismutil$(SO)
 $(LIBDIR)/libismutil$(SO): $(call objects, $(libismutil-FILES))

@@ -408,7 +408,8 @@ bool checkDeliveryMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                                    ismMessageAreaType_t            areaTypes[areaCount],
                                    size_t                          areaLengths[areaCount],
                                    void *                          pAreaData[areaCount],
-                                   void *                          pContext)
+                                   void *                          pContext,
+                                   ismEngine_DelivererContext_t *  _delivererContext)
 {
     checkDeliveryMessagesCbContext_t *context = *((checkDeliveryMessagesCbContext_t **)pContext);
 
@@ -796,7 +797,8 @@ bool retainedMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                               ismMessageAreaType_t            areaTypes[areaCount],
                               size_t                          areaLengths[areaCount],
                               void *                          pAreaData[areaCount],
-                              void *                          pContext)
+                              void *                          pContext,
+                              ismEngine_DelivererContext_t *  _delivererContext )
 {
     retainedMessagesCbContext_t *context = *((retainedMessagesCbContext_t **)pContext);
 
@@ -1281,7 +1283,8 @@ bool republishMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                                ismMessageAreaType_t            areaTypes[areaCount],
                                size_t                          areaLengths[areaCount],
                                void *                          pAreaData[areaCount],
-                               void *                          pContext)
+                               void *                          pContext,
+                               ismEngine_DelivererContext_t *  _delivererContext)
 {
     republishMessagesCbContext_t *context = *((republishMessagesCbContext_t **)pContext);
 
@@ -1549,7 +1552,8 @@ bool retSelMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                             ismMessageAreaType_t            areaTypes[areaCount],
                             size_t                          areaLengths[areaCount],
                             void *                          pAreaData[areaCount],
-                            void *                          pContext)
+                            void *                          pContext,
+                            ismEngine_DelivererContext_t *  _delivererContext)
 {
     retSelMessagesCbContext_t *context = *((retSelMessagesCbContext_t **)pContext);
 
@@ -2494,7 +2498,8 @@ bool getRetainedMsgCB(ismEngine_ConsumerHandle_t      hConsumer,
                       ismMessageAreaType_t            areaTypes[areaCount],
                       size_t                          areaLengths[areaCount],
                       void *                          pAreaData[areaCount],
-                      void *                          pContext)
+                      void *                          pContext,
+                      ismEngine_DelivererContext_t *  _delivererContext)
 {
     getRetainedMsgCBContext_t *context = *(getRetainedMsgCBContext_t **)pContext;
 
@@ -4935,7 +4940,8 @@ bool latesubsMessagesCallback(ismEngine_ConsumerHandle_t      hConsumer,
                               ismMessageAreaType_t            areaTypes[areaCount],
                               size_t                          areaLengths[areaCount],
                               void *                          pAreaData[areaCount],
-                              void *                          pContext)
+                              void *                          pContext,
+                              ismEngine_DelivererContext_t *  _delivererContext)
 {
     latesubsMessagesCbContext_t *context = *((latesubsMessagesCbContext_t **)pContext);
 

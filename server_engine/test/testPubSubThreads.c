@@ -99,7 +99,8 @@ bool SubberGotMessageCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext);
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext);
 
 bool BgSubberGotMessageCallback(
         ismEngine_ConsumerHandle_t      hConsumer,
@@ -113,7 +114,8 @@ bool BgSubberGotMessageCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext);
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext);
 
 /*
  * Get the number of CPU threads available
@@ -1709,7 +1711,8 @@ bool SubberGotMessageCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     callbackContext *ctxt = *((callbackContext **)pConsumerContext);
 
@@ -1770,7 +1773,8 @@ bool BgSubberGotMessageCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     callbackContext *ctxt = *((callbackContext **)pConsumerContext);
 

@@ -528,7 +528,7 @@ static int ieq_scheduleCheckWaitersCB(ism_timer_t key, ism_time_t timestamp, voi
     ieutTRACEL(pThreadData, Q, ENGINE_CEI_TRACE, FUNCTION_IDENT "Q=%p\n"
                        , __func__, Q);
 
-    ieq_checkWaiters(pThreadData, Q, NULL);
+    ieq_checkWaiters(pThreadData, Q, NULL, NULL);
 
     //ReduceCount that CALLER of ieq_scheduleCheckWaiters increased
     ieq_reducePreDeleteCount(pThreadData, Q);

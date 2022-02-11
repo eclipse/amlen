@@ -361,7 +361,8 @@ bool reconcileCallback(ismEngine_ConsumerHandle_t hConsumer,
                       ismMessageAreaType_t areaTypes[areaCount],
                       size_t areaLengths[areaCount],
                       void * pAreaData[areaCount],
-                      void * pContext)
+                      void * pContext,
+                      ismEngine_DelivererContext_t * _delivererContext)
 {
     iot_reconcileCallbackContext_t *context = *(iot_reconcileCallbackContext_t **)pContext;
 

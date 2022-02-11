@@ -84,7 +84,8 @@ bool lateMessageDeliveryCallback(ismEngine_ConsumerHandle_t      hConsumer,
                                  ismMessageAreaType_t            areaTypes[areaCount],
                                  size_t                          areaLengths[areaCount],
                                  void *                          pAreaData[areaCount],
-                                 void *                          pContext)
+                                 void *                          pContext,
+                                 ismEngine_DelivererContext_t *  _delivererContext )
 {
     int64_t payLoadAreaNum = -1;
     bool wantMoreMsgs = true;
@@ -168,7 +169,8 @@ int32_t createLateMessage(void)
                     , ieqPutOptions_SET_ORDERID
                     , NULL
                     , hBigMsg
-                    , IEQ_MSGTYPE_INHERIT );
+                    , IEQ_MSGTYPE_INHERIT
+                    , NULL );
 
         //We're going to look at hBigMsg - in a real appliance it could have been got and freed
         //by now but we know there is no consumer
@@ -211,7 +213,8 @@ int32_t createLateMessage(void)
                 , ieqPutOptions_SET_ORDERID
                 , NULL
                 , hLateMsg
-                , IEQ_MSGTYPE_INHERIT );
+                , IEQ_MSGTYPE_INHERIT 
+                , NULL );
 
     //Now restart and verify we get the messages we expect
 
@@ -305,7 +308,8 @@ static bool PrepareLateCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext )
 {
     testPreparedLateGetCallbackContext_t **ppCallbackContext = (testPreparedLateGetCallbackContext_t **)pConsumerContext;
     testPreparedLateGetCallbackContext_t *pCallbackContext = *ppCallbackContext;
@@ -444,7 +448,8 @@ int32_t createPreparedLateGet(void)
                     , ieqPutOptions_NONE
                     , NULL
                     , hBigMsg
-                    , IEQ_MSGTYPE_INHERIT );
+                    , IEQ_MSGTYPE_INHERIT
+                    , NULL );
 
         //We're going to look at hBigMsg - in a real appliance it could have been got and freed
         //by now but we know there is no consumer
@@ -562,7 +567,8 @@ static bool CheckNotGotMsgCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext )
 {
     testPreparedLateGetCallbackContext_t **ppCallbackContext = (testPreparedLateGetCallbackContext_t **)pConsumerContext;
     testPreparedLateGetCallbackContext_t *pCallbackContext = *ppCallbackContext;

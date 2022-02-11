@@ -93,7 +93,8 @@ bool consumerCallback(ismEngine_ConsumerHandle_t      hConsumer,
                               ismMessageAreaType_t            areaTypes[areaCount],
                               size_t                          areaLengths[areaCount],
                               void *                          pAreaData[areaCount],
-                              void *                          pContext)
+                              void *                          pContext,
+                              ismEngine_DelivererContext_t *  _delivererContext )
 {
     consumerContext_t *context = *((consumerContext_t **)pContext);
     bool wantMoreMessages = true;

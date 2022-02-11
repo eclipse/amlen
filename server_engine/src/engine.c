@@ -2586,6 +2586,10 @@ XAPI int32_t WARN_CHECKRC ism_engine_startMessageDelivery(
     if (fEnableWaiters)
     {
         ismEngine_Consumer_t *pConsumer = NULL;
+        ismEngine_DelivererContext_t delivererContext;
+        delivererContext.lockStrategy.rlac = LS_NO_LOCK_HELD;
+        delivererContext.lockStrategy.lock_persisted_counter = 0;
+        delivererContext.lockStrategy.lock_dropped_counter = 0;
 
         while (rc == OK)
         {
@@ -2595,7 +2599,7 @@ XAPI int32_t WARN_CHECKRC ism_engine_startMessageDelivery(
 
             if ((rc == OK) && (pConsumer != NULL))
             {
-                ieq_checkWaiters(pThreadData, pConsumer->queueHandle, NULL);
+                ieq_checkWaiters(pThreadData, pConsumer->queueHandle, NULL, &delivererContext);
 
                 //Undo increase that happened in getNextConsumer as we've finished with it
                 releaseConsumerReference(pThreadData, pConsumer, false);
@@ -2611,6 +2615,16 @@ XAPI int32_t WARN_CHECKRC ism_engine_startMessageDelivery(
                 break;
             }
         }
+        if ( delivererContext.lockStrategy.rlac == LS_READ_LOCK_HELD || delivererContext.lockStrategy.rlac == LS_WRITE_LOCK_HELD ) {
+            ieutTRACEL(pThreadData, 0, ENGINE_PERFDIAG_TRACE,
+               "RLAC Lock was held and has now been released, debug: %d,%d\n",
+               delivererContext.lockStrategy.lock_persisted_counter,delivererContext.lockStrategy.lock_dropped_counter);
+            ism_common_unlockACLList();
+        } else {
+            ieutTRACEL(pThreadData, 0, ENGINE_PERFDIAG_TRACE,
+               "RLAC Lock was not held, debug: %d,%d\n",
+               delivererContext.lockStrategy.lock_persisted_counter,delivererContext.lockStrategy.lock_dropped_counter);
+        } 
     }
 
     ieutTRACEL(pThreadData, rc,  ENGINE_CEI_TRACE, FUNCTION_EXIT "rc=%d\n", __func__, rc);
@@ -2909,7 +2923,7 @@ XAPI int32_t WARN_CHECKRC ism_engine_resumeMessageDelivery(
 
     ism_engine_unlockSession(pSession);
 
-    ieq_checkWaiters(pThreadData, pConsumer->queueHandle, NULL);
+    ieq_checkWaiters(pThreadData, pConsumer->queueHandle, NULL, NULL);
     releaseConsumerReference(pThreadData, pConsumer, false);
 
 mod_exit:
@@ -6685,7 +6699,7 @@ XAPI int32_t WARN_CHECKRC ism_engine_createConsumer(
             {
                 //We don't need an extra use count on the consumer to protect this call to checkWaiters...
                 //we haven't finished creating it yet, no-one should be deleting it.
-                ieq_checkWaiters(pThreadData, pConsumer->queueHandle, NULL);
+                ieq_checkWaiters(pThreadData, pConsumer->queueHandle, NULL, NULL);
             }
         }
     }
@@ -6960,7 +6974,7 @@ XAPI int32_t WARN_CHECKRC ism_engine_createRemoteServerConsumer(
             {
                 //We don't need an extra use count on the consumer to protect this call to checkWaiters...
                 //we haven't finished creating it yet, no-one should be deleting it.
-                ieq_checkWaiters(pThreadData, pConsumer->queueHandle, NULL);
+                ieq_checkWaiters(pThreadData, pConsumer->queueHandle, NULL, NULL);
             }
         }
     }

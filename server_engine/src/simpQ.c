@@ -47,7 +47,8 @@
 static int32_t iesq_putToWaitingGetter( ieutThreadData_t *pThreadData
                                       , iesqQueue_t *q
                                       , ismEngine_Message_t *msg 
-                                      , uint8_t msgFlags );
+                                      , uint8_t msgFlags
+                                      , ismEngine_DelivererContext_t * delivererContext );
 static int32_t iesq_getMessage( ieutThreadData_t *pThreadData
                               , iesqQueue_t *Q
                               , ismEngine_Message_t **outmsg
@@ -673,7 +674,8 @@ int32_t iesq_putMessage( ieutThreadData_t *pThreadData
                        , ieqPutOptions_t putOptions
                        , ismEngine_Transaction_t *pTran
                        , ismEngine_Message_t *inmsg
-                       , ieqMsgInputType_t inputMsgTreatment)
+                       , ieqMsgInputType_t inputMsgTreatment
+                       , ismEngine_DelivererContext_t * delivererContext )
 {
     int32_t rc = 0;
     iesqQueue_t *Q = (iesqQueue_t *)Qhdl;
@@ -826,7 +828,7 @@ int32_t iesq_putMessage( ieutThreadData_t *pThreadData
     //and intermediateQ it is useful to be able to switch it off.
     if (Q->bufferedMsgs == 0)
     {
-        rc = iesq_putToWaitingGetter(pThreadData, Q, qmsg, msgFlags);
+        rc = iesq_putToWaitingGetter(pThreadData, Q, qmsg, msgFlags, delivererContext);
         if (rc == OK)
         {
             //We've given the message to someone..we're done
@@ -938,7 +940,7 @@ int32_t iesq_putMessage( ieutThreadData_t *pThreadData
     }
 
     //And try and deliver any messages
-    rc = iesq_checkWaiters(pThreadData, (ismQHandle_t)Q, NULL);
+    rc = iesq_checkWaiters(pThreadData, (ismQHandle_t)Q, NULL, delivererContext);
 
     //If we've hit maximum do a quick check for expired messages
     if (Q->bufferedMsgs >= pPolicyInfo->maxMessageCount)
@@ -993,7 +995,8 @@ int32_t iesq_importMessage( ieutThreadData_t *pThreadData
                                 , ieqPutOptions_NONE
                                 , NULL
                                 , pMessage
-                                , IEQ_MSGTYPE_INHERIT);
+                                , IEQ_MSGTYPE_INHERIT
+                                , NULL );
 
     return rc;
 }
@@ -1532,7 +1535,8 @@ void iesq_SLEReplayPut( ietrReplayPhase_t Phase
                                          , pSLE->putOptions
                                          , NULL
                                          , pSLE->pMsg
-                                         , IEQ_MSGTYPE_INHERIT ))
+                                         , IEQ_MSGTYPE_INHERIT 
+                                         , NULL ))
                 {
                     // If we failed, we need to decrement the message usage count which was
                     // incremented during the original put.
@@ -1767,7 +1771,7 @@ void iesq_dumpQ( ieutThreadData_t *pThreadData
                                               IEQ_COMPLETEWAITERACTION_OPT_NODELIVER,
                                               (previousState == IEWS_WAITERSTATUS_ENABLED));
                 }
-                (void)iesq_checkWaiters(pThreadData, Qhdl, NULL);
+                (void)iesq_checkWaiters(pThreadData, Qhdl, NULL, NULL);
             }
             else
             {
@@ -2480,7 +2484,8 @@ static int32_t iesq_getMessage( ieutThreadData_t *pThreadData
 ///////////////////////////////////////////////////////////////////////////////
 int32_t iesq_checkWaiters( ieutThreadData_t *pThreadData
                          , ismQHandle_t Qhdl
-                         , ismEngine_AsyncData_t *asyncInfo)
+                         , ismEngine_AsyncData_t *asyncInfo
+                         , ismEngine_DelivererContext_t * delivererContext)
 {
     int32_t rc = OK;
     bool loopAgain = true;
@@ -2543,7 +2548,8 @@ int32_t iesq_checkWaiters( ieutThreadData_t *pThreadData
                                     msg,
                                     &msgHdr,
                                     ismMESSAGE_STATE_CONSUMED,
-                                    0);
+                                    0,
+                                    delivererContext);
 
                 if (reenableWaiter)
                 {
@@ -2657,7 +2663,8 @@ static inline uint32_t iesq_choosePageSize( void )
 static int32_t iesq_putToWaitingGetter( ieutThreadData_t *pThreadData
                                       , iesqQueue_t *q
                                       , ismEngine_Message_t *msg
-                                      , uint8_t msgFlags )
+                                      , uint8_t msgFlags 
+                                      , ismEngine_DelivererContext_t * delivererContext)
 {
     int32_t rc = OK;
     bool deliveredMessage = false;
@@ -2695,7 +2702,8 @@ static int32_t iesq_putToWaitingGetter( ieutThreadData_t *pThreadData
                     , msg
                     , &msgHdr
                     , ismMESSAGE_STATE_CONSUMED
-                    , 0 );
+                    , 0
+                    , delivererContext );
 
             if (reenableWaiter)
             {
@@ -2753,7 +2761,7 @@ static int32_t iesq_putToWaitingGetter( ieutThreadData_t *pThreadData
             // The only valid return codes from this function is OK
             // or ISMRC_NoAvailWaiter. If checkWaiters encounters a
             // problem we do not care.
-            (void) iesq_checkWaiters(pThreadData, (ismQHandle_t)q, NULL);
+            (void) iesq_checkWaiters(pThreadData, (ismQHandle_t)q, NULL, delivererContext);
         }
     }
     else

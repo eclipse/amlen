@@ -47,7 +47,8 @@ extern int ism_protocol_selectMessage(
         void *                     areaptr[areas],
         const char *               topic,
         const void *               rule,
-        size_t                     rulelen);
+        size_t                     rulelen,
+        ismMessageSelectionLockStrategy_t * lockStrategy);
 
 static pthread_spinlock_t g_protocol_lock;
 

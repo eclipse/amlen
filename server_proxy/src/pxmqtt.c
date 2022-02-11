@@ -894,7 +894,7 @@ static int checkACL(ism_transport_t * transport, const char * mtopic) {
         key[dtlen] = '/';
         memcpy(key+dtlen+1, devid, idlen+1);
         aclKey = ism_proxy_getACLKey(transport);
-        aclfound = ism_protocol_checkACL(key, aclKey);
+        aclfound = ism_protocol_checkACL(key, aclKey, NULL);
     }
     if (aclfound == 1) {
         return ISMRC_NotAuthorized;
@@ -2090,7 +2090,7 @@ int checkSubs(const char * subs, int sublen, ism_transport_t * stransport, ism_t
             /* We might not yet have checked if we have ACLs */
             if (transport->has_acl == 2) {
                 const char * aclKey = ism_proxy_getACLKey(transport);
-                ism_acl_t * acl = ism_protocol_findACL(aclKey, 0);
+                ism_acl_t * acl = ism_protocol_findACL(aclKey, 0, NULL);
                 if (acl) {
                     ism_protocol_unlockACL(acl);
                     transport->has_acl = 1;
@@ -2708,7 +2708,7 @@ int ism_mqtt_receive(ism_transport_t * transport, char * inbuf, int buflen, int 
                 if (ctransport->has_acl) {
                     const char * aclKey = ism_proxy_getACLKey(ctransport);
                     TRACE(6, "Send ACL to the server connect=%u acl=%s\n", transport->index, aclKey);
-                    ism_acl_t * acl = ism_protocol_findACL(aclKey, 0);
+                    ism_acl_t * acl = ism_protocol_findACL(aclKey, 0, NULL);
                     if (acl) {
                         TRACE(8, "Add transport to ACL: connect=%u name=%s was=%p\n",
                                 transport->index, aclKey, acl->object);
@@ -3149,7 +3149,7 @@ static int sendACLs(ism_transport_t * transport) {
     xbuf[18] = EXIV_EndExtension;
     
     aclKey = ism_proxy_getACLKey(transport);
-    acl = ism_protocol_findACL(aclKey, 0);
+    acl = ism_protocol_findACL(aclKey, 0, NULL);
     if (acl) {
         ism_protocol_getACL(&buf, acl);
         ism_protocol_unlockACL(acl);
@@ -6012,7 +6012,7 @@ void ism_mqtt_doneConnection(ism_transport_t * transport) {
 	    /* Remove transport from ACL */
 		if(transport->has_acl){
 			const char * aclKey = ism_proxy_getACLKey(transport);;
-			ism_acl_t * acl = ism_protocol_findACL(aclKey, 0);
+			ism_acl_t * acl = ism_protocol_findACL(aclKey, 0, NULL);
 			if (acl) {
 				TRACE(8, "Remove connection from ACL: connect=%u client=%s rc=%u was=%p\n",
 						transport->index, aclKey, rc, acl->object);
@@ -7531,7 +7531,7 @@ int ism_mqtt_mpropSet(mqtt_prop_ctx_t * ctx, void * userdata, mqtt_prop_field_t 
 /*
  * Generate properties from the message
  */
-int ism_mqtt_propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, ism_field_t * f, void * extra) {
+int ism_mqtt_propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, ism_field_t * f, void * extra, ismMessageSelectionLockStrategy_t * lockStrategy) {
     if (emsg->otherprop_len > 0) {
         ism_common_checkMqttPropFields((char *)emsg->otherprops, emsg->otherprop_len, g_ctx5, 0xFFFF, ism_mqtt_mpropSet, xprops);
         emsg->otherprop_len = 0;

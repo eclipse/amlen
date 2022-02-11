@@ -215,7 +215,8 @@ static bool VerifyCallback(ismEngine_ConsumerHandle_t  hConsumer,
                            ismMessageAreaType_t        areaTypes[areaCount],
                            size_t                      areaLengths[areaCount],
                            void *                      pAreaData[areaCount],
-                           void *                      pConsumerContext)
+                           void *                      pConsumerContext,
+                           ismEngine_DelivererContext_t * _delivererContext)
 {
     VerifyContext_t *pContext = *(VerifyContext_t **)pConsumerContext;
 
@@ -395,7 +396,8 @@ static bool WorkerCallback(ismEngine_ConsumerHandle_t  hConsumer,
                            ismMessageAreaType_t        areaTypes[areaCount],
                            size_t                      areaLengths[areaCount],
                            void *                      pAreaData[areaCount],
-                           void *                      pConsumerContext)
+                           void *                      pConsumerContext,
+                           ismEngine_DelivererContext_t * _delivererContext)
 {
     uint32_t rc=0;
     int osrc;

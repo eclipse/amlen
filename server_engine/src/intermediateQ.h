@@ -53,7 +53,8 @@ int32_t ieiq_putMessage(ieutThreadData_t *pThreadData,
                         ieqPutOptions_t putOptions,
                         ismEngine_Transaction_t *pTran,
                         ismEngine_Message_t *pMessage,
-                        ieqMsgInputType_t inputMsgTreatment);
+                        ieqMsgInputType_t inputMsgTreatment,
+                        ismEngine_DelivererContext_t * unused);
 // Completes the rehydrate of a queue
 int32_t ieiq_completeRehydrate( ieutThreadData_t *pThreadData, ismQHandle_t Qhdl );
 // Puts a message on a queue during restart
@@ -121,7 +122,8 @@ void ieiq_dumpQ( ieutThreadData_t *pThreadData
 //Check whether any messages can be delivered
 int32_t ieiq_checkWaiters( ieutThreadData_t *pThreadData
                          , ismEngine_Queue_t *q
-                         , ismEngine_AsyncData_t *asyncInfo);
+                         , ismEngine_AsyncData_t * asyncInfo
+                         , ismEngine_DelivererContext_t *delivererContext);
 
 // Return definition store handle
 ismStore_Handle_t ieiq_getDefnHdl( ismQHandle_t Qhdl );

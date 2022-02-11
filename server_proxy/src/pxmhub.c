@@ -126,7 +126,7 @@ int ism_mhub_message_produce(ism_transport_t * transport, ism_mhub_t * mhub, mhu
         kafka_produce_msg_t * msgs, int * producedMsgsCount, int isResend);
 static kafka_produce_msg_t *  checkMHubEventBatch(ism_mhub_t * mhub, mhub_part_t * mhub_part, ism_time_t now, int closing) ;
 static int mhubPartitionProduceTimer(ism_timer_t timer, ism_time_t timestamp, void * userdata) ;
-int ism_mqtt_propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, ism_field_t * f, void * extra);
+int ism_mqtt_propgen(ism_prop_t * xprops, ism_emsg_t * emsg, const char * name, ism_field_t * f, void * extra, ismMessageSelectionLockStrategy_t * lockStrategy);
 static int needMHubBatch(ism_mhub_t * mhub, mhub_part_t * mhub_part, ism_time_t now);
 static int  mhubProduceJob(ism_transport_t * transport, void * param1, uint64_t param2);
 static int addMhub(ism_mhub_t * mhub);
@@ -1385,7 +1385,7 @@ int ism_mhub_selectMessages(ism_mhub_t * mhub, uint16_t * topicix, int count, co
                         emsg.topic = topic = alloca(strlen(pmsg->topic) + 1);
                         memcpy(topic, pmsg->topic, pmsg->topic_len);
                         topic[pmsg->topic_len] = 0;
-                        selected = ism_common_filter((ismRule_t *)(rp+3), mhub->props, ism_mqtt_propgen, &emsg) == SELECT_TRUE;
+                        selected = ism_common_filter((ismRule_t *)(rp+3), mhub->props, ism_mqtt_propgen, &emsg, NULL) == SELECT_TRUE;
                     }
                     rp += rulelen + 3;    /* Two byte rule len but no trailing null */
                     break;

@@ -286,7 +286,7 @@ static int sendACLs(ism_transport_t * transport) {
     xbuf[17] = 1;
     xbuf[18] = EXIV_EndExtension;
     aclKey = ism_proxy_getACLKey(transport);
-    acl = ism_protocol_findACL(aclKey, 0);
+    acl = ism_protocol_findACL(aclKey, 0, NULL);
     if (acl) {
         ism_protocol_getACL(&buf, acl);
         ism_protocol_unlockACL(acl);
@@ -379,7 +379,7 @@ int ism_hout_receive(ism_transport_t * transport, char * inbuf, int buflen, int 
                 if (ctransport && ctransport->has_acl) {
                 	const char * aclKey = ism_proxy_getACLKey(ctransport);
                     TRACE(6, "Send ACL to the server: %s\n", aclKey);
-                    ism_acl_t * acl = ism_protocol_findACL(aclKey, 0);
+                    ism_acl_t * acl = ism_protocol_findACL(aclKey, 0, NULL);
                     if (acl) {
                         TRACE(8, "Send ACL to server: connect=%u name=%s was=%p\n",
                                 transport->index, aclKey, acl->object);

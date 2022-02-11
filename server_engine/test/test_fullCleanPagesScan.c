@@ -50,7 +50,8 @@ static bool getMessagesCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     consumerContext_t *context = *(consumerContext_t **)pConsumerContext;
 

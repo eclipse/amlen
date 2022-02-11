@@ -67,7 +67,8 @@ static bool deliveryCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static bool deliveryCallbackStopOnLimit(
     ismEngine_ConsumerHandle_t      hConsumer,
@@ -81,7 +82,8 @@ static bool deliveryCallbackStopOnLimit(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static bool deliveryCallbackStopDelivery(
     ismEngine_ConsumerHandle_t      hConsumer,
@@ -95,7 +97,8 @@ static bool deliveryCallbackStopDelivery(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static bool deliveryCallbackDestroyConsumer(
     ismEngine_ConsumerHandle_t      hConsumer,
@@ -109,7 +112,8 @@ static bool deliveryCallbackDestroyConsumer(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static bool deliveryCallbackDestroySession(
     ismEngine_ConsumerHandle_t      hConsumer,
@@ -123,7 +127,8 @@ static bool deliveryCallbackDestroySession(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static bool deliveryCallbackDestroyClientState(
     ismEngine_ConsumerHandle_t      hConsumer,
@@ -137,7 +142,8 @@ static bool deliveryCallbackDestroyClientState(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 /*
  * Publish message with no subscriber
@@ -3635,7 +3641,8 @@ static bool deliveryCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     bool moreMessagesPlease = true;
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
@@ -3661,7 +3668,8 @@ static bool deliveryCallbackStopOnLimit(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
     callbackContext_t *pCallbackContext = *ppCallbackContext;
@@ -3691,7 +3699,8 @@ static bool deliveryCallbackStopDelivery(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
     callbackContext_t *pCallbackContext = *ppCallbackContext;
@@ -3719,7 +3728,8 @@ static bool deliveryCallbackDestroyConsumer(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
     callbackContext_t *pCallbackContext = *ppCallbackContext;
@@ -3747,7 +3757,8 @@ static bool deliveryCallbackDestroySession(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
     callbackContext_t *pCallbackContext = *ppCallbackContext;
@@ -3775,7 +3786,8 @@ static bool deliveryCallbackDestroyClientState(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
     callbackContext_t *pCallbackContext = *ppCallbackContext;

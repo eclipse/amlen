@@ -83,7 +83,8 @@ static bool deliveryCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext );
 
 
 /*
@@ -2062,7 +2063,8 @@ static bool deliveryCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext )
 {
     bool moreMessagesPlease = true;
     int32_t rc = ISMRC_OK;

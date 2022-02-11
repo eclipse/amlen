@@ -124,7 +124,8 @@ static bool deliveryCallbackStealClientState(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext);
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext);
 
 static void clientStateNoStealCallback(
     int32_t                         reason,
@@ -3773,7 +3774,8 @@ static bool deliveryCallbackStealClientState(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext )
 {
     callbackContext_t **ppCallbackContext = (callbackContext_t **)pConsumerContext;
     callbackContext_t *pCallbackContext = *ppCallbackContext;

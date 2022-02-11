@@ -399,7 +399,8 @@ static bool MsgFlowConsumerFunction(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     consumerContext_t *pContext = *(consumerContext_t **)pConsumerContext;
 
@@ -1306,7 +1307,8 @@ static bool DiscardRetainedConsumerFunction(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext )
 {
     discardRetainedTestConsumerContext_t *pConsContext = *(discardRetainedTestConsumerContext_t **)pConsumerContext;
 

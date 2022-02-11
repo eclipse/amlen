@@ -58,7 +58,8 @@ bool asyncMessageCallback(ismEngine_ConsumerHandle_t      hConsumer,
                           ismMessageAreaType_t            areaTypes[areaCount],
                           size_t                          areaLengths[areaCount],
                           void *                          pAreaData[areaCount],
-                          void *                          pConsumerContext);
+                          void *                          pConsumerContext,
+                          ismEngine_DelivererContext_t *  _delivererContext );
 
 
 int main(int argc, char *argv[])
@@ -254,7 +255,8 @@ bool asyncMessageCallback(
     ismMessageAreaType_t            areaTypes[areaCount],
     size_t                          areaLengths[areaCount],
     void *                          pAreaData[areaCount],
-    void *                          pConsumerContext)
+    void *                          pConsumerContext,
+    ismEngine_DelivererContext_t *  _delivererContext)
 {
     static int countIncomingMessage = 1;
     char *reportMsg = NULL;

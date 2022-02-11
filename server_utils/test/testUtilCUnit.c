@@ -61,6 +61,7 @@
 #include "testTLS.h"
 #include "testUtilsMemHandlerCUnit.h"
 #include "testSASLScram.h"
+#include "testFilterCUnit.h"
 extern CU_TestInfo ISM_Util_CUnit_Protoex[];
 void ism_common_initUtil2(int type);
 
@@ -145,8 +146,9 @@ CU_SuiteInfo ISM_Util_CUnit_test_basicsuites[] = {
     IMA_TEST_SUITE("DelaySuite", initDelayTests, cleanDelayTests,  (CU_TestInfo *)ISM_Throttle_CUnit_Delay),
     IMA_TEST_SUITE("TLSSuite", NULL, NULL, ISM_Util_CUnit_TLS),
     IMA_TEST_SUITE("Protocol Extension", NULL, NULL, ISM_Util_CUnit_Protoex),
-	IMA_TEST_SUITE("MemHandler", initMemHandlerSuite, cleanMemHandlerSuite, ISM_Util_CUnit_memHandler),
-	IMA_TEST_SUITE("SASLScram", initSASLScramSuite, cleanSASLScramSuite, ISM_Util_CUnit_SASLScram),
+    IMA_TEST_SUITE("MemHandler", initMemHandlerSuite, cleanMemHandlerSuite, ISM_Util_CUnit_memHandler),
+    IMA_TEST_SUITE("SASLScram", initSASLScramSuite, cleanSASLScramSuite, ISM_Util_CUnit_SASLScram),
+    IMA_TEST_SUITE("FilterSuite", initFilterCUnitSuite, cleanFilterCUnitSuite, ISM_Util_CUnit_Filter),
     CU_SUITE_INFO_NULL,
 };
 
@@ -168,8 +170,9 @@ CU_SuiteInfo ISM_Util_CUnit_test_allsuites[] = {
     IMA_TEST_SUITE("DelaySuite", initDelayTests, cleanDelayTests,  (CU_TestInfo *)ISM_Throttle_CUnit_Delay),
     IMA_TEST_SUITE("TLSSuite", NULL, NULL, ISM_Util_CUnit_TLS),
     IMA_TEST_SUITE("Protocol Extension", NULL, NULL, ISM_Util_CUnit_Protoex),
-	IMA_TEST_SUITE("MemHandler", initMemHandlerSuite, cleanMemHandlerSuite, ISM_Util_CUnit_memHandler),
-	IMA_TEST_SUITE("SASLScram", initSASLScramSuite, cleanSASLScramSuite, ISM_Util_CUnit_SASLScram),
+    IMA_TEST_SUITE("MemHandler", initMemHandlerSuite, cleanMemHandlerSuite, ISM_Util_CUnit_memHandler),
+    IMA_TEST_SUITE("SASLScram", initSASLScramSuite, cleanSASLScramSuite, ISM_Util_CUnit_SASLScram),
+    IMA_TEST_SUITE("FilterSuite", initFilterCUnitSuite, cleanFilterCUnitSuite, ISM_Util_CUnit_Filter),
     CU_SUITE_INFO_NULL,
 };
 

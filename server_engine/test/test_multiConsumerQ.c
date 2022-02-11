@@ -52,7 +52,8 @@ int32_t selectionWrapper( ismMessageHeader_t * pMsgDetails
                         , void *               pareaData[areaCount]
                         , const char *         topic
                         , const void *         pselectorRule
-                        , size_t               selectorRuleLen );
+                        , size_t               selectorRuleLen 
+                        , ismMessageSelectionLockStrategy_t * lockStrategy);
 
 ismEngine_MessageSelectionCallback_t OriginalSelection = NULL;
 
@@ -123,7 +124,8 @@ static bool commitOutOfOrderCB(ismEngine_ConsumerHandle_t  hConsumer,
                                ismMessageAreaType_t        areaTypes[areaCount],
                                size_t                      areaLengths[areaCount],
                                void *                      pAreaData[areaCount],
-                               void *                      pConsumerContext)
+                               void *                      pConsumerContext,
+                               ismEngine_DelivererContext_t * delivererContext )
 {
     ieutThreadData_t *pThreadData = ieut_getThreadData();
     uint32_t *pMessagesDelivered = *(uint32_t **)pConsumerContext;
@@ -284,7 +286,8 @@ static void CommitOutOfOrder( void )
                 , ieqPutOptions_THREAD_LOCAL_MESSAGE
                 , secondCommitTran
                 , hMessageMsg2
-                , IEQ_MSGTYPE_REFCOUNT );
+                , IEQ_MSGTYPE_REFCOUNT 
+                , NULL );
     TEST_ASSERT_EQUAL(rc, OK);
 
     ism_engine_releaseMessage(hMessageMsg2);
@@ -318,7 +321,8 @@ static void CommitOutOfOrder( void )
                 , ieqPutOptions_NONE
                 , firstCommitTran
                 , hMessageMsg1
-                , IEQ_MSGTYPE_REFCOUNT );
+                , IEQ_MSGTYPE_REFCOUNT 
+                , NULL );
     TEST_ASSERT_EQUAL(rc, OK);
     ism_engine_releaseMessage(hMessageMsg1);
 
@@ -380,7 +384,8 @@ static bool NackOnSessionCloseCB(ismEngine_ConsumerHandle_t  hConsumer,
                                  ismMessageAreaType_t        areaTypes[areaCount],
                                  size_t                      areaLengths[areaCount],
                                  void *                      pAreaData[areaCount],
-                                 void *                      pConsumerContext)
+                                 void *                      pConsumerContext,
+                                 ismEngine_DelivererContext_t * _delivererContext )
 {
     uint32_t *pMessagesDelivered = *(uint32_t **)pConsumerContext;
 
@@ -501,7 +506,8 @@ static void NackOnSessionClose( void )
                     , ieqPutOptions_NONE
                     , putTran
                     , hMessageMsg
-                    , IEQ_MSGTYPE_REFCOUNT );
+                    , IEQ_MSGTYPE_REFCOUNT
+                    , NULL );
         TEST_ASSERT_EQUAL(rc, OK);
 
         ism_engine_releaseMessage(hMessageMsg);
@@ -641,7 +647,8 @@ static bool DurableSubReconnectCB(ismEngine_ConsumerHandle_t  hConsumer,
                                  ismMessageAreaType_t        areaTypes[areaCount],
                                  size_t                      areaLengths[areaCount],
                                  void *                      pAreaData[areaCount],
-                                 void *                      pConsumerContext)
+                                 void *                      pConsumerContext,
+                                 ismEngine_DelivererContext_t * _delivererContext )
 {
     testMessage_t *msg =  pAreaData[1];
     test_log(3, "Message arrived publisher %u, msgNum: %u",msg->pubberNum, msg->msgNum);
@@ -873,7 +880,8 @@ bool receivedMsgCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     __sync_add_and_fetch(&receivedMsgs, 1);
 
@@ -1087,7 +1095,8 @@ bool MultiBrowseTestMsgCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     uint32_t *pMessagesDelivered = *(uint32_t **)pConsumerContext;
 
@@ -1373,7 +1382,8 @@ bool SelectionCallback( ismEngine_ConsumerHandle_t      hConsumer
                       , ismMessageAreaType_t            areaTypes[areaCount]
                       , size_t                          areaLengths[areaCount]
                       , void *                          pAreaData[areaCount]
-                      , void *                          pConsumerContext)
+                      , void *                          pConsumerContext
+                      , ismEngine_DelivererContext_t *  delivererContext)
 {
     int32_t rc;
     SelectionContext_t *pContext = *(SelectionContext_t **)pConsumerContext;
@@ -2388,7 +2398,8 @@ bool messageArrived( ismEngine_ConsumerHandle_t      hConsumer
         , ismMessageAreaType_t            areaTypes[areaCount]
         , size_t                          areaLengths[areaCount]
         , void *                          pAreaData[areaCount]
-        , void *                          pConsumerContext)
+        , void *                          pConsumerContext
+        , ismEngine_DelivererContext_t *  _delivererContext)
 {
 	dAPFConsumerContext_t *pContext = *(dAPFConsumerContext_t **)pConsumerContext;
     bool wantMoreMessages;
@@ -2574,7 +2585,8 @@ int32_t selectionWrapper( ismMessageHeader_t * pMsgDetails
                         , void *               pareaData[areaCount]
                         , const char *         topic
                         , const void *         pselectorRule
-                        , size_t               selectorRuleLen )
+                        , size_t               selectorRuleLen
+                        , ismMessageSelectionLockStrategy_t * lockStrategy )
 {
     int32_t rc;
 
@@ -2593,7 +2605,7 @@ int32_t selectionWrapper( ismMessageHeader_t * pMsgDetails
             return SELECT_TRUE;
     }
 
-    rc = OriginalSelection(pMsgDetails, areaCount, areaTypes, areaLengths, pareaData, topic, pselectorRule, selectorRuleLen);
+    rc = OriginalSelection(pMsgDetails, areaCount, areaTypes, areaLengths, pareaData, topic, pselectorRule, selectorRuleLen, lockStrategy);
 
     return rc;
 }
@@ -3285,7 +3297,8 @@ bool NoDeliveryCallback( ismEngine_ConsumerHandle_t      hConsumer
                        , ismMessageAreaType_t            areaTypes[areaCount]
                        , size_t                          areaLengths[areaCount]
                        , void *                          pAreaData[areaCount]
-                       , void *                          pConsumerContext)
+                       , void *                          pConsumerContext
+                       , ismEngine_DelivererContext_t *  _delivererContext)
 {
     int32_t rc;
     SelectionContext_t *pContext = *(SelectionContext_t **)pConsumerContext;
@@ -3810,7 +3823,8 @@ bool FullCleanPagesScanLockedCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     uint64_t *pMsgsConsumed = *(uint64_t **)pConsumerContext;
 
@@ -4044,7 +4058,8 @@ bool FullCleanPagesScanDlvrdCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     FullCleanPagesScanDlvdConsumer_t *pContext = *(FullCleanPagesScanDlvdConsumer_t **)pConsumerContext;
 
@@ -4268,7 +4283,8 @@ bool FullCleanPagesScanDiscardCallback(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     FullCleanPagesScanDlvdConsumer_t *pContext = *(FullCleanPagesScanDlvdConsumer_t **)pConsumerContext;
     bool wantMoreMesssages = true;

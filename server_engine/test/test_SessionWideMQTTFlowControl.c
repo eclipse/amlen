@@ -144,7 +144,8 @@ bool ConsumeDelayAck(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext)
 {
     receiveMsgContext_t *context = *(receiveMsgContext_t **)pConsumerContext;
 

@@ -85,7 +85,8 @@ bool ConsumerCallback( ismEngine_ConsumerHandle_t hConsumer
                      , ismMessageAreaType_t       areaTypes[areaCount]
                      , size_t                     areaLengths[areaCount]
                      , void *                     pAreaData[areaCount]
-                     , void *                     pConsumerContext);
+                     , void *                     pConsumerContext
+                     , ismEngine_DelivererContext_t * _delivererContext );
 
 void backgroundProducer(void *context);
 
@@ -439,7 +440,8 @@ bool ConsumerCallback( ismEngine_ConsumerHandle_t hConsumer
                      , ismMessageAreaType_t       areaTypes[areaCount]
                      , size_t                     areaLengths[areaCount]
                      , void *                     pAreaData[areaCount]
-                     , void *                     pConsumerContext)
+                     , void *                     pConsumerContext
+                     , ismEngine_DelivererContext_t * _delivererContext)
 {
     uint32_t rc;
     uint32_t i;

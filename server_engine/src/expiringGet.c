@@ -425,7 +425,8 @@ static bool iegiMessageArrived(
         ismMessageAreaType_t            areaTypes[areaCount],
         size_t                          areaLengths[areaCount],
         void *                          pAreaData[areaCount],
-        void *                          pConsumerContext)
+        void *                          pConsumerContext,
+        ismEngine_DelivererContext_t *  _delivererContext )
 {
     ieutThreadData_t *pThreadData = ieut_enteringEngine(hConsumer->pSession->pClient);
     ieutTRACEL(pThreadData, hConsumer,  ENGINE_FNC_TRACE, FUNCTION_ENTRY "(hCons %p)\n", __func__,hConsumer);
@@ -445,7 +446,8 @@ static bool iegiMessageArrived(
                                          , areaTypes
                                          , areaLengths
                                          , pAreaData
-                                         , expGetInfo->pMessageContext);
+                                         , expGetInfo->pMessageContext
+                                         , NULL );
 
     assert(!wantMoreMessages); //We could extend this to allow multiple messages and pass this back and only do following code when
                                //we know (somehow) that we want no more...
