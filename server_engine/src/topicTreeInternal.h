@@ -632,7 +632,8 @@ void iett_SLEReplayUpdateRetained(ietrReplayPhase_t        Phase,
                                   ieutThreadData_t        *pThreadData,
                                   ismEngine_Transaction_t *pTran,
                                   void                    *entry,
-                                  ietrReplayRecord_t      *pRecord);
+                                  ietrReplayRecord_t      *pRecord,
+                                  ismEngine_DelivererContext_t *delivererContext);
 
 //****************************************************************************
 /// @brief  Replay an AddSubscription (iettSLEAddSubscription_t) soft log entry
@@ -646,7 +647,8 @@ void iett_SLEReplayAddSubscription(ietrReplayPhase_t        Phase,
                                    ieutThreadData_t        *pThreadData,
                                    ismEngine_Transaction_t *pTran,
                                    void                    *entry,
-                                   ietrReplayRecord_t      *pRecord);
+                                   ietrReplayRecord_t      *pRecord,
+                                   ismEngine_DelivererContext_t *delivererContext);
 
 //****************************************************************************
 /// @brief  Replay an old Store Subscription Definition (iettSLEOldStoreSubscDefn_t)
@@ -661,7 +663,8 @@ void iett_SLEReplayOldStoreSubscDefn(ietrReplayPhase_t        Phase,
                                      ieutThreadData_t        *pThreadData,
                                      ismEngine_Transaction_t *pTran,
                                      void                    *entry,
-                                     ietrReplayRecord_t      *pRecord);
+                                     ietrReplayRecord_t      *pRecord,
+                                     ismEngine_DelivererContext_t * delivererContext);
 
 //****************************************************************************
 /// @brief  Replay an old Store Subscription Properties (iettSLEOldStoreSubscProps_t)
@@ -676,7 +679,8 @@ void iett_SLEReplayOldStoreSubscProps(ietrReplayPhase_t        Phase,
                                       ieutThreadData_t        *pThreadData,
                                       ismEngine_Transaction_t *pTran,
                                       void                    *entry,
-                                      ietrReplayRecord_t      *pRecord);
+                                      ietrReplayRecord_t      *pRecord,
+                                      ismEngine_DelivererContext_t * delivererContext);
 
 //****************************************************************************
 /// @brief  Add an iettSLEUpdateRetained_t to the inflight chain for the

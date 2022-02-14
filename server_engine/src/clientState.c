@@ -42,13 +42,15 @@ void iecs_SLEReplayAddUnrelMsg(ietrReplayPhase_t phase,
                                ieutThreadData_t *pThreadData,
                                ismEngine_Transaction_t *pTran,
                                void *pEntry,
-                               ietrReplayRecord_t *pRecord);
+                               ietrReplayRecord_t *pRecord,
+                               ismEngine_DelivererContext_t *delivererContext);
 
 void iecs_SLEReplayRmvUnrelMsg(ietrReplayPhase_t phase,
                                ieutThreadData_t *pThreadData,
                                ismEngine_Transaction_t *pTran,
                                void *pEntry,
-                               ietrReplayRecord_t *pRecord);
+                               ietrReplayRecord_t *pRecord,
+                               ismEngine_DelivererContext_t * delivererContext);
 
 /*
  * Calculate a hash value for a key string.
@@ -4588,7 +4590,8 @@ void iecs_SLEReplayAddUnrelMsg(ietrReplayPhase_t phase,
                                ieutThreadData_t *pThreadData,
                                ismEngine_Transaction_t *pTran,
                                void *pEntry,
-                               ietrReplayRecord_t *pRecord)
+                               ietrReplayRecord_t *pRecord,
+                               ismEngine_DelivererContext_t *delivererContext)
 {
     iestSLEAddUMS_t *pSLEAdd = (iestSLEAddUMS_t *)pEntry;
     ismEngine_ClientState_t *pClient = pSLEAdd->pClient;
@@ -4655,7 +4658,8 @@ void iecs_SLEReplayRmvUnrelMsg(ietrReplayPhase_t phase,
                                ieutThreadData_t *pThreadData,
                                ismEngine_Transaction_t *pTran,
                                void *pEntry,
-                               ietrReplayRecord_t *pRecord)
+                               ietrReplayRecord_t *pRecord,
+                               ismEngine_DelivererContext_t * t)
 {
     iestSLERemoveUMS_t *pSLERmv = (iestSLERemoveUMS_t *)pEntry;
     ismEngine_ClientState_t *pClient = pSLERmv->pClient;

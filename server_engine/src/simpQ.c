@@ -67,7 +67,8 @@ void iesq_SLEReplayPut( ietrReplayPhase_t Phase
                       , ieutThreadData_t *pThreadData
                       , ismEngine_Transaction_t *pTran
                       , void *pEntry
-                      , ietrReplayRecord_t *pRecord );
+                      , ietrReplayRecord_t *pRecord
+                      , ismEngine_DelivererContext_t * delivererContext );
 
 static inline void iesq_fullExpiryScan( ieutThreadData_t *pThreadData
                                       , iesqQueue_t *Q
@@ -1516,7 +1517,8 @@ void iesq_SLEReplayPut( ietrReplayPhase_t Phase
                       , ieutThreadData_t *pThreadData
                       , ismEngine_Transaction_t *pTran
                       , void *pEntry 
-                      , ietrReplayRecord_t *pRecord )
+                      , ietrReplayRecord_t *pRecord
+                      , ismEngine_DelivererContext_t * delivererContext  )
 {
     iesqSLEPut_t *pSLE = (iesqSLEPut_t *)pEntry;
 
@@ -1536,7 +1538,7 @@ void iesq_SLEReplayPut( ietrReplayPhase_t Phase
                                          , NULL
                                          , pSLE->pMsg
                                          , IEQ_MSGTYPE_INHERIT 
-                                         , NULL ))
+                                         , delivererContext ))
                 {
                     // If we failed, we need to decrement the message usage count which was
                     // incremented during the original put.

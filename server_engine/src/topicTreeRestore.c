@@ -333,7 +333,8 @@ void iett_SLEReplayUpdateRetained(ietrReplayPhase_t        Phase,
                                   ieutThreadData_t        *pThreadData,
                                   ismEngine_Transaction_t *pTran,
                                   void                    *entry,
-                                  ietrReplayRecord_t      *pRecord)
+                                  ietrReplayRecord_t      *pRecord,
+                                  ismEngine_DelivererContext_t *delivererContext)
 {
     int32_t rc;
 
@@ -837,7 +838,8 @@ void iett_SLEReplayAddSubscription(ietrReplayPhase_t        Phase,
                                    ieutThreadData_t        *pThreadData,
                                    ismEngine_Transaction_t *pTran,
                                    void                    *entry,
-                                   ietrReplayRecord_t      *pRecord)
+                                   ietrReplayRecord_t      *pRecord,
+                                   ismEngine_DelivererContext_t *delivererContext)
 {
     iettSLEAddSubscription_t *pSLE = entry;
 
@@ -888,7 +890,8 @@ void iett_SLEReplayOldStoreSubscDefn(ietrReplayPhase_t        Phase,
                                      ieutThreadData_t        *pThreadData,
                                      ismEngine_Transaction_t *pTran,
                                      void                    *entry,
-                                     ietrReplayRecord_t      *pRecord)
+                                     ietrReplayRecord_t      *pRecord,
+                                     ismEngine_DelivererContext_t * delivererContext)
 {
     iettSLEOldStoreSubscDefn_t *pSLE = entry;
 
@@ -920,7 +923,8 @@ void iett_SLEReplayOldStoreSubscProps(ietrReplayPhase_t        Phase,
                                       ieutThreadData_t        *pThreadData,
                                       ismEngine_Transaction_t *pTran,
                                       void                    *entry,
-                                      ietrReplayRecord_t      *pRecord)
+                                      ietrReplayRecord_t      *pRecord,
+                                      ismEngine_DelivererContext_t * delivererContext)
 {
     iettSLEOldStoreSubscProps_t *pSLE = entry;
 
@@ -948,7 +952,8 @@ void iett_SLEReplayReleaseNodes(ietrReplayPhase_t        Phase,
                                 ieutThreadData_t        *pThreadData,
                                 ismEngine_Transaction_t *pTran,
                                 void                    *entry,
-                                ietrReplayRecord_t      *pRecord)
+                                ietrReplayRecord_t      *pRecord,
+                                ismEngine_DelivererContext_t *delivererContext)
 {
     iettSLEReleaseNodes_t *pSLE = entry;
 

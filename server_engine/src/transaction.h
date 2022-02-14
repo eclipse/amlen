@@ -112,7 +112,8 @@ typedef void (*ietrSLESyncReplay_t)( ietrReplayPhase_t
                                    , ieutThreadData_t *
                                    , ismEngine_Transaction_t *
                                    , void *
-                                   , ietrReplayRecord_t *);
+                                   , ietrReplayRecord_t *
+                                   , ismEngine_DelivererContext_t * delivererContext );
 
 //An SLE Replay Function that might go async
 typedef int32_t (*ietrSLEAsyncReplay_t)( ietrReplayPhase_t
@@ -121,7 +122,8 @@ typedef int32_t (*ietrSLEAsyncReplay_t)( ietrReplayPhase_t
                                        , void *
                                        , ietrReplayRecord_t *
                                        , ismEngine_AsyncData_t *
-                                       , ietrAsyncTransactionData_t *);
+                                       , ietrAsyncTransactionData_t *
+                                       , ismEngine_DelivererContext_t * delivererContext );
 
 typedef union tag_ietrSLEReplay_t
 {
