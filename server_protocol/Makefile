@@ -62,6 +62,13 @@ libismprotocol-LIBS = libismutil$(SO)      \
                       libismstore$(SO)     \
                       libismmonitoring$(SO)
 
+ifneq (,$(wildcard $(ROOTREL)/server_protocol_ext/src))
+     CFLAGS += -DPROTOCOL_EXTRA_SRC
+     IFLAGS += -I$(ROOTREL)/server_protocol_ext/src
+     $(eval $(call add-search-directory,.c,$(ROOTREL)/server_protocol_ext/src))
+     libismprotocol-FILES += protocol_extra.c
+endif
+
 LIB-TARGETS += $(LIBDIR)/libismprotocol$(SO)
 $(LIBDIR)/libismprotocol$(SO): $(call objects, $(libismprotocol-FILES)) | \
                                $(call libs, $(libismprotocol-LIBS))

@@ -5161,6 +5161,11 @@ static int findExistingSubscription(subjob_t * job) {
              */
             consumer->subID = job->subid;     /* Update subid */
             consumer->flags = job->qos[job->which]&0xFC;   /* Zero out CONFLAG_UseFilter and CONFLAG_RerunFilter */
+
+#ifdef MQTT_NONSTANDARD_RETAIN
+            protocol_ext_resendRetained_setopts(consumer, transport->name);
+#endif
+
             if (((consumer->flags&MSUBOPT_RetainHandling)>>4) == MSUBOPT_SendRetained && !pobj->mqtt_bridge) {
                 TRACE(7, "Subscription already exists so send retained messages: topic=%s connect=%u client=%s qos=%d flags=%x subopt=%x subid=%d\n",
                         job->topic[job->which], transport->index, transport->name, consumer->qos, consumer->flags, subopt, consumer->subID);
