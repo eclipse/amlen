@@ -923,7 +923,7 @@ MessagingJSON = (function (global) {
 		 * 
 		 * @name MessagingJSON.Client#getTraceLog
 		 * @function
-		 * @return {Object[]} tracebuffer containing the time ordered trace records.
+		 * @return {Array} tracebuffer containing the time ordered trace records.
 		 */
 		this.getTraceLog = function () {
 			return client.getTraceLog();

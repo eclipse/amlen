@@ -14,6 +14,8 @@
 #define TRACE_COMP Admin
 
 #include <janssonConfig.h>
+#include <stdbool.h>
+
 #include "crlprofile.h"
 #include "validateInternal.h"
 
@@ -35,7 +37,7 @@ static int validateAlNum(char *input) {
     for(i=0; i<slen; ) {
         UChar32 c;
         U8_NEXT(input, i, slen, c);
-        if (u_isalnum(c) != TRUE)  {
+        if (u_isalnum(c) != true)  {
             TRACE(9, "u_isalnum failed on character \"%d\". i=%d\n", c, i);
             return 0;
         }

@@ -20,6 +20,10 @@
 #include <ismjson.h>
 #include <stdbool.h>
 
+#ifdef PROTOCOL_EXTRA_SRC
+#include <protocol_extra.h>
+#endif
+
 /*
  * MQTTv3 commands
  */
