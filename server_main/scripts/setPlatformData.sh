@@ -13,7 +13,7 @@
 
 PLATFORM_TYPE=0
 
-PLATFORM_DATA=${IMA_SVR_INSTALL_PATH}/config/platform.dat
+PLATFORM_DATA=${IMA_SVR_DATA_PATH}/data/config/platform.dat
 export PLATFORM_DATA
 
 # If dat file is already created before, get PLATFORM_LICE type

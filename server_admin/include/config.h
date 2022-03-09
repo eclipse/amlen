@@ -40,8 +40,8 @@ extern "C" {
  * - Static configuration - These configuration items can not be modified
  *   by the users using WebUI or CLI options. These items are stored in
  *   ismserver.cfg file. For examples:
- *   ConfigDir = /opt/ibm/imaserver/config
- *   LogDir = /opt/ibm/imaserver/logs
+ *   ConfigDir = /var/lib/amlen-server/config
+ *   LogDir = /var/lib/amlen-server/logs
  *   ....
  *
  * - Dynamic configuration - These configuration items are created, modified or
