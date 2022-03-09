@@ -17,6 +17,7 @@ simple steps outlined here.
         <ol>
             <li>Packages have been renamed and made more granular</li>
             <li>Directories have different locations</li>
+            <li>An important marker file has changed location</li>
             <li>TLS keys used for validating peers in HA pairs and clusters have changed</li>
         </ol>
         <p>In the following sections we'll look at each change then the actions required during migration</p>
@@ -95,6 +96,18 @@ simple steps outlined here.
         </table>
     </section>
     <section>
+        <title>Change of location of marker file</title>
+        <p>There is a file (with path: <filepath>/var/lib/amlen-server/data/config/store.init</filepath>) that indicates
+        to Amlen that the persistent data store has been correctly initialised and is valid.</p>
+        
+        <p>Message Gateway used to use a different path under its install directory which will be removed as part of the 
+        uninstall of Message Gateway. Therefore <filepath>/var/lib/amlen-server/data/config/store.init</filepath> needs to 
+        be manually created as part of the migration process if persistent data (e.g. subscriptions and buffered
+        messages) are to be migrated. An empty file is all that is needed in order to cause the Message Gateway 
+        persistent data to be preserved e.g.:</p>
+        <codeblock>touch /var/lib/amlen-server/data/config/store.init</codeblock>
+    </section>
+    <section>
         <title>TLS keys for peers in HA Pairs and Clusters</title>
         <p>Both <ph conref="../TextEntities.dita#TextEntities/ISM"/> and 
          <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> contain default TLS keys used as a check on connections
@@ -122,8 +135,14 @@ simple steps outlined here.
                     <codeblock>sudo systemctl stop imaserver</codeblock>
                     </li>
                     <li>Uninstall <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/></li>
-                    <li>Move the data directory:
-                    <codeblock>mv /var/messagesight /var/lib/amlen-server</codeblock>
+                    <li>Move the data directory (but have a link from the old location to the new
+                    as default Message Gateway configs reference paths under the old directory):
+                    <codeblock>mv /var/messagesight /var/lib/amlen-server
+ln -s /var/lib/amlen-server /var/messagesight</codeblock>
+                    </li>
+                    <li>Create the marker file that indicates Message Gateway persistent data should
+                    be used with Amlen:
+                    <codeblock>touch /var/lib/amlen-server/data/config/store.init</codeblock>
                     </li>
                     <li>Install <ph conref="../TextEntities.dita#TextEntities/ISM"/></li>
                     <li>Start the server:
