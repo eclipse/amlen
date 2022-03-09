@@ -58,7 +58,7 @@ static int sigterm_count = 0;
 static ism_handler_t sigtermHandler;
 extern int g_doUser2;
 
-const char * STORE_INITIALIZED_INDICATOR = IMA_SVR_INSTALL_PATH "/config/store.init";
+const char * STORE_INITIALIZED_INDICATOR = IMA_SVR_DATA_PATH "/config/store.init";
 
 #if !defined(_WIN32) && !defined(USE_EDITLINE) && !defined(NO_EDITLINE)
 #define USE_EDITLINE 1

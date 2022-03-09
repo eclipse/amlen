@@ -92,7 +92,7 @@ else
     chmod 770 ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1
 
     # Set store.init file
-    touch ${IMA_SVR_INSTALL_PATH}/config/store.init
+    touch ${IMACFGDIR}/store.init
 
     # Make use of a unix domain socket for MQConnectivity connection into server
     sed -i 's%Interface\.!MQConnectivityEndpoint\( *\)=\( *\).*%Interface.!MQConnectivityEndpoint\1=\2'${DATADIR}'/MQConnectivityEndpoint_'${SHORT_UUID}'%g' ${IMASERVERCFG}
