@@ -4,8 +4,9 @@ Thanks for your interest in this project.
 
 ## Project description
 
-The main webpage for Eclipse Amlen is: https://www.eclipse.org/amlen/ The main
-component of Amlen is the server - a message broker that supports the latest
+The main webpage for Eclipse Amlen is: https://www.eclipse.org/amlen/ 
+
+The main component of Amlen is the server - a message broker that supports the latest
 MQTT v5 protocol designed for IoT (as well as the older MQTTv3 and JMS 1.1). It
 can be deployed in highly available, redundant configurations and has clustering
 support for horizontal scalability. Aside from the server, it provides: 
@@ -14,12 +15,6 @@ easier
 2. Bridging capabilities to other messaging systems (currently
 bidirectionally to other MQTT servers and IBM MQ Queue managers) and
 unidirectionally to Apache Kafka. 
-
-The following architecture diagram shows how
-the code is arranged: Key words: mqtt, Device connectivity, IoT protocols,
-messaging
-
-* https://projects.eclipse.org/projects/iot.amlen
 
 ## Developer resources
 
