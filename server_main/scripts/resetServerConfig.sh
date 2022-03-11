@@ -166,7 +166,7 @@ perl -pi -e 's/\r\n$/\n/g' ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1 3>&1
 chmod 770 ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1 3>&1
 
 # Set store.init file
-touch ${IMA_SVR_INSTALL_PATH}/config/store.init
+touch ${IMA_DATA_INSTALL_PATH}/config/store.init
 
 touch ${IMACFGDIR}/MessageSightInstance.inited
 

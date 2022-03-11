@@ -1561,7 +1561,7 @@ const char * ism_common_platform_type_str(ism_platformType_t ptype) {
 
 /*
  * Cache platform data variables
- * Expects platfm.dat file in config directory
+ * Expects platform.dat file in config directory
  */
 int ism_common_initPlatformDataFile(void) {
     int rc = ISMRC_OK;
@@ -1598,7 +1598,7 @@ int ism_common_initPlatformDataFile(void) {
     fread = getFileContent(platform_dat, buf, sizeof buf);
     if (fread == 0) {
         /* Create platform data file */
-        TRACE(3, "Initialize the platform data file.\n");
+        TRACE(3, "Initialize the platform data file as couldn't read %s.\n", platform_dat);
 
         bindir = (char *)ism_common_getStringConfig("BinDir");
         if (!bindir)  {
@@ -1632,6 +1632,7 @@ int ism_common_initPlatformDataFile(void) {
      * If the file exists, read it
      */
     if (fread) {
+        TRACE(3, "Successfully read platform data file: %s.\n", platform_dat);
         rc = 0;
 
         /* Check if platform is VM */
