@@ -3359,11 +3359,11 @@ static int32_t ietr_softLogCommit( ietrTransactionControl_t *pControl
 
             if (pSLE->fSync)
             {
-                pSLE->ReplayFn.syncFn(Phase, pThreadData, pTran, pSLE+1, pRecord);
+                pSLE->ReplayFn.syncFn(Phase, pThreadData, pTran, pSLE+1, pRecord, NULL);
             }
             else
             {
-                rc = pSLE->ReplayFn.asyncFn(Phase, pThreadData, pTran, pSLE+1, pRecord, pAsyncData, pAsyncTranData);
+                rc = pSLE->ReplayFn.asyncFn(Phase, pThreadData, pTran, pSLE+1, pRecord, pAsyncData, pAsyncTranData, NULL);
                 assert (rc == OK || rc == ISMRC_AsyncCompletion);
                 assert (Phase != Cleanup || rc == OK);
                 if (rc != OK)
@@ -3695,11 +3695,11 @@ static void ietr_softLogRollback( ietrTransactionControl_t *pControl
 
             if (pSLE->fSync)
             {
-                pSLE->ReplayFn.syncFn(Phase, pThreadData, pTran, pSLE+1, pRecord);
+                pSLE->ReplayFn.syncFn(Phase, pThreadData, pTran, pSLE+1, pRecord, NULL);
             }
             else
             {
-                rc = pSLE->ReplayFn.asyncFn(Phase, pThreadData, pTran, pSLE+1, pRecord, NULL, NULL);
+                rc = pSLE->ReplayFn.asyncFn(Phase, pThreadData, pTran, pSLE+1, pRecord, NULL, NULL, NULL);
 
                 assert(rc == OK); //We'll allow an async completion here... but not coded yet
             }
@@ -3974,11 +3974,11 @@ int32_t ietr_endSavepoint( ieutThreadData_t *pThreadData
 
                 if (pSLE->fSync)
                 {
-                    pSLE->ReplayFn.syncFn(action, pThreadData, pTran, pSLE+1, &record);
+                    pSLE->ReplayFn.syncFn(action, pThreadData, pTran, pSLE+1, &record, NULL);
                 }
                 else if (pSLE->ReplayFn.asyncFn)
                 {
-                    rc = pSLE->ReplayFn.asyncFn(action, pThreadData, pTran, pSLE+1, &record, NULL, NULL);
+                    rc = pSLE->ReplayFn.asyncFn(action, pThreadData, pTran, pSLE+1, &record, NULL, NULL, NULL);
                     assert (rc == OK);
                 }
 

@@ -1925,7 +1925,8 @@ void testSavepointFunc(ietrReplayPhase_t        Phase,
                        ieutThreadData_t        *pThreadData,
                        ismEngine_Transaction_t *pTran,
                        void                    *entry,
-                       ietrReplayRecord_t      *pRecord)
+                       ietrReplayRecord_t      *pRecord,
+                       ismEngine_DelivererContext_t * delivererContext)
 {
     testSPContext_t *pContext = *(testSPContext_t **)entry;
 

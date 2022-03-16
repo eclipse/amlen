@@ -1329,7 +1329,8 @@ void iett_SLEReplayReleaseNodes(ietrReplayPhase_t        Phase,
                                 ieutThreadData_t        *pThreadData,
                                 ismEngine_Transaction_t *pTran,
                                 void                    *entry,
-                                ietrReplayRecord_t      *pRecord);
+                                ietrReplayRecord_t      *pRecord,
+                                ismEngine_DelivererContext_t *delivererContext);
 
 //****************************************************************************
 /// @brief Initialize the topic tree values in the per thread data structure

@@ -169,12 +169,14 @@ int32_t iemq_SLEReplayPut(ietrReplayPhase_t Phase, ieutThreadData_t *pThreadData
                           ismEngine_Transaction_t *pTran, void *pEntry,
                           ietrReplayRecord_t *pRecord,
                           ismEngine_AsyncData_t *pAsyncData,
-                          ietrAsyncTransactionData_t *asyncTran);
+                          ietrAsyncTransactionData_t *asyncTran,
+                          ismEngine_DelivererContext_t *delivererContext);
 
 // Softlog replay - for confirmMessageDelivery(consumed)
 void iemq_SLEReplayConsume(ietrReplayPhase_t Phase,
                            ieutThreadData_t *pThreadData, ismEngine_Transaction_t *pTran,
-                           void *pEntry, ietrReplayRecord_t *pRecord);
+                           void *pEntry, ietrReplayRecord_t *pRecord,
+                           ismEngine_DelivererContext_t *delivererContext);
 
 static inline uint32_t iemq_choosePageSize(iemqQueue_t *Q);
 
@@ -7587,7 +7589,8 @@ void iemq_SLEReplayConsume( ietrReplayPhase_t Phase
                           , ieutThreadData_t *pThreadData
                           , ismEngine_Transaction_t *pTran
                           , void *pEntry
-                          , ietrReplayRecord_t *pRecord)
+                          , ietrReplayRecord_t *pRecord
+                          , ismEngine_DelivererContext_t * delivererContext)
 {
     int32_t rc;
     iemqSLEConsume_t *pSLE = (iemqSLEConsume_t *) pEntry;
@@ -7676,7 +7679,7 @@ void iemq_SLEReplayConsume( ietrReplayPhase_t Phase
                (void)iemq_checkWaiters( pThreadData
                                       , (ismQHandle_t) Q
                                       , NULL
-                                      , NULL);
+                                      , delivererContext );
            }
 
            //Now reduce the pre delete count which Q to be deleted...
@@ -7946,7 +7949,8 @@ int32_t iemq_SLEReplayPut( ietrReplayPhase_t Phase
                          , void *pEntry
                          , ietrReplayRecord_t *pRecord
                          , ismEngine_AsyncData_t *pAsyncData
-                         , ietrAsyncTransactionData_t *asyncTran)
+                         , ietrAsyncTransactionData_t *asyncTran
+                         , ismEngine_DelivererContext_t *delivererContext)
 {
     int32_t rc = OK;
     iemqSLEPut_t *pSLE = (iemqSLEPut_t *) pEntry;

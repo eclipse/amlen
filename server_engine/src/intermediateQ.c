@@ -121,7 +121,8 @@ int32_t ieiq_SLEReplayPut( ietrReplayPhase_t Phase
                       , void *pEntry
                       , ietrReplayRecord_t *pRecord
                       , ismEngine_AsyncData_t *pAsyncData
-                      , ietrAsyncTransactionData_t *asyncTran);
+                      , ietrAsyncTransactionData_t *asyncTran
+                      , ismEngine_DelivererContext_t *delivererContext);
 
 int32_t ieiq_consumeAckCommitted(
                 ieutThreadData_t               *pThreadData,
@@ -4202,7 +4203,8 @@ int32_t ieiq_SLEReplayPut( ietrReplayPhase_t Phase
                          , void *pEntry
                          , ietrReplayRecord_t *pRecord
                          , ismEngine_AsyncData_t *pAsyncData
-                         , ietrAsyncTransactionData_t *asyncTran)
+                         , ietrAsyncTransactionData_t *asyncTran
+                         , ismEngine_DelivererContext_t *delivererContext)
 {
     int32_t rc=OK;
     ieiqSLEPut_t *pSLE = (ieiqSLEPut_t *)pEntry;
@@ -5942,6 +5944,11 @@ static int32_t ieiq_asyncMessageDelivery(ieutThreadData_t           *pThreadData
     bool     deliverMoreMsgs           = false;
     uint64_t storeOps                  = 0;
 
+    ismEngine_DelivererContext_t delivererContext;
+    delivererContext.lockStrategy.rlac = LS_NO_LOCK_HELD;
+    delivererContext.lockStrategy.lock_persisted_counter = 0;
+    delivererContext.lockStrategy.lock_dropped_counter = 0;
+
     ieiq_deliverMessages( pThreadData
                         , Q
                         , deliveryInfo->usedNodes
@@ -5949,7 +5956,19 @@ static int32_t ieiq_asyncMessageDelivery(ieutThreadData_t           *pThreadData
                         , &callCompleteWaiterActions
                         , &deliverMoreMsgs
                         , &storeOps
-                        , NULL );
+                        , &delivererContext );
+
+    if ( delivererContext.lockStrategy.rlac == LS_READ_LOCK_HELD || delivererContext.lockStrategy.rlac == LS_WRITE_LOCK_HELD ) {
+        ieutTRACEL(pThreadData, delivererContext.lockStrategy.lock_persisted_counter, ENGINE_PERFDIAG_TRACE,
+                  "RLAC Lock was held and has now been released, debug: %d,%d\n",
+                  delivererContext.lockStrategy.lock_persisted_counter,delivererContext.lockStrategy.lock_dropped_counter);
+        ism_common_unlockACLList();
+    } else {
+        ieutTRACEL(pThreadData, delivererContext.lockStrategy.lock_persisted_counter, ENGINE_PERFDIAG_TRACE,
+                  "RLAC Lock was not held, debug: %d,%d\n",
+                   delivererContext.lockStrategy.lock_persisted_counter,delivererContext.lockStrategy.lock_dropped_counter);
+    }
+    delivererContext.lockStrategy.rlac = LS_NO_LOCK_HELD;
 
     //We've finished delivering this message... remove the entry that calls this function
     //so if checkWaiters goes async we don't try to deliver this message again

@@ -41,13 +41,15 @@ void iesm_SLEReplayAddQMgr(ietrReplayPhase_t phase,
                            ieutThreadData_t *pThreadData,
                            ismEngine_Transaction_t *pTran,
                            void *pEntry,
-                           ietrReplayRecord_t *pRecord);
+                           ietrReplayRecord_t *pRecord,
+                           ismEngine_DelivererContext_t *delivererContext);
 
 void iesm_SLEReplayRmvQMgr(ietrReplayPhase_t phase,
                            ieutThreadData_t *pThreadData,
                            ismEngine_Transaction_t *pTran,
                            void *pEntry,
-                           ietrReplayRecord_t *pRecord);
+                           ietrReplayRecord_t *pRecord,
+                           ismEngine_DelivererContext_t *delivererContext);
 
 
 //****************************************************************************
@@ -985,7 +987,8 @@ void iesm_SLEReplayAddQMgr(ietrReplayPhase_t phase,
                            ieutThreadData_t *pThreadData,
                            ismEngine_Transaction_t *pTran,
                            void *pEntry,
-                           ietrReplayRecord_t *pRecord)
+                           ietrReplayRecord_t *pRecord,
+                           ismEngine_DelivererContext_t *delivererContext)
 {
     iesmSLEAddQMgrXID_t *pSLEAdd = (iesmSLEAddQMgrXID_t *)pEntry;
     iesmQMgrXidRecord_t *pQMgrXidRec = pSLEAdd->pQMgrXidRec;
@@ -1022,7 +1025,8 @@ void iesm_SLEReplayRmvQMgr(ietrReplayPhase_t phase,
                     ieutThreadData_t *pThreadData,
                     ismEngine_Transaction_t *pTran,
                     void *pEntry,
-                    ietrReplayRecord_t *pRecord)
+                    ietrReplayRecord_t *pRecord,
+                    ismEngine_DelivererContext_t *delivererContext)
 {
     iesmSLERemoveQMgrXID_t *pSLERmv = (iesmSLERemoveQMgrXID_t *)pEntry;
     iesmQMgrXidRecord_t *pQMgrXidRec = pSLERmv->pQMgrXidRec;
