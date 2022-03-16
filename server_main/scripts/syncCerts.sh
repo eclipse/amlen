@@ -13,7 +13,8 @@
 
 SERVERTYPE=$1
 
-LOGFILE="/ima/logs/syncCerts.log"
+LOGFILE="${IMA_SVR_DATA_PATH}/diag/logs/syncCerts.log"
+CERTTAR="${IMA_SVR_DATA_PATH}/data/hasync/certdir.tar"
 
 
 if [[ $SERVERTYPE = "primary" ]]
@@ -22,7 +23,7 @@ then
     date > $LOGFILE
     echo "Backup files on Primary" >> $LOGFILE
     cd ${IMA_SVR_DATA_PATH}/data
-    /bin/tar -czv -f /ima/config/certdir.tar certificates >> $LOGFILE 2>&1    
+    /bin/tar -czv -f ${CERTTAR} certificates >> $LOGFILE 2>&1    
    
 else
 
@@ -32,7 +33,7 @@ else
     
     cd ${IMA_SVR_DATA_PATH}/data
     mv certificates certificates.org
-    tar xhvf /ima/config/certdir.tar >> $LOGFILE 2>&1
+    tar xhvf ${CERTTAR} >> $LOGFILE 2>&1
     if [ -d ${IMA_SVR_DATA_PATH}/data/certificates ]
     then
         rm -rf certificates.org >> $LOGFILE 2>&1
@@ -40,13 +41,13 @@ else
         mv certificates.org certificates >> $LOGFILE 2>&1
     fi
     
-    # copy config file transferred from v1 system to /ima/config dir
+    # copy config file transferred from v1 system to config dir
     if [ -d ${IMA_SVR_DATA_PATH}/data/ima ]
     then
         echo "Process v1 configuration" >> $LOGFILE 2>&1
-        mkdir -p /ima/config >> $LOGFILE 2>&1
-        cp ${IMA_SVR_DATA_PATH}/data/ima/config/server_dynamic.cfg /ima/config/. >> $LOGFILE 2>&1
-        cp ${IMA_SVR_DATA_PATH}/data/ima/config/mqcbridge_dynamic.cfg /ima/config/. >> $LOGFILE 2>&1
+        mkdir -p ${IMA_SVR_DATA_PATH}/data/config >> $LOGFILE 2>&1
+        cp ${IMA_SVR_DATA_PATH}/data/ima/config/server_dynamic.cfg ${IMA_SVR_DATA_PATH}/data/config/. >> $LOGFILE 2>&1
+        cp ${IMA_SVR_DATA_PATH}/data/ima/config/mqcbridge_dynamic.cfg ${IMA_SVR_DATA_PATH}/data/config/. >> $LOGFILE 2>&1
     fi
 
     # check if certs are transferred from v1 system

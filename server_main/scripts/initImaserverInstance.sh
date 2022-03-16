@@ -42,6 +42,7 @@ echo "Create required directories" >> ${INITLOG}
 mkdir -p -m 770 ${COREDIR} >> ${INITLOG} 2>&1
 chmod -R 770 ${COREDIR} >> ${INITLOG} 2>&1
 mkdir -p -m 770 ${DATADIR}/config >> ${INITLOG} 2>&1
+mkdir -p -m 700 ${DATADIR}/hasync >> ${INITLOG} 2>&1
 mkdir -p -m 700 ${DATADIR}/certificates/keystore >> ${INITLOG} 2>&1
 mkdir -p -m 700 ${DATADIR}/certificates/LDAP >> ${INITLOG} 2>&1
 mkdir -p -m 700 ${DATADIR}/certificates/MQC >> ${INITLOG} 2>&1

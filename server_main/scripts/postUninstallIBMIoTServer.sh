@@ -72,12 +72,6 @@ then
         rm -rf /etc/messagesight
     fi
 
-    echo "Deleting /ima dir if it exists ..."
-    if [ -d /ima ]
-    then
-        rm -rf /ima
-    fi
-
     echo "Deleting /store link if it exists ..."
     if [ -L /store ]
     then

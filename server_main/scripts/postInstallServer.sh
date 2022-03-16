@@ -31,14 +31,7 @@ source ${SVR_INSTALL_DIR}/bin/getUserGroup.sh >> ${INITLOG}
 source ${SVR_INSTALL_DIR}/bin/initImaserverInstance.sh >> ${INITLOG}
 
 # Additional required dir and links that need root-level access to create
-mkdir -p -m 770 /ima/config >> ${INITLOG} 2>&1
 mkdir -p -m 770 /tmp/userfiles >> ${INITLOG} 2>&1
-    
-cd /ima >> ${INITLOG} 2>&1        
-if [ ! -L /ima/logs ]
-then
-    ln -s ${LOGDIR} logs >> ${INITLOG} 2>&1
-fi
 
 cd /tmp >> ${INITLOG} 2>&1
 if [ ! -L /tmp/cores ]
