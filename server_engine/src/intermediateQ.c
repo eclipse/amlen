@@ -5959,12 +5959,12 @@ static int32_t ieiq_asyncMessageDelivery(ieutThreadData_t           *pThreadData
                         , &delivererContext );
 
     if ( delivererContext.lockStrategy.rlac == LS_READ_LOCK_HELD || delivererContext.lockStrategy.rlac == LS_WRITE_LOCK_HELD ) {
-        ieutTRACEL(pThreadData, 0, ENGINE_PERFDIAG_TRACE,
+        ieutTRACEL(pThreadData, delivererContext.lockStrategy.lock_persisted_counter, ENGINE_PERFDIAG_TRACE,
                   "RLAC Lock was held and has now been released, debug: %d,%d\n",
                   delivererContext.lockStrategy.lock_persisted_counter,delivererContext.lockStrategy.lock_dropped_counter);
         ism_common_unlockACLList();
     } else {
-        ieutTRACEL(pThreadData, 0, ENGINE_PERFDIAG_TRACE,
+        ieutTRACEL(pThreadData, delivererContext.lockStrategy.lock_persisted_counter, ENGINE_PERFDIAG_TRACE,
                   "RLAC Lock was not held, debug: %d,%d\n",
                    delivererContext.lockStrategy.lock_persisted_counter,delivererContext.lockStrategy.lock_dropped_counter);
     }
