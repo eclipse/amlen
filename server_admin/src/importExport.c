@@ -1523,10 +1523,10 @@ XAPI int ism_config_migrate_processV1ConfigViaHA(void) {
     json_t *newConfigRoot = NULL;
 
     /* Import server config */
-    newConfigRoot = ism_config_migrate_propsToJSON("/ima/config/server_dynamic.cfg", newConfigRoot, &rc);
+    newConfigRoot = ism_config_migrate_propsToJSON(IMA_SVR_DATA_PATH "data/hasync/server_dynamic.cfg", newConfigRoot, &rc);
     if ( rc == ISMRC_OK && newConfigRoot != NULL ) {
     	/* Import mqcbridge config */
-    	newConfigRoot = ism_config_migrate_propsToJSON("/ima/config/mqcbridge_dynamic.cfg", newConfigRoot, &rc);
+    	newConfigRoot = ism_config_migrate_propsToJSON(IMA_SVR_DATA_PATH "data/hasync/mqcbridge_dynamic.cfg", newConfigRoot, &rc);
     }
 
     /* Update mew configuration */

@@ -52,8 +52,8 @@ extern char * ism_config_getServerName(void);
 extern int ism_config_json_updateFile(int getLock);
 
 
-#define TMP_CONFIGDIR "/ima/config"
-#define TMP_PRIMCFG   "/ima/config/serverDynamic.primary"
+#define TMP_CONFIGDIR IMA_SVR_DATA_PATH "/data/hasync"
+#define TMP_PRIMCFG   TMP_CONFIGDIR "/serverDynamic.primary"
 
 /* Defines for HA sync message codes */
 #define ISM_HA_MSG_CONFIG_SYNC    'S'

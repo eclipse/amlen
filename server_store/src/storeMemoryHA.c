@@ -1725,7 +1725,7 @@ static int ism_store_memHAAdminRecvdPathRewriting(char *pPath, char *pFilename, 
          rc = StoreRC_SystemError;
          goto exit;
       }
-      char *suffixStart = pPath + strlen("/var/messagesight");
+      char *suffixStart = pPath + strlen("/ima/config");
       sprintf(*ppAdjustedPath, "%s/data/hasync%s", IMA_SVR_DATA_PATH, suffixStart);
    }
    else if (strncmp("${IMA_SVR_DATA_PATH}", pPath, strlen("${IMA_SVR_DATA_PATH}")) == 0)
