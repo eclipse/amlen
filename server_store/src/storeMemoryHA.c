@@ -2055,7 +2055,7 @@ static int ism_store_memHAIntMsgReceived(void *hChannel, char *pData, uint32_t d
             diskTask.Priority = 0;
             diskTask.Callback = ism_store_memHAAdminDiskWriteComplete;
             diskTask.pContext = pDiskWriteCtxt;
-            diskTask.Path = pPath;
+            diskTask.Path = (pDiskWriteCtxt->pAdjustedPath != NULL) ? pDiskWriteCtxt->pAdjustedPath: pPath;
             diskTask.File = pFilename;
             diskTask.BufferParams->pBuffer = pFrag->pData;
             diskTask.BufferParams->BufferLength = pFrag->DataLength;
