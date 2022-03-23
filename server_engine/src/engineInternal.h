@@ -216,6 +216,15 @@ typedef enum __attribute__ ((__packed__)) tag_ieutThreadType_t
     AsyncCallbackThreadType = 1,
 } ieutThreadType_t;
 
+//*********************************************************************
+/// @brief Engine interpretation of the SizeProfile config setting.
+//*********************************************************************
+typedef enum __attribute__ ((__packed__)) tag_ieutSizeProfile_t
+{
+    DefaultSizeProfile = 0,
+    SmallSizeProfile = 1,
+} ieutSizeProfile_t;
+
 // If we are looking for trapped messages (and we're going to deadlock
 // and wait to be attached to with gdb when they occur) then we want
 // large trace history buffers etc...
@@ -360,6 +369,7 @@ typedef struct ismEngine_Server_t
     bool                                   retainedRepositioningEnabled;            ///< Whether we perform retained message repositioning or not
     bool                                   isIoTEnvironment;                        ///< Whether this server is running in an IoT environment (enabling some IoT specific behavior)
     bool                                   reducedMemoryRecoveryMode;               ///< Whether to use less memory during recovery (which will generally make things slower)
+    ieutSizeProfile_t                      sizeProfile;                             ///< What SizeProfile has been set for this instance
     uint32_t                               subListCacheCapacity;                    ///< Sublist cache initial capacity
     uint32_t                               ServerTimestamp;                         ///< Timestamp updated periodically in Store as server is running
     uint32_t                               ServerShutdownTimestamp;                 ///< Timestamp of last shutdown (recovered from store record at startup)
@@ -435,6 +445,7 @@ typedef struct ismEngine_Server_t
     iedm_describeMember(bool,                                   clusterEnabled);\
     iedm_describeMember(bool,                                   retainedRepositioningEnabled);\
     iedm_describeMember(bool,                                   isIoTEnvironment);\
+    iedm_describeMember(ieutSizeProfile_t,                      sizeProfile);\
     iedm_describeMember(uint32_t,                               subListCacheCapacity);\
     iedm_describeMember(uint32_t,                               ServerTimestamp);\
     iedm_describeMember(uint32_t,                               ServerShutdownTimestamp);\
@@ -1891,6 +1902,9 @@ static inline void ismEngine_DisplayProperties(ism_prop_t *props)
 // Property that specifies whether to use less memory during engine recovery (the trade off generally being longer recovery times)
 #define ismENGINE_CFGPROP_REDUCED_MEMORY_RECOVERY_MODE "Server.ReducedMemoryRecoveryMode"
 #define ismENGINE_DEFAULT_REDUCED_MEMORY_RECOVERY_MODE false
+
+// Property that specifies a size profile to use (which alters the amount of various things we allocate & do)
+#define ismENGINE_CFGPROP_SIZE_PROFILE       "SizeProfile"
 
 // Properties and values that will come from the Admin component
 #define ismENGINE_ADMIN_PROPERTY_NAME                            "Name"

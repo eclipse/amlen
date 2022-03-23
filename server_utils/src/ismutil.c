@@ -148,7 +148,7 @@ XAPI void  ism_common_initUtil2(int type) {
         makeTLS(1024, g_procname);
 
         /* Initialize properties and locks */
-        ism_g_config_props = ism_common_newProperties(256);
+        if (ism_g_config_props == NULL) ism_g_config_props = ism_common_newProperties(256);
         pthread_mutex_init(&g_utillock, 0);
         pthread_mutex_init(&trc_lock, 0);
 
@@ -166,10 +166,14 @@ XAPI void  ism_common_initUtil2(int type) {
 XAPI void  ism_common_initUtil(void) {
     ism_common_initUtil2(0);
 }
-
-XAPI void  ism_common_initUtilMain(void) {
+/*
+ * Should only ever be called by main to pre-initialize properties
+ */
+XAPI void  ism_common_initPropertiesOnly(void) {
+    assert(ism_g_config_props == NULL);
+    assert(i_am_the_main == 0);
     i_am_the_main = 1;
-    ism_common_initUtil();
+    ism_g_config_props = ism_common_newProperties(256);
 }
 
 XAPI void ism_common_makeTLS(int need, const char * name) {

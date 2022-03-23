@@ -906,7 +906,16 @@ int iemem_checkMemoryLevels(ism_timer_t key, ism_time_t timestamp, void * userda
                 iemem_reduceMemoryUsage(prevState, &sysmeminfo);
 
                 size_t engineMemBytes = iemem_queryTotalControlledMemory();
-                size_t trimPadding = (size_t)((sysmeminfo.effectiveMemoryBytes * IEMEM_TRIM_PADDING_PERCENT) / 100);
+                size_t trimPadding;
+
+                if (ismEngine_serverGlobal.sizeProfile == SmallSizeProfile)
+                {
+                    trimPadding = 0;
+                }
+                else
+                {
+                    trimPadding = (size_t)((sysmeminfo.effectiveMemoryBytes * IEMEM_TRIM_PADDING_PERCENT) / 100);
+                }
 
                 //Do a trim if we've reduce memory usage by more than a large amount since the last trim or periodically
                 // (don't call it during shutdown...)
@@ -921,11 +930,24 @@ int iemem_checkMemoryLevels(ism_timer_t key, ism_time_t timestamp, void * userda
                     checksSinceMallocTrim = 0;
                 }
             }
-            else if (prevState > iememPlentifulMemory)
+            else
             {
-                // We are back into plentiful memory - make a final call to any callbacks
-                // to let them know.
-                iemem_reduceMemoryUsage(prevState, &sysmeminfo);
+                if (prevState > iememPlentifulMemory)
+                {
+                    // We are back into plentiful memory - make a final call to any callbacks
+                    // to let them know.
+                    iemem_reduceMemoryUsage(prevState, &sysmeminfo);
+                }
+
+                // When running in a Small profile, do a malloc_trim every 30 seconds with
+                // no padding.
+                if (ismEngine_serverGlobal.sizeProfile == SmallSizeProfile &&
+                    checksSinceMallocTrim > 60)
+                {
+                    malloc_trim(0);
+                    engineMemBytesAtTrim = iemem_queryTotalControlledMemory();
+                    checksSinceMallocTrim = 0;
+                }
             }
 
             if (checksSinceTrace > memoryUsageRecordPeriod)

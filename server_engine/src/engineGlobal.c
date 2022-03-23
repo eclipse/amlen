@@ -40,6 +40,7 @@ ismEngine_Server_t ismEngine_serverGlobal =
     ismENGINE_DEFAULT_RETAINED_REPOSITIONING_ENABLED,        // Whether retained message repositioning is enabled or not
     ismENGINE_DEFAULT_ENVIRONMENT_IS_IOT,                    // Whether this server is running in an IoT environment (enabling some IoT specific behavior)
     ismENGINE_DEFAULT_REDUCED_MEMORY_RECOVERY_MODE,          // Whether to use less memory during recovery (which will generally make things slower)
+    DefaultSizeProfile,                                      // Assume the default szie profile
     ismENGINE_DEFAULT_INITIAL_SUBLISTCACHE_CAPACITY,         // Sublist cache initial capacity
     0,                                                       // Timestamp updated periodically in Store as server is running
     0,                                                       // Timestamp of last shutdown (recovered from store record at startup)

@@ -2052,7 +2052,6 @@ int  ism_common_termServer(void);
  * This is done before the server initialization
  */
 XAPI void  ism_common_initUtil(void);
-XAPI void  ism_common_initUtilMain(void);
 
 
 /* ********************************************************

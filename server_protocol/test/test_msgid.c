@@ -23,7 +23,7 @@ void msgid_test(void) {
     ism_transport_t trans = {0};
     mqttProtoObj_t pobjx = {0};
     ism_transport_t * transport = &trans;
-    ism_msgid_init();
+    ism_msgid_init(15, 1024*1024);
     transport->pobj = &pobjx;
     pobjx.msgids = ism_create_msgid_list(transport,0,0xFFFF);
     pobjx.incompmsgids = ism_create_msgid_list(transport,1,0xFFFF);

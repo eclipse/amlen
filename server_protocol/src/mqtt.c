@@ -8096,13 +8096,39 @@ int ism_protocol_initMQTT(void) {
     else
     	g_msgIdlockType = USE_MUTEX;
 
-    ism_msgid_init();
+    int32_t defaultMsgIdHashMapCount;
+    int32_t defaultMsgIdHashMapCapacity;
+    int32_t defaultMsgIdRange;
+    int32_t defaultTenantsHashMapCapacity;
+    int32_t defaultMqttMaxSubscriptions;
+
+    // Alter defaults based on the SizeProfile configured (if any)
+    switch(ism_common_getIntConfig("SizeProfile", 0 /* TODO: NAMED DEFAULT */)) {
+        case 1: /* TODO: NAMED 'SMALL' */
+            defaultMsgIdHashMapCount = 1;
+            defaultMsgIdHashMapCapacity = 1024;
+            defaultMsgIdRange = 1000;
+            defaultTenantsHashMapCapacity = 10;
+            defaultMqttMaxSubscriptions = MQTT_MAX_SUBS;
+            break;
+        default:
+            defaultMsgIdHashMapCount = 15;
+            defaultMsgIdHashMapCapacity = 2048;
+            defaultMsgIdRange = 1000;
+            defaultTenantsHashMapCapacity = 4096;
+            defaultMqttMaxSubscriptions = MQTT_MAX_SUBS;
+            break;
+    }
+
+    ism_msgid_init(ism_common_getIntConfig("mqttMsgIdHashMapCount", defaultMsgIdHashMapCount),
+                   ism_common_getIntConfig("mqttMsgIdHashMapCapacity", defaultMsgIdHashMapCapacity));
+
     ism_transport_registerProtocol(mqttStartMessaging, ism_mqtt_connection);
     keepAliveTimer = ism_common_setTimerRate(ISM_TIMER_LOW, mqttTimerDisconnect,
             NULL, 1, 10, TS_SECONDS);
-    msgIdRange = ism_common_getIntConfig("mqttMsgIdRange", 1000);
-    tenantsMap = ism_common_createHashMap(4096, HASH_BYTE_ARRAY);
-    mqttMaxSubs = ism_common_getIntConfig("MqttMaxSubscriptions", MQTT_MAX_SUBS);
+    msgIdRange = ism_common_getIntConfig("mqttMsgIdRange", defaultMsgIdRange);
+    tenantsMap = ism_common_createHashMap(ism_common_getIntConfig("tenantsHashMapCapacity", defaultTenantsHashMapCapacity), HASH_BYTE_ARRAY);
+    mqttMaxSubs = ism_common_getIntConfig("MqttMaxSubscriptions", defaultMqttMaxSubscriptions);
     mqttMaxKeepAlive = ism_common_getIntConfig("MqttMaxKeepAlive", 0);
     mqttMaxNonprodCount = ism_common_getIntConfig("MaxNonprodCount", MAX_NONPROD_COUNT);
 

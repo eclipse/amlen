@@ -531,6 +531,43 @@ int32_t ism_store_memInit(void)
    pDynamicProps = ism_config_getProperties(ismStore_memGlobal.hConfig, NULL, NULL);
 #endif
 
+   int32_t defaultGranuleSizeBytes, defaultTotalMemSizeMB, defaultRecoveryMemSizeMB;
+   int32_t defaultPersistFileSizeMB, defaultDiskTransferBlockSize, defaultPersistBuffSize;
+   int32_t defaultRefCtxtLocksCount, defaultStateCtxtLocksCount, defaultRefGenPoolExtElements;
+   int32_t defaultTransactionRsrvOpts, defaultCompactMemThresholdMB, defaultCompactDiskThresholdMB;
+
+   switch(ism_common_getIntConfig("SizeProfile", 0 /* TODO: NAMED DEFAULT */))
+   {
+       case 1: /* TODO: NAMED SMALL */
+           defaultGranuleSizeBytes = 512;
+           defaultTotalMemSizeMB = 50;
+           defaultRecoveryMemSizeMB = 20;
+           defaultPersistFileSizeMB = 256;
+           defaultDiskTransferBlockSize = 1;
+           defaultPersistBuffSize = 524288;
+           defaultRefCtxtLocksCount = 10;
+           defaultStateCtxtLocksCount = 10;
+           defaultRefGenPoolExtElements = 1000;
+           defaultTransactionRsrvOpts = 100;
+           defaultCompactMemThresholdMB = 10;
+           defaultCompactDiskThresholdMB = 10;
+           break;
+       default:
+           defaultGranuleSizeBytes = ismSTORE_CFG_GRANULE_SIZE_DV;
+           defaultTotalMemSizeMB = ismSTORE_CFG_TOTAL_MEMSIZE_MB_DV;
+           defaultRecoveryMemSizeMB = ismSTORE_CFG_RECOVERY_MEMSIZE_MB_DV;
+           defaultPersistFileSizeMB = ismSTORE_CFG_PERSIST_FILE_SIZE_MB_DV;
+           defaultDiskTransferBlockSize = ismSTORE_CFG_DISK_BLOCK_SIZE_DV;
+           defaultPersistBuffSize = ismSTORE_CFG_PERSIST_BUFF_SIZE_DV;
+           defaultRefCtxtLocksCount = ismSTORE_CFG_REFCTXT_LOCKS_COUNT_DV;
+           defaultStateCtxtLocksCount = ismSTORE_CFG_STATECTXT_LOCKS_COUNT_DV;
+           defaultRefGenPoolExtElements = ismSTORE_CFG_REFGENPOOL_EXT_DV;
+           defaultTransactionRsrvOpts = ismSTORE_CFG_STORETRANS_RSRV_OPS_DV;
+           defaultCompactMemThresholdMB = ismSTORE_CFG_COMPACT_MEMTH_MB_DV;
+           defaultCompactDiskThresholdMB = ismSTORE_CFG_COMPACT_DISKTH_MB_DV;
+           break;
+   }
+
    // Read the store configuration
    ismStore_memGlobal.NVRAMOffset = (uint64_t)ism_common_getLongConfig(ismSTORE_CFG_NVRAM_OFFSET, ismSTORE_CFG_NVRAM_OFFSET_DV);
    ismStore_memGlobal.MgmtSmallGranuleSizeBytes = ismSTORE_ROUNDUP(
@@ -541,18 +578,18 @@ int32_t ism_store_memInit(void)
                                               ismSTORE_CFG_MGMT_GRANULE_SIZE_DV), 256);
    ismStore_memGlobal.GranuleSizeBytes = ismSTORE_ROUNDUP(
                                               ism_common_getIntConfig(ismSTORE_CFG_GRANULE_SIZE,
-                                              ismSTORE_CFG_GRANULE_SIZE_DV), 256);
+                                              defaultGranuleSizeBytes), 256);
    ismStore_memGlobal.TotalMemSizeBytes = (uint64_t)ism_common_getLongConfig(ismSTORE_CFG_TOTAL_MEMSIZE_BYTES, 0);
    if ( !ismStore_memGlobal.TotalMemSizeBytes )
    {
-   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_TOTAL_MEMSIZE_MB, ismSTORE_CFG_TOTAL_MEMSIZE_MB_DV);
+   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_TOTAL_MEMSIZE_MB, defaultTotalMemSizeMB);
    ismStore_memGlobal.TotalMemSizeBytes = sizeMB << 20; // Convert MB to bytes
    }
-   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_RECOVERY_MEMSIZE_MB, ismSTORE_CFG_RECOVERY_MEMSIZE_MB_DV);
+   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_RECOVERY_MEMSIZE_MB, defaultRecoveryMemSizeMB);
    ismStore_memGlobal.RecoveryMinMemSizeBytes = sizeMB << 20; // Convert MB to bytes
-   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_COMPACT_MEMTH_MB, ismSTORE_CFG_COMPACT_MEMTH_MB_DV);
+   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_COMPACT_MEMTH_MB, defaultCompactMemThresholdMB);
    ismStore_memGlobal.CompactMemThBytes = sizeMB << 20; // Convert MB to bytes
-   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_COMPACT_DISKTH_MB, ismSTORE_CFG_COMPACT_DISKTH_MB_DV);
+   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_COMPACT_DISKTH_MB, defaultCompactDiskThresholdMB);
    ismStore_memGlobal.CompactDiskThBytes = sizeMB << 20; // Convert MB to bytes
    ismStore_memGlobal.CompactDiskHWM = ism_common_getIntConfig(ismSTORE_CFG_COMPACT_DISK_HWM, ismSTORE_CFG_COMPACT_DISK_HWM_DV);
    ismStore_memGlobal.CompactDiskLWM = ism_common_getIntConfig(ismSTORE_CFG_COMPACT_DISK_LWM, ismSTORE_CFG_COMPACT_DISK_LWM_DV);
@@ -563,13 +600,13 @@ int32_t ism_store_memInit(void)
    ismStore_memGlobal.MgmtAlertOffPct = ism_common_getIntConfig(ismSTORE_CFG_MGMT_ALERTOFF_PCT, ismSTORE_CFG_MGMT_ALERTOFF_PCT_DV);
    ismStore_memGlobal.GenAlertOnPct = ism_common_getIntConfig(ismSTORE_CFG_GEN_ALERTON_PCT, ismSTORE_CFG_GEN_ALERTON_PCT_DV);
    ismStore_memGlobal.OwnerLimitPct = ism_common_getIntConfig(ismSTORE_CFG_OWNER_LIMIT_PCT, ismSTORE_CFG_OWNER_LIMIT_PCT_DV);
-   ismStore_memGlobal.RefCtxtLocksCount = ism_common_getIntConfig(ismSTORE_CFG_REFCTXT_LOCKS_COUNT, ismSTORE_CFG_REFCTXT_LOCKS_COUNT_DV);
-   ismStore_memGlobal.StateCtxtLocksCount = ism_common_getIntConfig(ismSTORE_CFG_STATECTXT_LOCKS_COUNT, ismSTORE_CFG_STATECTXT_LOCKS_COUNT_DV);
-   ismStore_memGlobal.RefGenPoolExtElements = ism_common_getIntConfig(ismSTORE_CFG_REFGENPOOL_EXT, ismSTORE_CFG_REFGENPOOL_EXT_DV);
-   ismStore_memGlobal.StoreTransRsrvOps = ism_common_getIntConfig(ismSTORE_CFG_STORETRANS_RSRV_OPS, ismSTORE_CFG_STORETRANS_RSRV_OPS_DV);
+   ismStore_memGlobal.RefCtxtLocksCount = ism_common_getIntConfig(ismSTORE_CFG_REFCTXT_LOCKS_COUNT, defaultRefCtxtLocksCount);
+   ismStore_memGlobal.StateCtxtLocksCount = ism_common_getIntConfig(ismSTORE_CFG_STATECTXT_LOCKS_COUNT, defaultStateCtxtLocksCount);
+   ismStore_memGlobal.RefGenPoolExtElements = ism_common_getIntConfig(ismSTORE_CFG_REFGENPOOL_EXT, defaultRefGenPoolExtElements);
+   ismStore_memGlobal.StoreTransRsrvOps = ism_common_getIntConfig(ismSTORE_CFG_STORETRANS_RSRV_OPS, defaultTransactionRsrvOpts);
    ismStore_memGlobal.DiskAlertOnPct = ism_common_getIntConfig(ismSTORE_CFG_DISK_ALERTON_PCT, ismSTORE_CFG_DISK_ALERTON_PCT_DV);
    ismStore_memGlobal.DiskAlertOffPct = ism_common_getIntConfig(ismSTORE_CFG_DISK_ALERTOFF_PCT, ismSTORE_CFG_DISK_ALERTOFF_PCT_DV);
-   ismStore_memGlobal.DiskTransferSize = ism_common_getIntConfig(ismSTORE_CFG_DISK_BLOCK_SIZE, ismSTORE_CFG_DISK_BLOCK_SIZE_DV);
+   ismStore_memGlobal.DiskTransferSize = ism_common_getIntConfig(ismSTORE_CFG_DISK_BLOCK_SIZE, defaultDiskTransferBlockSize);
    ismStore_memGlobal.fEnablePersist = ism_common_getIntConfig(ismSTORE_CFG_DISK_ENABLEPERSIST, ismSTORE_CFG_DISK_ENABLEPERSIST_DV);
    ismStore_memGlobal.fReuseSHM = ism_common_getIntConfig(ismSTORE_CFG_PERSIST_REUSE_SHM, ismSTORE_CFG_PERSIST_REUSE_SHM_DV);
    ismStore_memGlobal.AsyncCBStatsMode = ism_common_getIntConfig(ismSTORE_CFG_ASYNCCB_STATSMODE, ismSTORE_CFG_ASYNCCB_STATSMODE_DV);
@@ -588,11 +625,11 @@ int32_t ism_store_memInit(void)
    ismStore_memGlobal.PersistThreadPolicy = ism_common_getIntConfig(ismSTORE_CFG_PERSIST_THREAD_POLICY, ismSTORE_CFG_PERSIST_THREAD_POLICY_DV);
    ismStore_memGlobal.PersistAsyncThreads = ism_common_getIntConfig(ismSTORE_CFG_PERSIST_ASYNC_THREADS, ismSTORE_CFG_PERSIST_ASYNC_THREADS_DV);
    ismStore_memGlobal.PersistAsyncOrdered = ism_common_getIntConfig(ismSTORE_CFG_PERSIST_ASYNC_ORDERED, ismSTORE_CFG_PERSIST_ASYNC_ORDERED_DV);
-   ismStore_memGlobal.PersistBuffSize = ism_common_getIntConfig(ismSTORE_CFG_PERSIST_BUFF_SIZE, ismSTORE_CFG_PERSIST_BUFF_SIZE_DV);
+   ismStore_memGlobal.PersistBuffSize = ism_common_getIntConfig(ismSTORE_CFG_PERSIST_BUFF_SIZE, defaultPersistBuffSize);
    ismStore_memGlobal.PersistHaTxThreads = ism_common_getIntConfig(ismSTORE_CFG_PERSIST_HATX_THREADS, ismSTORE_CFG_PERSIST_HATX_THREADS_DV);
    ismStore_memGlobal.PersistRecoverFromV12 = ism_common_getIntConfig(ismSTORE_CFG_RECOVER_FROM_V12, 0);
    ismStore_memGlobal.PersistCbHwm = ism_common_getIntConfig(ismSTORE_CFG_PERSIST_MAX_ASYNC_CB, ismSTORE_CFG_PERSIST_MAX_ASYNC_CB_DV);
-   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_PERSIST_FILE_SIZE_MB, ismSTORE_CFG_PERSIST_FILE_SIZE_MB_DV);
+   sizeMB = (uint64_t)ism_common_getIntConfig(ismSTORE_CFG_PERSIST_FILE_SIZE_MB, defaultPersistFileSizeMB);
    ismStore_memGlobal.PersistFileSize = sizeMB << 20; // Convert MB to bytes
    ismStore_memGlobal.StreamsMinCount = ism_common_getIntConfig("TcpThreads", 5) + 7;
    ismStore_memGlobal.RefSearchCacheSize = ism_common_getIntConfig(ismSTORE_CFG_REFSEARCHCACHESIZE, ismSTORE_CFG_REFSEARCHCACHESIZE_DV);

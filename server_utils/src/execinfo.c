@@ -626,12 +626,24 @@ void ism_common_initExecEnv(int exetype) {
 
         checkTotalMemory(buf, buflen);
 
+        int defaultTcpMaxConnections;
+
+        switch(ism_common_getIntConfig("SizeProfile", 0 /* TODO: NAMED DEFAULT */)) {
+            case 1: /* TODO: NAMED SMALL */
+                defaultTcpMaxConnections = 200;
+                break;
+            default:
+                // we support 4K concurrent connections per GB of allocated memory. double the max connection limit in case of large reconnect event
+                defaultTcpMaxConnections = (g_ismTotalMemMB/1024)*2*4000;
+                break;
+        }
+
         /* This is not done for bridge */
         if (exetype != 2) {
             // We have to set SslUseBuffersPool before ism_ssl_init
             // we support 4K concurrent connections per GB of allocated memory. double the max connection limit in case of large reconnect event
             pthread_mutex_lock(&g_utillock);
-            ism_config_autotune_setATProp("TcpMaxConnections",(g_ismTotalMemMB/1024)*2*4000);
+            ism_config_autotune_setATProp("TcpMaxConnections",defaultTcpMaxConnections);
             ism_config_autotune_setATProp("SslUseBuffersPool", 0);  /* Disable TLS buffer pool by default, pool lock adds too much lock contention, getting much better performance using glibc malloc/free */
             pthread_mutex_unlock(&g_utillock);
         }
@@ -1872,12 +1884,32 @@ XAPI void ism_config_autotune(void){
 
 	CPU_FREE(assignedCPUSet);
 
-	/*
-	 * MessageSight configuration that should be scaled based on CPU resources
-	 */
+    //If we have <=16GiB we'll try and minimise our memory use (unless config already has a size profile
+    //set explicitly
+    if (g_ismTotalMemMB <= 16500) {
+        ism_config_autotune_setATProp("SizeProfile", 1); //todo: named SMALL
+    }
 
-	/* Scale the IOP, AP, Security, and HA TX threads based on number of HOT CPUs
-	 nrassign=1 nrcrit=0 nrhotrsrv=1 nrhot=1 iop=1 ap=1 sec=2 hatx=1
+    int defaultTcpMaxConnections;
+    int defaultTcpMaxTransportPoolSizeMB;
+
+    //Should other settings depend on the Size Profile Or can we scale things nicely based on memory/cpus?
+    switch(ism_common_getIntConfig("SizeProfile", 0 /* TODO: NAMED DEFAULT */)) {
+        case 1: /* TODO: NAMED SMALL */
+            defaultTcpMaxTransportPoolSizeMB = g_ismTotalMemMB/64;
+            if (defaultTcpMaxTransportPoolSizeMB < 10)  defaultTcpMaxTransportPoolSizeMB = 10;
+            break;
+        default:
+            defaultTcpMaxTransportPoolSizeMB = g_ismTotalMemMB/16;
+            break;
+    }
+
+    // we support 4K concurrent connections per GB of allocated memory. double the max connection limit in case of large reconnect event
+    defaultTcpMaxConnections = (g_ismTotalMemMB/1024)*2*4000;
+    if (defaultTcpMaxConnections < 2048) defaultTcpMaxConnections = 2*4000;
+
+    /* Scale the IOP, AP, Security, and HA TX threads based on number of HOT CPUs
+     nrassign=1 nrcrit=0 nrhotrsrv=1 nrhot=1 iop=1 ap=1 sec=2 hatx=1
      nrassign=2 nrcrit=0 nrhotrsrv=2 nrhot=2 iop=2 ap=1 sec=3 hatx=1
      nrassign=3 nrcrit=0 nrhotrsrv=3 nrhot=3 iop=2 ap=2 sec=3 hatx=1
      nrassign=4 nrcrit=1 nrhotrsrv=3 nrhot=3 iop=2 ap=2 sec=3 hatx=1
@@ -1925,15 +1957,11 @@ XAPI void ism_config_autotune(void){
 	ism_config_autotune_setATProp("Store.PersistAsyncThreads",numAP > 25 ? 25 : numAP); // max of 25 asyncPersist threads
 	ism_config_autotune_setATProp("SecurityThreadPoolSize",numSec > 16 ? 16 : numSec); // max of 16 Security threads
 	ism_config_autotune_setATProp("Store.PersistHaTxThreads",numHATX > 4 ? 4 : numHATX); // max of 4 HA Tx threads
+	maxConn = ism_config_autotune_setATProp("TcpMaxConnections", defaultTcpMaxConnections);
 
-	/*
-	 * MessageSight configuration that should be scaled based on Memory resources
-	 */
-	// we support 4K concurrent connections per GB of allocated memory. double the max connection limit in case of large reconnect event
-	maxConn = ism_config_autotune_setATProp("TcpMaxConnections",(g_ismTotalMemMB/1024)*2*4000);
 
 	/* Transport and OpenSSL buffer pools*/
-	ism_config_autotune_setATProp("TcpMaxTransportPoolSizeMB",g_ismTotalMemMB/16);
+	ism_config_autotune_setATProp("TcpMaxTransportPoolSizeMB", defaultTcpMaxTransportPoolSizeMB);
 	ism_config_autotune_setATProp("SslUseBuffersPool", 0);  /* Disable TLS buffer pool by default, pool lock adds too much lock contention, getting much better performance using glibc malloc/free */
     pthread_mutex_unlock(&g_utillock);
 
@@ -1951,13 +1979,14 @@ XAPI void ism_config_autotune(void){
     /*
      * MessageSight configuration that should be scaled based on Disk resources
      */
-    TRACE(2, "MessageSight autotuned configuration: mem=%lluMB, cpu=%d(%s) hot=%d(%s) hotrsrv=%d(%s) iop=%d ap=%d sec=%d hatx=%d maxconn=%d\n",
+    TRACE(2, "MessageSight autotuned configuration: mem=%lluMB, cpu=%d(%s) hot=%d(%s) hotrsrv=%d(%s) iop=%d ap=%d sec=%d hatx=%d maxconn=%d sizep=%d\n",
             (unsigned long long) g_ismTotalMemMB,g_assignedCPUs,assignedCPUMapStr,g_hotCPUs,hotCPUMapStr,g_hotRsrvCPUs,hotRsrvCPUMapStr,
             ism_common_getIntConfig("TcpThreads",0),
             ism_common_getIntConfig("Store.PersistAsyncThreads",0),
             ism_common_getIntConfig("SecurityThreadPoolSize",0),
             ism_common_getIntConfig("Store.PersistHaTxThreads",0),
-            ism_common_getIntConfig("TcpMaxConnections",0));
+            ism_common_getIntConfig("TcpMaxConnections",0),
+            ism_common_getIntConfig("SizeProfile",0));
 
 }
 

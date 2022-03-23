@@ -91,6 +91,7 @@ static void  sig_handler(int signo);
 static void  siguser2_handler(int signo);
 static void  sig_sigterm(int signo);
 static void setAdminPause(void);
+XAPI void ism_common_initPropertiesOnly(void);
 XAPI void ism_common_initTrace(void);
 XAPI void ism_ssl_init(int useFips, int useBufferPool);
 XAPI void ism_bufferPoolInit(void);
@@ -123,9 +124,21 @@ int main (int argc, char * * argv) {
     mainthread = pthread_self();
 
     /*
+     * Initialize the properties so that we can read the config in
+     */
+    ism_common_initPropertiesOnly();
+
+    /*
+     * Process the config file
+     */
+    rc = process_config(g_configfile, NULL);
+    if (rc)
+        return rc;
+
+    /*
      * Initialize the utilities
      */
-    ism_common_initUtilMain();
+    ism_common_initUtil();
 
     /* Catch various signals and flush the trace file */
     signal(SIGINT, sig_handler);
@@ -135,13 +148,6 @@ int main (int argc, char * * argv) {
 
     /* Ignore SIGPIPE signals for broken TCP connections. */
     sigignore(SIGPIPE);
-
-    /*
-     * Process the config file
-     */
-    rc = process_config(g_configfile, NULL);
-    if (rc)
-        return rc;
 
     /* Override trace level if specified on the command line */
     if (trclvl != -1) {

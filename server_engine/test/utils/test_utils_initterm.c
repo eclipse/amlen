@@ -81,6 +81,7 @@ test_envVars_t test_envVars[] = {
 /*28*/  {"IMA_TEST_PROTOCOL_ALLOW_MQTT_PROXY", "Whether to allow MQTT proxy protocol (means env is IoT)", ismENGINE_CFGPROP_ENVIRONMENT_IS_IOT, NULL, ISM_CONFIG_COMP_LAST},
 /*29*/  {"IMA_TEST_THREAD_JOB_QUEUES_ALGORITHM", "How much work to put on JobQueues/How aggressive is scavenger", ismENGINE_CFGPROP_THREAD_JOB_QUEUES_ALGORITHM, NULL, ISM_CONFIG_COMP_LAST},
 /*30*/  {"IMA_TEST_ASYNCCBSTATS_ENABLED", "Whether the store should track Async CBs", ismSTORE_CFG_ASYNCCB_STATSMODE},
+/*31*/  {"IMA_TEST_SIZE_PROFILE", "Whether to specify an explicit size profiled or not", ismENGINE_CFGPROP_SIZE_PROFILE, NULL, ISM_CONFIG_COMP_LAST},
         {NULL, NULL, NULL, NULL, ISM_CONFIG_COMP_LAST}
 };
 
@@ -750,6 +751,9 @@ int32_t test_processInit(int32_t traceLevel, char *adminDir)
 
     // Allow overriding of the AsyncCB stats mode
     test_envVars[30].propValue = getenv(test_envVars[30].name);
+
+    // Allow overriding of the SizeProfile setting
+    test_envVars[31].propValue = getenv(test_envVars[31].name);
 
     rc = test_setConfigProperties(false);
 

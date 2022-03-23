@@ -173,6 +173,14 @@ XAPI int32_t WARN_CHECKRC ism_engine_init(void)
     // Use 'now' as the last shutdown time until we've read the real value.
     ismEngine_serverGlobal.ServerShutdownTimestamp = ism_common_nowExpire();
 
+    // Pick up the SizeProfile value early and convert it into an ieutSizeProfile_t
+    int32_t iprop = ism_common_getIntConfig(ismENGINE_CFGPROP_SIZE_PROFILE, (int)DefaultSizeProfile);
+    if ((int32_t)ismEngine_serverGlobal.sizeProfile != iprop)
+    {
+        ismEngine_serverGlobal.sizeProfile = (ieutSizeProfile_t)iprop;
+        TRACE(ENGINE_INTERESTING_TRACE, "SizeProfile: %d\n", iprop);
+    }
+
     // Assert some basic things we expect to be true...
     assert(sizeof(ismMessageState_t) == 1);
 

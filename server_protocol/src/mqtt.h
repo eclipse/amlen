@@ -558,7 +558,7 @@ enum mqtt_rc_e {
     MQTTRC_WildcardNotSupported = 0xA2 /* 162 Wildcard subscriptions are not supported */
 };
 
-extern void ism_msgid_init(void);
+extern void ism_msgid_init(int32_t numOfHashMaps, int32_t hashMapInitialCapacity);
 extern ism_msgid_list_t * ism_create_msgid_list(ism_transport_t *transport, int isRX, uint16_t range);
 extern void ism_msgid_freelist(struct ism_msgid_list_t * list);
 extern int ism_msgid_addMsgIdInfo(ism_msgid_list_t * mlist, __uint128_t handle, uint16_t msgid, uint16_t state);
