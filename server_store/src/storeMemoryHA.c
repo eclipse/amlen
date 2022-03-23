@@ -4980,12 +4980,12 @@ XAPI int ism_ha_store_transfer_file(char *pPath, char *pFilename)
       if (pHAInfo->pAdminChannel->FragSqn == 0)
       {
          ismSTORE_putShort(pPos, Operation_Null);
-         plen = strlen(pPath) + 1;
+         plen = strlen(diskTask.Path) + 1;
          flen = strlen(pFilename) + 1;
          ismSTORE_putInt(pPos, plen + flen + LONG_SIZE + 2 * SHORT_SIZE);
          ismSTORE_putLong(pPos, diskTask.BufferParams->BufferLength);
          ismSTORE_putShort(pPos, (uint16_t)plen);
-         memcpy(pPos, pPath, plen);
+         memcpy(pPos, diskTask.Path, plen);
          pPos += plen;
          ismSTORE_putShort(pPos, (uint16_t)flen);
          memcpy(pPos, pFilename, flen);
