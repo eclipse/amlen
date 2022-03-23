@@ -708,6 +708,16 @@ static int ism_storeDisk_placeJob(int type, ismStore_DiskTaskParams_t *params)
     if ( params->ActualPath && params->File)
     {
       di = ism_storeDisk_getDirInfo(params->ActualPath, params->File) ; 
+
+      //Now we have the info for the actual path we ca replace the path
+      //with the version with vars (e.g. ${IMA_SVR_DATA_PATH}) in
+      ism_common_free(ism_memory_store_misc,di->path);
+
+      if ( !(di->path = su_strdup(params->Path)) )
+      {
+        rc = StoreRC_AllocateError ;
+        break ; 
+      }
     }
     else if ( params->Path && params->File )
     {
