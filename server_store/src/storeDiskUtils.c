@@ -705,13 +705,21 @@ static int ism_storeDisk_placeJob(int type, ismStore_DiskTaskParams_t *params)
       rc = StoreRC_Disk_IsNotOn ;
       break ; 
     }
-    if ( params->Path && params->File )
+    if ( params->ActualPath && params->File)
+    {
+      di = ism_storeDisk_getDirInfo(params->ActualPath, params->File) ; 
+    }
+    else if ( params->Path && params->File )
+    {
       di = ism_storeDisk_getDirInfo(params->Path, params->File) ; 
+    }
     else
-    if ( !params->Path && !params->File )
-      di = genDir ; 
-    else
-      di = NULL ; 
+    {
+      if ( !params->Path && !params->File )
+        di = genDir ; 
+      else
+        di = NULL ;
+    } 
     if ( !di )
     {
       rc = StoreRC_BadParameter ; 

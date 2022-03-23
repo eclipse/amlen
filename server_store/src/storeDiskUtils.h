@@ -105,8 +105,9 @@ typedef struct ismStore_DiskTaskParams_t
    ismPSTOREDISKASYNCCALLBACK    Callback ; 
    void                         *pContext ; 
    ismStore_DiskBufferParams_t   BufferParams[1] ; 
-   const char                   *Path ; 
+   const char                   *Path ; //This might have a variable like ${IMA_SVR_DATA_PATH} in
    const char                   *File ; 
+   const char                   *ActualPath ; //The version of Path with vars replaced
 } ismStore_DiskTaskParams_t;
 
 /*********************************************************************/

@@ -4865,6 +4865,7 @@ XAPI int ism_ha_store_transfer_file(char *pPath, char *pFilename)
    diskTask.Callback = ism_store_memHAAdminDiskReadComplete;
    diskTask.Path = (pAdjustedPath != NULL) ? pAdjustedPath : pPath;
    diskTask.File = pFilename;
+   diskTask.ActualPath = pPath;
 
    pthread_mutex_lock(&ismStore_HAAdminMutex);
    while (1)
