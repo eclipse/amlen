@@ -4863,9 +4863,8 @@ XAPI int ism_ha_store_transfer_file(char *pPath, char *pFilename)
    memset(&diskTask, '\0', sizeof(diskTask));
    diskTask.Priority = 0;
    diskTask.Callback = ism_store_memHAAdminDiskReadComplete;
-   diskTask.Path = (pAdjustedPath != NULL) ? pAdjustedPath : pPath;
+   diskTask.Path = pPath;
    diskTask.File = pFilename;
-   diskTask.ActualPath = pPath;
 
    pthread_mutex_lock(&ismStore_HAAdminMutex);
    while (1)
@@ -4979,13 +4978,14 @@ XAPI int ism_ha_store_transfer_file(char *pPath, char *pFilename)
       // Add the header information in the first fragment only
       if (pHAInfo->pAdminChannel->FragSqn == 0)
       {
+         const char *pPathToTransmit = ((pAdjustedPath != NULL)? pAdjustedPath : pPath);
          ismSTORE_putShort(pPos, Operation_Null);
-         plen = strlen(diskTask.Path) + 1;
+         plen = strlen(pPathToTransmit) + 1;
          flen = strlen(pFilename) + 1;
          ismSTORE_putInt(pPos, plen + flen + LONG_SIZE + 2 * SHORT_SIZE);
          ismSTORE_putLong(pPos, diskTask.BufferParams->BufferLength);
          ismSTORE_putShort(pPos, (uint16_t)plen);
-         memcpy(pPos, diskTask.Path, plen);
+         memcpy(pPos, pPathToTransmit, plen);
          pPos += plen;
          ismSTORE_putShort(pPos, (uint16_t)flen);
          memcpy(pPos, pFilename, flen);
