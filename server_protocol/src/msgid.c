@@ -21,17 +21,18 @@ static int g_msgIdMapCapacity;
 static ismHashMap **g_msgIdsMapTx;
 static ismHashMap **g_msgIdsMapRx;
 static struct drand48_data randBuffer;
-void ism_msgid_init(void) {
+
+void ism_msgid_init(int32_t numOfHashMaps, int32_t hashMapInitialCapacity) {
     int i;
-    g_numMsgIdMaps = ism_common_getIntConfig("NumMsgIdMaps", 10);
-    g_msgIdMapCapacity = ism_common_getIntConfig("MsgIdMapCapacity", 128 * 1024);
+    g_numMsgIdMaps = numOfHashMaps;
+    g_msgIdMapCapacity = hashMapInitialCapacity;
 
-    g_msgIdsMapTx 	= ism_common_calloc(ISM_MEM_PROBE(ism_memory_protocol_misc,62),g_numMsgIdMaps, sizeof(ismHashMap *));
-    g_msgIdsMapRx  	= ism_common_calloc(ISM_MEM_PROBE(ism_memory_protocol_misc,63),g_numMsgIdMaps, sizeof(ismHashMap *));
+    g_msgIdsMapTx = malloc(sizeof(ismHashMap *) * numOfHashMaps);
+    g_msgIdsMapRx = malloc(sizeof(ismHashMap *) * numOfHashMaps);
 
-    for (i = 0; i < g_numMsgIdMaps; i++) {
-        g_msgIdsMapTx[i] = ism_common_createHashMap(g_msgIdMapCapacity, HASH_INT64);
-        g_msgIdsMapRx[i] = ism_common_createHashMap(g_msgIdMapCapacity, HASH_INT64);
+    for (i = 0; i < numOfHashMaps; i++) {
+        g_msgIdsMapTx[i] = ism_common_createHashMap((uint32_t)hashMapInitialCapacity, HASH_INT64);
+        g_msgIdsMapRx[i] = ism_common_createHashMap((uint32_t)hashMapInitialCapacity, HASH_INT64);
     }
     srand48_r(time(NULL), &randBuffer);
 
@@ -70,6 +71,7 @@ ism_msgid_list_t * ism_create_msgid_list(ism_transport_t *transport, int isRX, u
     mlist->transport = transport;
     mlist->client_uid = pobj->client_uid;
     mapIdx = mlist->client_uid % g_numMsgIdMaps;
+
     if (isRX){
         mlist->idsMap = g_msgIdsMapRx[mapIdx];
     } else {
