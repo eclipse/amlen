@@ -951,11 +951,11 @@ int ism_transport_crlVerify(int good, X509StoreCtx * ctx) {
                 }
             }
         }else{
-        	TRACE(5, "CRL TLS Error Check: depth=%d good=%d err=%d errStr=%s\n", depth, good, err, X509_verify_cert_error_string(err));
+        	TRACE(9, "CRL TLS Error Check: depth=%d good=%d err=%d errStr=%s\n", depth, good, err, X509_verify_cert_error_string(err));
         }
     } else {
         if (err) {
-            TRACE(5, "verify err depth=%d good=%d err=%d errStr=%s\n", depth, good, err, X509_verify_cert_error_string(err));
+            TRACE(9, "verify err depth=%d good=%d err=%d errStr=%s\n", depth, good, err, X509_verify_cert_error_string(err));
         }
     }
     if (!ret) {
