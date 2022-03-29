@@ -959,7 +959,7 @@ int ism_transport_crlVerify(int good, X509StoreCtx * ctx) {
         }
     }
     if (!ret) {
-    	if(err== X509_V_ERR_CERT_HAS_EXPIRED && allowExpiredCertOrg != NULL && transport->sniName && !strcmp(transport->sniName, allowExpiredCertOrg)){
+    	if(err== X509_V_ERR_CERT_HAS_EXPIRED && allowExpiredCertOrg && transport->sniName && !strcmp(transport->sniName, allowExpiredCertOrg)){
     		TRACE(5, "Reset ret value for Expired Certificate. verify err depth=%d good=%d err=%d errStr=%s\n", depth, good, err, X509_verify_cert_error_string(err));
     		X509_STORE_CTX_set_error(ctx, 0);
 			transport->crlStatus = CRL_STATUS_NONE;
