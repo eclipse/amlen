@@ -271,6 +271,7 @@ static ism_timer_t         chkRcvBuffTimer = NULL;
        int                 g_bigLog = 0;
 extern uint64_t            g_metering_delta;
 static int                 checkServerCert = 0;
+static const char* 		   allowExpiredCertOrg;
 static int                 useLCPolicy = 0;
        int                 g_isBridge = 0;
        int				   g_tlsseclevel=-1;
@@ -949,16 +950,25 @@ int ism_transport_crlVerify(int good, X509StoreCtx * ctx) {
                     ret = 0;
                 }
             }
+        }else{
+        	TRACE(9, "CRL TLS Error Check: depth=%d good=%d err=%d errStr=%s\n", depth, good, err, X509_verify_cert_error_string(err));
         }
     } else {
         if (err) {
-            // printf("verify err depth=%d good=%d err=%d\n", depth, good, err);
+            TRACE(9, "verify err depth=%d good=%d err=%d errStr=%s\n", depth, good, err, X509_verify_cert_error_string(err));
         }
     }
     if (!ret) {
-        ism_common_setErrorData(ISMRC_CertificateNotValid, "%s", X509_verify_cert_error_string(err));
-        TRACE(5, "Cert verify failure: connect=%d From=%s:%u error=%s (%d)\n", transport->index,
-                transport->client_addr, transport->clientport, X509_verify_cert_error_string(err), err);
+    	if(err== X509_V_ERR_CERT_HAS_EXPIRED && allowExpiredCertOrg && transport->sniName && !strcmp(transport->sniName, allowExpiredCertOrg)){
+    		TRACE(5, "Reset ret value for Expired Certificate. verify err depth=%d good=%d err=%d errStr=%s\n", depth, good, err, X509_verify_cert_error_string(err));
+    		X509_STORE_CTX_set_error(ctx, 0);
+			transport->crlStatus = CRL_STATUS_NONE;
+			ret = 1;
+    	}else{
+			ism_common_setErrorData(ISMRC_CertificateNotValid, "%s", X509_verify_cert_error_string(err));
+			TRACE(5, "Cert verify failure: connect=%d From=%s:%u error=%s (%d) transport->org=%s\n", transport->index,
+					transport->client_addr, transport->clientport, X509_verify_cert_error_string(err), err, transport->sniName);
+    	}
     }
     return ret;
 }
@@ -3714,6 +3724,11 @@ int ism_transport_initTCP(void) {
 
 
     checkServerCert = ism_common_getBooleanConfig("CheckServerCertificate", 0);
+
+    /*Allow The organization to use the Expired TLS Certificate*/
+    allowExpiredCertOrg = ism_common_getStringConfig("AllowExpiredCertOrg");
+    if(allowExpiredCertOrg!=NULL)
+    	TRACE(5, "Allow Expired Certificate for organization: %s\n", allowExpiredCertOrg);
 
     /**
      * Get TLS Security Level Configuration (if any)
