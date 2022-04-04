@@ -20,7 +20,7 @@
 
 Summary: Amlen Protocol Plugin Support for Linux x86_64
 Name: AmlenProtocolPlugin
-Version: 0.1.0.0
+Version: 1.0.0.0
 Release: 1%{?dist}
 License: EPL-2.0
 Packager: IMA Build
