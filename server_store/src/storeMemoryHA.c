@@ -48,6 +48,7 @@ typedef struct ismStore_memHADiskWriteCtxt_t
    ismStore_memHAChannel_t  *pHAChannel;
    void                     *pArg;
    ismStore_memHAAck_t       Ack;
+   char                     *pAdjustedPath; //new path if not writing to original
 } ismStore_memHADiskWriteCtxt_t;
 
 /*********************************************************************/
@@ -1694,6 +1695,64 @@ static int ism_store_memHAChannelClosed(void *hChannel, void *pChContext)
    return StoreRC_OK;
 }
 
+static int ism_store_memHAAdminRecvdPathRewriting(char *pPath, char *pFilename, char **ppAdjustedPath)
+{
+   int rc = StoreRC_OK;
+
+   if (strncmp("/var/messagesight", pPath, strlen("/var/messagesight")) == 0)
+   {
+      if (strcmp("/var/messagesight", IMA_SVR_DATA_PATH) != 0)
+      {
+         if ((*ppAdjustedPath = (char *)ism_common_malloc(ISM_MEM_PROBE(ism_memory_store_misc,243),strlen(pPath)+1+strlen(IMA_SVR_DATA_PATH))) == NULL)
+            {
+               TRACE(1, "HAAdmin: Failed to write an admin file (Path %s, Filename %s) to the Standby disk due to a memory allocation error creating new path\n",
+                     pPath, pFilename);
+               rc = StoreRC_SystemError;
+               goto exit;
+            }
+         char *suffixStart = pPath + strlen("/var/messagesight");
+         sprintf(*ppAdjustedPath, "%s%s", IMA_SVR_DATA_PATH, suffixStart);
+      }
+   }
+   else if (strncmp("/ima/config", pPath, strlen("/ima/config")) == 0)
+   {
+      //An old legacy path but still used for HAtransfers right up until
+      //Message Gateway 5.0.0.2 and Amlen 0.1. Now files are under IMA_SVR_DATA_PATH/data
+      if ((*ppAdjustedPath = (char *)ism_common_malloc(ISM_MEM_PROBE(ism_memory_store_misc,244),strlen(pPath)+1+strlen(IMA_SVR_DATA_PATH)+strlen("/data"))) == NULL)
+      {
+         TRACE(1, "HAAdmin: Failed to write an admin file (Path %s, Filename %s) to the Standby disk due to a memory allocation error creating new path\n",
+                     pPath, pFilename);
+         rc = StoreRC_SystemError;
+         goto exit;
+      }
+      char *suffixStart = pPath + strlen("/ima/config");
+      sprintf(*ppAdjustedPath, "%s/data/hasync%s", IMA_SVR_DATA_PATH, suffixStart);
+   }
+   else if (strncmp("${IMA_SVR_DATA_PATH}", pPath, strlen("${IMA_SVR_DATA_PATH}")) == 0)
+   {
+      if ((*ppAdjustedPath = (char *)ism_common_malloc(ISM_MEM_PROBE(ism_memory_store_misc,245),strlen(pPath)+1+strlen(IMA_SVR_DATA_PATH))) == NULL)
+      {
+         TRACE(1, "HAAdmin: Failed to write an admin file (Path %s, Filename %s) to the Standby disk due to a memory allocation error creating new path\n",
+                     pPath, pFilename);
+         rc = StoreRC_SystemError;
+         goto exit;
+      }
+      char *suffixStart = pPath + strlen("${IMA_SVR_DATA_PATH}");
+      sprintf(*ppAdjustedPath, "%s%s", IMA_SVR_DATA_PATH, suffixStart);
+   }
+   else if (strncmp(IMA_SVR_DATA_PATH, pPath, strlen("IMA_SVR_DATA_PATH")) != 0)
+   {
+      TRACE(1, "HAAdmin: Syncing file (Path %s, Filename %s) to the Standby outside of the data directory %s. This is deprecated and will be disabled"
+               " in a future release\n", pPath, pFilename, IMA_SVR_DATA_PATH);
+   }
+   else
+   {
+      *ppAdjustedPath = NULL;
+   }
+exit:
+   return rc;
+}
+
 static int ism_store_memHAIntMsgReceived(void *hChannel, char *pData, uint32_t dataLength, void *pChContext)
 {
    ismStore_memHAInfo_t *pHAInfo = &ismStore_memGlobal.HAInfo;
@@ -1982,18 +2041,35 @@ static int ism_store_memHAIntMsgReceived(void *hChannel, char *pData, uint32_t d
             pDiskWriteCtxt->Ack.AckSqn = pFrag->MsgSqn;
             pDiskWriteCtxt->Ack.FragSqn = pFrag->FragSqn;
             pDiskWriteCtxt->Ack.SrcMsgType = pFrag->MsgType;
+            if ((rc = ism_store_memHAAdminRecvdPathRewriting(pPath, pFilename, &(pDiskWriteCtxt->pAdjustedPath))) != StoreRC_OK)
+            {
+               TRACE(1, "HAAdmin: Failed to receive an admin file (Path %s, Filename %s, FileSize %lu, MsgSqn %lu) due to failure to determine new path. error code %d\n",
+                     pPath, pFilename, pFrag->DataLength, pFrag->MsgSqn, rc);
+               rc = StoreRC_SystemError;
+               pHAChannel->pFrag = pHAChannel->pFragTail = NULL;
+               ismSTORE_FREE(pDiskWriteCtxt);
+               goto exit;
+            }
 
             memset(&diskTask, '\0', sizeof(diskTask));
             diskTask.Priority = 0;
             diskTask.Callback = ism_store_memHAAdminDiskWriteComplete;
             diskTask.pContext = pDiskWriteCtxt;
-            diskTask.Path = pPath;
+            diskTask.Path = (pDiskWriteCtxt->pAdjustedPath != NULL) ? pDiskWriteCtxt->pAdjustedPath: pPath;
             diskTask.File = pFilename;
             diskTask.BufferParams->pBuffer = pFrag->pData;
             diskTask.BufferParams->BufferLength = pFrag->DataLength;
 
-            TRACE(9, "HAAdmin: An admin file (Path %s, Filename %s, FileSize %lu, MsgSqn %lu) is being written to the Standby disk\n",
-                  pPath, pFilename, pFrag->DataLength, pFrag->MsgSqn);
+            if (pDiskWriteCtxt->pAdjustedPath != NULL)
+            {
+               TRACE(7, "HAAdmin: An admin file (Original Path %s, AdjustedPath %s, Filename %s, FileSize %lu, MsgSqn %lu) is being written to the Standby disk\n",
+                     pPath, pDiskWriteCtxt->pAdjustedPath, pFilename, pFrag->DataLength, pFrag->MsgSqn);
+            }
+            else
+            {
+               TRACE(9, "HAAdmin: An admin file (Path %s, Filename %s, FileSize %lu, MsgSqn %lu) is being written to the Standby disk\n",
+                     pPath, pFilename, pFrag->DataLength, pFrag->MsgSqn);
+            }
 
             if ((rc = ism_storeDisk_writeFile(&diskTask)) != StoreRC_OK)
             {
@@ -4755,6 +4831,7 @@ XAPI int ism_ha_store_transfer_file(char *pPath, char *pFilename)
    ismStore_memHAAck_t ack;
    ismStore_memHAMsgType_t msgType = StoreHAMsg_AdminFile;
    char *pBuffer=NULL, *pPos;
+   char *pAdjustedPath=NULL;
    uint8_t fBusyWarn = 0;
    uint32_t bufferLength, fragLength, requiredLength, plen, flen, opcount;
    uint64_t dataLength, offset=0;
@@ -4768,6 +4845,20 @@ XAPI int ism_ha_store_transfer_file(char *pPath, char *pFilename)
    }
 
    TRACE(9, "Entry: %s. Path %s, Filename %s\n", __FUNCTION__, pPath, pFilename);
+
+   if (strncmp(IMA_SVR_DATA_PATH, pPath, strlen(IMA_SVR_DATA_PATH)) == 0)
+   {
+      //Don't send the absolute path, send the string ${IMA_SVR_DATA_PATH} as a prefix
+      if ((pAdjustedPath = (char *)ism_common_malloc(ISM_MEM_PROBE(ism_memory_store_misc,246),strlen(pPath)+1+strlen("${IMA_SVR_DATA_PATH}"))) == NULL)
+      {
+         TRACE(1, "HAAdmin: Failed to transfer an admin file (Path %s, Filename %s) to the Standby disk due to a memory allocation error creating new path\n",
+                     pPath, pFilename);
+         rc = StoreRC_SystemError;
+         goto exit;
+      }
+      char *suffixStart = pPath + strlen(IMA_SVR_DATA_PATH);
+      sprintf(pAdjustedPath, "${IMA_SVR_DATA_PATH}%s", suffixStart);
+   }
 
    memset(&diskTask, '\0', sizeof(diskTask));
    diskTask.Priority = 0;
@@ -4887,13 +4978,14 @@ XAPI int ism_ha_store_transfer_file(char *pPath, char *pFilename)
       // Add the header information in the first fragment only
       if (pHAInfo->pAdminChannel->FragSqn == 0)
       {
+         const char *pPathToTransmit = ((pAdjustedPath != NULL)? pAdjustedPath : pPath);
          ismSTORE_putShort(pPos, Operation_Null);
-         plen = strlen(pPath) + 1;
+         plen = strlen(pPathToTransmit) + 1;
          flen = strlen(pFilename) + 1;
          ismSTORE_putInt(pPos, plen + flen + LONG_SIZE + 2 * SHORT_SIZE);
          ismSTORE_putLong(pPos, diskTask.BufferParams->BufferLength);
          ismSTORE_putShort(pPos, (uint16_t)plen);
-         memcpy(pPos, pPath, plen);
+         memcpy(pPos, pPathToTransmit, plen);
          pPos += plen;
          ismSTORE_putShort(pPos, (uint16_t)flen);
          memcpy(pPos, pFilename, flen);
@@ -4962,7 +5054,7 @@ exit:
    {
       ism_common_setError(rc);
    }
-
+   ismSTORE_FREE(pAdjustedPath);
    ism_common_free_raw(ism_memory_store_misc,diskTask.BufferParams->pBuffer);
 
    pthread_mutex_lock(&ismStore_HAAdminMutex);
@@ -5052,6 +5144,7 @@ static void ism_store_memHAAdminDiskWriteComplete(ismStore_GenId_t genId, int32_
             pDiskWriteCtxt->ViewId, pHAInfo->View.ViewId, pHAInfo->View.NewRole, pHAInfo->State, pDiskWriteCtxt->Ack.SrcMsgType, pDiskWriteCtxt->Ack.AckSqn, pDiskWriteCtxt->Ack.ReturnCode);
    }
 
+   ismSTORE_FREE(pDiskWriteCtxt->pAdjustedPath)
    ismSTORE_FREE(pDiskWriteCtxt->pArg);
    ismSTORE_FREE(pDiskWriteCtxt);
 
