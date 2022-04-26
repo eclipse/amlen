@@ -65,7 +65,7 @@ typedef enum {
     RC( ISMRC_NotInThreadCache           ,  24,   0,  "The requested topic name does not match the one cached for this thread")
     RC( ISMRC_NoMsgAvailForConsumer      ,  25,   0,  "No message is available for the consumer")
     RC( IMSRC_RecheckQueue               ,  26,   0,  "A message was not returned but messages may be available")
-    RC( IMSRC_ServerRestartRequired      ,  27,   0,  "Need to restart the " IMA_SVR_COMPONENT_NAME_FULL ".")
+    RC( IMSRC_ServerRestartRequired      ,  27,   0,  "Need to restart the server.")
     RC( ISMRC_DisableWaiterCancel        ,  28,   0,  "An asynchronous request to stop a waiter was canceled" )
 
     RC( ISMRC_WouldBlock                 ,  30,   0,  "Operation would cause the thread to block")
@@ -119,7 +119,7 @@ typedef enum {
     RC( ISMRC_BadPropertyType      ,  127,   0,  "The property type is not valid. Object: {0}  Name: {1}  Property: {2}  Type: {3}")
     RC( ISMRC_BadConfigName        ,  128,   0,  "The name of a named configuration object is not valid: {0}.")
     RC( ISMRC_MessageHub           ,  129,   0,  "The endpoint must be part of a message hub.")
-    RC( ISMRC_MonDataNotAvail      ,  130,   0,  "The monitoring data is not available because the " IMA_SVR_COMPONENT_NAME_FULL " status is not \"Running\".")
+    RC( ISMRC_MonDataNotAvail      ,  130,   0,  "The monitoring data is not available because the server status is not \"Running\".")
     RC( ISMRC_ProtocolMismatch     ,  131,   0,  "The client ID {0} is already associated with a different protocol: {1}.")
     RC( ISMRC_BadOptionValue       ,  132,   0,  "The property value is not valid. Object: {0} Name: {1} Property: {2} Value: \"{3}\".")
     RC( ISMRC_NameLimitExceed      ,  133,   0,  "The name of the configuration object is too long. Object: {0} Property: {1} Value: {2}.")
@@ -134,7 +134,7 @@ typedef enum {
     RC( ISMRC_SysCallFailed        ,  142,   0,  "{0} system call failed: The error is {1}({2}).")
     RC( ISMRC_InvalidObjectConfig  ,  143,   0,  "Invalid object configuration data is provided for the {0} object.")
     RC( ISMRC_LenthLimitExceed     ,  144,   0,  "The value that is specified for the property on the configuration object is too long. Object: {0} Property: {1} Value: {2}.")
-    RC( ISMRC_RestartNeeded        ,  145,   0,  "The " IMA_SVR_COMPONENT_NAME_FULL " must be restarted to complete the configuration changes.")
+    RC( ISMRC_RestartNeeded        ,  145,   0,  "The server must be restarted to complete the configuration changes.")
     RC( ISMRC_LenthLimitSingleton  ,  146,   0,  "The value that is specified for the property is too long. Property: {0} Value: {1}.")
     RC( ISMRC_ILMTTagUpdatetError  ,  147,   0,  "A failure occurred while processing ILMT Tag file. License Type:{0} Version:{1}")
     RC( ISMRC_ClusterMemberNotFound,  148,   0,  "Could not find a matching inactive cluster member: ServerName:{0} ServerUID:{1}")
@@ -176,7 +176,7 @@ typedef enum {
     RC( ISMRC_NotAuthenticated     ,  181,   0,  "User authentication failed.")
     RC( ISMRC_LTPATokenExpired     ,  182,   0,  "LTPA token has expired.")
     RC( ISMRC_OAuthInvalidToken    ,  183,   0,  "OAuth token is not valid.")
-    RC( ISMRC_OAuthServerError     ,  184,   0,  "The " IMA_SVR_COMPONENT_NAME_FULL " could not connect to the OAuth authorization server. The cURL return code is {0}.")
+    RC( ISMRC_OAuthServerError     ,  184,   0,  "The messaging server could not connect to the OAuth authorization server. The cURL return code is {0}.")
     RC( ISMRC_NoSecProfile         ,  185,   0,  "The security profile must be set if security is enabled.")
     RC( ISMRC_NoCertProfile        ,  186,   0,  "The certificate profile must be set if TLSEnabled is true.")
     RC( ISMRC_CreateSSLContext     ,  187,   0,  "Unable to create the TLS context.")
@@ -284,7 +284,7 @@ typedef enum {
     RC( ISMRC_MappingStateUpdate   , 301,   0,  "Destination mapping rule state must not change when other updates to the rule are made.")
     RC( ISMRC_QMUpdate             , 302,   0,  "Queue manager connection associated with enabled destination mapping rule cannot be updated.")
     RC( ISMRC_QMDelete             , 303,   0,  "Queue manager connection associated with destination mapping rule cannot be deleted.")
-    RC( ISMRC_ISMNotAvailable      , 304,   0,  "MQ Connectivity could not connect to the " IMA_SVR_COMPONENT_NAME_FULL ".")
+    RC( ISMRC_ISMNotAvailable      , 304,   0,  "MQ Connectivity could not connect to the messaging server.")
     RC( ISMRC_UnexpectedConfig     , 305,   0,  "An unexpected MQ Connectivity configuration was encountered.")
     RC( ISMRC_TooManyRules         , 306,   0,  "Maximum number of rules already defined.")
     RC( ISMRC_Unresolved           , 307,   0,  "The queue manager connection has unresolved transactions. The update is not allowed without the force option.")
@@ -296,7 +296,7 @@ typedef enum {
     RC( ISMRC_QMNameError          , 313,   0,  "Queue manager name error.")
     RC( ISMRC_UnableToConnectToQM  , 314,   0,  "An attempt to connect to a queue manager failed.")
     RC( ISMRC_NotAuthorizedAtQM    , 315,   0,  "The operation is not authorized at the queue manager.")
-    RC( ISMRC_MQCProcessError      , 316,   0,  "The " IMA_SVR_COMPONENT_NAME_FULL " could not connect to MQ Connectivity service.")
+    RC( ISMRC_MQCProcessError      , 316,   0,  "The messaging server could not connect to MQ Connectivity service.")
 
     /* Admin Errors and options */
     RC( ISMRC_InvalidComponent     , 330,   0,  "Component, item or object name is not valid or NULL.")
@@ -323,9 +323,9 @@ typedef enum {
     RC( ISMRC_EndpointNotFound     , 351,   0,  "The endpoint is not configured.")
     RC( ISMRC_ConnectionNotFound   , 352,   0,  "No connection data is found.")
     RC( ISMRC_HAInSync             , 353,   0,  "A HighAvailibility node synchronization process is in progress. Configuration changes are not allowed at this time.")
-    RC( ISMRC_RunModeChangePending , 354,   0,  "The " IMA_SVR_COMPONENT_NAME_FULL " is currently in {0} mode.\nWhen it is restarted, it will be in {1} mode.")
-    RC( ISMRC_CleanStorePending    , 355,   0,  "The " IMA_SVR_COMPONENT_NAME_FULL " is currently in {0} mode with {1} action pending.\nWhen it is restarted, it will be in {2} mode.")
-    RC( ISMRC_UnknownServerState   , 356,   0,  "The " IMA_SVR_COMPONENT_NAME_FULL " did not respond to the status request.")
+    RC( ISMRC_RunModeChangePending , 354,   0,  "The messaging server is currently in {0} mode.\nWhen it is restarted, it will be in {1} mode.")
+    RC( ISMRC_CleanStorePending    , 355,   0,  "The messaging server is currently in {0} mode with {1} action pending.\nWhen it is restarted, it will be in {2} mode.")
+    RC( ISMRC_UnknownServerState   , 356,   0,  "The messaging server did not respond to the status request.")
     /* RC( ISMRC_EndpointMsgPolError  , 357,   0,  "If you specify a messaging policy where the destination type is Subscription, you must specify at least one messaging policy where the destination type is Topic. The topic messaging policy must grant subscribe authority to the topic that is associated with the subscription name specified in the subscription messaging policy. These messaging policies must be associated with the same endpoint:  \"{0}\".") Not used. Removed from TMS file. */
     /* RC( ISMRC_TopCNNotAuthorized   , 358,   0,  "Not authorized to publish or subscribe to \"CommonName\" substituted destination.") Not used. Removed from TMS file. */
     RC( ISMRC_AdmnHAStandbyError   , 359,   0,  "Failed to synchronize configuration on the standby node in the HA-pair.")
@@ -334,7 +334,7 @@ typedef enum {
     RC( ISMRC_GroupIDLimitExceeded , 362,   0,  "The messaging policy cannot have more than one instance of the \"GroupID\" substitution variable.")
     /* RC( ISMRC_InvalidGroupUpdate   , 363,   0,  "The \"Group\" cannot be updated.") Not used. Removed from TMS file. */
     RC( ISMRC_GroupUpdateFailed    , 364,   0,  "The Group cannot be synchronized on the standby node.")
-    RC( ISMRC_UUIDConfigError      , 365,   0,  "An " IMA_SVR_COMPONENT_NAME_FULL " UUID configuration error has occurred.")
+    RC( ISMRC_UUIDConfigError      , 365,   0,  "A messaging server UUID configuration error has occurred.")
     RC( ISMRC_PluginZipNotValid    , 366,   0,  "The plug-in zip file is not valid.")
     RC( ISMRC_PluginApplyInProgress, 367,   0,  "The plug-in installation is still in progress.")
     RC( ISMRC_PluginConfigNotValid,  368,   0,  "The plug-in configuration file is not valid.")
@@ -356,19 +356,19 @@ typedef enum {
     RC( ISMRC_UpdateNotAllowed    ,  384,   0,  "You must disable the object {0} to update or set configuration item {1}.")
     RC( ISMRC_HADisOnClusterPrim  ,  385,   0,  "High-Availability is disabled on the Primary node with cluster enabled.")
     RC( ISMRC_CRLServerError      ,  386,   0,  "Error received from the CRL server. The cURL return code is {0}")
-    RC( ISMRC_LicenseError        ,  387,   0,  "" IMA_PRODUCTNAME_FULL " is not fully functional until you accept the license agreement using " IMA_PRODUCTNAME_SHORT " REST API.")
+    RC( ISMRC_LicenseError        ,  387,   0,  "The server is not fully functional until you accept the license agreement using the REST API.")
     RC( ISMRC_NotAllowedOnStandby ,  388,   0,  "The action {0} for Object: {1} is not allowed on a standby node.")
-    RC( ISMRC_RequireRunningServer,  389,   0,  "{0} objects can only be altered when the " IMA_SVR_COMPONENT_NAME " status is \"Running\".")
+    RC( ISMRC_RequireRunningServer,  389,   0,  "{0} objects can only be altered when the server status is \"Running\".")
 
     /* Other errors */
     /* RC( ISMRC_UEFIConfigError      , 390,   0,  "UEFI configuration error") Not used. Removed from TMS file. */
     /* RC( ISMRC_RAIDConfigError      , 391,   0,  "RAID configuration error") */
-    RC( ISMRC_VMSHMLow             , 392,   0,  "The amount of available shared memory in the virtual " IMA_SVR_COMPONENT_NAME " is insufficient.")
-    RC( ISMRC_VMSHMHigh            , 393,   0,  "The shared memory that is configured in the virtual " IMA_SVR_COMPONENT_NAME " is too large.")
-    RC( ISMRC_VMDiskIsSmall        , 394,   0,  "The disk size that is configured in the virtual " IMA_SVR_COMPONENT_NAME " is too small.")
-    RC( ISMRC_VMNeedMoreVCPUs      , 395,   0,  "More VCPUs are required in the virtual " IMA_SVR_COMPONENT_NAME ".")
-    RC( ISMRC_VMInsufficientMemory , 396,   0,  "The amount of available system memory in the virtual " IMA_SVR_COMPONENT_NAME " is insufficient.")
-    RC( ISMRC_VMCheckAdminLog      , 397,   0,  "More than one error is detected in the virtual " IMA_SVR_COMPONENT_NAME ". Check the imaserver-admin.log file for details.")
+    RC( ISMRC_VMSHMLow             , 392,   0,  "The amount of available shared memory in the virtual messaging server is insufficient.")
+    RC( ISMRC_VMSHMHigh            , 393,   0,  "The shared memory that is configured in the virtual messaging server is too large.")
+    RC( ISMRC_VMDiskIsSmall        , 394,   0,  "The disk size that is configured in the virtual messaging server is too small.")
+    RC( ISMRC_VMNeedMoreVCPUs      , 395,   0,  "More VCPUs are required in the virtual messaging server.")
+    RC( ISMRC_VMInsufficientMemory , 396,   0,  "The amount of available system memory in the virtual messaging server is insufficient.")
+    RC( ISMRC_VMCheckAdminLog      , 397,   0,  "More than one error is detected in the virtual messaging server. Check the imaserver-admin.log file for details.")
     RC( ISMRC_LicenseUsgUpdtErr	   , 398,   0,  "A failure occurred when the LicensedUsage configuration value was being updated.")
     RC( ISMRC_LicenseStatusUpdtErr , 399,   0,  "A failure occurred when the LicensedUsage status was being updated.")
 
