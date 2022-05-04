@@ -1,0 +1,69 @@
+//This is a more customisable version of the default Jenkinsfile stored at in the root folder of the project
+//This version allows (in particular) choosing which Linux distribution to build on
+pipeline {
+
+    parameters{
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: 'master', name: 'branchName', type: 'PT_BRANCH',description: 'Branch to get the websites/download HTML Download page(s) from'
+    }
+
+  agent {
+    kubernetes {
+      label "amlen-downloadwww-update-pod"
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    resources:
+      limits:
+        memory: "300Mi"
+        cpu: "200m"
+      requests:
+        memory: "300Mi"
+        cpu: "200m"
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+"""
+    }
+  }
+  
+
+
+    stages {
+        stage('DeployDownloadWWW') {
+            steps {
+                container('jnlp') {
+                    sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                        sh '''
+                            pwd
+                            echo ${GIT_BRANCH}
+                            NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                            scp -o BatchMode=yes -r websites/download/* genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/
+                        '''
+                    }
+                }
+            }
+        }
+    }
+    post {
+        // send a mail on unsuccessful and fixed builds
+        unsuccessful { // means unstable || failure || aborted
+            emailext subject: 'Build $BUILD_STATUS $PROJECT_NAME #$BUILD_NUMBER!', 
+            body: '''Check console output at $BUILD_URL to view the results.''',
+            recipientProviders: [culprits(), requestor()], 
+            to: 'levell@uk.ibm.com'
+        }
+        fixed { // back to normal
+            emailext subject: 'Build $BUILD_STATUS $PROJECT_NAME #$BUILD_NUMBER!', 
+            body: '''Check console output at $BUILD_URL to view the results.''',
+            recipientProviders: [culprits(), requestor()], 
+            to: 'levell@uk.ibm.com'
+        }
+    }
+}
