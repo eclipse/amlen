@@ -1,0 +1,72 @@
+//The download page (https://download.eclipse.org/amlen) is different to the main Amlen website
+//(https://www.eclipse.org/amlen). The main website has it's own git repo. The downloads page 
+//can only be updated (as far as I can tell) from the Jenkins for the main product source repo.
+//Thus this jenkins script which copes the simple download page files from the product source
+//to the Eclipse download server
+pipeline {
+
+    parameters{
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: 'master', name: 'branchName', type: 'PT_BRANCH',description: 'Branch to get the websites/download HTML Download page(s) from'
+    }
+
+  agent {
+    kubernetes {
+      label "amlen-downloadwww-update-pod"
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    resources:
+      limits:
+        memory: "300Mi"
+        cpu: "200m"
+      requests:
+        memory: "300Mi"
+        cpu: "200m"
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+"""
+    }
+  }
+  
+
+
+    stages {
+        stage('DeployDownloadWWW') {
+            steps {
+                container('jnlp') {
+                    sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                        sh '''
+                            pwd
+                            echo ${GIT_BRANCH}
+                            NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                            scp -o BatchMode=yes -r websites/download/* genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/
+                        '''
+                    }
+                }
+            }
+        }
+    }
+    post {
+        // send a mail on unsuccessful and fixed builds
+        unsuccessful { // means unstable || failure || aborted
+            emailext subject: 'Build $BUILD_STATUS $PROJECT_NAME #$BUILD_NUMBER!', 
+            body: '''Check console output at $BUILD_URL to view the results.''',
+            recipientProviders: [culprits(), requestor()], 
+            to: 'levell@uk.ibm.com'
+        }
+        fixed { // back to normal
+            emailext subject: 'Build $BUILD_STATUS $PROJECT_NAME #$BUILD_NUMBER!', 
+            body: '''Check console output at $BUILD_URL to view the results.''',
+            recipientProviders: [culprits(), requestor()], 
+            to: 'levell@uk.ibm.com'
+        }
+    }
+}
