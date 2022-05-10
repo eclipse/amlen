@@ -47,7 +47,9 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+# Was set like this during create a deployment in the cluster method 
+# IMG ?= controller:latest
+IMG ?= quay.io/jonquark/osdk-play1:latest
 
 .PHONY: all
 all: podman-build
@@ -146,7 +148,7 @@ bundle: kustomize ## Generate bundle manifests and metadata, then validate gener
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	podman build -f bundle.podmanfile -t $(BUNDLE_IMG) .
+	podman build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
