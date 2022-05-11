@@ -28,9 +28,12 @@ LOGDIR=${IMA_SVR_DATA_PATH}/diag/logs
 COREDIR=${IMA_SVR_DATA_PATH}/diag/cores
 STOREDIR=${IMA_SVR_DATA_PATH}/store
 
+#Sourcing this script sets ${IMA_DEFAULT_PERMS} and ${IMA_DIAGCFG_PERMS}
+source ${IMA_SVR_INSTALL_PATH}/bin/getFilePermissions.sh
+
 # Create install log file
-mkdir -p -m 770 ${LOGDIR}
-chmod -R 770 ${LOGDIR}
+mkdir -p -m ${IMA_DIAGCFG_PERMS} ${LOGDIR}
+chmod -R ${IMA_DIAGCFG_PERMS} ${LOGDIR}
 INITLOG=${LOGDIR}/imaserver_initinstance.log
 touch ${INITLOG}
 
@@ -38,26 +41,29 @@ echo "--------------------------------------------------"  >> ${INITLOG}
 echo "Configure imaserver " >> ${INITLOG}
 echo "Date: `date` " >> ${INITLOG}
 
+echo "Using ${IMA_DIAGCFG_PERMS} for diag/cfg"
+echo "Using ${IMA_DEFAULT_PERMS} for other things"
+
 echo "Create required directories" >> ${INITLOG}
-mkdir -p -m 770 ${COREDIR} >> ${INITLOG} 2>&1
-chmod -R 770 ${COREDIR} >> ${INITLOG} 2>&1
-mkdir -p -m 770 ${DATADIR}/config >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/hasync >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/certificates/keystore >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/certificates/LDAP >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/certificates/MQC >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/certificates/truststore >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/certificates/LTPAKeyStore >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/certificates/OAuth >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/certificates/CRL >> ${INITLOG} 2>&1
-mkdir -p -m 700 ${DATADIR}/certificates/PSK >> ${INITLOG} 2>&1
-chmod -R 770 ${DATADIR} >> ${INITLOG} 2>&1
-mkdir -p -m 770 ${STOREDIR} >> ${INITLOG} 2>&1
-chmod -R 770 ${STOREDIR} >> ${INITLOG} 2>&1
-chmod -R 770 ${COREDIR} >> ${INITLOG} 2>&1
-chmod -R 770 ${STOREDIR} >> ${INITLOG} 2>&1
-chmod -R 770 ${DIAGDIR} >> ${INITLOG} 2>&1
-chmod -R 700 ${DATADIR}/certificates >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DIAGCFG_PERMS} ${COREDIR} >> ${INITLOG} 2>&1
+chmod -R ${IMA_DIAGCFG_PERMS} ${COREDIR} >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DIAGCFG_PERMS} ${DATADIR}/config >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/hasync >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/keystore >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/LDAP >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/MQC >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/truststore >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/LTPAKeyStore >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/OAuth >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/CRL >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/PSK >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR} >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${STOREDIR} >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${STOREDIR} >> ${INITLOG} 2>&1
+chmod -R ${IMA_DIAGCFG_PERMS} ${COREDIR} >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${STOREDIR} >> ${INITLOG} 2>&1
+chmod -R ${IMA_DIAGCFG_PERMS} ${DIAGDIR} >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates >> ${INITLOG} 2>&1
 
 
 # Set default values
@@ -90,7 +96,7 @@ else
     sed -i 's/"MemoryType":.*/"MemoryType": 2,/' ${IMADYNSERVERCFG}
 
     perl -pi -e 's/\r\n$/\n/g' ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1
-    chmod 770 ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1
+    chmod ${IMA_DEFAULT_PERMS} ${IMADYNSERVERCFG} >> ${INITLOG} 2>&1
 
     # Set store.init file
     touch ${IMACFGDIR}/store.init
