@@ -163,6 +163,8 @@ int ism_admin_getAdminModeRCStr(char * outbuf, int outbuf_len, int errorCode)
  * Retruns License type and tag from accepted.json file
  * Caller should check and free returned License type string
  */
+#ifdef ACCEPT_LICENSE
+//Really check/set license status
 XAPI char * ism_admin_getLicenseAccptanceTags(int *licenseStatus) {
 	int newFile = 0;
 
@@ -218,24 +220,15 @@ XAPI char * ism_admin_getLicenseAccptanceTags(int *licenseStatus) {
 		char buffer[512];
 		FILE *dest = NULL;
 
-#ifdef ACCEPT_LICENSE
 		sprintf(buffer, "{ \"Status\": 4, \"Language\":\"en\", \"LicensedUsage\":\"Developers\" }");
-#else
-		sprintf(buffer, "{ \"Status\": 5, \"Language\":\"en\", \"LicensedUsage\":\"Production\" }");
-#endif
+
 		dest = fopen(cfilepath, "w");
 		if ( dest ) {
 			fprintf(dest, "%s", buffer);
 			fclose(dest);
 
-#ifdef ACCEPT_LICENSE
 			*licenseStatus = 4;
 			licenseType = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),"Developers");
-#else
-			*licenseStatus = 5;
-			licenseType = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),"Production");
-#endif
-
 		} else {
 			ism_common_setErrorData(ISMRC_FileUpdateError, "%s%d", cfilepath, errno);
 		}
@@ -243,7 +236,15 @@ XAPI char * ism_admin_getLicenseAccptanceTags(int *licenseStatus) {
 
 	return licenseType;
 }
+#else //ACCEPT_LICENSE not set
+//There is no license the user has to accept, just return that we are good
+XAPI char * ism_admin_getLicenseAccptanceTags(int *licenseStatus) {
+	*licenseStatus = 5;
+	char *licenseType = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),"Production");
 
+	return licenseType;
+}
+#endif
 
 /**
  * Initialize admin and security service
