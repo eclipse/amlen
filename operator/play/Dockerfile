@@ -1,7 +1,7 @@
-#
-
-# Set the base image to alma8 (RHEL8 clone)
-FROM quay.io/almalinux/almalinux:8 
+# Use Centos7 base image
+FROM quay.io/centos/centos:centos7 
+#### Set the base image to alma8 (RHEL8 clone)
+###FROM quay.io/almalinux/almalinux:8 
 
 #File author / Maintainer
 MAINTAINER ISM Build
@@ -16,6 +16,7 @@ ADD ./imaserver.rpm /tmp/
 # Update packages
 RUN yum -y upgrade && \
     echo 'group=root' >/etc/messagesight-user.cfg && \
+    echo 'groupaccess=fullwrite' >>/etc/messagesight-user.cfg && \
     yum -y install /tmp/imaserver.rpm && \
     rm -f /tmp/imaserver.rpm && \
     yum -y clean all
