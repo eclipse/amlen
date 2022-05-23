@@ -260,7 +260,7 @@ function bld_imabridge_rpm {
 
     # start rpm build
     cd $RPMBUILD_ROOT_BRIDGE_EL/SPECS
-    rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_BRIDGE_EL/BUILDROOT imamqttbridge.spec
+    QA_RPATHS=$(( 0x0001|0x002 )) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_BRIDGE_EL/BUILDROOT imamqttbridge.spec
 
     # create Bridge tar file
     mkdir -p $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
@@ -292,7 +292,7 @@ function bld_imabridge_rpm {
         cp ${BUILD_ROOT}/server_build/docker_build/imamqttbridge-sles.spec $RPMBUILD_ROOT_BRIDGE_SLES/SPECS/imamqttbridge-sles.spec
         sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_BRIDGE_SLES/SPECS/imamqttbridge-sles.spec
         cd $RPMBUILD_ROOT_BRIDGE_SLES/SPECS
-        rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_BRIDGE_SLES/BUILDROOT imamqttbridge-sles.spec
+        QA_RPATHS=$(( 0x0001|0x002 )) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_BRIDGE_SLES/BUILDROOT imamqttbridge-sles.spec
         mkdir -p $BRIDGE_RPMBUILD_DIR/sles/temp
         cp --no-preserve=ownership $BRIDGE_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm $BRIDGE_RPMBUILD_DIR/sles/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.sle.x86_64.rpm
         cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imamqttbridge $BRIDGE_RPMBUILD_DIR/sles/temp/Dockerfile
@@ -625,7 +625,7 @@ function rpmbuild_server {
 
     # start rpm build
     cd $RPMBUILD_ROOT_EL/SPECS
-    rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_EL/BUILDROOT imaserver.spec
+    QA_RPATHS=$(( 0x0001|0x002 )) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_EL/BUILDROOT imaserver.spec
 
     # create imaserver tar file
     mkdir -p $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
@@ -658,7 +658,7 @@ function rpmbuild_server {
         cp ${BUILD_ROOT}/server_build/docker_build/imaserver-sles.spec $RPMBUILD_ROOT_SLES/SPECS/imaserver-sles.spec
         sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_SLES/SPECS/imaserver-sles.spec
         cd $RPMBUILD_ROOT_SLES/SPECS
-        rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_SLES/BUILDROOT imaserver-sles.spec
+        QA_RPATHS=$(( 0x0001|0x002 )) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_SLES/BUILDROOT imaserver-sles.spec
         mkdir -p $IMASERVER_RPMBUILD_DIR/sles/temp
         cp --no-preserve=ownership $IMASERVER_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm $IMASERVER_RPMBUILD_DIR/sles/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.sle.x86_64.rpm
         cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/sles/temp/Dockerfile
@@ -740,7 +740,7 @@ function bld_imagui_rpm {
 
     # start rpm build
     cd $RPMBUILD_ROOT_WEBUI_EL/SPECS
-    rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_WEBUI_EL/BUILDROOT imawebui.spec
+    QA_RPATHS=$(( 0x0001|0x002 )) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_WEBUI_EL/BUILDROOT imawebui.spec
 
     # create imawebui tar file
     mkdir -p $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
@@ -769,7 +769,7 @@ function bld_imagui_rpm {
         cp ${BUILD_ROOT}/server_build/docker_build/imawebui-sles.spec $RPMBUILD_ROOT_WEBUI_SLES/SPECS
         sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_WEBUI_SLES/SPECS/imawebui-sles.spec
         cd $RPMBUILD_ROOT_WEBUI_SLES/SPECS
-        rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_WEBUI_SLES/BUILDROOT imawebui-sles.spec
+        QA_RPATHS=$(( 0x0001|0x002 )) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_WEBUI_SLES/BUILDROOT imawebui-sles.spec
         mkdir -p $IMAGUI_RPMBUILD_DIR/sles/temp
         cp --no-preserve=ownership $IMAGUI_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm $IMAGUI_RPMBUILD_DIR/sles/temp/${IMAGUI_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.sle.x86_64.rpm
         cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imawebui $IMAGUI_RPMBUILD_DIR/sles/temp/Dockerfile
@@ -886,7 +886,7 @@ function bld_imaproxy_rpm {
 
     # start rpm build
     cd $RPMBUILD_ROOT_PROXY/SPECS
-    rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_PROXY/BUILDROOT imaproxy.spec
+    QA_RPATHS=$(( 0x0001|0x002 )) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_PROXY/BUILDROOT imaproxy.spec
 
     # create Proxy tar file
     mkdir -p $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
