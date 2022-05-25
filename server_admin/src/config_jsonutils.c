@@ -645,6 +645,7 @@ PARSEPAYLOD_END:
  * Returns ISMRC_OK on success, ISMRC_* on error
  *
  */
+#ifdef ACCEPT_LICENSE
 int ism_config_json_processLicensePayload(json_t *post, int getLock) {
     int rc = ISMRC_OK;
     int accept = 4;
@@ -672,15 +673,9 @@ int ism_config_json_processLicensePayload(json_t *post, int getLock) {
 	sprintf(cfilepath, IMA_SVR_INSTALL_PATH "/config/accepted.json");
 	licenseType= ism_admin_getLicenseAccptanceTags(&licenseStatus);
 	if ( licenseType == NULL ) {
-#ifdef ACCEPT_LICENSE
 		licenseType = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),"Developers");
 		licenseStatus = 4;
 		updateLicenseFile = 1;
-#else
-        licenseType = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),"Production");
-        licenseStatus = 5;
-        updateLicenseFile = 1;
-#endif
 	}
 
     /* process new config */
@@ -832,7 +827,12 @@ LICENSEPOST_END:
     return rc;
 }
 
-
+#else //end if ACCEPT_LICENSE
+//There is no license to accept - no processing needs to happen
+int ism_config_json_processLicensePayload(json_t *post, int getLock) {
+    return ISMRC_OK;
+}
+#endif
 /*
  *
  * parse a ism_json_parse_t object and call related APIs.
