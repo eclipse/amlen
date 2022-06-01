@@ -1,0 +1,153 @@
+---
+- name: set pair name
+  set_fact:
+    pair_name: "{{ _amlen_name }}-{{pair_id}}"
+
+- name: get password
+  k8s_info:
+    kind: Secret
+    name: "{{pair_name}}-adminpassword"
+    namespace: "{{ _amlen_namespace }}"
+  register: secret
+
+- name: create password
+  set_fact:
+    password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=12') }}"
+  when: secret.resources | length == 0
+
+- name: store password
+  k8s:
+    state: "{{ _amlen_state}}"
+    merge_type:
+    - strategic-merge
+    - merge
+    definition:
+      kind: Secret
+      apiVerison: v1
+      metadata:
+        name: "{{pair_name}}-adminpassword"
+        namespace: "{{ _amlen_namespace }}"
+      stringData:
+        password: "{{password}}"
+  when: secret.resources | length == 0
+
+- name: get config map
+  k8s_info:
+    kind: ConfigMap
+    name: "{{config }}"
+    namespace: "{{ _amlen_namespace }}"
+  register: configMap
+  when: config is defined
+  failed_when: configMap.resources | length == 0
+
+- name: quote the pre-existing config if it exists
+  set_fact:
+    config2: "{{configMap.resources[0].data.config | quote }}"
+  when: configMap.resources | default([]) | length > 0
+
+- name: set the blank config if pre-existing config doesn't exist
+  set_fact:
+    config2: ""
+  when: config2 is not defined
+
+- name: set standalone to false
+  set_fact:
+    standalone: false
+  when:
+  - ha is defined
+  - ha.enabled is defined
+  - ha.enabled
+
+- name: set standalone to true
+  set_fact:
+    standalone: true
+  when:
+  - standalone is not defined
+
+- name: set device certs required
+  set_fact:
+    device_certs_required: "{{ device_cert_issuer.mode == 'automatic' or device_cert_issuer.mode == 'manual' }}" 
+  when: 
+  - device_cert_issuer is defined
+  - device_cert_issuer.mode is defined
+
+- name: set device cert not required
+  set_fact:
+    device_certs_required: false
+  when: device_certs_required is not defined
+
+- name: Set the statefulset to {{ _amlen_state }}
+  k8s:
+    state: "{{ _amlen_state }}"
+    merge_type:
+    - strategic-merge
+    - merge
+    definition: "{{ lookup('template', item ) | from_yaml }}"
+  loop:
+  - ./templates/statefulset.j2
+  - ./templates/loadbalancer.j2
+
+- name: Create Device Certificates
+  include_role:
+    name: certificates
+  vars:
+    namespace: "{{ _amlen_namespace }}"
+    cert: "{{ item }} "
+    issuerName: "{{ device_cert_issuer.name }}"
+    duration: "{{ device_cert_issuer.duration | default() }}"
+    renewBefore: "{{ device_cert_issuer.renew_before | default() }}"
+    waitForCert: yes
+  loop:
+  - name: "{{pair_name}}-cert-devices"
+    serviceName: "amlen"
+    usages: [ "client auth", "server auth" ]
+    algorithm: "RSA"
+  when: 
+  - device_cert_issuer is defined
+  - device_cert_issuer.mode is defined
+  - device_cert_issuer.mode == "automatic"
+    
+
+- name: Create HA Certificates
+  include_role:
+    name: certificates
+  vars:
+    namespace: "{{ _amlen_namespace }}"
+    cert: "{{ item }} "
+    issuerName: "{{ ha.cert_issuer.name }}"
+    duration: "{{ ha.cert_issuer.duration  | default() }}"
+    renewBefore: "{{ ha.cert_issuer.renew_before  | default() }}"
+    waitForCert: yes
+  loop:
+  - name: "{{pair_name}}-cert-ha"
+    serviceName: "amlen"
+    usages: [ "client auth", "server auth" ]
+    algorithm: "ECDSA"
+    size: 521
+    ca: false
+  when: 
+  - ha is defined
+  - ha.enabled
+
+- name: how many nodes
+  set_fact:
+    nodes: "{{ ha.enabled | default(false) | ternary(2,1) }}"
+
+- name: Wait until pods are available
+  k8s_info:
+    kind: Pod
+    name: "{{ pair_name }}-{{id}}"
+    namespace: "{{ _amlen_namespace }}"
+  register: r_pods
+  until:
+  - r_pods.resources[0].status.containerStatuses[0].started is defined
+  - r_pods.resources[0].status.containerStatuses[0].started == True
+  retries: 10
+  delay: 10
+  ignore_errors: no
+  loop: "{{ range(0,nodes|int)|list}}"
+  loop_control:
+    loop_var: id
+
+- name: run post install jobs
+  include_tasks: install.yml
