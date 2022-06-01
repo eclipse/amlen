@@ -34,3 +34,20 @@ def parseFileToTree(filepath):
     
     tree = ET.ElementTree(ET.fromstring(varreplacedstring))
     return tree
+
+def parseFileNameForLangVars(infilename, lang):
+    step1 = infilename.replace('%LANG%', lang)
+
+    alteredlang = lang.lower().replace("_","-")
+
+    return step1.replace('%lang%', alteredlang)
+
+def parseLanguageLists(langlist):
+    """We can be given multiple args in a list and each arg is a whitespace separated
+       list of languages"""
+    individuallangs = []
+
+    for elem in langlist:
+        individuallangs += elem.split()
+
+    return individuallangs
