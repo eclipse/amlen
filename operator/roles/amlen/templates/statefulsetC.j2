@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "{{ pair_name }}"
+  namespace: "{{ _amlen_namespace }}"
+  labels:
+    app: "{{ pair_name }}"
+spec:
+  replicas: {{ ha | ternary( 2 , 1 ) }}
+  selector:
+    matchLabels:
+      app: "{{ pair_name }}"
+  strategy:
+    type: RollingUpdate
+  ports:
+  - port: 9089
+  serviceName: "{{ pair_name }}"
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+  template:
+    metadata:
+      labels:
+        app: "{{ pair_name }}"
+      annotations:
+        kubectl.kubernetes.io/default-logs-container: amlen
+    spec:
+      containers:
+      - name: amlen
+        image: "{{ _amlen_image }}:{{ _amlen_image_tag }}"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9089
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - python3
+            - /usr/share/amlen-server/bin/readiness.py
+          initialDelaySeconds: 10
+          timeoutSeconds: 1
+          periodSeconds: 20
+          successThreshold: 1
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command:
+            - touch
+            - /tmp/alive
+          initialDelaySeconds: 10
+          timeoutSeconds: 1
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: "{{ _amlen_cpu_request }}"
+            memory: "{{ _amlen_memory_request}}"
+          limits:
+            cpu: "{{ _amlen_cpu_limit}}"
+            memory: "{{ _amlen_memory_limit }}"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/amlen-server
+        - name: adminpassword
+          mountPath: /secrets/adminpassword
+        - name: internal-certs
+          mountPath: /secrets/internal_certs
+      volumes:
+        - name: adminpassword
+          secret: 
+            secretName: "{{ pair_name }}-adminpassword"
+        - name: internal-certs
+          secret:
+            secretName: "{{pair_name}}-cert-internal"
+ 
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+
+  serviceTemplate:
+  - metadata:
+      name: test_service
+    spec:
+      cluster: None
+    

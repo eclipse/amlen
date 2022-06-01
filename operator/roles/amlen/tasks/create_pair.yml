@@ -1,0 +1,121 @@
+---
+
+# tasks file for Amlen
+
+ - name: set pair name
+   set_fact:
+     pair_name: "{{ _amlen_name }}-{{pair_id}}"
+
+ - name: get password
+   k8s_info:
+     kind: Secret
+     name: "{{pair_name}}-adminpassword"
+     namespace: "{{ _amlen_namespace }}"
+   register: secret
+
+ - name: create password
+   set_fact:
+     password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=12') }}"
+   when: secret.resources | length == 0
+
+ - name: store password
+   k8s:
+     state: "{{ _amlen_state}}"
+     merge_type:
+     - strategic-merge
+     - merge
+     definition: 
+       kind: Secret
+       apiVerison: v1
+       metadata: 
+         name: "{{pair_name}}-adminpassword"
+         namespace: "{{ _amlen_namespace }}"
+       stringData:
+         password: "{{password}}"
+   when: secret.resources | length == 0
+
+ - name: get config map
+   k8s_info:
+     kind: ConfigMap
+     name: "{{config }}"
+     namespace: "{{ _amlen_namespace }}"
+   register: configMap
+   when: config is defined
+   failed_when: configMap.resources | length == 0
+
+ - name: how about now
+   set_fact:
+     config2: "{{configMap.resources[0].data.config | quote }}"
+   when: configMap.resources | default([]) | length > 0
+
+ - name: how about now
+   set_fact:
+     config2: ""
+   when: config2 is not defined
+
+ - name: Set Route dependant OpenShift Objects to {{ _amlen_state }}
+   k8s:
+     state: "{{ _amlen_state }}"
+     merge_type:
+     - strategic-merge
+     - merge
+     definition: "{{ lookup('template', item ) | from_yaml }}"
+   loop:
+   - ./templates/statefulsetC.j2
+   - ./templates/loadbalancer.j2
+
+ - name: Create Internal Certificates
+   include_role:
+     name: certificates
+   vars:
+     namespace: "{{ _amlen_namespace }}"
+     cert: "{{ item }} "
+     issuerName: "amlen-internal-issuer"
+     duration: 175200h0m0s
+     renewBefore: 2160h0m0s
+     waitForCert: yes
+   loop:
+     - name: "{{pair_name}}-cert-internal"
+       serviceName: "amlen"
+       usages: [ "client auth", "server auth" ]
+
+ - name: Wait until application is available
+   when:
+     - _amlen_state == "present"
+     - _amlen_wait_for_init|bool
+   k8s_info:
+     api_version: apps/v1
+     kind: StatefulSet
+     name: "{{ pair_name }}"
+     namespace: "{{ _amlen_namespace }}"
+   register: r_statefulset
+   until:
+   - r_statefulset.resources[0].status.availableReplicas is defined
+   - r_statefulset.resources[0].status.availableReplicas > 0
+   retries: 10
+   delay: 5
+   ignore_errors: yes
+
+ - name: how many nodes
+   set_fact:
+     nodes: "{{ ha | ternary(2,1) }}"
+
+ - name: Wait until pods are available
+   k8s_info:
+     kind: Pod
+     name: "{{ pair_name }}-{{id}}"
+     namespace: "{{ _amlen_namespace }}"
+   register: r_pods
+   until:
+   - r_pods.resources[0].status.containerStatuses[0].started == True
+   retries: 50
+   delay: 10
+   ignore_errors: yes
+   loop: "{{ range(0,nodes|int)|list}}"
+   loop_control:
+     loop_var: id
+
+
+ - name: run post install jobs
+   include_tasks: install.yml
+

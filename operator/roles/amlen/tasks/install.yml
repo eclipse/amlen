@@ -1,0 +1,61 @@
+ - name: get name
+   set_fact:
+     name: "{{ _amlen_name }}-{{pair_id}}"
+
+ - name: Get Pods
+   k8s_info:
+     kind: Pod
+     name: "{{name}}-{{node_id}}"
+     namespace: "{{ _amlen_namespace }}"
+   register: r_pods
+   loop: "{{ range(0,nodes|int)|list}}"
+   loop_control:
+     loop_var: node_id
+
+ - name: get names
+   set_fact:
+     names: "{{r_pods | community.general.json_query('results[*].resources[0].metadata.name') |join(',')}}"
+
+ - name: Create headlessService
+   k8s:
+     state: "{{ _amlen_state }}"
+     merge_type:
+     - strategic-merge
+     - merge
+     definition: "{{ lookup('template', './templates/headlessService.j2' ) | from_yaml }}"
+
+ - name: get password
+   k8s_info:
+     kind: Secret
+     name: "{{pair_name}}-adminpassword"
+     namespace: "{{ _amlen_namespace }}"
+   register: secret
+
+ - name: get certs
+   k8s_info:
+     kind: Secret
+     name: "{{pair_name}}-cert-internal"
+     namespace: "{{ _amlen_namespace }}"
+   register: certs
+
+ - name: create admin routs
+   k8s:
+     state: "{{ _amlen_state }}"
+     merge_type:
+     - strategic-merge
+     - merge
+     definition: "{{ lookup('template', './templates/adminService.j2' ) | from_yaml }}"
+   loop: "{{ range(0,nodes|int)|list}}"
+   loop_control:
+     loop_var: node_index
+
+ - name: configure
+   configure:
+     servers: "{{names}}"
+     suffix: ".{{name}}.{{_amlen_name}}.svc.cluster.local"
+     password: "{{secret.resources[0].data.password|b64decode}}"
+     ca.crt: "{{certs.resources[0].data['ca.crt']|b64decode}}"
+     tls.crt: "{{certs.resources[0].data['tls.crt']|b64decode}}"
+     tls.key: "{{certs.resources[0].data['tls.key']|b64decode}}"
+     config: "{{config2}}"
+   no_log: True
