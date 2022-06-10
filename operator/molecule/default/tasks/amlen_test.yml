@@ -28,12 +28,49 @@
   vars:
     cr_file: '_v1alpha1_amlen.yaml'
 
+- name: Expose the insecure hello-world service externally
+  community.okd.openshift_route:
+    service: amlen-1-mqtt
+    namespace: '{{ namespace }}'
+  register: route
+
+- name: get service
+  k8s_info:
+    kind: Service
+    namespace: '{{ namespace }}'
+    name: "amlen-1-mqtt"
+  register: service
+
+- name: get certs
+  k8s_info:
+    kind: Secret
+    name: "amlen-1-cert-internal"
+    namespace: "{{ namespace }}"
+  register: certs
+
+- name: store cacert
+  copy:
+    content: "{{certs.resources[0].data['ca.crt']|b64decode}}"
+    dest: "./ca.crt"
+
+- name: store tlscert
+  copy:
+    content: "{{certs.resources[0].data['tls.crt']|b64decode}}"
+    dest: "./tls.crt"
+
+- name: store tlskey
+  copy:
+    content: "{{certs.resources[0].data['tls.key']|b64decode}}"
+    dest: "./tls.key"
+
 - name: run test
   helloWorld:
-    suffix: ""
-    servers: ""
-
-- name: Add assertions here
-  assert:
-    that: false
-    fail_msg: FIXME Add real assertions for your operator
+    clientid: "test1"
+    host: "{{route.result.spec.host}}"
+    insecure: True
+    use-tls: True
+    topic: "testtopic"
+    port: "{{service.resources[0].spec.ports[0].nodePort}}"
+    ca.crt: "./ca.crt"
+    tls.crt: "./tls.crt"
+    tls.key: "./tls.key"
