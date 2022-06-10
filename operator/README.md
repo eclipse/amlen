@@ -1,4 +1,4 @@
-#Amlen Operator
+# Amlen Operator
 
 The ansible operator for deploying Amlen systems. Currently under development.
 
@@ -42,7 +42,7 @@ _amlen_state: present
 _amlen_namespace: amlen
 _amlen_name: amlen
 
-_amlen_volume_size: 1Gi
+_amlen_volume_size: 10Gi
 _amlen_memory_request: 3Gi
 _amlen_memory_limit: 3Gi
 _amlen_cpu_request: 200m
@@ -50,7 +50,6 @@ _amlen_cpu_limit: 500m
 _amlen_wait_for_init: true
 _amlen_image: quay.io/ianboden/amlen
 _amlen_image_tag: latest
-_amlen_configurator_image: quay.io/ianboden/amlen-configurator
 ```
 
 These defaults are suitable for creating demo systems only memory and cpu limits should be sized correctly for production systems
