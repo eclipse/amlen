@@ -470,7 +470,7 @@ endef
 # Invoke the C compiler to produce object and dependencies and BEAM to produce beam report
 define invoke-beam-c-compiler
 	$(call ensure-output-dir, $(1))
-	$(CC) -MM -MT $(1) -o $(subst $(OBJ),$(DEP),$(1)) $(2) $(3)
+	$(CC) -MM -MT $(1) -o $(1:$(OBJ)=$(DEP)), $(2) $(3)
 	$(CC) -c -o $(1) $(2) $(3)
 	$(BEAM_CC) -c -o $(1) $(2) $(3)
 endef
@@ -478,7 +478,7 @@ endef
 # Invoke the C++ compiler to produce object and dependencies and BEAM to produce beam report
 define invoke-beam-cpp-compiler
 	$(call ensure-output-dir, $(1))
-	$(CPP) -MM -MT $(1) -o $(subst $(OBJ),$(DEP),$(1)) $(2) $(3)
+	$(CPP) -MM -MT $(1) -o $(1:$(OBJ)=$(DEP)) $(2) $(3)
 	$(CPP) -c -o $(1) $(2) $(3)
 	$(BEAM_CC) -c -o $(1) $(2) $(3)
 endef
@@ -498,14 +498,14 @@ endef
 # Invoke the C compiler to produce object and dependencies
 define invoke-c-compiler
 	$(call ensure-output-dir, $(1))
-	$(CC) -MM -MT $(1) -o $(subst $(OBJ),$(DEP),$(1)) $(2) $(3)
+	$(CC) -MM -MT $(1) -o $(1:$(OBJ)=$(DEP)) $(2) $(3)
 	$(CC) -c -o $(1) $(2) $(3) -DTRACEFILE_IDENT=0x$(shell echo -n $(notdir $(2)) | md5sum | cut -c 1-8)
 endef
 
 # Invoke the C++ compiler to produce object and dependencies
 define invoke-cpp-compiler
 	$(call ensure-output-dir, $(1))
-	$(CPP) -MM -MT $(1) -o $(subst $(OBJ),$(DEP),$(1)) $(2) $(3)
+	$(CPP) -MM -MT $(1) -o $(1:$(OBJ)=$(DEP)) $(2) $(3)
 	$(CPP) -c -o $(1) $(2) $(3) -DTRACEFILE_IDENT=0x$(shell echo -n $(notdir $(2)) | md5sum | cut -c 1-8)
 endef
 
