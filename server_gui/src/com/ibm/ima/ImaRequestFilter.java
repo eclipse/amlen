@@ -390,33 +390,38 @@ public class ImaRequestFilter implements ContainerRequestFilter {
                Cookie xsrfCookie = cookies.get(UserResource.XSRF_TOKEN);
                HttpSession session = servletRequest.getSession(false);
 
-               List<String> xRequestedWithHeader = headers.getRequestHeader("X-Requested-With");
-               if (xRequestedWithHeader == null || !xRequestedWithHeader.contains("XMLHttpRequest")) {
-                   // Request not via our normal xhr request mechanism... Block it except for special cases.
-                   // First, ensure the xsrfCookie and session cookie exist and are consistent with each other since
-                   // we do not have our custom header
-                   if (session == null || xsrfCookie == null || !UserResource.getXsrfToken(session).equals(xsrfCookie.getValue())) {
-                       return false;
-                   }
-
+               //Whether or not we are using XMLHTTPRequest but downloading logs/uploading certificates and keys are OK 
+               //since they just go to tmp dir until the config request is made... as long as xsrfCookie and session cookie 
+               //exist and are consistent with each other
+               if (session != null && xsrfCookie != null && UserResource.getXsrfToken(session).equals(xsrfCookie.getValue())) {
+                   
                    // Downloading logs, MIBs, MessagingTester, license files, or mqconnectivity files are OK
                    if (requestContext.getMethod().equals("GET") && (path.startsWith("config/logs") || (path.startsWith("files/mibs/")) ||
                            path.equals("downloads/MessagingTester.zip") || path.startsWith("config/license/pdf") ||
                            (path.startsWith("config/sslKeyRepository/") && 
                            (path.endsWith("mqconnectivity.kdb") || path.endsWith("mqconnectivity.sth"))))) {
                        // ok to get the file
+                       logger.trace(CLAS, "verifySession", "Allowing get request for file");
                        return true;
                    } 
-                   logger.trace(CLAS, "verifySession", "Not via our usual xhr mechanism");
-                   
+   
                   // Uploading certificates and keys are OK since they just go to tmp dir until the config request is made
                   if (requestContext.getMethod().equals("POST") && mediaType.isCompatible(MediaType.MULTIPART_FORM_DATA_TYPE) &&
                            (path.startsWith("config/certificateProfiles")) ||
                            path.startsWith("config/sslKeyRepository") || path.startsWith("config/ltpaProfiles") || 
                            path.startsWith("config/oAuthProfiles") || path.equals("config/webui/libertyCertificate") ||
                            (path.startsWith("config/securityProfiles/") && path.endsWith("/truststore"))) {
-                       return true;
-                   }
+                    logger.trace(CLAS, "verifySession", "Allowing request for file upload");
+                    return true;
+                  }
+               }
+
+               List<String> xRequestedWithHeader = headers.getRequestHeader("X-Requested-With");
+               if (xRequestedWithHeader == null || !xRequestedWithHeader.contains("XMLHttpRequest")) {
+                   // Request not via our normal xhr request mechanism... Block it except for special cases.
+                   // (special cases checked above - if we've got here and we and xhr then abort)
+                   logger.trace(CLAS, "verifySession", "Not via our usual xhr mechanism - abort");
+
                    return false;
                }
                
