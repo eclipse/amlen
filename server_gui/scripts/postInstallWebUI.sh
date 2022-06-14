@@ -500,23 +500,30 @@ function generate_openldap_password() {
 
     cp "${IMA_WEBUI_INSTALL_PATH}/openldap/config/slapd.conf" "${CFGDIR}"/. || { echo "Failed to copy slapd.conf" >> "${INSTALL_LOG}"; exit 1; }
     sed -i 's#rootpw .*#rootpw '"${PWDHASH}"'#' "${CFGDIR}"/slapd.conf
+
+    echo "Updated LDAP password in ${CFGDIR}/slapd.conf." >> ${INSTALL_LOG}
 }
 
 function update_liberty_ldap_password() {
     sed -i 's#keystore_imakey" value=.*#keystore_imakey" value="'"${PWDBASE64}"'" />#' "${WLPDIR}"/usr/servers/ISMWebUI/properties.xml
+    echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/properties.xml." >> ${INSTALL_LOG}
+    
     lval=$(${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes $(cat ${LDAPDIR}/.key))
-
     sed -i 's#bindPassword=.*#bindPassword="'"${lval}"'"#' "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml
+
+    echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/ldap.xml." >> ${INSTALL_LOG}
 }
 
 # Handle various cases of webui app install
 if [ ! -d "${WLPDIR}"/usr ]
 then
+    echo "${WLPDIR}/usr does not exist at start."  >> ${INSTALL_LOG}
     if [ -L "${WLPINSTALLDIR}"/usr ]
     then
         if [ -d "${WLPINSTALLDIR}"/usr.org ]
         then
             cp -r ${WLPINSTALLDIR}/usr.org "${WLPDIR}"/usr
+            echo "Contents of ${WLPINSTALLDIR}/usr.org  copied into ${WLPDIR}/usr, existing symlink = ${WLPINSTALLDIR}/usr "  >> ${INSTALL_LOG}
         else
             echo "Can not continue. WebUI Application directory is missing." >> ${INSTALL_LOG}
             exit 255
@@ -528,11 +535,13 @@ then
             rm -rf ${WLPINSTALLDIR}/usr.org
             mv ${WLPINSTALLDIR}/usr ${WLPINSTALLDIR}/usr.org
             ln -s "${WLPDIR}"/usr ${WLPINSTALLDIR}/usr
+            echo "Setup ${WLPINSTALLDIR}/usr as a symlink to ${WLPDIR}/usr, after creating usr.org backup"  >> ${INSTALL_LOG}
         else
             if [ -d ${WLPINSTALLDIR}/usr.org ]
             then
                 cp -r ${WLPINSTALLDIR}/usr.org "${WLPDIR}"/usr
                 ln -s "${WLPDIR}"/usr ${WLPINSTALLDIR}/usr
+                echo "Contents of ${WLPINSTALLDIR}/usr.org  copied into ${WLPDIR}/usr, new symlink = ${WLPINSTALLDIR}/usr "  >> ${INSTALL_LOG}
             else
                 echo "Can not continue. WebUI Application directory is missing." >> ${INSTALL_LOG}
                 exit 255
@@ -540,6 +549,8 @@ then
         fi
     fi
 else
+    echo "${WLPDIR}/usr exists at start."  >> ${INSTALL_LOG}
+
     if [ ! -L ${WLPINSTALLDIR}/usr ]
     then
         if [ -d ${WLPINSTALLDIR}/usr ]
@@ -548,6 +559,7 @@ else
             rm -rf ${WLPINSTALLDIR}/usr.org
             mv ${WLPINSTALLDIR}/usr ${WLPINSTALLDIR}/usr.org
             ln -s "${WLPDIR}"/usr ${WLPINSTALLDIR}/usr
+            echo "Updating ${WLPDIR}/usr/servers/ISMWebUI/apps/ISMWebUI.war" >> ${INSTALL_LOG}
         fi
     fi
 fi
@@ -571,6 +583,7 @@ if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     # openldap server is the default so we check for it first
     if [ -f "/usr/sbin/slapd" ] || [ -f "/usr/lib/openldap/slapd" ] || [ -f "/usr/libexec/slapd" ]; then
         # we found openldap server
+        echo "Starting OpenLDAP config" >> ${INSTALL_LOG}
         generate_openldap_password
         configure_openldap_server
         touch "${LDAPDIR}"/.configuredOpenLDAP
@@ -593,6 +606,7 @@ if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
 
     if ${WEBUIBINDIR}/createAcct.sh "${LDAPDIR}/.key" >> "${LOGDIR}/createAcct.log" 2>&1 ; then
         touch "${LDAPDIR}"/.accountsCreated
+        echo "There was an issue creating accounts for imawebui. See the ${LOGDIR}/createAcct.log" >> ${INSTALL_LOG}
 
         if [ -f "${LDAPDIR}"/.configuredOpenLDAP ]; then
             slapdpid=$(check_openldap_server)
@@ -610,7 +624,7 @@ if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
         exit 1
     fi
 else
-    echo "WebUI install config already completed." >> ${INSTALL_LOG}
+    echo "WebUI LDAP account config previously completed - leaving unchanged" >> ${INSTALL_LOG}
 fi
 
 if (( LDAP_DEBUG == 0 )); then

@@ -24,7 +24,7 @@ AutoReqProv: no
 Group: Applications/Communications
 Source: %{name}-SLES.tar.gz
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-Requires: net-tools, openldap2, openldap2-client, tar, openssl, procps
+Requires: net-tools, openldap2, openldap2-client, tar, openssl, procps, which
 Obsoletes: IBMIoTMessageSightWebUI
 
 %description
