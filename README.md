@@ -40,24 +40,24 @@ ant -f $SROOT/server_build/build.xml  2>&1 | tee /tmp/ant.log
 Building the default set of components from this repository requires the following to be downloaded
 and placed into a directory (set the $DEP_HOME environment variable to point to this directory)
 
-* openliberty-21.0.0.10.zip
+* openliberty-22.0.0.6.zip
     https://openliberty.io/downloads/
-* jackson-annotations-2.12.3.jar
-    https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.12.3/
-* jackson-core-2.12.3.jar
-    https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.12.3/
-* jackson-databind-2.12.3.jar
-    https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.12.3/
-* jackson-jaxrs-base-2.12.3.jar
-    https://repo1.maven.org/maven2/com/fasterxml/jackson/jaxrs/jackson-jaxrs-base/2.12.3/
-* jackson-jaxrs-json-provider-2.12.3.jar
-    https://repo1.maven.org/maven2/com/fasterxml/jackson/jaxrs/jackson-jaxrs-json-provider/2.12.3/
-* jackson-module-jaxb-annotations-2.12.3.jar
-    https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-jaxb-annotations/2.12.3/
-* icu4j-69_1.jar
-    https://github.com/unicode-org/icu/releases/tag/release-69-1
-* dojo-release-1.16.3-src.zip
-    https://download.dojotoolkit.org/release-1.16.3/ 
+* jackson-annotations-2.13.3.jar
+    https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.13.3/
+* jackson-core-2.13.3.jar
+    https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.13.3/
+* jackson-databind-2.13.3.jar
+    https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.13.3/
+* jackson-jaxrs-base-2.13.3.jar
+    https://repo1.maven.org/maven2/com/fasterxml/jackson/jaxrs/jackson-jaxrs-base/2.13.3/
+* jackson-jaxrs-json-provider-2.13.3.jar
+    https://repo1.maven.org/maven2/com/fasterxml/jackson/jaxrs/jackson-jaxrs-json-provider/2.13.3/
+* jackson-module-jaxb-annotations-2.13.3.jar
+    https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-jaxb-annotations/2.13.3/
+* icu4j-71_1.jar
+    https://github.com/unicode-org/icu/releases/tag/release-71-1
+* dojo-release-1.17.2-src.zip
+    https://download.dojotoolkit.org/release-1.17.2/ 
 * gridx-1.3.9.zip
     https://github.com/oria/gridx/releases
 * d3-3.5.6.zip
