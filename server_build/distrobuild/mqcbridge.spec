@@ -24,7 +24,8 @@ AutoReqProv: no
 Group: Applications/Communications
 
 Source0: %{sourcename}.zip
-Source1: 9.0.0.8-IBM-MQC-LinuxX64.tar.gz
+Source1: 9.2.0.5-IBM-MQC-LinuxX64.tar.gz
+Source2: 9.2.0.5-IBM-MQC-Redist-LinuxX64.tar.gz 
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
 BuildRequires: openssl-devel,curl-devel,openldap-devel,net-snmp-devel,libicu-devel,rpm-build,python3,vim-common,gcc,gcc-c++,make,CUnit-devel,junit,ant-contrib,boost-devel,dos2unix,ant,jansson-devel
@@ -38,7 +39,7 @@ Amlen Bridge to IBM MQ for Linux x86_64
 %setup -n %{sourcename}
 mkdir -p $RPM_BUILD_DIR/broot/deps/mqc
 cp %{SOURCE1} $RPM_BUILD_DIR/broot/deps/mqc
-
+cp %{SOURCE2} $RPM_BUILD_DIR/broot/deps/mqc
 %build
 export BUILD_LABEL="$(date +%Y%m%d-%H%M)_git_private"
 #Where the source is
