@@ -32,10 +32,17 @@ CFLAGS += -DADD_USERNAME_AND_PASSWORD_SUPPORT
 #This build requires an MQ client
 #
 # The client files can either be pre-extracted (so set the MQC_HOME var to e.g. /opt/mqm) or
-# this Makefile can can get the bits it needs directly from the tarred redistributable client file
-# (set $MQ_CLIENT_TGZ to the file location -or it assumed to be in in $DEPS_HOME if that is set
+# this Makefile can can get the bits it needs directly from the tarred (not redistributable) client file
+# (set $MQ_CLIENT_TGZ to the file location -or it assumed to be in $DEPS_HOME if that is set
 #  otherwise it defaults to $BROOT/mqfiles)
 # If they are prextracted, $MQC_HOME/samp/xatm/xa.h needs to be copied to $MQC_HOME/inc
+#   and the redistribuable client needs to be copied to $MQC_HOME
+#
+# Older (9.0.0.x era) non-redistributable clients had the redistributable one in as well but
+# more recently it's a separately archive. We need both as xa.h (used in the  build) is not in the 
+# redistributable version but we also want the redistributable version to ship with the bridge
+# So as well as MQ_CLIENT_TGZ now also need to set MQ_REDIST_CLIENT_TGZ (or it is assumed to be
+# in $DEPS_HOME if that is set otherwise it defaults to $BROOT/mqfiles)
 
 ifeq ($(MQC_HOME),)
 ifeq ($(MQ_CLIENT_TGZ),)
@@ -45,16 +52,27 @@ else
 MQC_TGZ_DIR=$(DEPS_HOME)/mqc
 endif
 #Location is the .tar.gz file or the directory that should have held it
-MQ_CLIENT_LOCATION=$(MQC_TGZ_DIR)/$(shell ls -1tr $(MQC_TGZ_DIR) | grep MQ | grep 'tar.gz'| tail -n 1)
+MQ_CLIENT_LOCATION=$(MQC_TGZ_DIR)/$(shell ls -1tr $(MQC_TGZ_DIR) | grep MQ | grep -v Redist |grep 'tar.gz'| tail -n 1)
 MQ_CLIENT_TGZ=$(shell echo $(MQ_CLIENT_LOCATION)| grep 'tar.gz')
 #MQ_CLIENT_TGZ=$(OUTDIR)/$(ROOTREL)/mqfiles/9.0.0.8-IBM-MQC-LinuxX64.tar.gz
 endif
 ifeq (,$(wildcard $(MQ_CLIENT_TGZ)))
-$(error Cannot find MQ Redistributable client $(MQ_CLIENT_TGZ) - Looking in $$DEPS_HOME/mqc or $(OUTDIR)/$(ROOTREL)/mqfiles)
+$(error Cannot find (nonredistributable) MQ  client $(MQ_CLIENT_TGZ) - Looking in $$DEPS_HOME/mqc or $(OUTDIR)/$(ROOTREL)/mqfiles)
 endif
 MQC=$(OUTDIR)/mqc_extract
 else
 MQC=$(MQC_HOME)
+endif
+
+ifeq ($(MQC_HOME),)
+ifeq ($(MQ_REDIST_CLIENT_TGZ),)
+#Location is the .tar.gz file or the directory that should have held it
+MQ_REDIST_CLIENT_LOCATION=$(MQC_TGZ_DIR)/$(shell ls -1tr $(MQC_TGZ_DIR) | grep MQ | grep Redist |grep 'tar.gz'| tail -n 1)
+MQ_REDIST_CLIENT_TGZ=$(shell echo $(MQ_CLIENT_LOCATION)| grep 'tar.gz')
+endif
+ifeq (,$(wildcard $(MQ_CLIENT_TGZ)))
+$(error Cannot find redistributable MQ client $(MQ_REDIST_CLIENT_TGZ) - Looking in $(MQC_TGZ_DIR))
+endif
 endif
 
 # Include the mqfiles include directory
@@ -230,7 +248,7 @@ $(MQC)/inc/cmqc.h: $(MQ_CLIENT_TGZ)
 	mkdir -p $(MQC)/tmpextract
 	mkdir -p $(MQC)/inc
 	mkdir -p $(MQC)/lib64
-	tar -xvf $(MQ_CLIENT_TGZ) -C $(MQC)/tmpextract
+	tar -xvf $(MQ_CLIENT_TGZ) -C $(MQC)/tmpextract --strip-components=1
 	CURDIR=`pwd`
 	mkdir -p $(MQC)/tmpextract/client
 	cd $(MQC)/tmpextract/client  && rpm2cpio $(MQC)/tmpextract/MQSeriesClient-*.x86_64.rpm | cpio -id && cd ${CURDIR}
@@ -251,7 +269,7 @@ $(MQC)/inc/cmqc.h: $(MQ_CLIENT_TGZ)
 	cp $(MQC)/tmpextract/sdk/opt/mqm/inc/cmqc.h              $(MQC)/inc/
 	cp $(MQC)/tmpextract/samples/opt/mqm/samp/xatm/xa.h      $(MQC)/inc/
 	#The Redistributable client gets included in the rpm:
-	cp $(MQC)/tmpextract/*IBM-MQC-Redist-*.tar.gz            $(MQC)/
+	cp $(MQ_REDIST_CLIENT_TGZ)                               $(MQC)/
 	chmod -R 770 $(MQC)/tmpextract
 	rm -rf $(MQC)/tmpextract
 

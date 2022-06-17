@@ -64,7 +64,7 @@ So do the setup steps to get an rpmbuild environment (required for any of the ot
 the extra deps rpm e.g. by:
 ```
 cd $DEPS_HOME #With the dependencies downloaded from the URL in the dependencies section
-zip ~/rpmbuild/SOURCES/imawebui-deps.zip d3.zip  dojo-webui-release-1.16.3-src.zip  gridx-webui-1.3.9.zip  ibm-java-jre-8.0-6.15-linux-x86_64.tgz openliberty-21.0.0.2.zip icu4j-69_1.jar jackson-*2.12.3*.jar
+zip ~/rpmbuild/SOURCES/imawebui-deps.zip d3.zip  dojo-webui-release-1.17.2-src.zip  gridx-webui-1.3.9.zip openliberty-22.0.0.6.zip icu4j-71_1.jar jackson-*2.13.3*.jar
 
 ```
 and then do the build:
@@ -78,7 +78,8 @@ mock -r fedora-34-x86_64 -n  ~/rpmbuild/SRPMS/AmlenWebUI-1.0.0.0-1.fc34.src.rpm
 This is a separate rpm to the server (as it depends on the closed source MQClient). 
 Ensure you can build the server (above) then:
 
-1. Put the MQClient in ~/rpmbuild/SOURCES
+1. Put both the redestributable MQClient (used at runtime) and the non-redistributable MQClient
+   (used at build time) in `~/rpmbuild/SOURCES` (e.g. the files called `9.2.0.5-IBM-MQC-LinuxX64.tar.gz` and `9.2.0.5-IBM-MQC-Redist-LinuxX64.tar.gz`) 
 2. Alter the spec file `server_build/distrobuild/mqcbridge.spec` to match the version used in step 1
 3. `rpmbuild -bs mqcbridge.spec`
 4. `mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenMQCBridge-1.0.0.0-1.fc34.src.rpm`
