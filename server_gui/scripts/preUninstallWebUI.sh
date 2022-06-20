@@ -20,9 +20,9 @@ if [ -L "${IMA_WEBUI_APPSRV_INSTALL_PATH}/usr" ] ; then
     rm "${IMA_WEBUI_APPSRV_INSTALL_PATH}/usr"
 fi
 
-#If a backup of the usr dir was made, restore the original
+#If a backup of the usr dir was made, remove it
 if [ -d "${IMA_WEBUI_APPSRV_INSTALL_PATH}/usr.org" ] ; then
-    mv  "${IMA_WEBUI_APPSRV_INSTALL_PATH}/usr.org"  "${IMA_WEBUI_APPSRV_INSTALL_PATH}/usr"
+    rm  "${IMA_WEBUI_APPSRV_INSTALL_PATH}/usr.org"
 fi
 
 # Copy postUninstall script to either /tmp or to IMSTMPDIR location if it exists
