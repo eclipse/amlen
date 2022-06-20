@@ -16,7 +16,7 @@
 
 Summary: Amlen Server <-> IBM MQ Bridge for Linux x86_64
 Name: AmlenMQCBridge
-Version: 1.0.0.0
+Version: 1.1dev
 Release: 1%{?dist}
 License: EPL-2.0
 Packager: IMA Build
