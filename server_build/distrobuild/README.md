@@ -36,7 +36,7 @@ get them from.
     ```
 5) Build the code and produce the rpm:
     ```
-    mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenServer-1.0.0.0-1.fc34.src.rpm
+    mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenServer-1.1dev-1.fc34.src.rpm
     ```
 
 ### Building for CentOS
@@ -52,7 +52,7 @@ Then add to epel-8_javapkg-x86_64.cfg:
 ```
 Then, as your normal user build using your new config:
 ```
-mock -r epel-8_javapkg-x86_64 ~/rpmbuild/SRPMS/AmlenServer-1.0.0.0-1.fc34.src.rpm 
+mock -r epel-8_javapkg-x86_64 ~/rpmbuild/SRPMS/AmlenServer-1.1dev-1.fc34.src.rpm 
 ```
 
 ## Building the WebUI
@@ -71,7 +71,7 @@ and then do the build:
 ```
 bash server_build/distrobuild/genmgwsrczip.sh <path to source>
 rpmbuild -bs server_build/distro/build/imawebui.spec 
-mock -r fedora-34-x86_64 -n  ~/rpmbuild/SRPMS/AmlenWebUI-1.0.0.0-1.fc34.src.rpm 
+mock -r fedora-34-x86_64 -n  ~/rpmbuild/SRPMS/AmlenWebUI-1.1dev-1.fc34.src.rpm 
 ``` 
 
 ## Building MQCBridge
@@ -82,7 +82,7 @@ Ensure you can build the server (above) then:
    (used at build time) in `~/rpmbuild/SOURCES` (e.g. the files called `9.2.0.5-IBM-MQC-LinuxX64.tar.gz` and `9.2.0.5-IBM-MQC-Redist-LinuxX64.tar.gz`) 
 2. Alter the spec file `server_build/distrobuild/mqcbridge.spec` to match the version used in step 1
 3. `rpmbuild -bs mqcbridge.spec`
-4. `mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenMQCBridge-1.0.0.0-1.fc34.src.rpm`
+4. `mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenMQCBridge-1.1dev-1.fc34.src.rpm`
 
 
 ## Building the IMA Bridge (MQTT and Kafka bridge)
@@ -99,7 +99,7 @@ rpmbuild -bs server_build/distrobuild/imamqttbridge.spec
 ```
 3) Build the rpm:
 ```
-mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenBridge-1.0.0.0-1.fc34.src.rpm
+mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenBridge-1.1dev-1.fc34.src.rpm
 ```
 
 
@@ -109,7 +109,7 @@ mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenBridge-1.0.0.0-1.fc34.src.rpm
 ```
 bash server_build/distrobuild/genmgwsrczip.sh
 rpmbuild -bs server_build/distrobuild/protocolplugin.spec 
-mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenProtocolPlugin-1.0.0.0-1.fc34.src.rpm
+mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenProtocolPlugin-1.1dev-1.fc34.src.rpm
 ```
 
 ## Build the Client SDK
@@ -129,7 +129,7 @@ Once the dependencies have been created build in the usual way:
 ```
 bash server_build/distrobuild/genmgwsrczip.sh
 rpmbuild -bs server_build/distrobuild/imasdk.spec 
-mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenSDK-1.0.0.0-1.fc34.src.rpm
+mock -r fedora-34-x86_64 ~/rpmbuild/SRPMS/AmlenSDK-1.1dev-1.fc34.src.rpm
 ```
 
 
