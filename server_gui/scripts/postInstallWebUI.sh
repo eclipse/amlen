@@ -518,34 +518,19 @@ function update_liberty_ldap_password() {
 if [ ! -d "${WLPDIR}"/usr ]
 then
     echo "${WLPDIR}/usr does not exist at start."  >> ${INSTALL_LOG}
-    if [ -L "${WLPINSTALLDIR}"/usr ]
+    if [ -d ${WLPINSTALLDIR}/usr ]
     then
-        if [ -d "${WLPINSTALLDIR}"/usr.org ]
+        cp -r ${WLPINSTALLDIR}/usr "${WLPDIR}"/.
+        rm -rf ${WLPINSTALLDIR}/usr.org
+        echo "Copied ${WLPINSTALLDIR}/usr to ${WLPDIR}/usr"  >> ${INSTALL_LOG}
+    else
+        if [ -d ${WLPINSTALLDIR}/usr.org ]
         then
             cp -r ${WLPINSTALLDIR}/usr.org "${WLPDIR}"/usr
-            echo "Contents of ${WLPINSTALLDIR}/usr.org  copied into ${WLPDIR}/usr, existing symlink = ${WLPINSTALLDIR}/usr "  >> ${INSTALL_LOG}
+            echo "Contents of ${WLPINSTALLDIR}/usr.org  copied into ${WLPDIR}/usr"  >> ${INSTALL_LOG}
         else
             echo "Can not continue. WebUI Application directory is missing." >> ${INSTALL_LOG}
             exit 255
-        fi
-    else
-        if [ -d ${WLPINSTALLDIR}/usr ]
-        then
-            cp -r ${WLPINSTALLDIR}/usr "${WLPDIR}"/.
-            rm -rf ${WLPINSTALLDIR}/usr.org
-            mv ${WLPINSTALLDIR}/usr ${WLPINSTALLDIR}/usr.org
-            ln -s "${WLPDIR}"/usr ${WLPINSTALLDIR}/usr
-            echo "Setup ${WLPINSTALLDIR}/usr as a symlink to ${WLPDIR}/usr, after creating usr.org backup"  >> ${INSTALL_LOG}
-        else
-            if [ -d ${WLPINSTALLDIR}/usr.org ]
-            then
-                cp -r ${WLPINSTALLDIR}/usr.org "${WLPDIR}"/usr
-                ln -s "${WLPDIR}"/usr ${WLPINSTALLDIR}/usr
-                echo "Contents of ${WLPINSTALLDIR}/usr.org  copied into ${WLPDIR}/usr, new symlink = ${WLPINSTALLDIR}/usr "  >> ${INSTALL_LOG}
-            else
-                echo "Can not continue. WebUI Application directory is missing." >> ${INSTALL_LOG}
-                exit 255
-            fi
         fi
     fi
 else
@@ -556,9 +541,6 @@ else
         if [ -d ${WLPINSTALLDIR}/usr ]
         then
             cp ${WLPINSTALLDIR}/usr/servers/ISMWebUI/apps/ISMWebUI.war "${WLPDIR}"/usr/servers/ISMWebUI/apps/.
-            rm -rf ${WLPINSTALLDIR}/usr.org
-            mv ${WLPINSTALLDIR}/usr ${WLPINSTALLDIR}/usr.org
-            ln -s "${WLPDIR}"/usr ${WLPINSTALLDIR}/usr
             echo "Updating ${WLPDIR}/usr/servers/ISMWebUI/apps/ISMWebUI.war" >> ${INSTALL_LOG}
         fi
     fi

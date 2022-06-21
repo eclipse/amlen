@@ -33,7 +33,6 @@ then
     export PATH=${IMA_WEBUI_INSTALL_PATH}/ibm-java-x86_64-80/jre/bin:$PATH
 fi
 
-
 if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     echo "There was a problem with the rpm post-install script. Please reinstall the rpm." >> "$START_LOG"
     exit 2
@@ -56,6 +55,9 @@ fi
 if [ -f ${WLPDIR}/usr/servers/ISMWebUI/server.xml ]; then
     sed -i 's/${keystore_id}/defaultKeyStore/' ${WLPDIR}/usr/servers/ISMWebUI/server.xml
 fi
+
+#Tell Liberty where to find the WebUI files
+export WLP_USER_DIR=${WLPDIR}/usr
 
 exec 200> /tmp/imawebui.lock
 flock -e -n 200 2> /dev/null
