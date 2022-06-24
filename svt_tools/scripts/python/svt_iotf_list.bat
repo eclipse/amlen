@@ -4,16 +4,16 @@ REM BAT file to run svt-register-iotf to register all of the necessary organizat
 REM first we set up the environment variables we need
 REM Expected environment variables & example values: 
 
-SET ORG_OWNER=imaperf@us.ibm.com
+SET ORG_OWNER=someone@example.com
 
 
-SET ORG_NAME=shvknh
-SET API_KEY="a-shvknh-crkijrrazg"
+SET ORG_NAME=org123
+SET API_KEY=a-org123-example123
 
-SET API_TOKEN="8utxEmuh14UtV*3dkB"
+SET API_TOKEN=exampleExample123
 
-REM SET REST_URL=staging.internetofthings.ibmcloud.com/api/v0001
-SET REST_URL=lon02-1.test.internetofthings.ibmcloud.com/api/v0001
+REM SET REST_URL=test.iot.example.com/api/v0001
+SET REST_URL=test.iot.example.com/api/v0001
 SET DEVICE_TYPE=
 SET NUM_THREADS=1
 
