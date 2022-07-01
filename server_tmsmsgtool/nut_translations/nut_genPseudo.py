@@ -15,7 +15,7 @@ import os
 import pathlib
 import json
 
-import nut_parse
+import nut_utils
 
 def pseudoTranslateText(lang, intext):
     """We make non-empty strings longer (as English is often compact) and
@@ -234,7 +234,7 @@ def processFile(logger, pseudolanglist, inputfile, outfile, outbasedir, mklangdi
         outfilepath = getTranslatedFileName(logger, lang, inputfile, outfile, outbasedir,mklangdir)
 
         if inputfile.endswith('.xml'):
-            xmltree = nut_parse.parseFileToTree(inputfile)
+            xmltree = nut_utils.parseFileToTree(inputfile)
         
             for elem in xmltree.iter():
                 elem.text = pseudoTranslateText(lang, elem.text)

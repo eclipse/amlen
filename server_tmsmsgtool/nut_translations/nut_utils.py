@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Contributors to the Eclipse Foundation
+# Copyright (c) 2021-2022 Contributors to the Eclipse Foundation
 # 
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -51,3 +51,6 @@ def parseLanguageLists(langlist):
         individuallangs += elem.split()
 
     return individuallangs
+
+def createOutputDir(outpath):
+    pathlib.Path(os.path.dirname(outpath)).mkdir(parents=True, exist_ok=True)

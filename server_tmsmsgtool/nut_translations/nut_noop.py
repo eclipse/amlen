@@ -14,17 +14,19 @@ import shutil
 import datetime
 import os.path
 
-import nut_parse
+import nut_utils
 
 def copyLangFiles(logger, langliststr, replace_filename_vars, input, output):
 
-    langlist = nut_parse.parseLanguageLists(langliststr)
+    langlist = nut_utils.parseLanguageLists(langliststr)
 
     for lang in langlist:
         for infile in input:
             if replace_filename_vars:
-                infile = nut_parse.parseFileNameForLangVars(infile, lang)
-                outfile = nut_parse.parseFileNameForLangVars(output, lang)
+                infile = nut_utils.parseFileNameForLangVars(infile, lang)
+                outfile = nut_utils.parseFileNameForLangVars(output, lang)
+            else:
+                outfile = output
     
             try:
                 timestr = datetime.datetime.now().strftime("%H:%M:%S on %d %B %Y")

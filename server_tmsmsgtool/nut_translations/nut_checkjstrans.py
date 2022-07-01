@@ -20,8 +20,6 @@ import datetime
 import glob
 import os.path
 
-import nut_parse
-
 def checkJSTrans(logger, input, translationrootdir):
     for inputarg in input:
         inputfiles = glob.glob(inputarg)

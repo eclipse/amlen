@@ -14,7 +14,9 @@ import re
 import datetime
 import xml.etree.ElementTree as ET
 import html
-    
+
+import nut_utils
+
 def msgTextNodeToICUString(xmlnode):
     '''The node can contain innertext and tags like <q />'''
     strwithtags = ET.tostring(xmlnode).decode()
@@ -41,7 +43,7 @@ def msgTextNodeToICUString(xmlnode):
     
     return str8.strip()
 
-def outputICU(logger, inputfile, inputxmlroot, outpath, catalogname):
+def outputICUFile(logger, inputfile, inputxmlroot, outpath, catalogname):
     timestr = datetime.datetime.now().strftime("%H:%M:%S on %d %B %Y")
     logger.info("Converting "+inputfile+" to ICU output file: "+outpath+" at "+timestr)
     
@@ -82,4 +84,22 @@ def outputICU(logger, inputfile, inputxmlroot, outpath, catalogname):
     except Exception as e:
        logger.error("Failed to write ICU txt file: %s - error %s" %
                          (outpath,  e))
-       raise e 
+       raise e
+
+def outputICU(logger, langlist, replace_filename_vars, inputfile, output, catalogstring):
+
+    langlist = nut_utils.parseLanguageLists(langliststr)
+
+    for lang in langlist:
+        for infile in inputfile:
+            if replace_filename_vars:
+                infile = nut_utils.parseFileNameForLangVars(infile, lang)
+                outfile = nut_utils.parseFileNameForLangVars(output, lang)
+                catalogname  = nut_utils.parseFileNameForLangVars(catalogstring, lang)
+            else:
+                outfile = output
+                catalogname = catalogstring
+
+            createOutputDir(outfile)
+            inputxmlroot = nut_utils.parseFile(infile)
+            outputICUFile(logger, infile, inputxmlroot, outfile, catalogname)

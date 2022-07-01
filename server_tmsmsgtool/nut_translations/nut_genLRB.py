@@ -16,13 +16,13 @@ import datetime
 import xml.etree.ElementTree as ET
 import html
 
-import nut_parse
+import nut_utils
 
 def mkPackagePath(outbasedir, packagename, replace_filename_vars, lang):
     pkgpath = outbasedir +'/'+re.sub('\.','/', packagename)
 
     if replace_filename_vars:
-        pkgpath = nut_parse.parseFileNameForLangVars(pkgpath, lang)
+        pkgpath = nut_utils.parseFileNameForLangVars(pkgpath, lang)
 
     pathlib.Path(pkgpath).mkdir(parents=True, exist_ok=True)
     
@@ -32,7 +32,7 @@ def getOutputPath(outbasedir, packagename, classname, replace_filename_vars, lan
     outpath =  pkgpath+'/'+classname+'.java'
     
     if replace_filename_vars:
-        outpath = nut_parse.parseFileNameForLangVars(outpath, lang)
+        outpath = nut_utils.parseFileNameForLangVars(outpath, lang)
 
     return outpath
     
@@ -153,20 +153,20 @@ def outputLRBFile(logger, inputxmlroot, inputfile, outpath, packagename, classna
 def outputLRB(logger, replace_filename_vars, infile, langliststr, outbasedir, pkgname, clssname):
 
     if langliststr is not None:
-        langlist = nut_parse.parseLanguageLists(langliststr)
+        langlist = nut_utils.parseLanguageLists(langliststr)
 
         for lang in langlist:
         
             if replace_filename_vars:
-                inputfile   = nut_parse.parseFileNameForLangVars(infile, lang)
-                packagename = nut_parse.parseFileNameForLangVars(pkgname, lang)
-                classname   = nut_parse.parseFileNameForLangVars(clssname, lang)
+                inputfile   = nut_utils.parseFileNameForLangVars(infile, lang)
+                packagename = nut_utils.parseFileNameForLangVars(pkgname, lang)
+                classname   = nut_utils.parseFileNameForLangVars(clssname, lang)
             else:
                 inputfile = infile
                 packagename = pkgname
                 classname = clssname
         
-            inputxmlroot = nut_parse.parseFile(inputfile)
+            inputxmlroot = nut_utils.parseFile(inputfile)
 
             mkPackagePath(outbasedir, packagename, replace_filename_vars, lang)
     
@@ -174,7 +174,7 @@ def outputLRB(logger, replace_filename_vars, infile, langliststr, outbasedir, pk
             
             outputLRBFile(logger, inputxmlroot, inputfile, outpath, packagename, classname)
     else:
-        inputxmlroot = nut_parse.parseFile(infile)
+        inputxmlroot = nut_utils.parseFile(infile)
 
         mkPackagePath(outbasedir, pkgname, False, None)
     

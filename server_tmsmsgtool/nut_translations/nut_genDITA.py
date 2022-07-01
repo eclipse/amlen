@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 import html
 import pathlib
 
-import nut_parse
+import nut_utils
     
 def writeDITAFile(logger, language, outbasedir, msgid, category, msgtext, explanationtext, operatorresponsetext):
     outpath = os.path.join(outbasedir, msgid+'.dita')
@@ -177,7 +177,7 @@ def outputDITA(logger, language, inputfile, inputxmldir,  outbasedir):
     mkDITAPath(outbasedir)
     
     if inputfile:
-        inputxmlroot = nut_parse.parseFile(inputfile)
+        inputxmlroot = nut_utils.parseFile(inputfile)
         processSingleFileToDITA(logger, language, inputfile, inputxmlroot, outbasedir)
     if inputxmldir:
         for (root, dirs, files) in os.walk(inputxmldir):
@@ -185,5 +185,5 @@ def outputDITA(logger, language, inputfile, inputxmldir,  outbasedir):
                 filepath = os.path.join(root, fname)
 
                 if filepath.endswith('.xml') :
-                    filexmlroot = nut_parse.parseFile(filepath)
+                    filexmlroot = nut_utils.parseFile(filepath)
                     processSingleFileToDITA(logger, language, filepath, filexmlroot, outbasedir)

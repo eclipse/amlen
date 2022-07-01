@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (c) 2021 Contributors to the Eclipse Foundation
+# Copyright (c) 2021-2022 Contributors to the Eclipse Foundation
 # 
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -27,7 +27,7 @@ import pathlib
 import datetime
 
 #Our sub modules:
-import nut_parse
+import nut_utils
 import nut_genICU
 import nut_genLRB
 import nut_genPRB
@@ -55,9 +55,6 @@ consoleFormatter = logging.Formatter('%(name)-30s ' + ' %(levelname)-8s %(messag
 consoleHandler.setFormatter(consoleFormatter)
 logger.addHandler(consoleHandler)
 
-def createOutputDir(outpath):
-    pathlib.Path(os.path.dirname(outpath)).mkdir(parents=True, exist_ok=True)
-
 def parseArguments():
     parser = argparse.ArgumentParser()
     
@@ -77,7 +74,7 @@ def parseArguments():
     parser.add_argument('--msgtoolclass',required=False, help="Class name of main class for java msgtool which validates+combines tms files")
     parser.add_argument('--msgtoolargs',required=False, help="Extra args to pass to the ISMMsgTool")
     parser.add_argument('--translationrootdir',required=False, help="Where to look for the translations to check in checkjstrans mode")
-    parser.add_argument('-r', '--replace_filename_vars', required=False, action='store_true', help="In Input/Output filename replace %%LANG%% with language and %%lang%% with lowercase (and _ -> -)")
+    parser.add_argument('-r', '--replace_filename_vars', required=False, action='store_true', help="In Container/Input/Output filename replace %%LANG%% with language and %%lang%% with lowercase (and _ -> -)")
     parser.add_argument('-m', '--mode', type=str, default='icu', help="Output format", choices=['icu','lrb','prb','html','toc','dita','pseudotranslation','msgtoolwrapper','checkjstrans','fixclassname','noop'])
 
     args, unknown = parser.parse_known_args()
@@ -94,8 +91,7 @@ def parseArguments():
        else:
            print("-i/--input must be supplied in "+args.mode+" mode")
            args_ok=False
-       
-    
+
     if args.mode == 'icu':
         if not args.outputfile:
             print("-o/--outputfile must be supplied in ICU mode")
@@ -178,6 +174,8 @@ if __name__ == "__main__":
     
     if args.input:
         #Some modes expect the list of files all in one go, other are called separately for each file
+        if args.mode == 'icu':
+            nut_genICU.outputICU(logger, args.langlist, args.replace_filename_vars, args.input, args.outputfile, args.container)
         if args.mode == 'noop':
             nut_noop.copyLangFiles(logger,args.langlist, args.replace_filename_vars, args.input, args.outputfile)
         elif args.mode =='msgtoolwrapper':
@@ -187,21 +185,17 @@ if __name__ == "__main__":
             nut_checkjstrans.checkJSTrans(logger, args.input, args.translationrootdir)
         else:
             for infile in args.input:
-                if args.mode == 'icu':
-                    createOutputDir(args.outputfile)
-                    inputxmlroot = nut_parse.parseFile(infile)
-                    nut_genICU.outputICU(logger, infile, inputxmlroot, args.outputfile, args.container)
-                elif args.mode == 'lrb':
+                if args.mode == 'lrb':
                     nut_genLRB.outputLRB(logger, args.replace_filename_vars, infile, args.langlist, args.outputbasedir, args.package, args.container)
                 elif args.mode == 'prb':
                     createOutputDir(args.outputfile)
-                    inputxmlroot = nut_parse.parseFile(infile)
+                    inputxmlroot = nut_utils.parseFile(infile)
                     nut_genPRB.outputPRB(logger, infile, inputxmlroot, args.outputfile)
                 elif args.mode == 'html':
-                    inputxmlroot = nut_parse.parseFile(infile)
+                    inputxmlroot = nut_utils.parseFile(infile)
                     nut_genHTML.outputHTML(logger, infile, inputxmlroot, args.outputbasedir)
                 elif args.mode == 'toc':
-                    inputxmlroot = nut_parse.parseFile(infile)
+                    inputxmlroot = nut_utils.parseFile(infile)
                     nut_genTOC.outputTOC(logger, infile, inputxmlroot, args.outputbasedir)
                 elif args.mode == 'pseudotranslation':
                     nut_genPseudo.outputPseudoTranslation(logger, args.langlist, infile, args.inputdir, args.outputfile, args.outputbasedir, args.langsubdir)

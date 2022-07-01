@@ -16,7 +16,7 @@ import subprocess
 import shlex
 import datetime
 
-import nut_parse
+import nut_utils
 
 def runMsgTool(logger, langliststr, replace_filename_vars, input, outputbasedir,
                msgtoolbindir, msgtoolclasspath, msgtoolclass, msgtoolargs):
@@ -25,13 +25,13 @@ def runMsgTool(logger, langliststr, replace_filename_vars, input, outputbasedir,
        2) Run java -cp {msgtoolclasspath}  {msgtoolclassname} {msgtoolargs} 
        3) Copy {msgtoolbindir}/ism.xml to {outputbasedir}"""
 
-    langlist = nut_parse.parseLanguageLists(langliststr)
+    langlist = nut_utils.parseLanguageLists(langliststr)
 
     for lang in langlist:
         #Copy all the inputs to the msgtoolbindir
         for input_arg in input:
             if replace_filename_vars:
-                input_varsreplaced  = nut_parse.parseFileNameForLangVars(input_arg, lang)
+                input_varsreplaced  = nut_utils.parseFileNameForLangVars(input_arg, lang)
 
     
             try:
@@ -66,7 +66,7 @@ def runMsgTool(logger, langliststr, replace_filename_vars, input, outputbasedir,
         logger.info("Output from running: "+shlex.join(msgtoolarglist)+" is: "+output.stdout.decode('utf-8')+" and stderr: "+output.stderr.decode('utf-8'))
 
         #Copy msgtoolbindir/ism.xml to outputbasedir
-        outputbasedir_varsreplaced = nut_parse.parseFileNameForLangVars(outputbasedir, lang)
+        outputbasedir_varsreplaced = nut_utils.parseFileNameForLangVars(outputbasedir, lang)
         try:
             filetocopy = msgtoolbindir+'/ism.xml'
             timestr = datetime.datetime.now().strftime("%H:%M:S on %d %B %Y")

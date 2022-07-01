@@ -15,8 +15,6 @@ import datetime
 import os.path
 import re
 
-import nut_parse
-
 def fixClassName(logger, input):
     """Some of the translation java classes have a classname that doesn't include the
        language they relate to even though the filename does. This routine goes through
