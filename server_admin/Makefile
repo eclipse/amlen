@@ -38,7 +38,7 @@ IFLAGS += -I$(ROOTREL)/server_admin/deppkgs
 CFLAGS += 
 CPPFLAGS +=
 LDFLAGS += -L$(ROOTREL)/server_admin/deppkgs -Wl,-rpath,$(ROOTREL)/server_admin/deppkgs
-LDLIBS += -lldap_r -lssl -licuuc -licui18n -licudata -lcurl -ljansson
+LDLIBS += -l$(OPENLDAP_LIBNAME) -lssl -licuuc -licui18n -licudata -lcurl -ljansson
 XFLAGS +=
 SHARED_FLAGS +=
 

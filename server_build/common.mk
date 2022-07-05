@@ -340,8 +340,18 @@ endif
 # To use an OpenLDAP not installed with the system specify OPENLDAP_HOME
 ifneq ($(OPENLDAP_HOME),)
 OPENLDAP_INC=-I$(OPENLDAP_HOME)/include
-OPENLDAP_LIBS=-L$(OPENLDAP_HOME)/lib
+OPENLDAP_LIBDIR=$(OPENLDAP_HOME)/lib
+OPENLDAP_LIBS=-L$(OPENLDAP_LIBDIR)
 OPENLDAP_RUNPATH_FLAGS= -Wl,-rpath,$(OPENLDAP_HOME)/lib
+else
+OPENLDAP_LIBDIR=/usr/lib64
+endif
+
+#Openldap 2.5+ doesn't have a separate libldap_r, libldap should be used instead
+ifeq ($(wildcard $(OPENLDAP_LIBDIR)/libldap_r.so*),)
+OPENLDAP_LIBNAME=ldap
+else
+OPENLDAP_LIBNAME=ldap_r
 endif
 
 # Curl

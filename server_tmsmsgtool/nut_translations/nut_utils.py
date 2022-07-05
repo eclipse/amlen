@@ -11,6 +11,7 @@
 #
 import sys
 import os
+import pathlib
 import xml.etree.ElementTree as ET
 
 #Import replacement vars code from ../../server_build

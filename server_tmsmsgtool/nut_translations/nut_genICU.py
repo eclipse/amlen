@@ -86,20 +86,28 @@ def outputICUFile(logger, inputfile, inputxmlroot, outpath, catalogname):
                          (outpath,  e))
        raise e
 
-def outputICU(logger, langlist, replace_filename_vars, inputfile, output, catalogstring):
 
-    langlist = nut_utils.parseLanguageLists(langliststr)
+def processICU(logger, infile, outfile, catalogname):
+    nut_utils.createOutputDir(outfile)
+    inputxmlroot = nut_utils.parseFile(infile)
+    outputICUFile(logger, infile, inputxmlroot, outfile, catalogname)
 
-    for lang in langlist:
+def outputICU(logger, langliststr, replace_filename_vars, inputfile, output, catalogstring):
+    if langliststr is not None and langliststr != "":
+        langlist = nut_utils.parseLanguageLists(langliststr)
+
+        for lang in langlist:
+            for infile in inputfile:
+                if replace_filename_vars:
+                    infile = nut_utils.parseFileNameForLangVars(infile, lang)
+                    outfile = nut_utils.parseFileNameForLangVars(output, lang)
+                    catalogname  = nut_utils.parseFileNameForLangVars(catalogstring, lang)
+                else:
+                    outfile = output
+                    catalogname = catalogstring
+
+                processICU(logger, infile, outfile, catalogname)
+    else:
         for infile in inputfile:
-            if replace_filename_vars:
-                infile = nut_utils.parseFileNameForLangVars(infile, lang)
-                outfile = nut_utils.parseFileNameForLangVars(output, lang)
-                catalogname  = nut_utils.parseFileNameForLangVars(catalogstring, lang)
-            else:
-                outfile = output
-                catalogname = catalogstring
+            processICU(logger, infile, output, catalogstring)
 
-            createOutputDir(outfile)
-            inputxmlroot = nut_utils.parseFile(infile)
-            outputICUFile(logger, infile, inputxmlroot, outfile, catalogname)

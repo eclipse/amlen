@@ -23,8 +23,10 @@ import re
 import argparse
 import html
 import os
-import pathlib
 import datetime
+import sys
+print (sys.argv[1:]);
+
 
 #Our sub modules:
 import nut_utils
@@ -37,6 +39,7 @@ import nut_genPseudo
 import nut_genDITA
 import nut_noop
 import nut_msgtoolwrapper
+import nut_xsltprocwrapper
 import nut_checkjstrans
 import nut_fixclass
 
@@ -64,7 +67,8 @@ def parseArguments():
     parser.add_argument('-o', '--outputfile', required=False, help="Output file to write")
     parser.add_argument('-c', '--container', required=False, help="Name of container in output (for ICU format, the class in LRB)")
     parser.add_argument('-p', '--package', required=False, help="Package output is part of (for LRB format)")
-    parser.add_argument('-b', '--outputbasedir',  required=False, help="Root of output tree (for LRB/HTML/msgtoolwrapper and optionally pseudotranslation format)")
+    parser.add_argument('-b', '--outputbasedir',  required=False, help="Root of output tree (for LRB/HTML/dita/msgtoolwrapper and optionally pseudotranslation format)")
+    parser.add_argument('-z', '--zipoutput',  required=False, help="zip (and remove) outputdir (DITA format only)")
     parser.add_argument('-x', '--inputdir',  required=False, help="Directory to look for input files (with .xml extension for DITA format only) (with.js/.java for pseudotranslation)")
     parser.add_argument('-l', '--language', required=False, help="Language of files (from DITA format only)")
     parser.add_argument('-s', '--langlist', required=False, action='append', help="Languages to generate (only some modes support this) can be specified multiple times")
@@ -72,10 +76,11 @@ def parseArguments():
     parser.add_argument('--msgtoolbindir',required=False, help="Bin directory (and working dir) for java msgtool which validates+combines tms files")
     parser.add_argument('--msgtoolclasspath',required=False, help="classpath containing msgtool class")
     parser.add_argument('--msgtoolclass',required=False, help="Class name of main class for java msgtool which validates+combines tms files")
-    parser.add_argument('--msgtoolargs',required=False, help="Extra args to pass to the ISMMsgTool")
+    parser.add_argument('--xsl',required=False, help="Path to xsl file in xsltprocwrapper mode")
+    parser.add_argument('--extraargs',required=False, help="Extra args to pass to the ISMMsgTool/xsltproc")
     parser.add_argument('--translationrootdir',required=False, help="Where to look for the translations to check in checkjstrans mode")
     parser.add_argument('-r', '--replace_filename_vars', required=False, action='store_true', help="In Container/Input/Output filename replace %%LANG%% with language and %%lang%% with lowercase (and _ -> -)")
-    parser.add_argument('-m', '--mode', type=str, default='icu', help="Output format", choices=['icu','lrb','prb','html','toc','dita','pseudotranslation','msgtoolwrapper','checkjstrans','fixclassname','noop'])
+    parser.add_argument('-m', '--mode', type=str, default='icu', help="Output format", choices=['icu','lrb','prb','html','toc','dita','pseudotranslation','msgtoolwrapper','xsltprocwrapper','checkjstrans','fixclassname','noop'])
 
     args, unknown = parser.parse_known_args()
     
@@ -145,8 +150,18 @@ def parseArguments():
         if not args.msgtoolclasspath:
             print("--msgtoolclasspath must be supplied in msgtoolwrapper mode")
             args_ok=False
-        if not args.msgtoolargs:
-            print("--msgtoolargs must be supplied in msgtoolwrapper mode")
+        if not args.extraargs:
+            print("--extraargs must be supplied in msgtoolwrapper mode")
+            args_ok=False
+    elif args.mode == 'xsltprocwrapper':
+        if not args.langlist:
+            print("-s/--langlist must be supplied in xsltprocwrapper mode")
+            args_ok=False
+        if not args.xsl:
+            print("--xsl must be supplied in xsltprocwrapper mode")
+            args_ok=False
+        if not args.outputfile:
+            print("--outputfile/-o must be supplied in xsltprocwrapper mode")
             args_ok=False
     elif args.mode == 'checkjstrans':
         if not args.translationrootdir:
@@ -180,17 +195,20 @@ if __name__ == "__main__":
             nut_noop.copyLangFiles(logger,args.langlist, args.replace_filename_vars, args.input, args.outputfile)
         elif args.mode =='msgtoolwrapper':
             nut_msgtoolwrapper.runMsgTool(logger,args.langlist, args.replace_filename_vars, args.input, args.outputbasedir,
-                                                        args.msgtoolbindir, args.msgtoolclasspath, args.msgtoolclass, args.msgtoolargs)
+                                                        args.msgtoolbindir, args.msgtoolclasspath, args.msgtoolclass, args.extraargs)
+        elif args.mode =='xsltprocwrapper':
+            nut_xsltprocwrapper.runXSLTProc(logger,args.langlist, args.replace_filename_vars, args.input, args.outputfile,
+                                                        args.xsl, args.extraargs)
         elif args.mode =='checkjstrans':
             nut_checkjstrans.checkJSTrans(logger, args.input, args.translationrootdir)
+        elif args.mode == 'dita':
+            nut_genDITA.outputDITA(logger, args.langlist, args.replace_filename_vars, args.language, args.input, args.inputdir, args.outputbasedir, args.zipoutput)
         else:
             for infile in args.input:
                 if args.mode == 'lrb':
                     nut_genLRB.outputLRB(logger, args.replace_filename_vars, infile, args.langlist, args.outputbasedir, args.package, args.container)
                 elif args.mode == 'prb':
-                    createOutputDir(args.outputfile)
-                    inputxmlroot = nut_utils.parseFile(infile)
-                    nut_genPRB.outputPRB(logger, infile, inputxmlroot, args.outputfile)
+                    nut_genPRB.outputPRB(logger, args.replace_filename_vars, infile, args.langlist, args.outputfile)
                 elif args.mode == 'html':
                     inputxmlroot = nut_utils.parseFile(infile)
                     nut_genHTML.outputHTML(logger, infile, inputxmlroot, args.outputbasedir)
@@ -199,13 +217,11 @@ if __name__ == "__main__":
                     nut_genTOC.outputTOC(logger, infile, inputxmlroot, args.outputbasedir)
                 elif args.mode == 'pseudotranslation':
                     nut_genPseudo.outputPseudoTranslation(logger, args.langlist, infile, args.inputdir, args.outputfile, args.outputbasedir, args.langsubdir)
-                elif args.mode == 'dita':
-                    nut_genDITA.outputDITA(logger, args.language, infile, args.inputdir, args.outputbasedir)
                 elif args.mode == 'fixclassname':
                     nut_fixclass.fixClassName(logger,infile)
     else:
         if args.mode == 'dita':
-            nut_genDITA.outputDITA(logger, args.language, None, args.inputdir, args.outputbasedir)
+            nut_genDITA.outputDITA(logger, args.langlist, args.replace_filename_vars, args.language, None, args.inputdir, args.outputbasedir, args.zipoutput)
         if args.mode == 'pseudotranslation':
             nut_genPseudo.outputPseudoTranslation(logger, args.langlist, None, args.inputdir, args.outputfile, args.outputbasedir, args.langsubdir)
 

@@ -299,7 +299,7 @@
 			<arg value="${msg.tool.bin.dir}"/>
 			<arg value="--msgtoolclass"/>
 			<arg value="com.ibm.ism.tools.msg.ISMMsgTool"/>
-			<arg value="--msgtoolargs"/>
+			<arg value="--extraargs"/>
 			<arg value="&quot;-component NONE -src ${env.SRC_ROOT}&quot;"/>
 			<arg value="-s${supportedlangs}"/>
 			<arg value="-i${tmsxml.xml.dir}/%lang%/*_tms.xml"/>
@@ -499,37 +499,51 @@
 
 		<!-- Now, process translations in the same way, if available.
 		     Otherwise client_jms will generate pseudotranslations -->
-		<for list="${supportedlangs}" param="lang" delimiter=" " >
-			<sequential>
-				<convert string="@{lang}" to="fixlang" />
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mxsltprocwrapper" />
+			<arg value="--extra"/>
+			<arg value="&quot;--encoding UTF-8 --novalid&quot;"/>
+			<arg value="-o${tms.work.tmp.dir}/ValidationMessages_%LANG%.xml"/>
+			<arg value="--xsl"/>
+			<arg value="${tool.xsl.dir}/getproperties.xsl"/>
+			<arg value="-i${tmsxml.xml.dir}/%lang%/ism_jmsclient_tms.xml"/>
+			<arg value="-s${supportedlangs}"/>
+			<arg value="--replace_filename_vars"/>
+		</exec>
+		
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mxsltprocwrapper" />
+			<arg value="--extra"/>
+			<arg value="&quot;--encoding UTF-8 --novalid&quot;"/>
+			<arg value="-o${tms.work.tmp.dir}/IsmJmsListResourceBundle_%LANG%.xml"/>
+			<arg value="--xsl"/>
+			<arg value="${tool.xsl.dir}/getmessages.xsl"/>
+			<arg value="-i${tmsxml.xml.dir}/%lang%/ism_jmsclient_tms.xml"/>
+			<arg value="-s${supportedlangs}"/>
+			<arg value="--replace_filename_vars"/>
+		</exec>
 
-				<echo>Processing JMS client/RA messages in language @{lang} (${server.translation.dir}/jmsclient/${fixlang}/ism_jmsclient_tms.xml)</echo>
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mlrb" />
+			<arg value="-i${tms.work.tmp.dir}/IsmJmsListResourceBundle_%LANG%.xml"/>
+			<arg value="-b${tmsxml.prb.client.dir}"/>
+			<arg value="-cIsmJmsListResourceBundle_%LANG%"/>
+			<arg value="-pcom.ibm.ima.jms.msgcatalog"/>
+			<arg value="-s${supportedlangs}"/>
+			<arg value="--replace_filename_vars"/>
+		</exec>
 
-				<exec executable="sh">
-					<arg line=' -c "xsltproc --encoding UTF-8 --novalid --output ${tms.work.tmp.dir}/ValidationMessages_@{lang}.xml ${tool.xsl.dir}/getproperties.xsl ${tmsxml.xml.dir}/${fixlang}/ism_jmsclient_tms.xml"' />
-				</exec>
-
-				<exec executable="sh">
-					<arg line=' -c "xsltproc --encoding UTF-8 --novalid --output ${tms.work.tmp.dir}/IsmJmsListResourceBundle_@{lang}.xml ${tool.xsl.dir}/getmessages.xsl ${tmsxml.xml.dir}/${fixlang}/ism_jmsclient_tms.xml"' />
-				</exec>
-
-				<exec executable="python3">
-					<arg value="${basedir}/nut_translations/nut_translations.py"/>
-					<arg value="-mlrb" />
-					<arg value="-i${tms.work.tmp.dir}/IsmJmsListResourceBundle_@{lang}.xml"/>
-					<arg value="-b${tmsxml.prb.client.dir}"/>
-					<arg value="-cIsmJmsListResourceBundle_@{lang}"/>
-					<arg value="-pcom.ibm.ima.jms.msgcatalog"/>
-				</exec>
-
-				<exec executable="python3">
-					<arg value="${basedir}/nut_translations/nut_translations.py"/>
-					<arg value="-mprb" />
-					<arg value="-i${tms.work.tmp.dir}/ValidationMessages_@{lang}.xml"/>
-					<arg value="-o${tmsxml.prb.client.dir}/ValidationMessages_@{lang}.properties"/>
-				</exec>
-			</sequential>
-		</for>
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mprb" />
+			<arg value="-i${tms.work.tmp.dir}/ValidationMessages_%LANG%.xml"/>
+			<arg value="-o${tmsxml.prb.client.dir}/ValidationMessages_%LANG%.properties"/>
+			<arg value="-s${supportedlangs}"/>
+			<arg value="--replace_filename_vars"/>
+		</exec>
 	</target>
 
 	<target name="tms2dita">
@@ -582,34 +596,19 @@
 
 		<!-- Zip the file -->
 		<zip destfile="${tmsxml.dir}/tms2dita.zip" basedir="${tms2dita.dita.final.dir}" encoding="UTF-8"/>
+		<!-- Delete the files we've zipped -->
+		<delete dir="${tms2dita.dita.final.dir}" />
 
 		<!-- Now repeat the process for other languages -->
-		<for list="${supportedlangs}" param="lang" delimiter=" " >
-			<sequential>
-				<convert string="@{lang}" to="fixlang" />
-				<echo>Processing language @{lang} (${tmsxml.xml.dir}/${fixlang})</echo>
-
-				<!--Copy the ISM TMS XML files into the tms2dita working directory-->
-				<delete includeemptydirs="true" failonerror="false">
-					<fileset dir="${tms2dita.work.tmp.dir}" includes="*.xml" />
-				</delete>
-				<copy todir="${tms2dita.work.tmp.dir}" failonerror="false" encoding="UTF-8" outputencoding="UTF-8">
-					<fileset dir="${tmsxml.xml.dir}/${fixlang}" includes="*.xml" />
-				</copy>
-
-				<exec executable="python3">
-					<arg value="${basedir}/nut_translations/nut_translations.py"/>
-					<arg value="-mdita" />
-					<arg value="-x${tms2dita.work.tmp.dir}"/>
-					<arg value="-b${tms2dita.dita.final.dir}"/>
-					<arg value="-l${fixlang}" />
-				</exec>
-
-				<!-- Zip the file -->
-				<zip destfile="${tmsxml.dir}/tms2dita_@{lang}.zip" basedir="${tms2dita.dita.final.dir}" encoding="UTF-8"/>
-			</sequential>
-		</for>
-
-		<delete dir="${tms2dita.dita.final.dir}" />
+		<exec executable="python3">
+			<arg value="${basedir}/nut_translations/nut_translations.py"/>
+			<arg value="-mdita" />
+			<arg value="-x${tmsxml.xml.dir}/%lang%"/>
+			<arg value="-b${tms2dita.dita.final.dir}"/>
+			<arg value="-l%lang%" />
+			<arg value="-z${tmsxml.dir}/tms2dita_%LANG%.zip"/>
+			<arg value="-s${supportedlangs}"/>
+			<arg value="--replace_filename_vars"/>
+		</exec>
 	</target>
 </project>
