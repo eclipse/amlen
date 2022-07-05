@@ -39,7 +39,7 @@ IFLAGS += -I$(ROOTREL)/server_snmp/src
 CFLAGS +=
 CPPFLAGS +=
 LDFLAGS += -Wl,-rpath,$(IMASERVER_RUNPATH_DIR)
-LDLIBS += -ldl -lssl -lcrypto -licuuc -licui18n -lldap_r -llber -lcurl -lnetsnmp -lnetsnmpagent -lnetsnmphelpers -lMCP_Routing
+LDLIBS += -ldl -lssl -lcrypto -licuuc -licui18n -l$(OPENLDAP_LIBNAME) -llber -lcurl -lnetsnmp -lnetsnmpagent -lnetsnmphelpers -lMCP_Routing
 XFLAGS +=
 SHARED_FLAGS +=
 

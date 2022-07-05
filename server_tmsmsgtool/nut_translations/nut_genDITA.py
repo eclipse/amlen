@@ -15,8 +15,10 @@ import datetime
 import xml.etree.ElementTree as ET
 import html
 import pathlib
+import shutil
+import zipfile
 
-import nut_parse
+import nut_utils
     
 def writeDITAFile(logger, language, outbasedir, msgid, category, msgtext, explanationtext, operatorresponsetext):
     outpath = os.path.join(outbasedir, msgid+'.dita')
@@ -172,18 +174,78 @@ def processSingleFileToDITA(logger, language, inputfile, inputxmlroot, outbasedi
                          (e))
        raise e
 
+def zipOutFiles(logger, outbasedir, zipoutput):
+    directory = pathlib.Path(outbasedir)
 
-def outputDITA(logger, language, inputfile, inputxmldir,  outbasedir):  
+    with zipfile.ZipFile(zipoutput, mode="w") as archive:
+        for file_path in directory.rglob("*"):
+            archive.write(
+                file_path,
+                arcname=file_path.relative_to(directory)
+                )
+
+def deleteDirContents(logger, outbasedir):
+    for filename in os.listdir(outbasedir):
+        file_path = os.path.join(outbasedir, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            logger.error('Failed to delete %s. Reason: %s' % (file_path, e))
+
+def outputSingleLangDITA(logger, language, inputfile, inputxmldir,  outbasedir, zipoutput):  
     mkDITAPath(outbasedir)
-    
+
     if inputfile:
-        inputxmlroot = nut_parse.parseFile(inputfile)
-        processSingleFileToDITA(logger, language, inputfile, inputxmlroot, outbasedir)
+            inputxmlroot = nut_utils.parseFile(inputfile)
+            processSingleFileToDITA(logger, language, inputfile, inputxmlroot, outbasedir)
     if inputxmldir:
+        logger.info("Looking for TMS input files in: "+inputxmldir)
         for (root, dirs, files) in os.walk(inputxmldir):
             for fname in files:
                 filepath = os.path.join(root, fname)
 
                 if filepath.endswith('.xml') :
-                    filexmlroot = nut_parse.parseFile(filepath)
+                    filexmlroot = nut_utils.parseFile(filepath)
                     processSingleFileToDITA(logger, language, filepath, filexmlroot, outbasedir)
+    if zipoutput:
+        zipOutFiles(logger, outbasedir, zipoutput)
+        deleteDirContents(logger, outbasedir)
+
+def outputDITA(logger, langliststr, replace_filename_vars, languagestr, input, inputxmldir,  outbasedir, zipoutput):
+    if langliststr is not None:
+        langlist = nut_utils.parseLanguageLists(langliststr)
+
+        for lang in langlist:
+            if replace_filename_vars:
+                inputxmldirreplaced     = nut_utils.parseFileNameForLangVars(inputxmldir, lang)
+                langreplacedstr         = nut_utils.parseFileNameForLangVars(languagestr, lang)
+                outputbasedirreplaced   = nut_utils.parseFileNameForLangVars(outbasedir, lang)
+                zipoutputreplaced       = nut_utils.parseFileNameForLangVars(zipoutput, lang)
+            else:
+                inputxmldirreplaced   = inputxmldir
+                langreplacedstr       = languagestr
+                outputbasedirreplaced = outbasedir
+                zipoutputreplaced     = zipoutput
+
+            if input: 
+                for infile in input:
+                    if replace_filename_vars:
+                        inputfile   = nut_utils.parseFileNameForLangVars(infile, lang)
+                    else:
+                        inputfile = infile
+
+                    outputSingleLangDITA(logger, langreplacedstr, inputfile, None, outputbasedirreplaced, None)
+                
+            if inputxmldirreplaced:
+                outputSingleLangDITA(logger, langreplacedstr, None, inputxmldirreplaced, outputbasedirreplaced, zipoutputreplaced)
+
+    else:
+        if input: 
+            for infile in input:
+                outputSingleLangDITA(logger, languagestr, infile, None, outbasedir, None)
+                
+        if inputxmldir:
+            outputSingleLangDITA(logger, languagestr, None, inputxmldir, outbasedir, zipoutput)

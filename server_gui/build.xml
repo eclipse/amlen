@@ -13,7 +13,8 @@
 #
 -->
 
-<project name="server_gui" default="build_server_gui">
+<project name="server_gui" default="build_server_gui" 
+            xmlns:if="ant:if" xmlns:unless="ant:unless">
     <property file="build.properties"/>
     <property file="${server.build.dir}/server_build.properties"/>
     <property name="guiBuildToolsDir" value="${env.DEPS_HOME}"/>
@@ -42,10 +43,6 @@
     <echo>server.gui.useOpenLiberty=${server.gui.useOpenLiberty}</echo>
     <echo>server.gui.libertyArchive=${server.gui.libertyArchive}</echo>
     <echo>guiBuildToolsDir=${guiBuildToolsDir}</echo>
-
-
-    <!-- Load contrib library -->
-    <taskdef resource="net/sf/antcontrib/antlib.xml" />
 
     <!--
     <property name="beam.install" value="/opt/ibm/beam"/>
@@ -141,37 +138,15 @@
             </fileset>
         </copy>
 
-        <!-- If any Javascript translations are missing, use English original in their place -->
-        <for param="file">
-            <path>
-                <fileset dir="${server.gui.nls.dir}" includes="*.js"/>
-            </path>
-            <sequential>
-                <!-- For each English file, check every dir with translations -->
-                <local name="file.name" />
-                <basename file="@{file}" property="file.name"/>
-                <for param="dir">
-                    <path>
-                        <dirset dir="${server.gui.nls.dir}" includes="*" />
-                    </path>
-                    <sequential>
-                          <local name="dir.name" />
-                          <basename file="@{dir}" property="dir.name" />
-                          <!-- If translated file is not available, update root file to say so -->
-                          <if>
-                            <not>
-                              <available file="@{dir}/${file.name}" />
-                            </not>
-                            <then>
-                              <echo>In file: "${server.gui.nls.dir}/${file.name}" recording "${dir.name}" is missing ${file.name}</echo>
-                              <replace file="${server.gui.nls.dir}/${file.name}" encoding="utf-8"
-                                token='"${dir.name}": true' value='"${dir.name}": false' failOnNoReplacements="false"/>
-                            </then>
-                          </if>
-                    </sequential>
-                </for>
-            </sequential>
-        </for>
+        <!--Check for missing javascript translations and update english version to record
+            them missing so dojobuild doesn't fail  -->
+        <exec executable="python3">
+            <arg value="${server.tms.dir}/nut_translations/nut_translations.py"/>
+            <arg value="-mcheckjstrans"/>
+            <arg value="-i${server.gui.nls.dir}/*.js"/>
+            <arg value="--translationrootdir"/>
+            <arg value="${server.gui.nls.dir}"/>
+        </exec>
 
         <copy todir="${server.gui.build.src.dir}/com/ibm/ima/msgcatalog/"
               encoding="UTF-8" outputencoding="UTF-8"
@@ -180,13 +155,14 @@
                  <include name="IsmUIStringsResourceBundle_*.java"/>
              </fileset>
         </copy>
-        <foreach target="fixClassName" param="fileName" inheritall="true" inheritrefs="true">
-            <path>
-                <fileset dir="${server.gui.build.src.dir}/com/ibm/ima/msgcatalog/" casesensitive="yes">
-                    <include name="**/IsmUIStringsResourceBundle_*.java"/>
-                </fileset>
-            </path>
-        </foreach>
+        <!-- for each of the UIStringResource bundle translation file, change the classname
+             to include the language so it matches the filename-->
+        <exec executable="python3">
+            <arg value="${server.tms.dir}/nut_translations/nut_translations.py"/>
+            <arg value="-mfixclassname"/>
+            <arg value="-i${server.gui.build.src.dir}/com/ibm/ima/msgcatalog/**/IsmUIStringsResourceBundle_*.java"/>
+        </exec>
+
         <exec executable="python3">
            <arg value="${basedir}/../server_build/path_parser.py"/>
            <arg value="-mdirreplace"/>
@@ -194,18 +170,6 @@
            <arg value="-o${server.gui.build.src.dir}/com/ibm/ima/msgcatalog"/>
            <arg value="-sinfo"/>
         </exec>
-    </target>
-
-    <target name="fixClassName">
-        <propertyregex property="val"
-                  input="${fileName}"
-                  regexp="IsmUIStringsResourceBundle_(.+)\.java"
-                  select="\1"
-                  casesensitive="true" />
-        <echo message="${fileName} - ${val}" />
-        <replace file="${fileName}" encoding="UTF-8"
-            token="public class IsmUIStringsResourceBundle extends"
-            value="public class IsmUIStringsResourceBundle_${val} extends"/>
     </target>
 
     <!--Compile the project-->
@@ -468,32 +432,28 @@
         <!-- Make sure dojo is not running in debug mode -->
         <replace file="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/dojoConfig.js" token="isDebug: true" value="isDebug: false"/>
 
-        <!-- Run the dojo build -->
-        <trycatch property="dojoBuildResult">
-            <try>
-                <copy file="${server.gui.js.dir}/ism/config/Resources.js" tofile="${server.gui.build.js.dir}/ism/config/Resources.js.bak"/>
-                <replace dir="${server.gui.build.js.dir}" token="js/" value="${server.gui.pathLabel}/js/">
-                    <include name="ism/config/Resources.js"/>
-                </replace>
+        <!-- Run the dojo build - first we need to adjust the paths in the Resources.js-->
+        
+        <copy file="${server.gui.js.dir}/ism/config/Resources.js" tofile="${server.gui.build.js.dir}/ism/config/Resources.js.bak"/>
+        <replace dir="${server.gui.build.js.dir}" token="js/" value="${server.gui.pathLabel}/js/">
+            <include name="ism/config/Resources.js"/>
+        </replace>
 
-                <antcall target="dojo_builder"/>
+        <echo>
+        Running dojo build - if this fails - "${server.gui.js.dir}/ism/config/Resources.js" should be replaced by "${server.gui.build.js.dir}/ism/config/Resources.js.bak"
+        </echo>
+        <antcall target="dojo_builder"/>
 
-                <!-- Dojo build is messing up d3, so copy over the built file until can figure out why -->
-                <copy file="${server.gui.build.js.dir}/d3/d3.min.js"
-                    tofile="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/d3/d3.min.js" overwrite="true"/>
+        <!-- Dojo build is messing up d3, so copy over the built file until can figure out why -->
+        <copy file="${server.gui.build.js.dir}/d3/d3.min.js"
+            tofile="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/d3/d3.min.js" overwrite="true"/>
 
-                <!-- if include tests, copy them, they are not built by the dojo builder -->
-                <antcall target="copyTests"/>
-            </try>
-            <catch>
-                <fail>Dojo optimized build failed!  ${dojoBuildResult}</fail>
-            </catch>
-            <finally>
-                <move file="${server.gui.build.js.dir}/ism/config/Resources.js.bak"
-                    tofile="${server.gui.build.js.dir}/ism/config/Resources.js" overwrite="true" failonerror="false"/>
-                <delete file="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/ism/config/Resources.js.bak" failonerror="false" />
-            </finally>
-        </trycatch>
+        <!-- if include tests, copy them, they are not built by the dojo builder -->
+        <antcall target="copyTests"/>
+
+        <move file="${server.gui.build.js.dir}/ism/config/Resources.js.bak"
+            tofile="${server.gui.build.js.dir}/ism/config/Resources.js" overwrite="true" failonerror="false"/>
+        <delete file="${server.gui.build.dojo.build}/${server.gui.pathLabel}/js/ism/config/Resources.js.bak" failonerror="false" />
     </target>
 
     <!-- if include tests, copy them, they are not built by the dojo builder -->
