@@ -13,7 +13,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-centos7-build
-    image: quay.io/amlen/amlen-builder-centos7:1.0.0.1
+    image: quay.io/amlen/amlen-builder-centos7:1.0.0.3
     command:
     - cat
     tty: true
