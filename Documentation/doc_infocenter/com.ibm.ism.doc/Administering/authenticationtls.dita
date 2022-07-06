@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="up00022_" xml:lang="en-us">
+    <title>TLS Authentication Methods</title>
+    <body>
+    <section>
+        <title>Authentication Methods</title>
+        <p>As well as simple key certificate pairs being used which requires the same key and certificate to be placed
+        on all the instances in the HA pair or cluster. Certificate Authorities can also be used. When enabled the product
+        uses peer-to-peer secure connections.</p>
+        <p><b>Without Certificate Authorities</b></p>
+        <p>When not using Certificate Authorities each instance in the system require the same key and certificate to be set.
+        An example to create the key and self-signed certificate using openssl is:</p>
+        <codeblock>
+        openssl genrsa -out ha_keydata 3072
+        openssl req -new -x509 -key HA_key.pem -out HA_cert.pem -days 360
+        </codeblock>
+        <p>This will produce the key and certificate in the correct pem format. In this specific example the key will be between the lines:</p>
+        <codeblock>-----BEGIN RSA PRIVATE KEY-----</codeblock>
+        <p>And:</p>
+        <codeblock>-----END RSA PRIVATE KEY-----</codeblock>
+        <p>The certificate will be between:</p>
+        <codeblock>-----BEGIN CERTIFICATE-----</codeblock>
+        And:
+        <codeblock>-----END CERTIFICATE-----</codeblock>
+        <p>If the key or certificate file does not contain a BEGIN and END, then it may have been created in the wrong format.</p>
+        <p>Once the key and certificate have been created, they can be copied into the correct location of each instance.</p>
+        <p><b>With Certificate Authorities</b></p>
+        <p>When using Certificate Authorities each instance requires a key and certificate to be set in the same way as without 
+        Certificate Authorities. However, as long as the credentials are created from an authorized system they do not have to
+        be the same on each instance. To set the authorities the root and any intermediate certificates need to be provided.</p>
+        <p>An example to create a root certificate, an intermediate certificate, and two leaf certificates is:</p>
+        <codeblock>
+        openssl genrsa -out root.key 2048
+        openssl req -new -key root.key -out root.csr -config root_req.config
+        openssl ca -in root.csr -out root.pem -config root.config -selfsign -extfile ca.ext -days 1095
+        openssl genrsa -out intermediate.key 2048
+        openssl req -new -key intermediate.key -out intermediate.csr -config intermediate_req.config
+        openssl ca -in intermediate.csr -out intermediate.pem -config root.config -extfile ca.ext -days 730
+        openssl genrsa -out leaf.key 2048
+        openssl req -new -key leaf.key -out leaf.csr -config leaf_req.config
+        openssl ca -in leaf.csr -out leaf.pem -config intermediate.config -days 365 -batch
+        openssl genrsa -out leaf2.key 2048
+        openssl req -new -key leaf2.key -out leaf2.csr -config leaf_req.config
+        openssl ca -in leaf2.csr -out leaf2.pem -config intermediate.config -days 365 -batch
+        </codeblock>
+        <p>The files produced by this sequence that are required for authentication are:</p>
+        <dl>
+        <dlentry><dt>root.pem</dt><dd>the root certificate</dd></dlentry>
+        <dlentry><dt>Intermediate.pem</dt><dd>the intermediate certificate</dd></dlentry>
+        <dlentry><dt>leaf.key</dt><dd>the key that will be used on the first instance</dd></dlentry>
+        <dlentry><dt>leaf.pem</dt><dd>the certificate that will be used on the first instance</dd></dlentry>
+        <dlentry><dt>leaf2.key</dt><dd>the key that will be used on the second instance</dd></dlentry>
+        <dlentry><dt>leaf2.pem</dt><dd>the certificate that will be used on the second instance</dd></dlentry>
+        </dl>
+        <p>(All files will be in pem format)</p>
+        <p>For High Availability Pairing The leaf files need to be placed in the keystore of the
+        corresponding instance and renamed to HA_key.pem and HA_cert.pem. For Clustering the leaf files need to be placed in the 
+        keystore of the corresponding instance and renamed to Cluster_key.pem and Cluster_cert.pem. To provide the 
+        Certificate Authorities a CAFile must be constructed from the root certificate and intermediate certificate and 
+        placed in the truststore in a file called HA_cafile.pem or Cluster_cafile.pem this can be done via:</p>
+        <codeblock>
+        cat root.pem > HA_cafile.pem
+        cat intermediate.pem >> HA_cafile.pem
+        </codeblock>
+        <p>When an instance’s certificate expires a new key and certificate can be created (using the intermediate credentials) 
+        and uploaded to the instance and once that instance has been restarted the instance will be authenticated without 
+        having to change the other instances.</p>
+        
+        <p>If using High Availability Pairing and Clustering then it is possible to use file links to have the same credentials
+        used for both systems eg:</p>
+        <codeblock>
+        ln /var/messagesight/data/certificates/keystore/HA_cert.pem     /var/messagesight/data/certificates/keystore/Cluster_cert.pem
+        ln /var/messagesight/data/certificates/keystore/HA_key.pem      /var/messagesight/data/certificates/keystore/Cluster_key.pem
+        ln /var/messagesight/data/certificates/truststore/HA_cafile.pem /var/messagesight/data/certificates/truststore/Cluster_cert.pem
+        </codeblock>
+        <p><b>Certification Revocation List</b></p>
+        <p>If a certificate has become compromised prior to its expiration date then it can be added to a Certification 
+        Revocation List (CRL). The product supports a single consolidated CRL file in pem format for each connection.</p>
+        
+        <p>The CRL file for High Availability pairing must be:</p>
+        <filepath>{truststore-directory}/HA_crl/crl.pem</filepath>
+        <p>The CRL file for Clustering must be:</p>
+        <filepath>{truststore-directory}/Cluster_crl/crl.pem</filepath>
+    </section>
+    </body>
+</topic>

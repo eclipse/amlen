@@ -13,7 +13,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-centos7-build
-    image: quay.io/amlen/amlen-builder-centos7:1.0.0.2
+    image: quay.io/amlen/amlen-builder-centos7:1.0.0.5
     command:
     - cat
     tty: true
@@ -70,6 +70,8 @@ spec:
                        export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
                        make bundle
                        make produce-deployment
+                       cd ../Documentation/doc_infocenter
+                       ant
                       '''
                 }
             }
@@ -87,6 +89,7 @@ spec:
                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                               ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
                               scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                              scp -o BatchMode=yes -r Documentation/docs genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
   
                               sed -i "s/IMG_TAG/$NOORIGIN_BRANCH/" operator/roles/amlen/defaults/main.yml
                               cd operator
