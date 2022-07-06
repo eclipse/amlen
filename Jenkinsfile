@@ -60,7 +60,14 @@ spec:
                 echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
 
                 container('amlen-centos7-build') {
-                   sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
+                   sh '''
+                       pwd 
+                       free -m 
+                       cd server_build 
+                       bash buildcontainer/build.sh
+                       cd ../Documentation/doc_infocenter
+                       ant
+                      '''
                 }
             }
         }
