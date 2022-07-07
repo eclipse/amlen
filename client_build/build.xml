@@ -13,7 +13,8 @@
 #
 -->
 
-<project name="imaclient" default="build-client" basedir=".">
+<project name="imaclient" default="build-client" basedir="."
+    xmlns:if="ant:if" xmlns:unless="ant:unless">
 	<echo/>
 	<echo/>
 	<echo>==== invoking ant build for client ====</echo>
@@ -82,16 +83,10 @@
 	</condition>
 
 	<echo message="Client build version=${ISM_VERSION_ID}" />
-
-
-	<!-- the following property reflects how the version will look like in a file name -->
-	<propertyregex property="ISM_VERSION_ID_NAME"
-	               input="${ISM_VERSION_ID}"
-	               regexp=" "
-	               replace="."
-	               global="true"
-	               override="true"
-		           defaultValue="${ISM_VERSION_ID}" />
+	<!-- We used to take spaces out of the version and replace them with dots but this
+	     required ant-contrib - now we'll just rely on having no spaces in the version 
+		 (as it's used in file names)-->
+	<property name="ISM_VERSION_ID_NAME" value="${ISM_VERSION_ID}" />
 
 	<!-- build server projects first -->
 	<target name="build-client" depends="client_init2, build_jms">
@@ -410,14 +405,12 @@
 				<arg value="@{project}" />
 				<arg value="${ISM_VERSION_ID}.${buildLabel}" />
 			</exec>
-        	<if>
-            	<equals arg1="${retcode}" arg2="0"/>
-	            <else>
-	                <echo>==== @{project} coverage failed ====</echo>
-	                <echo file="${workspace}/build_log/@{project}.errorcode"
-	                      message="@{project} coverage failed with exit code ${retcode} "/>
-        	    </else>
-	        </if>
+			<condition property="coverage.succeeded" >
+				<equals arg1="${retcode}" arg2="0"/>
+			</condition>
+            <echo unless:set="coverage.succeeded">==== @{project} coverage failed ====</echo>
+	        <echo unless:set="coverage.succeeded" file="${workspace}/build_log/@{project}.errorcode"
+	                message="@{project} coverage failed with exit code ${retcode} "/>
 		</sequential>
 	</macrodef>
 </project>
