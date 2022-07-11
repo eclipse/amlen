@@ -11,7 +11,20 @@ export DEPS_HOME=/deps
 export USE_REAL_TRANSLATIONS=true
 export SLESNORPMS=yes
 export IMASERVER_BASE_DIR=$BROOT/rpmtree
-export JAVA_HOME=/etc/alternatives/java_sdk_1.8.0
+
+if [ -z "${JAVA_HOME}" ]; then
+    if [ -d "/etc/alternatives/java_sdk_11" ]; then
+        export JAVA_HOME=/etc/alternatives/java_sdk_11
+    elif [ -d "/etc/alternatives/java_sdk_1.8.0" ]; then
+        export JAVA_HOME=/etc/alternatives/java_sdk_1.8.0
+    elif [ -d "/etc/alternatives/java_sdk" ]; then
+        export JAVA_HOME=/etc/alternatives/java_sdk
+    else
+        echo "build.sh: Can't guess java sdk location, please set JAVA_HOME"
+        exit 10
+    fi
+fi
+echo "JAVA_HOME is set to ${JAVA_HOME}"
 export PATH=$JAVA_HOME/bin:$PATH
 
 #Set up a home directory we can write to (for rpmbuild)
