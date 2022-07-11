@@ -12,6 +12,7 @@ export USE_REAL_TRANSLATIONS=true
 export SLESNORPMS=yes
 export IMASERVER_BASE_DIR=$BROOT/rpmtree
 export JAVA_HOME=/etc/alternatives/java_sdk_1.8.0
+export PATH=$JAVA_HOME/bin:$PATH
 
 #Set up a home directory we can write to (for rpmbuild)
 if [ "${HOME}" == "/" ]; then 
