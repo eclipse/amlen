@@ -19,13 +19,12 @@ import time
 import paho.mqtt.client as mqtt
 import os
 import ssl
+import subscribeTestBasic
 
 from datetime import datetime
 from enum import Enum
 
 # Set up the logger
-logger = logging.getLogger("hello")
-logger.setLevel(logging.DEBUG)
 fields = {
     "host": {"required": False, "type": "str", "default":"m2m.eclipse.org" },
     "topic": {"required": False, "type": "str", "default":"$SYS/#" },
@@ -54,71 +53,6 @@ keyfile = module.params['tls.key']
 username = module.params['username']
 password = module.params['password']
 
-def on_connect(mqttc, obj, flags, rc):
-    mqttc.subscribe(topic, 0)
+subscribeTestBasic.run(host,topic,clientid,port,insecure,usetls,cacerts,certfile,keyfile,username,password)
 
-def on_message(mqttc, obj, msg):
-    logger.info("Message received on " + msg.topic + ":" + str(msg.payload))
-    module.exit_json(changed=False)
-
-def on_publish(mqttc, obj, mid):
-    logger.info("Message Published")
-
-def on_subscribe(mqttc, obj, mid, granted_qos):
-    time.sleep(10)
-    mqttc.publish(topic,"hello", 0)
-
-def on_log(mqttc, obj, level, string):
-    logger.info(string)
-
-logFile = f"/tmp/mqtt_sniff.log"
-ch = logging.handlers.RotatingFileHandler(logFile, maxBytes=10485760, backupCount=1)
-ch.setLevel(logging.DEBUG)
-chFormatter = logging.Formatter('%(asctime)-25s %(levelname)-8s %(message)s')
-ch.setFormatter(chFormatter)
-logger.addHandler(ch)
-
-logger.info("--------------------------------")
-logger.info(f"host ............ {host}")
-logger.info(f"topic ........... {topic}")
-logger.info(f"clientid ........ {clientid}")
-logger.info(f"port ............ {port}")
-logger.info(f"insecure ........ {insecure}")
-logger.info(f"use-tls ......... {usetls}")
-
-if cacerts:
-  usetls = True
-
-if port is None:
-  if usetls:
-    port = 8883
-  else:
-    port = 1883
-
-mqttc = mqtt.Client(clientid,clean_session = False)
-
-tlsVersion = None
-
-if not insecure:
-    cert_required = ssl.CERT_REQUIRED
-else:
-    cert_required = ssl.CERT_NONE
-
-mqttc.tls_set(ca_certs=cacerts, certfile=certfile, keyfile=keyfile, cert_reqs=cert_required, tls_version=tlsVersion)
-
-if username or password:
-    mqttc.username_pw_set(username, password)
-
-if insecure:
-    mqttc.tls_insecure_set(True)
-
-mqttc.on_message = on_message
-mqttc.on_connect = on_connect
-mqttc.on_publish = on_publish
-mqttc.on_subscribe = on_subscribe
-
-keepalive=60
-mqttc.connect(host, port, keepalive)
-
-mqttc.loop_forever()
-
+module.exit_json(changed=False)
