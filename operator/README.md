@@ -68,7 +68,7 @@ Once LDAP has been deployed it is possible to add users using ldapadd here is an
 
 ```
 dn: cn=msgUser1,ou=users,dc=amleninternal,dc=auth
-c angetype: add
+changetype: add
 objectclass: inetOrgPerson
 cn: msgUser1
 givenname: msgUser1

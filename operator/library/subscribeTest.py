@@ -35,7 +35,9 @@ fields = {
     "use-tls": {"required": False, "type":"bool", "default":False },
     "ca.crt": {"required": False, "type":"str"},
     "tls.crt": {"required": False, "type":"str"},
-    "tls.key": {"required": False, "type":"str"}
+    "tls.key": {"required": False, "type":"str"},
+    "password": {"required": False, "type":"str"},
+    "username": {"username": False, "type":"str"}
 }
 
 module = AnsibleModule(argument_spec=fields)
@@ -49,6 +51,8 @@ usetls = module.params['use-tls']
 cacerts = module.params['ca.crt']
 certfile = module.params['tls.crt']
 keyfile = module.params['tls.key']
+username = module.params['username']
+password = module.params['password']
 
 def on_connect(mqttc, obj, flags, rc):
     mqttc.subscribe(topic, 0)
@@ -62,12 +66,12 @@ def on_publish(mqttc, obj, mid):
 
 def on_subscribe(mqttc, obj, mid, granted_qos):
     time.sleep(10)
-    mqttc.publish(topic,"hello", 0, retain=True)
+    mqttc.publish(topic,"hello", 0)
 
 def on_log(mqttc, obj, level, string):
     logger.info(string)
 
-logFile = f"/tmp/hello.log"
+logFile = f"/tmp/mqtt_sniff.log"
 ch = logging.handlers.RotatingFileHandler(logFile, maxBytes=10485760, backupCount=1)
 ch.setLevel(logging.DEBUG)
 chFormatter = logging.Formatter('%(asctime)-25s %(levelname)-8s %(message)s')
@@ -101,6 +105,9 @@ else:
     cert_required = ssl.CERT_NONE
 
 mqttc.tls_set(ca_certs=cacerts, certfile=certfile, keyfile=keyfile, cert_reqs=cert_required, tls_version=tlsVersion)
+
+if username or password:
+    mqttc.username_pw_set(username, password)
 
 if insecure:
     mqttc.tls_insecure_set(True)
