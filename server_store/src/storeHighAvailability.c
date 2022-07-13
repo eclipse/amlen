@@ -812,7 +812,7 @@ int ism_storeHA_start(void)
       char *nm ; 
       nm = i ? "HA_Outgoing" : "HA_Incoming" ; 
       // specify HA_Incoming as the serverName to allow both connections to use a common CAFile and CAPath
-      gInfo->sslInfo->sslCtx[i] = ism_common_create_ssl_ctx(nm, "TLSv1.2", "ECDHE-ECDSA-AES256-GCM-SHA256", cert, key, 1-i, 0x010003FF, require_cert , nm, NULL, "HA");
+      gInfo->sslInfo->sslCtx[i] = ism_common_create_ssl_ctx(nm, "TLSv1.2", "ECDHE-ECDSA-AES128-GCM-SHA256", cert, key, 1-i, 0x010003FF, require_cert , nm, NULL, "HA");
       if (!gInfo->sslInfo->sslCtx[i] )
       {
         rc = ISMRC_CreateSSLContext ; 
