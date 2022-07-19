@@ -54,7 +54,7 @@ def getLogger(name="amlen-configurator"):
 
 logger = getLogger("amlen-configurator")
 
-def deployLDAP(instanceA, instanceB, certificate):
+def deployLDAP(instanceA, instanceB, certificate,bindpassword):
     groupName = instanceA.groupName
     
     p1HA, p1State = instanceA.getHAState(wait=True)
@@ -90,7 +90,7 @@ def deployLDAP(instanceA, instanceB, certificate):
                                 "CacheTimeout":           10,
                                 "NestedGroupSearch":      False,
                                 "BindDN":                 "cn=admin,dc=amleninternal,dc=auth",
-                                "BindPassword":           "adminpassword",
+                                "BindPassword":           bindpassword,
                                 "Enabled":                True,
                                 "GroupCacheTimeout":      300,
                                 "UserSuffix":             "ou=users,dc=amleninternal,dc=auth",
@@ -130,6 +130,7 @@ if __name__ == '__main__':
         "suffix": {"required": True, "type": "str"},
         "password": {"required": True, "type": "str"},
         "cert": {"required": True, "type": "str"},
+        "bindpassword": {"required": True, "type": "str"}
     }
 
     module = AnsibleModule(argument_spec=fields)
@@ -138,6 +139,7 @@ if __name__ == '__main__':
     suffix = module.params['suffix']
     password = module.params['password']
     cert = module.params['cert']
+    bindpassword = module.params['bindpassword']
     
     try:
         instances=[]
@@ -148,9 +150,9 @@ if __name__ == '__main__':
             instances.append(imaserver)
         
         if len(instances) == 1:
-            deployLDAP(instances[0],None,cert)
+            deployLDAP(instances[0],None,cert,bindpassword)
         elif len(instances) == 2:
-            deployLDAP(instances[0], instances[1],cert)
+            deployLDAP(instances[0], instances[1],cert,bindpassword)
         else:
             error_text = "Unexpected number of servers: %s" % (len(instances))
             logger.error(error_text)

@@ -50,6 +50,32 @@
     config2: ""
   when: config2 is not defined
 
+- name: set standalone to false
+  set_fact:
+    standalone: false
+  when:
+  - ha is defined
+  - ha.enabled is defined
+  - ha.enabled
+
+- name: set standalone to true
+  set_fact:
+    standalone: true
+  when:
+  - standalone is not defined
+
+- name: set device certs required
+  set_fact:
+    device_certs_required: "{{ device_cert_issuer.mode == 'automatic' or device_cert_issuer.mode == 'manual' }}" 
+  when: 
+  - device_cert_issuer is defined
+  - device_cert_issuer.mode is defined
+
+- name: set device cert not required
+  set_fact:
+    device_certs_required: false
+  when: device_certs_required is not defined
+
 - name: Set the statefulset to {{ _amlen_state }}
   k8s:
     state: "{{ _amlen_state }}"
@@ -61,21 +87,26 @@
   - ./templates/statefulset.j2
   - ./templates/loadbalancer.j2
 
-- name: Create Internal Certificates
+- name: Create Device Certificates
   include_role:
     name: certificates
   vars:
     namespace: "{{ _amlen_namespace }}"
     cert: "{{ item }} "
-    issuerName: "{{ _amlen_namespace}}-internal-issuer"
-    duration: 175200h0m0s
-    renewBefore: 2160h0m0s
+    issuerName: "{{ device_cert_issuer.name }}"
+    duration: "{{ device_cert_issuer.duration | default() }}"
+    renewBefore: "{{ device_cert_issuer.renew_before | default() }}"
     waitForCert: yes
   loop:
-  - name: "{{pair_name}}-cert-internal"
+  - name: "{{pair_name}}-cert-devices"
     serviceName: "amlen"
     usages: [ "client auth", "server auth" ]
     algorithm: "RSA"
+  when: 
+  - device_cert_issuer is defined
+  - device_cert_issuer.mode is defined
+  - device_cert_issuer.mode == "automatic"
+    
 
 - name: Create HA Certificates
   include_role:
@@ -83,9 +114,9 @@
   vars:
     namespace: "{{ _amlen_namespace }}"
     cert: "{{ item }} "
-    issuerName: "{{ _amlen_namespace}}-internal-issuer"
-    duration: 175200h0m0s
-    renewBefore: 2160h0m0s
+    issuerName: "{{ ha.cert_issuer.name }}"
+    duration: "{{ ha.cert_issuer.duration  | default() }}"
+    renewBefore: "{{ ha.cert_issuer.renew_before  | default() }}"
     waitForCert: yes
   loop:
   - name: "{{pair_name}}-cert-ha"
@@ -94,10 +125,13 @@
     algorithm: "ECDSA"
     size: 521
     ca: false
+  when: 
+  - ha is defined
+  - ha.enabled
 
 - name: how many nodes
   set_fact:
-    nodes: "{{ ha | ternary(2,1) }}"
+    nodes: "{{ ha.enabled | default(false) | ternary(2,1) }}"
 
 - name: Wait until pods are available
   k8s_info:
