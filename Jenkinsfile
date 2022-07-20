@@ -98,11 +98,11 @@ spec:
 
                             scp -o BatchMode=yes -r amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
 
-                            uid1=$(curl -s -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H "Authorization: Bearer $QUAYIO_TOKEN_NEEDS_RENAME" -H 'Content-Type: application/json' -d '{ "archive_url":"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}_eclipsecentos7/centos7/operator_bundle.tar.gz", "docker_tags":["${NOORIGIN_BRANCH}"] }' | grep -oP '(?<="id": ")[^"]*' )
-                            
-                            uid2=$(curl -s -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H "Authorization: Bearer $QUAYIO_TOKEN_NEEDS_RENAME" -H 'Content-Type: application/json' -d '{ "archive_url":"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}_eclipsecentos7/centos7/EclipseAmlenServer-centos7-1.1dev-${BUILD_LABEL}_eclipsecentos7.tar.gz", "docker_tags":["${NOORIGIN_BRANCH}"] }' | grep -oP '(?<="id": ")[^"]*' )
-                            
-                            uid3=$(curl -s -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H "Authorization: Bearer $QUAYIO_TOKEN_NEEDS_RENAME" -H 'Content-Type: application/json' -d '{ "archive_url":"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}_eclipsecentos7/centos7/operator.tar.gz", "docker_tags":["${NOORIGIN_BRANCH}"] }' | grep -oP '(?<="id": ")[^"]*' )
+                            uid1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN_NEEDS_RENAME}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/EclipseAmlenServer-centos7-1.1dev-${BUILD_LABEL}.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }")
+
+                            uid2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN_NEEDS_RENAME}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }")
+
+                            uid3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN_NEEDS_RENAME}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator_bundle.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }")
                             
                             for uid in "$uid1 operator-bundle" "$uid2 amlen-server" "$uid3 operator"
                             do
