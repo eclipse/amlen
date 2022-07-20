@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+# Copyright (c) 2015-2022 Contributors to the Eclipse Foundation
 # 
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -26,23 +26,22 @@ WORKDIR ${IMA_SVR_INSTALL_PATH}/bin
 # Add RPM in a temporary directory inside the container
 # Make sure that imaserver.rpm is available in the directory where "docker build" command
 # is being executed
-ADD ./imaserver.rpm /tmp/
+ADD ./EclipseAmlenServer-*.rpm /tmp/imaserver.rpm
 
 # Update packages
 RUN yum -y upgrade 
 
-#To run as a non-root user
+#By default run as ima:ima this requires:
 # 1) Create the user and group outside the container with a selected uid/gid
 #        groupadd -r -g 463 ima
 #        useradd -r  -s /sbin/nologin -g ima -u 463 ima
 # 2) Give that user read/write access to any volumes that will be used
-# 3) Create a config file so the RPM knows the user
-#        RUN echo 'user=ima' >/etc/messagesight-user.cfg
-# 4) Uncomment the RUN group/useradd setup lines:
 #      (Ensure the numeric uid/gid below match step 1 above)
-#        RUN groupadd -r -g 463 ima
-#        RUN useradd -r  -s /sbin/nologin -g ima -u 463 ima
-# 5) Uncomment the USER line before the Entrypoint
+
+RUN echo "user=ima" > /etc/messagesight-user.cfg
+RUN echo "group=ima" > /etc/messagesight-user.cfg
+RUN groupadd -r -g 463 ima
+RUN useradd -r  -s /sbin/nologin -g ima -u 463 ima
 
 #Install the Server
 RUN yum -y install /tmp/imaserver.rpm
@@ -50,11 +49,21 @@ RUN yum -y install /tmp/imaserver.rpm
 # Delete imaserver.rpm from temporary directory
 RUN rm -f /tmp/imaserver.rpm
 
-#Uncomment below USER line to run as a non-root user (but do the above steps 1-4 as well!)
-#USER ima:ima
+RUN yum install -y python3
+
+ADD ./requirements.txt /tmp/
+RUN pip3 install --upgrade -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
+
+# scripts contains the scripts necessary for the readiness probe
+ADD ./scripts/* /usr/share/amlen-server/bin/
+# add settings to allow HA to work in a virtual environment more robustly
+RUN sed -i "/HA.AllowSingleNIC/d" /usr/share/amlen-server/config/server.cfg && \
+    sed -i "/HA.SplitBrainPolicy/d" /usr/share/amlen-server/config/server.cfg && \
+    echo "HA.AllowSingleNIC = 1" >> /usr/share/amlen-server/config/server.cfg && \
+    echo "HA.SplitBrainPolicy = 1" >> /usr/share/amlen-server/config/server.cfg
+
+#Comment out the line below to run as root user
+USER ima:ima
 
 ENTRYPOINT [ "${IMA_SVR_INSTALL_PATH}/bin/startServer.sh" ]
-
-
-
-

@@ -1,0 +1,43 @@
+---
+- name: get password
+  k8s_info:
+    kind: Secret
+    name: "{{ _amlen_name }}-{{pair_id}}-adminpassword"
+    namespace: "{{ _amlen_namespace }}"
+  register: secret
+
+- name: get name
+  set_fact:
+    name: "{{ _amlen_name }}-{{pair_id}}"
+
+- name: Get Pods
+  k8s_info:
+    kind: Pod
+    name: "{{name}}-{{node_id}}"
+    namespace: "{{ _amlen_namespace }}"
+  register: r_pods
+  loop: "{{ range(0,nodes|int)|list}}"
+  loop_control:
+    loop_var: node_id
+
+- name: get servers
+  set_fact:
+    servers: "{{r_pods | community.general.json_query('results[*].resources[0].metadata.name') |join(',')}}"
+
+- name: get password
+  k8s_info:
+    kind: Secret
+    name: "ldap-adminpassword"
+    namespace: "{{ _amlen_namespace }}"
+  register: ldapsecret
+
+- name: configure ldap
+  configure_ldap:
+    servers: "{{servers}}"
+    suffix: ".{{name}}.{{_amlen_namespace}}.svc.cluster.local"
+    password: "{{secret.resources[0].data.password|b64decode}}"
+    cert: "{{certs.resources[0].data['ca.crt']|b64decode}}"
+    bindpassword: "{{ldapsecret.resources[0].data.password|b64decode}}"
+  async: 120
+  poll: 10
+  no_log: True
