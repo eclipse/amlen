@@ -86,18 +86,18 @@ spec:
                             NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                             ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
                             scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                            curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/EclipseAmlenServer-centos7-1.1dev-${BUILD_LABEL}.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }"
+                            curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN_NEEDS_RENAME}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/EclipseAmlenServer-centos7-1.1dev-${BUILD_LABEL}.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }"
 
                             sed -i "s/IMG_TAG/$NOORIGIN_BRANCH/" operator/roles/amlen/defaults/main.yml
                             cd operator
                             tar -czf operator.tar.gz Dockerfile requirements.yml roles watches.yaml
                             scp -o BatchMode=yes -r operator.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                            curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }"
+                            curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN_NEEDS_RENAME}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }"
                             mv bundle.Dockerfile Dockerfile
 
                             tar -czf operator_bundle.tar.gz Dockerfile bundle
                             scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                            curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator_bundle.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }"
+                            curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H "Authorization: Bearer ${QUAYIO_TOKEN_NEEDS_RENAME}" -H 'Content-Type: application/json' -d "{ \"archive_url\":\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator_bundle.tar.gz\", \"docker_tags\":[\"${NOORIGIN_BRANCH}\"] }"
 
                             scp -o BatchMode=yes -r amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
                         '''
