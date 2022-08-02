@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ldap
+  namespace: "{{ _amlen_namespace }}"
+  labels:
+    app: ldap
+spec:
+  selector:
+    matchLabels:
+      app: ldap
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ldap
+    spec:
+      containers:
+        - name: ldap
+          image: bitnami/openldap:latest
+          terminationMessagePolicy: "FallbackToLogsOnError"
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/openldap
+            - name: ldap-config
+              mountPath: /ldifs
+            - name: internal-certs
+              mountPath: /secrets/internal_certs
+          ports:
+            - containerPort: 1389
+              name: openldap
+            - containerPort: 1636
+              name: openldaps
+          env:
+            - name: LDAP_PORT_NUMBER
+              value: "1389"
+            - name: LDAP_LDAPS_PORT_NUMBER
+              value: "1636"
+            - name: LDAP_ROOT
+              value: "dc=amleninternal,dc=auth"
+            - name: LDAP_ADMIN_USERNAME
+              value: "admin"
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ldap-adminpassword
+                  key: password
+            - name: LDAP_LOGLEVEL
+              value: "{{ ldap.loglevel | default('-1') }}"
+            - name: BITNAMI_DEBUG
+              value: "{{ ldap.debug | default(false) }}"
+            - name: LDAP_CONFIG_ADMIN_ENABLED
+              value: "{{ ldap.config_admin_enabled | default('no') }}"
+            - name: LDAP_CONFIG_ADMIN_USERNAME
+              value: "admin"
+            - name: LDAP_CONFIG_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ldap-configpassword
+                  key: password
+            - name: LDAP_ENABLE_TLS
+              value: "{{ ldap.enable_tls | default('yes') }}"
+            - name: LDAP_TLS_CERT_FILE
+              value: "/secrets/internal_certs/tls.crt"
+            - name: LDAP_TLS_KEY_FILE
+              value: "/secrets/internal_certs/tls.key"
+            - name: LDAP_TLS_CA_FILE
+              value: "/secrets/internal_certs/ca.crt"
+   
+      volumes:
+      - name: ldap-config
+        configMap:
+          name: ldap-config
+      - name: internal-certs
+        secret:
+          secretName: "{{ _amlen_name }}-ldap-certs"
+
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: "{{_ldap_volume_size}}"
+
