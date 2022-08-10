@@ -13,7 +13,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-centos7-build
-    image: quay.io/amlen/amlen-builder-centos7:1.0.0.1
+    image: quay.io/amlen/amlen-builder-centos7:1.0.0.2
     command:
     - cat
     tty: true
@@ -60,7 +60,17 @@ spec:
                 echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
 
                 container('amlen-centos7-build') {
-                   sh 'pwd && free -m && cd server_build && bash buildcontainer/build.sh'
+                   sh '''
+                       pwd 
+                       free -m 
+                       cd server_build 
+                       bash buildcontainer/build.sh
+                       cd ../operator
+                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                       export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+                       make bundle
+                       make produce-deployment
+                      '''
                 }
             }
         }
@@ -68,16 +78,62 @@ spec:
             steps {
                 container('jnlp') {
                     echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
-                    sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-                        sh '''
-                            pwd
-                            echo ${GIT_BRANCH}
-                            echo "BUILD_LABEL is ${BUILD_LABEL}"
-                            NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                            #ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org rm -rf /home/data/httpd/download.eclipse.org/projectname/snapshots
-                            ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                            scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                        '''
+                    withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
+                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                          sh '''
+                              pwd
+                              echo ${GIT_BRANCH}
+                              echo "BUILD_LABEL is ${BUILD_LABEL}"
+                              NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                              ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                              scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+  
+                              sed -i "s/IMG_TAG/$NOORIGIN_BRANCH/" operator/roles/amlen/defaults/main.yml
+                              cd operator
+                              tar -czf operator.tar.gz Dockerfile requirements.yml roles watches.yaml
+                              scp -o BatchMode=yes -r operator.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                              mv bundle.Dockerfile Dockerfile
+  
+                              tar -czf operator_bundle.tar.gz Dockerfile bundle
+                              scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+  
+                              scp -o BatchMode=yes -r amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+
+                              set +x
+
+                              uid1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/EclipseAmlenServer-centos7-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" | grep -oP '(?<=\"id\": \")[^\"]*\')
+  
+                              uid2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" | grep -oP '(?<=\"id\": \")[^\"]*\') 
+  
+                              uid3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" | grep -oP '(?<=\"id\": \")[^\"]*\')
+
+                              set -x
+                              
+                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle"
+                              do
+                                set -- $uid
+                                for i in {1..30}
+                                do
+                                  phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
+                                  phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
+                                  if [[ 'complete' == $phase ]]
+                                  then
+                                    break
+                                  fi
+                                  sleep 10
+                                done
+                              
+                                phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
+                                phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
+                                if [[ 'complete' != $phase ]]
+                                then
+                                  echo $2 phase is $phase
+                                  exit 1
+                                fi
+                              done
+  
+                          '''
+                      }
                     }
                 }
             }

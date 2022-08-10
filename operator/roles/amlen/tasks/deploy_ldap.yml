@@ -1,0 +1,111 @@
+---
+- name: Create Internal LDAP Certificates
+  include_role:
+    name: certificates
+  vars:
+    namespace: "{{ _amlen_namespace }}"
+    cert: "{{ item }} "
+    issuerName: "{{ ldap.cert_issuer.name }}"
+    duration: "{{ ldap.cert_issuer.duration  | default() }}"
+    renewBefore: "{{ ldap.cert_issuer.renew_before  | default() }}"
+    waitForCert: yes
+  loop:
+  - name: "{{ _amlen_name }}-ldap-certs"
+    usages: [ "client auth", "server auth" ]
+    algorithm: "RSA"
+
+- name: get admin password
+  k8s_info:
+    kind: Secret
+    name: "ldap-adminpassword"
+    namespace: "{{ _amlen_namespace }}"
+  register: adminsecret
+
+- name: create password
+  set_fact:
+    adminpassword: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=12') }}"
+  when: adminsecret.resources | length == 0
+
+- name: store adminpassword
+  k8s:
+    state: "{{ _amlen_state}}"
+    merge_type:
+    - strategic-merge
+    - merge
+    definition:
+      kind: Secret
+      apiVerison: v1
+      metadata:
+        name: "ldap-adminpassword"
+        namespace: "{{ _amlen_namespace }}"
+      stringData:
+        password: "{{adminpassword}}"
+  when: adminsecret.resources | length == 0
+
+- name: get config password
+  k8s_info:
+    kind: Secret
+    name: "ldap-configpassword"
+    namespace: "{{ _amlen_namespace }}"
+  register: configsecret
+
+- name: create config password
+  set_fact:
+    configpassword: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=12') }}"
+  when: configsecret.resources | length == 0
+
+- name: store configpassword
+  k8s:
+    state: "{{ _amlen_state}}"
+    merge_type:
+    - strategic-merge
+    - merge
+    definition:
+      kind: Secret
+      apiVerison: v1
+      metadata:
+        name: "ldap-configpassword"
+        namespace: "{{ _amlen_namespace }}"
+      stringData:
+        password: "{{configpassword}}"
+  when: configsecret.resources | length == 0
+
+- name: Set the ldaps {{ _amlen_state }}
+  k8s:
+    state: "{{ _amlen_state }}"
+    merge_type:
+    - strategic-merge
+    - merge
+    definition: "{{ lookup('template', item ) | from_yaml }}"
+  loop:
+  - ./templates/ldap.j2
+  - ./templates/ldap-service.j2
+
+- name: Wait until ldap is available
+  k8s_info:
+    kind: StatefulSet
+    name: "ldap"
+    namespace: "{{ _amlen_namespace }}"
+  register: statefulset
+  until:
+  - statefulset.resources[0].status.readyReplicas is defined
+  - statefulset.resources[0].status.readyReplicas == 1
+  retries: 10
+  delay: 10
+  ignore_errors: yes
+  loop: "{{ range(0,nodes|int)|list}}"
+  loop_control:
+    loop_var: id
+
+- name: get certs
+  k8s_info:
+    kind: Secret
+    name: "{{_amlen_name}}-ldap-certs"
+    namespace: "{{ _amlen_namespace }}"
+  register: certs
+
+- name: deploy LDAP
+  include_tasks: configure_ldap.yml
+  loop: "{{ range(0,size,1)|list}}"
+  loop_control:
+    loop_var: pair_id
