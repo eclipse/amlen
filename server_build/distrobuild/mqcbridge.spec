@@ -61,6 +61,9 @@ export DONT_STRIP=1
 export IMASERVER_BASE_DIR=$RPM_BUILD_DIR/broot/rpmtree
 #cp -dpR $IMASERVER_BASE_DIR/* "$RPM_BUILD_ROOT/"
 mv $IMASERVER_BASE_DIR/* "$RPM_BUILD_ROOT/"
+#We set runpaths to find the mqclient libraries relative to our install location
+#In recent version of Fedora this causes errors unless suppressed via:
+export QA_RPATHS=$(( 0x0002|0x0004|0x0008))
 
 %files
 %defattr (-, root, bin)
