@@ -259,7 +259,7 @@ function bld_imabridge_rpm {
     sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_BRIDGE_EL/SPECS/imamqttbridge.spec
 
     #Delete any rpms from older builds that we don't want included
-    rm $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm
+    rm -f $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm
     
     # start rpm build
     cd $RPMBUILD_ROOT_BRIDGE_EL/SPECS
@@ -294,7 +294,7 @@ function bld_imabridge_rpm {
         dos2unix ${BUILD_ROOT}/server_build/docker_build/imamqttbridge-sles.spec
         cp ${BUILD_ROOT}/server_build/docker_build/imamqttbridge-sles.spec $RPMBUILD_ROOT_BRIDGE_SLES/SPECS/imamqttbridge-sles.spec
         sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_BRIDGE_SLES/SPECS/imamqttbridge-sles.spec
-        rm $BRIDGE_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm
+        rm -f $BRIDGE_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm
         cd $RPMBUILD_ROOT_BRIDGE_SLES/SPECS
         QA_RPATHS=$(( 0x0002|0x0004|0x0008)) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_BRIDGE_SLES/BUILDROOT imamqttbridge-sles.spec
         mkdir -p $BRIDGE_RPMBUILD_DIR/sles/temp
@@ -628,7 +628,7 @@ function rpmbuild_server {
     fi
     
     # Delete any old server rpms from earlier builds we don't want included
-    rm $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm
+    rm -f $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm
 
     # start rpm build
     cd $RPMBUILD_ROOT_EL/SPECS
@@ -666,7 +666,7 @@ function rpmbuild_server {
         sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_SLES/SPECS/imaserver-sles.spec
         cd $RPMBUILD_ROOT_SLES/SPECS
         # Delete any old server rpms from earlier builds we don't want included
-        rm $IMASERVER_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm
+        rm -f $IMASERVER_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm
 
         QA_RPATHS=$(( 0x0002|0x0004|0x0008)) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_SLES/BUILDROOT imaserver-sles.spec
         mkdir -p $IMASERVER_RPMBUILD_DIR/sles/temp
@@ -749,7 +749,7 @@ function bld_imagui_rpm {
     sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_WEBUI_EL/SPECS/imawebui.spec
 
     # Delete any old imawebui rpms from earlier builds we don't want included
-    rm $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm
+    rm -f $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm
 
     # start rpm build
     cd $RPMBUILD_ROOT_WEBUI_EL/SPECS
@@ -782,7 +782,7 @@ function bld_imagui_rpm {
         cp ${BUILD_ROOT}/server_build/docker_build/imawebui-sles.spec $RPMBUILD_ROOT_WEBUI_SLES/SPECS
         sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_WEBUI_SLES/SPECS/imawebui-sles.spec
         # Delete any old webui rpms from earlier builds we don't want included
-        rm $IMAGUI_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm
+        rm -f $IMAGUI_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm
 
         cd $RPMBUILD_ROOT_WEBUI_SLES/SPECS
         QA_RPATHS=$(( 0x0002|0x0004|0x0008)) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_WEBUI_SLES/BUILDROOT imawebui-sles.spec
@@ -901,7 +901,7 @@ function bld_imaproxy_rpm {
     sed -i 's/Release:.*/Release: '$RPM_RELEASE/ $RPMBUILD_ROOT_PROXY/SPECS/imaproxy.spec
 
     # Delete any old proxy rpms from earlier builds we don't want included
-    rm $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${PROXY_NAME}*.rpm
+    rm -f $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${PROXY_NAME}*.rpm
 
     # start rpm build
     cd $RPMBUILD_ROOT_PROXY/SPECS
