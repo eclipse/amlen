@@ -513,8 +513,8 @@ static int ism_security_ltpaV1GenUserInfoSignature(
     // Obtain a handle to the digest
     md = EVP_get_digestbyname(LTPA_DIGEST);
     if (md == (EVP_MD *) NULL) {
-	    TRACE(7, "EVP_get_digestbyname error\n");
-	    return retVal;
+        TRACE(7, "EVP_get_digestbyname error\n");
+        return retVal;
     }
 
     // Create a new digest context
@@ -527,26 +527,26 @@ static int ism_security_ltpaV1GenUserInfoSignature(
     // Load the SHA1 digest into our context
     rc = EVP_DigestInit_ex(pCtx, md, NULL);
     if (rc != 1) {
-	    TRACE(7, "EVP_DigestInit error: %d\n", rc);
-	    EVP_MD_CTX_free(pCtx);
-	    return retVal;
+        TRACE(7, "EVP_DigestInit error: %d\n", rc);
+        EVP_MD_CTX_free(pCtx);
+        return retVal;
     }
 
     // Digest the data
     rc = EVP_DigestUpdate(pCtx, (const void *) userInfoBuf,
-			(unsigned int)signedLen);
+            (unsigned int)signedLen);
     if (rc != 1) {
-	    TRACE(7, "EVP_DigestUpdate error: %d\n", rc);
+        TRACE(7, "EVP_DigestUpdate error: %d\n", rc);
         EVP_MD_CTX_free(pCtx);
-	    return retVal;
+        return retVal;
     }
 
     // Load the digest into our output buffer
     rc = EVP_DigestFinal(pCtx, digest, &shaLen);
     if (rc != 1) {
-	    TRACE(7, "EVP_DigestFinal error: %d\n", rc);
+        TRACE(7, "EVP_DigestFinal error: %d\n", rc);
         EVP_MD_CTX_free(pCtx);
-	    return retVal;
+        return retVal;
     }
 
     EVP_MD_CTX_free(pCtx);
@@ -569,53 +569,53 @@ static int ism_security_ltpaV1GenUserInfoSignature(
     // Encrypt the buffer
     if (retVal == ISMRC_OK)
     {
-	unsigned char *encBuf;
+    unsigned char *encBuf;
 
-	encBuf = (unsigned char *) alloca(sizeof(unsigned char) * 
-					scratchBufLen);
+    encBuf = (unsigned char *) alloca(sizeof(unsigned char) * 
+                    scratchBufLen);
 
-	// Perform the RSA encrypt without any automatic padding
+    // Perform the RSA encrypt without any automatic padding
     rc = RSA_private_encrypt((int)scratchBufLen, scratchBuf, encBuf, keys->rsa, RSA_NO_PADDING);
-	if ( rc != scratchBufLen ) {
-	    TRACE(7, "RSA_private_encrypt error: %d\n", rc);
-	    //ism_common_free(ism_memory_admin_misc,scratchBuf);
-	    //ism_common_free(ism_memory_admin_misc,encBuf);
-	    return ISMRC_Error;
-	}
+    if ( rc != scratchBufLen ) {
+        TRACE(7, "RSA_private_encrypt error: %d\n", rc);
+        //ism_common_free(ism_memory_admin_misc,scratchBuf);
+        //ism_common_free(ism_memory_admin_misc,encBuf);
+        return ISMRC_Error;
+    }
 
-	//ism_common_free(ism_memory_admin_misc,scratchBuf);
-	scratchBuf = encBuf;
+    //ism_common_free(ism_memory_admin_misc,scratchBuf);
+    scratchBuf = encBuf;
 
-	int remainder = 0;
-	int tmp = 0;
-	int i = 0;
-	unsigned char *mod = keys->rsaMod;
+    int remainder = 0;
+    int tmp = 0;
+    int i = 0;
+    unsigned char *mod = keys->rsaMod;
 
-	for (i = 0; i <= (LTPA_NLEN - 1); i++)
-	{
-	    tmp = (remainder * 256) + mod[i];
-	    remainder = tmp%2;
-	    tmp = tmp/2;
-	    if (scratchBuf[i] != tmp)
+    for (i = 0; i <= (LTPA_NLEN - 1); i++)
+    {
+        tmp = (remainder * 256) + mod[i];
+        remainder = tmp%2;
+        tmp = tmp/2;
+        if (scratchBuf[i] != tmp)
             break;
-	}
-	if (i < scratchBufLen && scratchBuf[i] > tmp)
-	    ism_security_complementSmodN(scratchBuf, mod);
+    }
+    if (i < scratchBufLen && scratchBuf[i] > tmp)
+        ism_security_complementSmodN(scratchBuf, mod);
 
-	// Base64 encode the result
-	char b64SigBuf[1024];
-	char * b64Sig = (char *)&b64SigBuf;
-	int encodeSize = ism_common_toBase64((char *) scratchBuf,b64Sig, scratchBufLen);
+    // Base64 encode the result
+    char b64SigBuf[1024];
+    char * b64Sig = (char *)&b64SigBuf;
+    int encodeSize = ism_common_toBase64((char *) scratchBuf,b64Sig, scratchBufLen);
 
-	if (encodeSize>0)
-	{
-		*sigBuf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),b64Sig);
-	    *sigBufLen = encodeSize;
-	}
-	else
-	{
-	    retVal = ISMRC_Error;
-	}
+    if (encodeSize>0)
+    {
+        *sigBuf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),b64Sig);
+        *sigBufLen = encodeSize;
+    }
+    else
+    {
+        retVal = ISMRC_Error;
+    }
     }
 
     // Free the intermediate buffer
@@ -808,8 +808,8 @@ static int ism_security_ltpaV2GenUserInfoSignature(
     int signEncodeSize= ism_common_toBase64((char *)binsig, signEncode, binsigLen);
     
     if(signEncodeSize>0){
-    	 rc = ISMRC_OK;
-    	 *sigBuf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),signEncode);
+         rc = ISMRC_OK;
+         *sigBuf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),signEncode);
     }
 
 CLEANUP:
@@ -894,7 +894,7 @@ static int ism_security_ltpaParseUserInfoAndExpiration(ismLTPA_t *keys,
         // TRACE(9, "LTPA Token Key=Value pair: %s=%s\n", key, val);
 
         if ( !strcmp(key, EXPIRE_KEY )) {
-            *expirySecs = atol(val)/1000;		/* BEAM suppression: dereferencing NULL */
+            *expirySecs = atol(val)/1000;        /* BEAM suppression: dereferencing NULL */
         }
 
         if ( !strcmp(key, USER_KEY)) {
@@ -994,8 +994,8 @@ static int ism_security_ltpaV1DecodeAndDecrypt(
     // Base64 decode it
     char*  decodeText;
     long decodeTextLen = 0;
-	char decodeTextBuf[1024];
-	decodeText=(char* )&decodeTextBuf;
+    char decodeTextBuf[1024];
+    decodeText=(char* )&decodeTextBuf;
 
     decodeTextLen = ism_common_fromBase64(plainText,  decodeText , plainTextLen);
 
@@ -1008,14 +1008,14 @@ static int ism_security_ltpaV1DecodeAndDecrypt(
 
     // Obtain a DES-EDE cipher handle
     if(cipherV1==(EVP_CIPHER *) NULL){
-	    cipherV1 = EVP_get_cipherbyname(LTPA_CIPHER);
-	    if (cipherV1 == (EVP_CIPHER *) NULL) {
-	        TRACE(7, "EVP_get_cipherbyname\n");
-	        return ISMRC_LTPADecodeError;
-	    }
+        cipherV1 = EVP_get_cipherbyname(LTPA_CIPHER);
+        if (cipherV1 == (EVP_CIPHER *) NULL) {
+            TRACE(7, "EVP_get_cipherbyname\n");
+            return ISMRC_LTPADecodeError;
+        }
     }
-	cipher = cipherV1;
-	
+    cipher = cipherV1;
+    
     // Initialize the context
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_CIPHER_CTX_init(pCipherCtx);
@@ -1133,18 +1133,18 @@ static int ism_security_ltpaV2DecodeAndDecrypt(
     }
     
     /*Null terminated the crypted buffer.*/
-	cryptBin[cryptBinLen]='\0';
+    cryptBin[cryptBinLen]='\0';
     
     // Obtain an AES-128-CBC cipher handle
     if(cipherV2==(EVP_CIPHER *) NULL){
-	    cipherV2 = EVP_get_cipherbyname( LTPA2_CIPHER);
-	    if (NULL == cipherV2) {
-	        TRACE(7, "EVP_get_cipherbyname error\n");
-	        return retVal;
-	    }
+        cipherV2 = EVP_get_cipherbyname( LTPA2_CIPHER);
+        if (NULL == cipherV2) {
+            TRACE(7, "EVP_get_cipherbyname error\n");
+            return retVal;
+        }
     }
-	cipher = cipherV2;
-	
+    cipher = cipherV2;
+    
     // Initialize the context
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_CIPHER_CTX_init(pCipherCtx);
@@ -1229,8 +1229,9 @@ static int ism_security_decryptKey(
 #endif
     const EVP_CIPHER *cipher;
     int              sslrc;
-    unsigned int     shaLen;         
-    int              cryptLen;         
+    unsigned int     shaLen;
+    int              cryptLen;
+    int              decryptedLen = 0;
 
     // zero the return buffer and key buffer
     memset(pwKeyBytes, 0, DESKEY_LEN);
@@ -1238,89 +1239,90 @@ static int ism_security_decryptKey(
     // Make sure it base64 decoded okay
     if (inBufferLen%8 == 0)
     {
-    	// Obtain a handle to the digest
-	    md = EVP_get_digestbyname(LTPA_DIGEST);
-	    if (md == NULL) {
-	        TRACE(7, "EVP_get_digestbyname error.\n");
-	        return retVal;
-	    }
+        // Obtain a handle to the digest
+        md = EVP_get_digestbyname(LTPA_DIGEST);
+        if (md == NULL) {
+            TRACE(7, "EVP_get_digestbyname error.\n");
+            return retVal;
+        }
 
-	    // Create a new digest context
+        // Create a new digest context
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
         EVP_MD_CTX_init(pCtx);
 #else
         pCtx = EVP_MD_CTX_new();
 #endif
 
-	    // Load the SHA1 digest into our context
+        // Load the SHA1 digest into our context
         sslrc = EVP_DigestInit_ex(pCtx, md, NULL);
-	    if (sslrc != 1) {
-	        TRACE(7, "EVP_DigestInit error: %d\n", sslrc);
-	        EVP_MD_CTX_free(pCtx);
-	        return retVal;
-	    }
+        if (sslrc != 1) {
+            TRACE(7, "EVP_DigestInit error: %d\n", sslrc);
+            EVP_MD_CTX_free(pCtx);
+            return retVal;
+        }
 
-	    // Digest the password text
-	    sslrc = EVP_DigestUpdate(pCtx, (const void *) password, (unsigned int)strlen(password));
-	    if (sslrc != 1) {
-	        TRACE(7, "EVP_DigestUpdate error: %d\n", sslrc);
-	        EVP_MD_CTX_free(pCtx);
-	        return retVal;
-	    }
+        // Digest the password text
+        sslrc = EVP_DigestUpdate(pCtx, (const void *) password, (unsigned int)strlen(password));
+        if (sslrc != 1) {
+            TRACE(7, "EVP_DigestUpdate error: %d\n", sslrc);
+            EVP_MD_CTX_free(pCtx);
+            return retVal;
+        }
 
-	    // Load the digest into our DES key
-	    sslrc = EVP_DigestFinal_ex(pCtx, pwKeyBytes, &shaLen);
-	    if (sslrc != 1) {
-	        TRACE(7, "EVP_DigestFinal error: %d\n", sslrc);
-	        EVP_MD_CTX_free(pCtx);
-	        return retVal;
-	    }
+        // Load the digest into our DES key
+        sslrc = EVP_DigestFinal_ex(pCtx, pwKeyBytes, &shaLen);
+        if (sslrc != 1) {
+            TRACE(7, "EVP_DigestFinal error: %d\n", sslrc);
+            EVP_MD_CTX_free(pCtx);
+            return retVal;
+        }
 
-	    EVP_MD_CTX_free(pCtx);
+        EVP_MD_CTX_free(pCtx);
 
         // 3DES decrypt the data in unchained mode
-	    // Obtain a DES-EDE cipher handle
-	    cipher = EVP_get_cipherbyname(LTPA_CIPHER);
-	    if (cipher == (EVP_CIPHER *) NULL) {
-	        TRACE(7, "EVP_get_cipherbyname\n");
-	        return retVal;
-	    }
+        // Obtain a DES-EDE cipher handle
+        cipher = EVP_get_cipherbyname(LTPA_CIPHER);
+        if (cipher == (EVP_CIPHER *) NULL) {
+            TRACE(7, "EVP_get_cipherbyname\n");
+            return retVal;
+        }
 
-	    // Initialize cipher context
+        // Initialize cipher context
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
         EVP_CIPHER_CTX_init(pCipherCtx);
 #else
         pCipherCtx = EVP_CIPHER_CTX_new();
 #endif
 
-    	sslrc = EVP_DecryptInit(pCipherCtx, cipher, pwKeyBytes, NULL);
-	    if (sslrc != 1) {
-	        TRACE(7, "EVP_DecryptInit error: %d\n", sslrc);
-	        EVP_CIPHER_CTX_free(pCipherCtx);
-	        return retVal;
-	    }
+        sslrc = EVP_DecryptInit(pCipherCtx, cipher, pwKeyBytes, NULL);
+        if (sslrc != 1) {
+            TRACE(7, "EVP_DecryptInit error: %d\n", sslrc);
+            EVP_CIPHER_CTX_free(pCipherCtx);
+            return retVal;
+        }
 
-	    // Decrypt the cipher text
-	    decBufp = decBuffer;
-	    sslrc = EVP_DecryptUpdate(pCipherCtx, decBufp, &cryptLen, buffer, (int)inBufferLen);
-	    if (sslrc != 1) {
-	        TRACE(7, "EVP_DecryptUpdate error: %d\n", sslrc);
-	        EVP_CIPHER_CTX_free(pCipherCtx);
-	        return retVal;
-	    }
+        // Decrypt the cipher text
+        decBufp = decBuffer;
+        sslrc = EVP_DecryptUpdate(pCipherCtx, decBufp, &cryptLen, buffer, (int)inBufferLen);
+        if (sslrc != 1) {
+            TRACE(7, "EVP_DecryptUpdate error: %d\n", sslrc);
+            EVP_CIPHER_CTX_free(pCipherCtx);
+            return retVal;
+        }
 
-	    // Finish the decryption by decrypting any partial remaining block
-	    decBufp += cryptLen;
-	    sslrc = EVP_DecryptFinal(pCipherCtx, decBufp, &cryptLen);
-	    if (sslrc != 1) {
-	        TRACE(7, "EVP_DecryptFinal error: %d\n", sslrc);
-	        EVP_CIPHER_CTX_free(pCipherCtx);
-	        return retVal;
-	    }
+        // Finish the decryption by decrypting any partial remaining block
+        decryptedLen += cryptLen;
+        decBufp += cryptLen;
+        sslrc = EVP_DecryptFinal(pCipherCtx, decBufp, &cryptLen);
+        if (sslrc != 1) {
+            TRACE(7, "EVP_DecryptFinal error: %d\n", sslrc);
+            EVP_CIPHER_CTX_free(pCipherCtx);
+            return retVal;
+        }
+        decryptedLen += cryptLen;
+        EVP_CIPHER_CTX_free(pCipherCtx);
 
-	    EVP_CIPHER_CTX_free(pCipherCtx);
-
-        // trim off the PKCS5 pad
+        /*// trim off the PKCS5 pad - doesn't /appear to be needed
         size_t dataLen = inBufferLen;
         int    padLen = decBuffer[dataLen - 1];
 
@@ -1334,7 +1336,12 @@ static int ism_security_decryptKey(
             *retBufferLen = dataLen;
 
             retVal = ISMRC_OK;
-        }
+        }*/
+        memset(buffer, 0, LTPA_MAXPROPBUFFER);
+        memcpy(buffer, decBuffer, decryptedLen);
+        *retBufferLen = decryptedLen;
+
+        retVal = ISMRC_OK;
     }
 
     return retVal;
@@ -1382,7 +1389,7 @@ XAPI int ism_security_ltpaReadKeyfile(
     size_t        keylen        = 0;
 
     if ( !keyfile_path || !keyfile_password || *keyfile_path=='\0' ) {
-    	if(ltpaKey!=NULL) *ltpaKey=NULL;
+        if(ltpaKey!=NULL) *ltpaKey=NULL;
         ism_common_setError(ISMRC_NullArgument);
         return ISMRC_NullArgument;
     }
@@ -1397,21 +1404,21 @@ XAPI int ism_security_ltpaReadKeyfile(
 
     /*Initialize Ciphers for LTPAv1 and LTPAv2 for later use.*/
     if(cipherV1==(EVP_CIPHER *) NULL){
-	    cipherV1 = EVP_get_cipherbyname(LTPA_CIPHER);
-	    if (NULL == cipherV1) {
-	        TRACE(1, "EVP_get_cipherbyname error\n");
-	        ism_common_setError(ISMRC_LTPASSLError);
-	        return ISMRC_LTPASSLError;
-	    }
+        cipherV1 = EVP_get_cipherbyname(LTPA_CIPHER);
+        if (NULL == cipherV1) {
+            TRACE(1, "EVP_get_cipherbyname error\n");
+            ism_common_setError(ISMRC_LTPASSLError);
+            return ISMRC_LTPASSLError;
+        }
     }
 
     if(cipherV2==(EVP_CIPHER *) NULL){
-	    cipherV2 = EVP_get_cipherbyname( LTPA2_CIPHER);
-	    if (NULL == cipherV2) {
-	        TRACE(1, "EVP_get_cipherbyname error\n");
-	        ism_common_setError(ISMRC_LTPASSLError);
-	        return ISMRC_LTPASSLError;
-	    }
+        cipherV2 = EVP_get_cipherbyname( LTPA2_CIPHER);
+        if (NULL == cipherV2) {
+            TRACE(1, "EVP_get_cipherbyname error\n");
+            ism_common_setError(ISMRC_LTPASSLError);
+            return ISMRC_LTPASSLError;
+        }
     }
 
     f = fopen(keyfile_path, "r");
@@ -1541,11 +1548,11 @@ XAPI int ism_security_ltpaReadKeyfile(
     ism_security_ltpaQuoteString(keybuf, &escRealm);
     ism_common_free(ism_memory_admin_misc,keybuf);
 
-	int ltpaKeySize = (int)sizeof(ismLTPA_t) + desKeyLen+1;
+    int ltpaKeySize = (int)sizeof(ismLTPA_t) + desKeyLen+1;
     *ltpaKey = (ismLTPA_t *) ism_common_calloc(ISM_MEM_PROBE(ism_memory_admin_misc,172),1,ltpaKeySize);
 
-	char *des_keyPtr = (char *)((*ltpaKey) + 1);
-	memcpy(des_keyPtr, desKey, desKeyLen);
+    char *des_keyPtr = (char *)((*ltpaKey) + 1);
+    memcpy(des_keyPtr, desKey, desKeyLen);
     des_keyPtr[desKeyLen]='\0';
     (*ltpaKey)->des_key =(void *) des_keyPtr;
     
@@ -1673,7 +1680,7 @@ XAPI int ism_security_ltpaV1DecodeToken(
     }
 
     if ( *expiration == 0 ) {
-    	/* set expiration time from token */
+        /* set expiration time from token */
         *expiration = exptime/1000;
         TRACE(9, "Token expiration time:%ld   Current Server Time:%ld\n", *expiration, time(NULL));
     }
