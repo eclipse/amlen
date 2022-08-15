@@ -13,7 +13,7 @@
 #
 -->
 
-<project name="server_plugin" default="build_server_plugin">
+<project name="server_plugin" default="build_server_plugin" xmlns:if="ant:if" xmlns:unless="ant:unless">
 	<property environment="env" />
 	<property name="server.plugin.dir" location="." />
 	<property name="server.plugin.src.dir" location="${server.plugin.dir}/src" />
@@ -25,9 +25,6 @@
 	<property name="server.tmstool.dir" value="${server.plugin.dir}/../server_tmsmsgtool"/>
 	<property name="server.common.dir" value="${server.plugin.dir}/../server_ship"/>
 	<property name="server.common.lib.dir" value="${server.common.dir}/../server_ship/lib"/>
-
-	<!-- Load contrib library -->
-	<taskdef resource="net/sf/antcontrib/antlib.xml" />
 
     <available file="${server.plugin.rpx.dir}" type="dir" property="rpx.path.exists" />
     <available file="${server.common.dir}/msgcat" type="dir" property="msgcat.path.exists" />
@@ -188,29 +185,23 @@
 			<equals arg1="${os.name}" arg2="SunOS"/>
 		</condition>
 
-		<if>
-			<isset property="generate_coverage" />
-			<then>
-				<coverage destfile="${server.plugin.bin.dir}/jacoco.exec">
-					<junit printsummary="no" haltonfailure="false" haltonerror="false" jvm="java" showoutput="yes" fork="true" forkmode="once">
-						<jvmarg value="${jvmargadd_1}" />
-						<classpath refid="test.classpath" />
-						<formatter type="xml" />
-						<formatter type="plain" usefile="no" />
-						<test name="com.ibm.ima.plugin.unittest.AllTests" fork="yes" todir="${test.data.dir}"/>
-					</junit>
-				</coverage>
-			</then>
-			<else>
-				<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
-					<jvmarg value="${jvmargadd_1}" />
-					<classpath refid="test.classpath" />
-					<formatter type="xml" />
-					<formatter type="plain" usefile="no" />
-					<test name="com.ibm.ima.plugin.unittest.AllTests" fork="yes" todir="${test.data.dir}"/>
-				</junit>
-			</else>
-		</if>
+		<coverage destfile="${server.plugin.bin.dir}/jacoco.exec" if:set="generate_coverage">
+			<junit printsummary="no" haltonfailure="false" haltonerror="false" jvm="java" showoutput="yes" fork="true" forkmode="once">
+				<jvmarg value="${jvmargadd_1}" />
+				<classpath refid="test.classpath" />
+				<formatter type="xml" />
+				<formatter type="plain" usefile="no" />
+				<test name="com.ibm.ima.plugin.unittest.AllTests" fork="yes" todir="${test.data.dir}"/>
+			</junit>
+		</coverage>
+
+		<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes" unless:set="generate_coverage">
+			<jvmarg value="${jvmargadd_1}" />
+			<classpath refid="test.classpath" />
+			<formatter type="xml" />
+			<formatter type="plain" usefile="no" />
+			<test name="com.ibm.ima.plugin.unittest.AllTests" fork="yes" todir="${test.data.dir}"/>
+		</junit>
 
 		<!-- HTML report for the unit tests -->
 		<junitreport todir="${test.data.dir}" >
@@ -236,27 +227,23 @@
 	<!-- Executing RPX tool for pseudo translation-->
 
 	<target name="NWays_mock" if="rpx.path.exists" unless="translations.present" description="Runs RPX class to do pseudo translation">
-		<if>
-	    	<equals arg1="${msgcat.path.exists}" arg2="true"/>
-    	<then>
-			<!-- Classpath for RPX -->
-			<path id="rpx.specific.classpath">
-		    	<pathelement location="rpx.jar"/>
-			    <fileset dir="${server.plugin.rpx.dir}">
-			       <include name="**/*.jar"/>
-			    </fileset>
-			</path>
+		<!-- Classpath for RPX -->
+		<path id="rpx.specific.classpath" if:set="msgcat.path.exists">
+			<pathelement location="rpx.jar"/>
+			<fileset dir="${server.plugin.rpx.dir}">
+				<include name="**/*.jar"/>
+			</fileset>
+		</path>
 
-			<taskdef name="nways" classname="com.ibm.rpx.ant.Nw" classpathref="rpx.specific.classpath"/>
+		<taskdef name="nways" classname="com.ibm.rpx.ant.Nw" classpathref="rpx.specific.classpath"/>
 
-			<echo message="Running RPX"/>
-			<nways classpath="${server.plugin.rpx.dir};${server.plugin.rpx.dir}\rpx.jar;${ant.home}/lib/ant.jar" ways="fr de ja zh zh_TW" >
-				<fileset dir="${server.common.dir}/msgcat/com/ibm/ima/plugin/msgcatalog/">
-					<include name="IsmpluginListResourceBundle.java"/>
-				</fileset>
-			</nways>
-		</then>
-		</if>
+		<echo message="Running RPX" if:set="msgcat.path.exists"/>
+		<nways classpath="${server.plugin.rpx.dir};${server.plugin.rpx.dir}\rpx.jar;${ant.home}/lib/ant.jar" ways="fr de ja zh zh_TW"
+			 if:set="msgcat.path.exists" >
+			<fileset dir="${server.common.dir}/msgcat/com/ibm/ima/plugin/msgcatalog/">
+				<include name="IsmpluginListResourceBundle.java"/>
+			</fileset>
+		</nways>
 	</target>
 
     <!-- Initialize the build environment -->
