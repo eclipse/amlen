@@ -31,6 +31,7 @@ export USE_REAL_TRANSLATIONS=true
 export SLESNORPMS=yes
 export IMASERVER_BASE_DIR=$BROOT/rpmtree
 export JAVA_HOME=<suitable Java 8 SDK e.g. /etc/alternatives/java_sdk>
+export PATH=$JAVA_HOME/bin:$PATH
 
 cd $SROOT/server_build
 ant -f $SROOT/server_build/build.xml  2>&1 | tee /tmp/ant.log
