@@ -30,7 +30,7 @@ Group: Applications/Communications
 Source0: %{sourcename}.zip
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-BuildRequires: junit,ant-contrib,python3,java-devel,icu,libxslt,ant-junit
+BuildRequires: junit,python3,java-devel,icu,libxslt,ant-junit
 Requires:  EclipseAmlenServer
 
 %description
