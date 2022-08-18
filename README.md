@@ -78,3 +78,4 @@ directory.
 There is a a Docker file and build script that we use to do the build at Eclipse that show downloading
 of the dependencies and setting of the environment variables. There can be found in the 
 [server_build/buildcontainer](server_build/buildcontainer) directory.
+
