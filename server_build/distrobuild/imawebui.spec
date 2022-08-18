@@ -33,7 +33,7 @@ Source0: %{sourcename}.zip
 Source1: imawebui-deps.zip
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-BuildRequires: rpm-build,junit,ant-contrib,ant,java-11-openjdk-devel,icu,javapackages-tools,dos2unix
+BuildRequires: rpm-build,junit,ant,java-11-openjdk-devel,icu,javapackages-tools,dos2unix
 Requires: net-tools, openldap, openldap-servers, openldap-clients, tar, openssl, procps, which
 Obsoletes: IBMIoTMessageSightWebUI < 6.0
 

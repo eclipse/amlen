@@ -28,7 +28,7 @@ Source1: 9.2.0.5-IBM-MQC-LinuxX64.tar.gz
 Source2: 9.2.0.5-IBM-MQC-Redist-LinuxX64.tar.gz 
 
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-BuildRequires: openssl-devel,curl-devel,openldap-devel,net-snmp-devel,libicu-devel,rpm-build,python3,vim-common,gcc,gcc-c++,make,CUnit-devel,junit,ant-contrib,boost-devel,dos2unix,ant,jansson-devel
+BuildRequires: openssl-devel,curl-devel,openldap-devel,net-snmp-devel,libicu-devel,rpm-build,python3,vim-common,gcc,gcc-c++,make,CUnit-devel,junit,boost-devel,dos2unix,ant,jansson-devel,icu,libxslt
 Requires: gdb, net-tools, openssl, tar, perl, procps >= 3.3.9, libjansson.so.4()(64bit), logrotate, zip, bzip2, unzip, EclipseAmlenServer
 
 %description
