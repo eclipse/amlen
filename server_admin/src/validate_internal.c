@@ -20,7 +20,6 @@
 
 #define ismCFG_FREE(x)                   if (x != NULL) { ism_common_free(ism_memory_admin_misc,(void *)x); x = NULL; }
 #define CERTIFICATE_PATH  IMA_SVR_INSTALL_PATH "/certificates"
-//#define USERFILES_DIR    "/tmp/userfiles/"
 
 #include "validateInternal.h"
 

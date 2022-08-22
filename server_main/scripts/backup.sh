@@ -15,7 +15,7 @@
 
 FILENAME=$1
 
-LOGFILE=/var/messagesight/diag/logs/backup.log
+LOGFILE=${IMA_SVR_DATA_PATH}/diag/logs/backup.log
 export LOGFILE
 
 
@@ -24,15 +24,15 @@ echo "Backup Date: `date`" >> ${LOGFILE}
 echo "Backup File: $FILENAME" >> ${LOGFILE}
 echo "" >> ${LOGFILE}
 
-TMPDIR=/tmp/userfiles
+TMPDIR=${IMA_SVR_DATA_PATH}/userfiles
 NOW=$(date +"%H%M%S-%m%d%Y")
 
 #echo $NOW
 mkdir -p $TMPDIR/$FILENAME.tmpdir >> ${LOGFILE} 2>&1 3>&1
 cd $TMPDIR/$FILENAME.tmpdir >/dev/null 2>&1 3>&1
 
-echo "/var/messagesight/data/config/*" > /tmp/imaBackup.lst
-echo "/var/messagesight/data/certificates/*" >> /tmp/imaBackup.lst
+echo "${IMA_SVR_DATA_PATH}/data/config/*" > /tmp/imaBackup.lst
+echo "${IMA_SVR_DATA_PATH}/data/certificates/*" >> /tmp/imaBackup.lst
 
 zip -r -q -y backup /var -i@/tmp/imaBackup.lst >> ${LOGFILE} 2>&1 3>&1
 rc=$?

@@ -45,7 +45,6 @@ extern "C" {
 #include "configInternal.h"
 #include "adminInternal.h"
 
-#define USERFILES_DIR   "/tmp/userfiles/"
 #define MAX_PATH_LEN	1024
 /*
  * Returns the JSON schema

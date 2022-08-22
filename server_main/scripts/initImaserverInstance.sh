@@ -64,6 +64,7 @@ chmod -R ${IMA_DIAGCFG_PERMS} ${COREDIR} >> ${INITLOG} 2>&1
 chmod -R ${IMA_DEFAULT_PERMS} ${STOREDIR} >> ${INITLOG} 2>&1
 chmod -R ${IMA_DIAGCFG_PERMS} ${DIAGDIR} >> ${INITLOG} 2>&1
 chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR}/userfiles
 
 
 # Set default values

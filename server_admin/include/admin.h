@@ -129,8 +129,7 @@ typedef struct adminRestartTimerData {
 
 
 #define MAX_OBJ_NAME_LEN    256
-#define TMP_USERFILES_DIR "/tmp/userfiles/"
-#define TMP_USERFILES_DIR_LEN 15
+#define USERFILES_DIR  IMA_SVR_DATA_PATH "/userfiles/"
 #define DEFAULT_PLUGIN_CONFIG_NAME "plugin.json"
 #define DEFAULT_PLUGIN_CONFIG_NAME_LEN 11
 #define DEFAULT_PLUGIN_PROPS_FILE_NAME "pluginproperties.json"

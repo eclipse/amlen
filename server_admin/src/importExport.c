@@ -1382,7 +1382,7 @@ XAPI int ism_config_json_parseServiceImportPayload(ism_http_t *http, ism_rest_ap
 
     int processV2Config = 0;
     char filePath[2048];
-    sprintf(filePath, "/tmp/userfiles/.v2Config");
+    sprintf(filePath, IMA_SVR_DATA_DIR "/userfiles/.v2Config");
     if ( ism_config_isFileExist(filePath) ) {
     	processV2Config = 1;
     	unlink(filePath);
@@ -1395,31 +1395,31 @@ XAPI int ism_config_json_parseServiceImportPayload(ism_http_t *http, ism_rest_ap
 
     if ( rc == ISMRC_OK ) {
         if ( processV2Config == 1 ) {
-        	sprintf(filePath, "/tmp/userfiles/%s.tmpdir" IMA_SVR_DATA_PATH "/data/config/server_dynamic.json", fileName);
+        	sprintf(filePath, IMA_SVR_DATA_PATH "/userfiles/%s.tmpdir" IMA_SVR_DATA_PATH "/data/config/server_dynamic.json", fileName);
         	newConfigRoot = ism_config_json_fileToObject(filePath);
         	if ( newConfigRoot ) {
-        	    sprintf(filePath, "/tmp/userfiles/%s.tmpdir", fileName);
+        	    sprintf(filePath, IMA_SVR_DATA_PATH "/userfiles/%s.tmpdir", fileName);
         	    unlink(filePath);
         	}
         } else {
             /* Import server config */
             if ( cfgFile == 1 ) {
-                sprintf(filePath, "/tmp/userfiles/%s", fileName);
+                sprintf(filePath, IMA_SVR_DATA_PATH "/userfiles/%s", fileName);
             } else {
-            	sprintf(filePath, "/tmp/userfiles/%s.tmpdir" IMA_SVR_INSTALL_PATH "/config/server_dynamic.cfg", fileName);
+            	sprintf(filePath, IMA_SVR_DATA_PATH "/userfiles/%s.tmpdir" IMA_SVR_INSTALL_PATH "/config/server_dynamic.cfg", fileName);
             }
 			newConfigRoot = ism_config_migrate_propsToJSON(filePath, newConfigRoot, &rc);
 
 			if ( cfgFile == 0 && rc == ISMRC_OK && newConfigRoot != NULL ) {
 				/* Import mqcbridge config */
-				sprintf(filePath, "/tmp/userfiles/%s.tmpdir" IMA_SVR_INSTALL_PATH "/config/mqcbridge_dynamic.cfg", fileName);
+				sprintf(filePath, IMA_SVR_DATA_PATH "/userfiles/%s.tmpdir" IMA_SVR_INSTALL_PATH "/config/mqcbridge_dynamic.cfg", fileName);
 				newConfigRoot = ism_config_migrate_propsToJSON(filePath, newConfigRoot, &rc);
 			}
 			if ( newConfigRoot ) {
 	            if ( cfgFile == 1 ) {
-	                sprintf(filePath, "/tmp/userfiles/%s", fileName);
+	                sprintf(filePath, IMA_SVR_DATA_PATH "/userfiles/%s", fileName);
 	            } else {
-	            	sprintf(filePath, "/tmp/userfiles/%s.tmpdir", fileName);
+	            	sprintf(filePath, IMA_SVR_DATA_PATH "/userfiles/%s.tmpdir", fileName);
 	            }
 	            unlink(filePath);
 			}

@@ -53,13 +53,13 @@ IMASERVERCFG=${SVR_DATA_DIR}/data/config/server.cfg
 PATH=${SVR_INSTALL_DIR}/bin:$PATH
 export PATH
 
-# Make sure that userfiles dir exists in /tmp
-mkdir -p /tmp/userfiles
+# Make sure that userfiles dir exists
+mkdir -p ${SVR_DATA_DIR}/userfiles
 # Create these directories for import/export of org-move
 mkdir -p ${SVR_DATA_DIR}/data/import
 mkdir -p ${SVR_DATA_DIR}/data/export
 
-chmod -R 770 /tmp/userfiles
+chmod -R 770 ${SVR_DATA_DIR}/userfiles
 chmod -R 770 ${SVR_DATA_DIR}/data/import
 chmod -R 770 ${SVR_DATA_DIR}/data/export
 

@@ -669,7 +669,7 @@ describe('Error:', function() {
 // 112800                FVT.makeGetRequest( FVT.uriConfigDomain+'SecurityProfile/'+ FVT.long32Name , FVT.getSuccessCallback, verifyConfig, done );
 // 112800            });
         
-// 112793 :THE URI Is actually short here, missing the TCert name.  113608 - caused /tmp/userfiles to be deleted...
+// 112793 :THE URI Is actually short here, missing the TCert name.  113608 - caused userfiles dir to be deleted...
         it('should return status 400 when deleting ALL ClientCertificates in "Max Length Name" SecProfile', function(done) {
             verifyConfig = JSON.parse( '{"ClientCertificate":[{"SecurityProfileName":"'+ FVT.long32Name +'","CertificateName":"'+ FVT.maxFileName255 +'"}]}' );
 //            verifyMessage = {"status":400,"Code": "CWLNA0132","Message": "The property value is not valid. Object: ClientCertificate Name: null Property: CertificateName Value: \"null\"."};
@@ -721,7 +721,7 @@ describe('Error:', function() {
         deleteBigClientCertificates( MaxCertCount, i );
     };
 
-    // verify 113608 - /tmp/userfiles would get deleted and could not upload files...
+    // verify 113608 - userfiles dir would get deleted and could not upload files...
     describe('Verify still upload and create:', function() {
 
         it('should return status 200 on rePUT "TestCACertKey"', function(done) {

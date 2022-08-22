@@ -1384,7 +1384,7 @@ static int ism_config_serviceFileDelete(ism_http_t *http) {
 
     /* Read file into a buffer */
     char filepath[2048];
-    sprintf(filepath, "/tmp/userfiles/%s", fname);
+    sprintf(filepath, IMA_SVR_DATA_PATH "/userfiles/%s", fname);
 
     if ( !isFileExist(filepath) ) {
     	rc = ISMRC_NotFound;
@@ -1779,14 +1779,14 @@ int ism_config_restapi_fileUploadAction(ism_http_t *http, ism_rest_api_cb callba
 	}
 
 	/*
-	 * Open the file and read it into memory, check if /tmp/userfiles exists and if we not try to create it, in the instance it
-	 * somehow got deleted. Note /tmp/userfiles could be a different filesystem and the new dir which will be a part of /tmp may not
+	 * Open the file and read it into memory, check if IMA_SVR_DATA_PATH/userfiles exists and if we not try to create it, in the instance it
+	 * somehow got deleted. Note IMA_SVR_DATA_PATH/userfiles could be a different filesystem and the new dir may not
 	 * provide adequate disk space but just log this action took place and hope for the best...
 	 */
 	if (useDiffDir == 1)
 	    dirPath = diffDir;
 	else
-	    dirPath = TMP_USERFILES_DIR;
+	    dirPath = USERFILES_DIR;
 
 	if (isFileExist((char *)dirPath) == 0) {
 	    int tmp = mkdir(dirPath, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);

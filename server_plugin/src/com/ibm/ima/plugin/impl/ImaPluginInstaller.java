@@ -46,7 +46,7 @@ public class ImaPluginInstaller {
         "http://www.eclipse.org/legal/epl-2.0\n\n" +
         "SPDX-License-Identifier: EPL-2.0\n\n";
 
-    static final Path TMP_USERFILES_DIR = Paths.get("/tmp/userfiles/");
+    static final Path USERFILES_DIR;
     static final String CONFIG_DIR;
 
     static {
@@ -55,6 +55,12 @@ public class ImaPluginInstaller {
             CONFIG_DIR = env.get("IMA_CONFIG_DIR");
         } else {
             CONFIG_DIR = "IMA_SVR_INSTALL_PATH/config/";
+        }
+
+		if (env.containsKey("IMA_USERFILES_DIR")) {
+            USERFILES_DIR = Paths.get(env.get("IMA_USERFILES_DIR"));
+        } else {
+            USERFILES_DIR =  Paths.get("IMA_SVR_DATA_PATH/userfiles/");
         }
     }
 
@@ -356,7 +362,7 @@ public class ImaPluginInstaller {
                 		if(args[i].startsWith("Zip=")) {
                 			String pluginZip = args[i].substring("Zip=".length(), args[i].length());
                 			if(pluginZip.length() > 0) {
-                				zipFile = TMP_USERFILES_DIR.resolve(pluginZip);
+                				zipFile = USERFILES_DIR.resolve(pluginZip);
 	                	        if (!Files.exists(zipFile)) {
 	                	        	zipFile = null;
 	                	        }
@@ -370,7 +376,7 @@ public class ImaPluginInstaller {
                 		if(args[i].startsWith("propertiesFile=")) {
                         	String propertiesFile = args[i].substring("propertiesFile=".length(), args[i].length());
                         	if(propertiesFile.length() > 0) {
-                        		propsFile = TMP_USERFILES_DIR.resolve(propertiesFile);
+                        		propsFile = USERFILES_DIR.resolve(propertiesFile);
 	                            if (!Files.exists(propsFile)) {
 	                            	propsFile = null;
 	                            }

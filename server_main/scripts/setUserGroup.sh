@@ -35,7 +35,6 @@ echo "$SCRIPTNAME: Updating file/dir ownerships so that MessageSight can be run 
 chown -RH $USERNAME:$GROUPNAME ${IMA_SVR_DATA_PATH}
 chown -RH $USERNAME:$GROUPNAME ${IMA_SVR_INSTALL_PATH}
 chown -fRH $USERNAME:$GROUPNAME /dev/shm/com.ibm.ima*
-chown -fRH $USERNAME:$GROUPNAME /tmp/userfiles
 
 LOCKFILES1="/tmp/imapluginInstall.lock /tmp/mqcbridge.lock /tmp/imaplugin.lock /tmp/imaserver.lock"
 LOCKFILES2="/var/run/extractstackfromcore.sh /tmp/imaextractstackfromcore.lock"
