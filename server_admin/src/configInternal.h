@@ -321,7 +321,7 @@ int ism_config_json_parseServiceStopPayload(ism_http_t *http);
  *
  * @param  props         the LTPA configuration properties
  * @param  rollbackFlag  the rollback flag indicate the stage failure occured.
- * 		                 0 -- keyfile, password validation. Certificate is still in /tmp/userfiles dir
+ * 		                 0 -- keyfile, password validation. Certificate is still in userfiles dir
  * 		                 1 -- configuration failure. Certificate has been moved to LTPA keystore
  * @param  authType      the authority type
  *                       0 -- LTPA
@@ -336,7 +336,7 @@ int ism_config_rollbackCertificateConfig(ism_prop_t *props, int rollbackFlag, in
  * @param  profile       the LTPA/OAuth profile name
  * @param  keyfile       the original certificate file name
  * @param  rollbackFlag  the rollback flag indicate the stage failure occured.
- * 		                 0 -- keyfile, password validation. Certificate is still in /tmp/userfiles dir
+ * 		                 0 -- keyfile, password validation. Certificate is still in userfiles dir
  * 		                 1 -- configuration failure. Certificate has been moved to LTPA keystore
  * @param  authType      the authority type
  *                       0 -- LTPA

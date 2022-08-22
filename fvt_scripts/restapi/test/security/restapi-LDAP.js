@@ -264,8 +264,8 @@ this.timeout( FVT.defaultTimeout );
 
     describe('Verify[F], Certificate[""] and URL[ldap://, ldaps://]:', function() {
         this.timeout(36000);
-// Verify:true will test a LDAP Connection w-w/o Cert  BUT NOT COMMIT the change.....Cert Stays in /tmp/userfiles if specified, URL is not updated
-// Verify:false, change is committed, Cert moved from /tmp/userfiles
+// Verify:true will test a LDAP Connection w-w/o Cert  BUT NOT COMMIT the change.....Cert Stays in userfiles dir if specified, URL is not updated
+// Verify:false, change is committed, Cert moved from userfiles dir
 
 // 108231
 		it('should return status 200 when Verify URL and CERT ', function(done) {

@@ -44,10 +44,10 @@ scenario[${n}]="${xml[${n}]} - RESTAPI for ExportImport"
 # Set up the components for the test in the order they should start
 component[1]=cAppDriverWait,m1,"-e|../jms_td_tests/HA/updateAllowSingleNIC.sh"
 component[2]=cAppDriverRConlyChkWait,m1,"-e|mocha","-o|test/server/restapi-Export.js","-s|IMA_AdminEndpoint=${A1_IPv4_1}:${A1_PORT}|A1_HOSTNAME_OS=$A1_HOSTNAME_OS|A1_HOSTNAME_OS_SHORT=$A1_HOSTNAME_OS_SHORT|A1_SERVERNAME=$A1_SERVERNAME|IMA_AUTOMATION=$IMA_AUTOMATION|A2_HOSTNAME_OS=$A2_HOSTNAME_OS|A2_HOSTNAME_OS_SHORT=$A2_HOSTNAME_OS_SHORT|A2_SERVERNAME=$A2_SERVERNAME"
-component[3]=cAppDriverWait,m1,"-e|../cli_tests/export_import/copy_file.sh","-o|/tmp/userfiles/ExportServerConfig|/var/messagesight/."
-component[4]=cAppDriverWait,m1,"-e|../cli_tests/export_import/copy_file.sh","-o|/tmp/userfiles/imaBackup.*|/var/messagesight/."
+component[3]=cAppDriverWait,m1,"-e|../cli_tests/export_import/copy_file.sh","-o|/var/messagesight/userfiles/ExportServerConfig|/var/messagesight/."
+component[4]=cAppDriverWait,m1,"-e|../cli_tests/export_import/copy_file.sh","-o|/var/messagesight/userfiles/imaBackup.*|/var/messagesight/."
 component[5]=cAppDriverWait,m1,"-e|mocha","-o|test/server/restapi-ServiceResetCfg.js","-s|IMA_AdminEndpoint=${A1_IPv4_1}:${A1_PORT}|A1_HOSTNAME_OS=$A1_HOSTNAME_OS|A1_HOSTNAME_OS_SHORT=$A1_HOSTNAME_OS_SHORT|A1_SERVERNAME=$A1_SERVERNAME|IMA_AUTOMATION=$IMA_AUTOMATION|A2_HOSTNAME_OS=$A2_HOSTNAME_OS|A2_HOSTNAME_OS_SHORT=$A2_HOSTNAME_OS_SHORT|A2_SERVERNAME=$A2_SERVERNAME"
-component[6]=cAppDriverWait,m1,"-e|../cli_tests/export_import/copy_file.sh","-o|/var/messagesight/ExportServerConfig|/tmp/userfiles/."
+component[6]=cAppDriverWait,m1,"-e|../cli_tests/export_import/copy_file.sh","-o|/var/messagesight/ExportServerConfig|/var/messagesight/userfiles/."
 component[7]=cAppDriverRConlyChk,m1,"-e|mocha","-o|test/server/restapi-Import.js","-s|IMA_AdminEndpoint=${A1_IPv4_1}:${A1_PORT}|A1_HOSTNAME_OS=$A1_HOSTNAME_OS|A1_HOSTNAME_OS_SHORT=$A1_HOSTNAME_OS_SHORT|A1_SERVERNAME=$A1_SERVERNAME|IMA_AUTOMATION=$IMA_AUTOMATION|A2_HOSTNAME_OS=$A2_HOSTNAME_OS|A2_HOSTNAME_OS_SHORT=$A2_HOSTNAME_OS_SHORT|A2_SERVERNAME=$A2_SERVERNAME"
 components[${n}]="${component[1]} ${component[2]} ${component[3]} ${component[4]} ${component[5]} ${component[6]} ${component[7]} "
 

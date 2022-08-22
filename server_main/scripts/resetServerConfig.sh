@@ -27,6 +27,7 @@ COREDIR=${IMA_SVR_DATA_PATH}/diag/cores
 export COREDIR
 STOREDIR=${IMA_SVR_DATA_PATH}/store
 export STOREDIR
+USERFILESDIR=${IMA_SVR_DATA_PATH}/userfiles
 
 # Create reset log file
 INITLOG=${LOGDIR}/MessageSightReset.log
@@ -97,9 +98,9 @@ if [ -d ${COREDIR} ]
 then
     rm -rf ${COREDIR} >> ${INITLOG} 2>&1 3>&1
 fi
-if [ -d /tmp/userfiles ]
+if [ -d ${USERFILESDIR} ]
 then
-    rm -rf /tmp/userfiles/* >> ${INITLOG} 2>&1 3>&1
+    rm -rf ${USERFILESDIR}/* >> ${INITLOG} 2>&1 3>&1
 fi
     
 

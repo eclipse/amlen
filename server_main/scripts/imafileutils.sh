@@ -45,7 +45,7 @@ then
     fi
 
     FILENAME=$(echo $URL | /usr/bin/awk -F'/' '{print $NF}')
-    /bin/rm -rf /tmp/userfiles/$FILENAME
+    /bin/rm -rf ${USERFILESDIR}/$FILENAME
     error=$?
     if [ $error -ne 0 ] ; then
         exit 1

@@ -30,9 +30,6 @@ source ${SVR_INSTALL_DIR}/bin/getUserGroup.sh >> ${INITLOG}
 #Set up server writable directories (repeated on startup in containers in case they change)
 source ${SVR_INSTALL_DIR}/bin/initImaserverInstance.sh >> ${INITLOG}
 
-# Additional required dir and links that need root-level access to create
-mkdir -p -m 770 /tmp/userfiles >> ${INITLOG} 2>&1
-
 cd /tmp >> ${INITLOG} 2>&1
 if [ ! -L /tmp/cores ]
 then

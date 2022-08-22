@@ -32,7 +32,7 @@ static int checkPluginFileExist(char *pname, char *zipFile, char *propFile, int 
 		goto CHECK_CERTEXIST_END;
 	}
 
-	/* If zipFile is specified in REST call - file should exist in /tmp/userfiles dir */
+	/* If zipFile is specified in REST call - file should exist in userfiles dir */
 	if ( zipFile && *zipFile != '\0' ) {
         int clen = strlen(USERFILES_DIR) + strlen(zipFile) + 1;
         char *cpath = alloca(clen);

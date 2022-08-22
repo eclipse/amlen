@@ -17,7 +17,7 @@ use File::Copy;
 # and add symbolic links to their hash values.
 
 my $openssl;
-my $tmpdir = "/tmp/userfiles";
+my $tmpdir = "${IMA_SVR_DATA_DIR}/userfiles";
 my $prefix = "/usr/local";
 my $trustedStore_dir = "${IMA_SVR_DATA_PATH}/data/certificates/truststore";
 

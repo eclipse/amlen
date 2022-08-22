@@ -454,7 +454,7 @@ int copyFile(const char *source, const char *destination) {
  *
  * @param  props         the LTPA configuration properties
  * @param  rollbackFlag  the rollback flag indicate the stage failure occured.
- * 		                 0 -- keyfile, password validation. Certificate is still in /tmp/userfiles dir
+ * 		                 0 -- keyfile, password validation. Certificate is still in userfiles dir
  * 		                 1 -- configuration failure. Certificate has been moved to LTPA keystore
  * @param  authType      the authority type
  *                       0 -- LTPA
@@ -491,7 +491,7 @@ int ism_config_rollbackCertificate(const char *profile, const char *keyfile, int
 		    unlink(opath);
 		}
 	} else {
-		//remove keyfile from tmp/userfiles
+		//remove keyfile from userfiles
 		if (keyfile && *keyfile) {
 			len = 0;
 		    len = strlen(USERFILES_DIR) + strlen(keyfile) + 1;
@@ -548,7 +548,7 @@ ROLLBACK_LTPA_END:
  *
  * @param  props         the LTPA configuration properties
  * @param  rollbackFlag  the rollback flag indicate the stage failure occured.
- * 		                 0 -- keyfile, password validation. Certificate is still in /tmp/userfiles dir
+ * 		                 0 -- keyfile, password validation. Certificate is still in userfiles dir
  * 		                 1 -- configuration failure. Certificate has been moved to LTPA keystore
  * @param  authType      the authority type
  *                       0 -- LTPA

@@ -436,7 +436,7 @@ function getConfig( i, theText, thePrefix ) {
 
 // Steps are done outside this test case, either CLI or restapi-SvcResetConfig.js, see ism-RESTAPI-01.sh
 //  ---------------------------------------------------------------------
-// 1. SAVE the Export file (/tmp/userfiles/ is erased with Reset:config
+// 1. SAVE the Export file (in userfiles dir is erased with Reset:config
 // 2. Config Reset
 // 3. Verify GET Default Config
 // 4. RESTART Server  
