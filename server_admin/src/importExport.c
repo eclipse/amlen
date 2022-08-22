@@ -1382,7 +1382,7 @@ XAPI int ism_config_json_parseServiceImportPayload(ism_http_t *http, ism_rest_ap
 
     int processV2Config = 0;
     char filePath[2048];
-    sprintf(filePath, IMA_SVR_DATA_DIR "/userfiles/.v2Config");
+    sprintf(filePath, IMA_SVR_DATA_PATH "/userfiles/.v2Config");
     if ( ism_config_isFileExist(filePath) ) {
     	processV2Config = 1;
     	unlink(filePath);

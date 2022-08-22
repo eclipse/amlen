@@ -1094,7 +1094,7 @@ static void ism_admin_internal_FileList(concat_alloc_t *output_buffer)
     closedir(dp);
     if ( found == 0 ) {
         char buf[512];
-        sprintf(buf, IMA_SVR_DATA_DIR "/userfiles directory is empty.\n");
+        sprintf(buf, IMA_SVR_DATA_PATH "/userfiles directory is empty.\n");
         ism_common_allocBufferCopyLen(output_buffer, buf, strlen(buf));
     }
 
