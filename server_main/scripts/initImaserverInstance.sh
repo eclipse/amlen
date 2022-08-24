@@ -46,7 +46,6 @@ echo "Using ${IMA_DEFAULT_PERMS} for other things"
 
 echo "Create required directories" >> ${INITLOG}
 mkdir -p -m ${IMA_DIAGCFG_PERMS} ${COREDIR} >> ${INITLOG} 2>&1
-chmod -R ${IMA_DIAGCFG_PERMS} ${COREDIR} >> ${INITLOG} 2>&1
 mkdir -p -m ${IMA_DIAGCFG_PERMS} ${DATADIR}/config >> ${INITLOG} 2>&1
 mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/hasync >> ${INITLOG} 2>&1
 mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/keystore >> ${INITLOG} 2>&1
@@ -57,20 +56,20 @@ mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/LTPAKeyStore >> ${INITL
 mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/OAuth >> ${INITLOG} 2>&1
 mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/CRL >> ${INITLOG} 2>&1
 mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates/PSK >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/import >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DEFAULT_PERMS} ${DATADIR}/export >> ${INITLOG} 2>&1
 mkdir -p -m ${IMA_DEFAULT_PERMS} ${STOREDIR} >> ${INITLOG} 2>&1
-mkdir -p -m ${IMA_DIAGCFG_PERMS} ${DATADIR}/userfiles >> ${INITLOG} 2>&1
-mkdir -p -m ${IMA_DEFAULT_PERMS}${SVR_DATA_DIR}/data/import >> ${INITLOG} 2>&1
-mkdir -p -m ${IMA_DEFAULT_PERMS} ${SVR_DATA_DIR}/data/export >> ${INITLOG} 2>&1
+mkdir -p -m ${IMA_DIAGCFG_PERMS} ${IMA_SVR_DATA_PATH}/userfiles >> ${INITLOG} 2>&1
 
-chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR} >> ${INITLOG} 2>&1
-chmod -R ${IMA_DEFAULT_PERMS} ${STOREDIR} >> ${INITLOG} 2>&1
 chmod -R ${IMA_DIAGCFG_PERMS} ${COREDIR} >> ${INITLOG} 2>&1
-chmod -R ${IMA_DEFAULT_PERMS} ${STOREDIR} >> ${INITLOG} 2>&1
 chmod -R ${IMA_DIAGCFG_PERMS} ${DIAGDIR} >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR} >> ${INITLOG} 2>&1
 chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR}/certificates >> ${INITLOG} 2>&1
-chmod -R ${IMA_DIAGCFG_PERMS} ${DATADIR}/userfiles >> ${INITLOG} 2>&1
-chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR}/data/import >> ${INITLOG} 2>&1
-chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR}/data/export >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR}/import >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${DATADIR}/export >> ${INITLOG} 2>&1
+chmod -R ${IMA_DEFAULT_PERMS} ${STOREDIR} >> ${INITLOG} 2>&1
+chmod -R ${IMA_DIAGCFG_PERMS} ${IMA_SVR_DATA_PATH}/userfiles >> ${INITLOG} 2>&1
+
 
 # Set default values
 IMACFGDIR=${DATADIR}/config
