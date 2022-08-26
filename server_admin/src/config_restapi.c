@@ -1384,7 +1384,7 @@ static int ism_config_serviceFileDelete(ism_http_t *http) {
 
     /* Read file into a buffer */
     char filepath[2048];
-    sprintf(filepath, IMA_SVR_DATA_PATH "/userfiles/%s", fname);
+    sprintf(filepath, USERFILES_DIR "/%s", fname);
 
     if ( !isFileExist(filepath) ) {
     	rc = ISMRC_NotFound;

@@ -597,7 +597,7 @@ XAPI int ism_config_json_getUserAuthority(ism_http_t *http) {
 }
 
 /**
- * Returns the file contents of the specified file in IMA_SVR_DATA_PATH/userfiles dir
+ * Returns the file contents of the specified file in userfiles dir
  */
 XAPI int ism_config_json_getFile(ism_http_t *http, char *fname) {
     FILE * fd = NULL;
@@ -620,7 +620,7 @@ XAPI int ism_config_json_getFile(ism_http_t *http, char *fname) {
 
     /* Read file into a buffer */
     char filepath[2048];
-    sprintf(filepath, IMA_SVR_DATA_PATH "/userfiles/%s", fname);
+    sprintf(filepath, USERFILES_DIR "/%s", fname);
 
     fd = fopen(filepath, "rb");
     if (!fd) {
@@ -666,18 +666,18 @@ CONFIG_END:
 }
 
 /**
- * Returns the list of files and dir in IMA_SVR_DATA_PATH/userfiles dir
+ * Returns the list of files and dir in userfiles dir
  */
 XAPI int ism_config_json_getFileList(ism_http_t *http, char *fname) {
     int rc = ISMRC_OK;
 
     struct dirent *dent;
-    char *basedir = IMA_SVR_DATA_PATH "/userfiles";
+    char *basedir = USERFILES_DIR;
 
     DIR * bDir = opendir(basedir);
 
     if (bDir == NULL) {
-    	TRACE(3, "Could not open " IMA_SVR_DATA_PATH "/userfiles directory. errno:%d\n", errno);
+    	TRACE(3, "Could not open " USERFILES_DIR " directory. errno:%d\n", errno);
     	rc = ISMRC_NotFound;
     	ism_common_setError(rc);
     	return rc;

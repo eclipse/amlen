@@ -1640,7 +1640,7 @@ int ism_security_validateLDAPConfig(ismLDAPConfig_t *ldapobj, int isVerify, int 
 
         const char * keystore = ism_common_getStringConfig("LDAPCertificateDir");
         if (newCert) {
-            keystore = IMA_SVR_DATA_PATH "/userfiles";
+            keystore = USERFILES_DIR;
         }
         if (!keystore)
             keystore = ".";

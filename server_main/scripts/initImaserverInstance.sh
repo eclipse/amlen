@@ -41,7 +41,7 @@ echo "--------------------------------------------------"  >> ${INITLOG}
 echo "Configure imaserver " >> ${INITLOG}
 echo "Date: `date` " >> ${INITLOG}
 
-echo "Using ${IMA_DIAGCFG_PERMS} for diag/cfg/userfiles"
+echo "Using ${IMA_DIAGCFG_PERMS} for diagnostics, configs and userfiles directory"
 echo "Using ${IMA_DEFAULT_PERMS} for other things"
 
 echo "Create required directories" >> ${INITLOG}
