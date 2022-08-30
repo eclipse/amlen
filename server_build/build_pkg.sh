@@ -640,6 +640,7 @@ function rpmbuild_server {
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaserver-docker.env $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership -r ${BUILD_ROOT}/operator/build/* $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imahasher $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     dos2unix $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imaserver-docker.env
 

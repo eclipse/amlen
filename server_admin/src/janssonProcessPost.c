@@ -24,7 +24,7 @@ extern int ism_config_json_replaceArrayConfig(const char *objName, json_t *newOb
 extern int ism_admin_nodeUpdateAllowed(int *rc, ism_ConfigComponentType_t compType, char *object);
 extern void ism_common_setServerUID(const char * value);
 extern int ism_admin_haDisabledInCluster(int flag);
-extern char * ism_security_encryptAdminUserPasswd(char * src);
+extern char * ism_security_createAdminUserPasswordHash(const char * password);
 extern void ism_config_setMQConnectivityEnabledFlag(int flag, int wait);
 extern int ism_config_updateEndpointInterfaceName(json_t *mobj, char *name);
 extern int ism_admin_initRestart(int delay);
@@ -552,7 +552,7 @@ static int ism_config_json_processSingletonObject(ism_config_t *handle, const ch
             	}
 
             	/* Encrypt Password */
-                char *encPasswd = ism_security_encryptAdminUserPasswd((char *)value);
+                char *encPasswd = ism_security_createAdminUserPasswordHash((char *)value);
                 if (encPasswd == NULL) {
                 	TRACE(2, "Failed to encrypt AdminUserPassword\n");
                     ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", object, value);

@@ -19,8 +19,11 @@
 #define TRACE_COMP Admin
 
 #include <janssonConfig.h>
+#include <ismutil.h>
+#include <sasl_scram.h>
 #include "configInternal.h"
 #include "validateInternal.h"
+
 
 
 extern int32_t ism_ha_admin_set_standby_group(const char *group);
@@ -35,6 +38,8 @@ extern int ism_config_json_deleteObject(char *object, char *inst, char *subinst,
 extern int ism_config_migrate_processV1ConfigViaHA(void);
 extern ism_prop_t * ism_config_json_getObjectNames(void);
 extern int ism_admin_dumpStatus(void);
+extern void ism_security_1wayHashAdminUserPassword(const char * password, const char * salt, char * _hash);
+extern char * ism_security_createAdminUserPasswordHash(const char * password);
 
 extern json_t *srvConfigRoot;                 /* Server configuration JSON object  */
 extern pthread_rwlock_t    srvConfiglock;     /* Lock for servConfigRoot           */
@@ -1612,11 +1617,9 @@ static int32_t ism_config_set_dynamic_internal(ism_json_parse_t *json, int valid
             if ( !strcmpi(item, "AdminUserPassword")) {
                 isAdminPasswd = 1;
                 if ( value && *value != '\0' ) {
-                    /* Encrypt Password */
-                    char *encPasswd = ism_security_encryptAdminUserPasswd((char *)value);
-
-                    if ( encPasswd == NULL ) {
-                        TRACE(2, "Failed to encrypt AdminPassword\n");
+                    adminUserPWD = ism_security_createAdminUserPasswordHash((char *) value);
+                    if ( adminUserPWD == NULL ) {
+                        TRACE(2, "Failed to store AdminPassword\n");
                         ism_common_freeProperties(props);
                         if (objectID)  ism_common_free(ism_memory_admin_misc,objectID);
                         pthread_mutex_unlock(&g_cfglock);
@@ -1624,10 +1627,8 @@ static int32_t ism_config_set_dynamic_internal(ism_json_parse_t *json, int valid
                         return ISMRC_Error;
                     }
 
-                    adminUserPWD = encPasswd;
-
                     f.type = VT_String;
-                    f.val.s = encPasswd;
+                    f.val.s = adminUserPWD;
                 } else {
                     TRACE(2, "NULL value is specified for AdminPassword\n");
                     ism_common_freeProperties(props);
@@ -4629,6 +4630,48 @@ XAPI char *ism_config_getAdminUserPassword(void) {
     return decPwd;
 }
 
+XAPI char *ism_config_getAdminUserPasswordHash(void) {
+    ism_config_initAdminUserData();
+    return adminUserPassword;
+}
+
+XAPI bool ism_config_confirmAdminUserPassword2(char * password,char * encoding) {
+    if (strlen(encoding) == 0) {
+        return false;
+    }
+    else if (encoding[0] == '_')
+    {
+        switch (encoding[1]) {
+            case '1': {
+                char salt[21];
+                char * end;
+                strncpy(salt,encoding+3,20);
+                salt[20] = '\0';
+                uint64_t salt_v = strtoul(salt,&end,10);
+                char hash[129];
+                strncpy(hash,encoding+24,128);
+                hash[128] = '\0';
+                char hash2[129];
+                ism_security_1wayHashAdminUserPassword(password,(char*)&salt_v,hash2);
+                return strcmp(hash,hash2) == 0;
+            }
+            default: {
+                TRACE(2,"Password encoding version too high.");
+                return false;
+            }
+        }
+    } else {
+        TRACE(5,"WARNING: legacy password encoding in use, recomend changing passwords");
+        char * decrypted = ism_config_getAdminUserPassword();
+        return strcmp(decrypted,password) == 0;
+    }
+    return false;
+}
+
+XAPI bool ism_config_confirmAdminUserPassword(char * password) {
+    char * encoding = ism_config_getAdminUserPasswordHash();
+    return ism_config_confirmAdminUserPassword2(password,encoding);
+}
 
 XAPI int ism_config_updateCfgFile(ism_prop_t *props, int compType) {
    int rc = ISMRC_OK;

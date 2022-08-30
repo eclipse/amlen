@@ -117,6 +117,7 @@ CU_TestInfo ISM_Security_CUnit_ConfigBasic[] = {
     {"test_validate_configObject_LDAP", test_validate_configObject_LDAP },
     {"test_authorize_destWithGroup", test_authorize_destWithGroup },
     {"test_encrypt_decrypt_passwd", testAdminPasswdEncryptDecrypt },
+    {"test_hash_passwd", testAdminPasswdHash },
     CU_TEST_INFO_NULL
 };
 

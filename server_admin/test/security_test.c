@@ -28,9 +28,12 @@
 #include <ismjson.h>
 #include <security.h>
 #include <transport.h>
+#include <openssl/rand.h>
 
 extern char * ism_security_encryptAdminUserPasswd(char * src);
 extern char * ism_security_decryptAdminUserPasswd(char * src);
+extern bool ism_config_confirmAdminUserPassword2(char * password,char * encoding);
+extern void ism_security_1wayHashAdminUserPassword(const char * password, const char * salt, char * _hash);
 
 security_stat_t *statCount = NULL;
 
@@ -140,6 +143,23 @@ void testAdminPasswdEncryptDecrypt(void) {
     /* compare password */
     rc = strcmp(decryptedPasswd, adminPassword);
     CU_ASSERT(rc == 0);
+}
+
+void testAdminPasswdHash(void)
+{
+  for( int k = 0 ; k < 10 ; k++ ) {
+    uint64_t rval;
+    uint8_t * randbuf = (uint8_t *)&rval;
+
+    RAND_bytes(randbuf, 8);
+    char * password = "password";
+    char * hash = malloc(128 + 1);
+    ism_security_1wayHashAdminUserPassword(password,(char *)&rval,hash);
+    char * encoding = malloc(128 + 20 + 5);
+    sprintf(encoding,"_1:%020lu:%s",rval,hash);
+    CU_ASSERT(ism_config_confirmAdminUserPassword2("password",encoding));
+    CU_ASSERT(!ism_config_confirmAdminUserPassword2("password2",encoding));
+  }
 }
 
 

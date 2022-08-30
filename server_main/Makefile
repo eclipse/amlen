@@ -66,6 +66,20 @@ imaserver-LIBS_S = libismprotocol$(A)    \
                    libismadmin$(A)       \
                    libismutil$(A)
 
+hasher-LIBS = libismutil$(SO) \
+              libismtransport$(SO) \
+              libismengine$(SO)    \
+              libismadmin$(SO) \
+              libismprotocol$(SO) \
+              libismstore$(SO) \
+              libismmonitoring$(SO) \
+              libismsnmp$(SO)
+
+EXE-TARGETS += $(BINDIR)/imahasher$(EXE)
+$(BINDIR)/imahasher$(EXE): $(call objects, hasher.c) | \
+                           $(call libs, $(hasher-LIBS))
+	$(call link-c-program)
+
 EXE-TARGETS += $(BINDIR)/imaserver$(EXE) 
 $(BINDIR)/imaserver$(EXE): $(call objects, $(imaserver-FILES)) | \
                            $(call libs, $(imaserver-LIBS))
