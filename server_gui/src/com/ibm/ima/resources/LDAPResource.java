@@ -67,7 +67,6 @@ public class LDAPResource extends AbstractIsmConfigResource {
 	//Relative to com.ibm.ima.serverInstallDirectory (only works if stored alongside server)
 	public final static String LDAP_KEYSTORE = "/certificates/LDAP";
 	public final static String CERT_NAME = "ldap.pem";
-	private final static String CERT_TEST_DIR = "/tmp/userfiles";
 
     @Context
     javax.servlet.http.HttpServletRequest currentRequest;

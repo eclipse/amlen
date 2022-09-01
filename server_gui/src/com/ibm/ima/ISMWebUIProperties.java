@@ -127,6 +127,14 @@ public class ISMWebUIProperties implements InvocationHandler {
         String getServerInstallDirectory();
 
         /**
+         * The fully qualified path to the server data directory
+         *  (The bits of WebUI that need to know this only work if
+         *   installed alongside the server)
+         * @return
+         */
+        String getServerDataDirectory();
+
+        /**
          * The fully qualified path to the platform logs directory
          * @return
          */

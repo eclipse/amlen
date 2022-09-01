@@ -19,10 +19,11 @@ DEFAULT_OVERWRITE=FALSE
 CERTDIR=${IMA_SVR_DATA_PATH}/data/certificates
 TRUSTSTORE=${IMA_SVR_DATA_PATH}/data/certificates/truststore
 KEYSTORE=${IMA_SVR_DATA_PATH}/data/certificates/keystore
+USERFILESDIR=${IMA_SVR_DATA_PATH}/userfiles
 
 
 # Create dirs
-mkdir -p -m 770 /tmp/userfiles > /dev/null 2>&1
+mkdir -p -m 770 ${USERFILESDIR} > /dev/null 2>&1
 mkdir -p -m 700 ${TRUSTSTORE} > /dev/null 2>&1
 mkdir -p -m 700 ${KEYSTORE} > /dev/null 2>&1
 
@@ -40,11 +41,11 @@ if [[ $action = "apply" ]] ; then
    CERTNAME=$4
    KEYNAME=$5
 
-   if [[ ! -f "/tmp/userfiles/$CERTNAME" ]] ; then
+   if [[ ! -f "${USERFILESDIR}/$CERTNAME" ]] ; then
     #echo "Cannot find $CERTNAME."
     exit 2
    fi
-   if [[ ! -f "/tmp/userfiles/$KEYNAME" ]] ; then
+   if [[ ! -f "${USERFILESDIR}/$KEYNAME" ]] ; then
         #echo "Cannot find $KEYNAME."
         exit 3
    fi
@@ -62,21 +63,21 @@ if [[ $action = "apply" ]] ; then
       [ `echo $OVERWRITE | /usr/bin/tr [:upper:] [:lower:]` = `echo $DEFAULT_OVERWRITE | /usr/bin/tr [:upper:] [:lower:]` ] ; then
        exit 4;
    fi
-   /bin/cp "/tmp/userfiles/$CERTNAME" ${IMA_SVR_INSTALL_PATH}/certificates/MQC/mqconnectivity.kdb > /dev/null 2>&1
+   /bin/cp "${USERFILESDIR}/$CERTNAME" ${IMA_SVR_INSTALL_PATH}/certificates/MQC/mqconnectivity.kdb > /dev/null 2>&1
    error=$?
    if [[ $error -ne 0 ]] ; then
        #echo "$CERTNAME can not be stored in the keystore."
        exit 5
    fi
-   rm -rf "/tmp/userfiles/$CERTNAME"
+   rm -rf "${USERFILESDIR}/$CERTNAME"
 
-   /bin/cp "/tmp/userfiles/$KEYNAME" ${IMA_SVR_INSTALL_PATH}/certificates/MQC/mqconnectivity.sth > /dev/null 2>&1
+   /bin/cp "${USERFILESDIR}/$KEYNAME" ${IMA_SVR_INSTALL_PATH}/certificates/MQC/mqconnectivity.sth > /dev/null 2>&1
    error=$?
    if [[ $error -ne 0 ]] ; then
        #echo "$KEYNAME can not be stored in the keystore."
        exit 6
    fi
-   rm -rf "/tmp/userfiles/$KEYNAME"
+   rm -rf "${USERFILESDIR}/$KEYNAME"
    exit 0
  fi
 
@@ -84,17 +85,17 @@ if [[ $action = "apply" ]] ; then
    PROFILENAME=$4
    CANAME=$5
 
-   if [[ ! -f /tmp/userfiles/$CANAME ]] ; then
+   if [[ ! -f ${USERFILESDIR}/$CANAME ]] ; then
       #echo "Cannot find $CANAME."
       exit 2
    fi
 
-   #CERTSUFFIX=$(echo /tmp/userfiles/$CANAME | /usr/bin/awk -F'.' '{print $NF}')
+   #CERTSUFFIX=$(echo ${USERFILESDIR}/$CANAME | /usr/bin/awk -F'.' '{print $NF}')
    #if [ `echo $CERTSUFFIX | /usr/bin/tr [:upper:] [:lower:]` !=  `echo $PEM | /usr/bin/tr [:upper:] [:lower:]` ] ; then
    #    exit 15;
    #fi
 
-   /usr/bin/openssl x509 -in "/tmp/userfiles/$CANAME" -text -noout > /dev/null 2>&1
+   /usr/bin/openssl x509 -in "${USERFILESDIR}/$CANAME" -text -noout > /dev/null 2>&1
    error=$?
    if [[ $error -ne 0 ]] ; then
        exit 14
@@ -109,7 +110,7 @@ if [[ $action = "apply" ]] ; then
    fi
 
    #check if it is a CA certificate
-   /bin/imacli en_US validate CACert /tmp/userfiles/$CANAME
+   /bin/imacli en_US validate CACert ${USERFILESDIR}/$CANAME
    error=$?
    if [[ $error -lt 1 ]] ; then
        exit 17
@@ -123,19 +124,19 @@ if [[ $action = "apply" ]] ; then
        exit 12
    fi
 
-   rm -rf "/tmp/userfiles/$CANAME"
+   rm -rf "${USERFILESDIR}/$CANAME"
    exit 0
  fi
 
  if [[ $type = "LDAP" ]] ; then
    CERTNAME=$4
 
-   if [[ ! -f "/tmp/userfiles/$CERTNAME" ]] ; then
+   if [[ ! -f "${USERFILESDIR}/$CERTNAME" ]] ; then
      #echo "Cannot find $CERTNAME."
      exit 2
    fi
 
-   #CERTSUFFIX=$(echo "/tmp/userfiles/$CERTNAME" | /usr/bin/awk -F'.' '{print $NF}')
+   #CERTSUFFIX=$(echo "${USERFILESDIR}/$CERTNAME" | /usr/bin/awk -F'.' '{print $NF}')
    #if [ `echo $CERTSUFFIX | /usr/bin/tr [:upper:] [:lower:]` !=  `echo $PEM | /usr/bin/tr [:upper:] [:lower:]` ] ; then
    #    exit 15;
    #fi
@@ -155,25 +156,25 @@ if [[ $action = "apply" ]] ; then
    fi
 
    #check if it is a CA certificate
-   /bin/imacli en_US validate CACert "/tmp/userfiles/$CERTNAME"
+   /bin/imacli en_US validate CACert "${USERFILESDIR}/$CERTNAME"
    error=$?
    if [[ $error -lt 1 ]] ; then
        exit 17
    fi
 
-   /usr/bin/openssl x509 -in "/tmp/userfiles/$CERTNAME" -text -noout > /dev/null 2>&1
+   /usr/bin/openssl x509 -in "${USERFILESDIR}/$CERTNAME" -text -noout > /dev/null 2>&1
    error=$?
    if [[ $error -ne 0 ]] ; then
        exit 14
    fi
 
-   /bin/cp "/tmp/userfiles/$CERTNAME" ${IMA_SVR_INSTALL_PATH}/certificates/LDAP/ldap.pem > /dev/null 2>&1
+   /bin/cp "${USERFILESDIR}/$CERTNAME" ${IMA_SVR_INSTALL_PATH}/certificates/LDAP/ldap.pem > /dev/null 2>&1
    error=$?
    if [[ $error -ne 0 ]] ; then
        #echo "$CERTNAME can not be stored in the keystore."
        exit 5
    fi
-   rm -rf "/tmp/userfiles/$CERTNAME"
+   rm -rf "${USERFILESDIR}/$CERTNAME"
 
    exit 0
  fi
@@ -196,11 +197,11 @@ if [[ $action = "apply" ]] ; then
 
    #echo "keypwd=$KEYPWD"
    #echo "certpwd=$CERTPWD"
-   if [[ ! -f "/tmp/userfiles/$CERTNAME" ]] ; then
+   if [[ ! -f "${USERFILESDIR}/$CERTNAME" ]] ; then
      #echo "Cannot find $CERTNAME."
      exit 2
    fi
-   if [[ ! -f "/tmp/userfiles/$KEYNAME" ]] ; then
+   if [[ ! -f "${USERFILESDIR}/$KEYNAME" ]] ; then
       #echo "Cannot find $KEYNAME."
       exit 3
    fi
@@ -210,19 +211,19 @@ if [[ $action = "apply" ]] ; then
        #echo "Key and Cert are in the same file"
    fi
 
-   KEYSUFFIX=$(echo "/tmp/userfiles/$KEYNAME" | /usr/bin/awk -F'.' '{print $NF}')
+   KEYSUFFIX=$(echo "${USERFILESDIR}/$KEYNAME" | /usr/bin/awk -F'.' '{print $NF}')
    if [ `echo $KEYSUFFIX | /usr/bin/tr [:upper:] [:lower:]` =  `echo $PKCS12 | /usr/bin/tr [:upper:] [:lower:]` ] ||
       [ `echo $KEYSUFFIX | /usr/bin/tr [:upper:] [:lower:]` =  `echo $PFX | /usr/bin/tr [:upper:] [:lower:]` ] ; then
        exit 16
    fi
 
-   CERTSUFFIX=$(echo "/tmp/userfiles/$CERTNAME" | /usr/bin/awk -F'.' '{print $NF}')
+   CERTSUFFIX=$(echo "${USERFILESDIR}/$CERTNAME" | /usr/bin/awk -F'.' '{print $NF}')
    if [ `echo $CERTSUFFIX | /usr/bin/tr [:upper:] [:lower:]` =  `echo $PKCS12 | /usr/bin/tr [:upper:] [:lower:]` ] ||
       [ `echo $CERTSUFFIX | /usr/bin/tr [:upper:] [:lower:]` =  `echo $PFX | /usr/bin/tr [:upper:] [:lower:]` ] ; then
        exit 16
    fi
 
-   /usr/bin/openssl x509 -in "/tmp/userfiles/$CERTNAME" -text -noout > /dev/null 2>&1
+   /usr/bin/openssl x509 -in "${USERFILESDIR}/$CERTNAME" -text -noout > /dev/null 2>&1
    error=$?
    if [[ $error -ne 0 ]] ; then
        exit 14
@@ -232,49 +233,49 @@ if [[ $action = "apply" ]] ; then
        if [ `echo $KEYSUFFIX | /usr/bin/tr [:upper:] [:lower:]` !=  `echo $PKCS12 | /usr/bin/tr [:upper:] [:lower:]` ] &&
           [ `echo $KEYSUFFIX | /usr/bin/tr [:upper:] [:lower:]` !=  `echo $PFX | /usr/bin/tr [:upper:] [:lower:]` ] ; then
           if [[ $isKeyCertSame != "true" ]] ; then
-               /usr/bin/openssl rsa -in "/tmp/userfiles/$KEYNAME" -out "/tmp/userfiles/$KEYNAME" -passin pass:"$KEYPWD" >/dev/null 2>&1
+               /usr/bin/openssl rsa -in "${USERFILESDIR}/$KEYNAME" -out "${USERFILESDIR}/$KEYNAME" -passin pass:"$KEYPWD" >/dev/null 2>&1
                error=$?
                if [[ $error -ne 0 ]] ; then
                    exit 11
                fi
            else
-              /usr/bin/openssl rsa -in "/tmp/userfiles/$KEYNAME" -out "/tmp/userfiles/$KEYNAME.keypart" -passin pass:"$KEYPWD" >/dev/null 2>&1
+              /usr/bin/openssl rsa -in "${USERFILESDIR}/$KEYNAME" -out "${USERFILESDIR}/$KEYNAME.keypart" -passin pass:"$KEYPWD" >/dev/null 2>&1
               error=$?
               if [[ $error -ne 0 ]] ; then
-                  rm -rf "/tmp/userfiles/$KEYNAME.keypart" > /dev/null 2>&1
+                  rm -rf "${USERFILESDIR}/$KEYNAME.keypart" > /dev/null 2>&1
                   exit 11
               fi
-              /usr/bin/openssl x509 -in "/tmp/userfiles/$CERTNAME" -text -out "/tmp/userfiles/$CERTNAME" > /dev/null 2>&1
+              /usr/bin/openssl x509 -in "${USERFILESDIR}/$CERTNAME" -text -out "${USERFILESDIR}/$CERTNAME" > /dev/null 2>&1
               error=$?
               if [[ $error -ne 0 ]] ; then
-                  rm -rf "/tmp/userfiles/$KEYNAME.keypart" > /dev/null 2>&1
+                  rm -rf "${USERFILESDIR}/$KEYNAME.keypart" > /dev/null 2>&1
                   exit 14
               fi
-              cat "/tmp/userfiles/$KEYNAME.keypart" >> "/tmp/userfiles/$CERTNAME"
-              rm -rf "/tmp/userfiles/$KEYNAME.keypart" > /dev/null 2>&1
+              cat "${USERFILESDIR}/$KEYNAME.keypart" >> "${USERFILESDIR}/$CERTNAME"
+              rm -rf "${USERFILESDIR}/$KEYNAME.keypart" > /dev/null 2>&1
            fi
        else
-           /usr/bin/openssl pkcs12 -in "/tmp/userfiles/$KEYNAME" -nodes -out "/tmp/userfiles/$KEYNAME.parsed.pem" -passin pass:"$KEYPWD" -passout pass:  >/dev/null 2>&1
+           /usr/bin/openssl pkcs12 -in "${USERFILESDIR}/$KEYNAME" -nodes -out "${USERFILESDIR}/$KEYNAME.parsed.pem" -passin pass:"$KEYPWD" -passout pass:  >/dev/null 2>&1
            error=$?
            if [[ $error -ne 0 ]] ; then
-               rm -rf "/tmp/userfiles/$KEYNAME.parsed.pem"  >/dev/null 2>&1
+               rm -rf "${USERFILESDIR}/$KEYNAME.parsed.pem"  >/dev/null 2>&1
                exit 11
            fi
-           /usr/bin/openssl pkcs12 -export -in "/tmp/userfiles/$KEYNAME.parsed.pem" -out "/tmp/userfiles/$KEYNAME" -passout pass:  >/dev/null 2>&1
+           /usr/bin/openssl pkcs12 -export -in "${USERFILESDIR}/$KEYNAME.parsed.pem" -out "${USERFILESDIR}/$KEYNAME" -passout pass:  >/dev/null 2>&1
            error=$?
            if [[ $error -ne 0 ]] ; then
-               rm -rf "/tmp/userfiles/$KEYNAME.parsed.pem"  >/dev/null 2>&1
+               rm -rf "${USERFILESDIR}/$KEYNAME.parsed.pem"  >/dev/null 2>&1
                exit 11
            fi
        fi
-       CHECK=$(/usr/bin/openssl rsa -in "/tmp/userfiles/$KEYNAME" -passin pass: -check -noout)
+       CHECK=$(/usr/bin/openssl rsa -in "${USERFILESDIR}/$KEYNAME" -passin pass: -check -noout)
        if [[ $CHECK != "RSA key ok" ]] ; then
            #echo "$KEYNAME is either expired or bad."
-           rm -rf "/tmp/userfiles/$KEYNAME.parsed.pem"  >/dev/null 2>&1
+           rm -rf "${USERFILESDIR}/$KEYNAME.parsed.pem"  >/dev/null 2>&1
            exit 8
        fi
    else
-       CHECK=$(/usr/bin/openssl rsa -in "/tmp/userfiles/$KEYNAME" -passin pass: -check -noout)
+       CHECK=$(/usr/bin/openssl rsa -in "${USERFILESDIR}/$KEYNAME" -passin pass: -check -noout)
        if [[ $CHECK != "RSA key ok" ]] ; then
            #echo "$KEYNAME has a password. need keypwd=value."
            exit 9
@@ -285,47 +286,47 @@ if [[ $action = "apply" ]] ; then
        if [ `echo $CERTSUFFIX | /usr/bin/tr [:upper:] [:lower:]` !=  `echo $PKCS12 | /usr/bin/tr [:upper:] [:lower:]` ] &&
           [ `echo $CERTSUFFIX | /usr/bin/tr [:upper:] [:lower:]` !=  `echo $PFX | /usr/bin/tr [:upper:] [:lower:]` ] ; then
           if [[ $isKeyCertSame != "true" ]] ; then
-              /usr/bin/openssl rsa -in "/tmp/userfiles/$CERTNAME" -out "/tmp/userfiles/$CERTNAME" -passin pass:"$CERTPWD" >/dev/null 2>&1
+              /usr/bin/openssl rsa -in "${USERFILESDIR}/$CERTNAME" -out "${USERFILESDIR}/$CERTNAME" -passin pass:"$CERTPWD" >/dev/null 2>&1
               error=$?
               if [[ $error -ne 0 ]] ; then
                   #echo "CERTCHECK=$CERTCHECK failed."
                   exit 10
               fi
           else
-              /usr/bin/openssl rsa -in "/tmp/userfiles/$CERTNAME" -out "/tmp/userfiles/$CERTNAME.keypart" -passin pass:"$CERTPWD" >/dev/null 2>&1
+              /usr/bin/openssl rsa -in "${USERFILESDIR}/$CERTNAME" -out "${USERFILESDIR}/$CERTNAME.keypart" -passin pass:"$CERTPWD" >/dev/null 2>&1
               error=$?
               if [[ $error -ne 0 ]] ; then
-                  rm -rf "/tmp/userfiles/$CERTNAME.keypart" > /dev/null 2>&1
+                  rm -rf "${USERFILESDIR}/$CERTNAME.keypart" > /dev/null 2>&1
                   exit 11
               fi
-              /usr/bin/openssl x509 -in "/tmp/userfiles/$CERTNAME" -text -out "/tmp/userfiles/$CERTNAME" > /dev/null 2>&1
+              /usr/bin/openssl x509 -in "${USERFILESDIR}/$CERTNAME" -text -out "${USERFILESDIR}/$CERTNAME" > /dev/null 2>&1
               error=$?
               if [[ $error -ne 0 ]] ; then
-                  rm -rf "/tmp/userfiles/$CERTNAME.keypart" > /dev/null 2>&1
+                  rm -rf "${USERFILESDIR}/$CERTNAME.keypart" > /dev/null 2>&1
                   exit 14
               fi
-              cat "/tmp/userfiles/$CERTNAME.keypart" >> "/tmp/userfiles/$CERTNAME"
-              rm -rf "/tmp/userfiles/$CERTNAME.keypart" > /dev/null 2>&1
+              cat "${USERFILESDIR}/$CERTNAME.keypart" >> "${USERFILESDIR}/$CERTNAME"
+              rm -rf "${USERFILESDIR}/$CERTNAME.keypart" > /dev/null 2>&1
           fi
        else
-           /usr/bin/openssl pkcs12 -in "/tmp/userfiles/$CERTNAME" -nodes -out "/tmp/userfiles/$CERTNAME.parsed.cert" -passin pass:"$CERTPWD" -passout pass:  >/dev/null 2>&1
+           /usr/bin/openssl pkcs12 -in "${USERFILESDIR}/$CERTNAME" -nodes -out "${USERFILESDIR}/$CERTNAME.parsed.cert" -passin pass:"$CERTPWD" -passout pass:  >/dev/null 2>&1
            error=$?
            if [[ $error -ne 0 ]] ; then
                exit 10
            fi
-           /usr/bin/openssl pkcs12 -export -in "/tmp/userfiles/$CERTNAME.parsed.cert" -out "/tmp/userfiles/$CERTNAME" -passout pass:  >/dev/null 2>&1
+           /usr/bin/openssl pkcs12 -export -in "${USERFILESDIR}/$CERTNAME.parsed.cert" -out "${USERFILESDIR}/$CERTNAME" -passout pass:  >/dev/null 2>&1
            error=$?
            if [[ $error -ne 0 ]] ; then
                exit 10
            fi
        fi
-#       CHECK=$(/usr/bin/openssl rsa -in "/tmp/userfiles/$CERTNAME" -passin pass: -check -noout)
+#       CHECK=$(/usr/bin/openssl rsa -in "${USERFILESDIR}/$CERTNAME" -passin pass: -check -noout)
 #       if [[ $CHECK != "RSA key ok" ]] ; then
 #           #echo "$CERTNAME is either expired or bad."
 #           exit 10
 #       fi
 #   else
-#      CHECK=$(/usr/bin/openssl rsa -in "/tmp/userfiles/$CERTNAME" -passin pass: -check -noout)
+#      CHECK=$(/usr/bin/openssl rsa -in "${USERFILESDIR}/$CERTNAME" -passin pass: -check -noout)
 #       if [[ $CHECK != "RSA key ok" ]] ; then
 #           #echo "$CERTNAME has a password. need certpwd=value."
 #           exit 13
@@ -334,7 +335,7 @@ if [[ $action = "apply" ]] ; then
    fi
 
    #check if key and cert are match
-   ${IMA_SVR_INSTALL_PATH}/bin/matchkeycert.sh "/tmp/userfiles/$CERTNAME" "/tmp/userfiles/$KEYNAME"
+   ${IMA_SVR_INSTALL_PATH}/bin/matchkeycert.sh "${USERFILESDIR}/$CERTNAME" "${USERFILESDIR}/$KEYNAME"
    error=$?
    if [[ $error -ne 0 ]] ; then
        #echo "$CERTNAME and $KEYNAME do not match."
@@ -348,22 +349,22 @@ if [[ $action = "apply" ]] ; then
        exit 4;
    fi
 
-   /bin/cp "/tmp/userfiles/$CERTNAME" ${KEYSTORE}/. > /dev/null 2>&1
+   /bin/cp "${USERFILESDIR}/$CERTNAME" ${KEYSTORE}/. > /dev/null 2>&1
    error=$?
    if [[ $error -ne 0 ]] ; then
       #echo "$CERTNAME can not be stored in the keystore."
       exit 5
    fi
-   rm -rf "/tmp/userfiles/$CERTNAME"
+   rm -rf "${USERFILESDIR}/$CERTNAME"
 
    if [[ $isKeyCertSame != "true" ]] ; then
-      /bin/cp "/tmp/userfiles/$KEYNAME" ${KEYSTORE}/. > /dev/null 2>&1
+      /bin/cp "${USERFILESDIR}/$KEYNAME" ${KEYSTORE}/. > /dev/null 2>&1
       error=$?
       if [[ $error -ne 0 ]] ; then
          #echo "$KEYNAME can not be stored in the keystore."
          exit 6
       fi
-      rm -rf "/tmp/userfiles/$KEYNAME"
+      rm -rf "${USERFILESDIR}/$KEYNAME"
    fi
    exit 0
  fi
@@ -386,7 +387,7 @@ if [[ $action = "remove" ]] ; then
 
    if [ "${CANAME}" != "" ]
    then
-       cd /tmp/userfiles > /dev/null 2>&1
+       cd ${USERFILESDIR} > /dev/null 2>&1
        rm -f "$CANAME" > /dev/null 2>&1
    fi
    exit 0

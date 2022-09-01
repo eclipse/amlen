@@ -23,8 +23,6 @@ extern "C" {
 
 #include <ismutil.h>
 
-#define USERFILES_DIR   "/tmp/userfiles/"
-
 XAPI int ism_config_deleteCRLProfile(const char * crlProfileName);
 XAPI int ism_config_purgeSecurityCRLProfile(const char * secProfileName);
 XAPI int ism_config_updateSecurityCRLProfile(const char * securityProfile, const char * crlProfile);

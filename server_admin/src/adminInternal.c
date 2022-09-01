@@ -990,17 +990,16 @@ int ism_admin_processPSKNotification(ism_json_parse_t *json, concat_alloc_t *out
  ******************************************************************************
  */
 
-#define USER_FILE_DIR "/tmp/userfiles"
 #define USER_MAX_FILE_PATH 1024
 
-/* Delete a file from /tmp/userfiles dir */
+/* Delete a file from userfiles dir */
 static void ism_admin_internal_FileDelete(char *fileName, concat_alloc_t *output_buffer)
 {
     int rc = ISMRC_OK;
     char outbuf[2048];
 
     char filePath[USER_MAX_FILE_PATH];
-    int fileNameLenLimit = USER_MAX_FILE_PATH - strlen(USER_FILE_DIR) - 1;
+    int fileNameLenLimit = USER_MAX_FILE_PATH - strlen(USERFILES_DIR) - 1;
 
     if ( !fileName || *fileName == '\0' || strlen(fileName) >= fileNameLenLimit )
     {
@@ -1018,7 +1017,7 @@ static void ism_admin_internal_FileDelete(char *fileName, concat_alloc_t *output
         goto FUNC_END;
     }
 
-    snprintf(filePath, USER_MAX_FILE_PATH, "%s/%s", USER_FILE_DIR, fileName);
+    snprintf(filePath, USER_MAX_FILE_PATH, "%s/%s", USERFILES_DIR, fileName);
 
     char linkPath[USER_MAX_FILE_PATH];
 
@@ -1058,16 +1057,16 @@ FUNC_END:
     return;
 }
 
-/* List files in /tmp/userfiles dir */
+/* List files in userfiles dir */
 static void ism_admin_internal_FileList(concat_alloc_t *output_buffer)
 {
     int rc = ISMRC_OK;
     char outbuf[2048];
 
-    DIR *dp = opendir(USER_FILE_DIR);
+    DIR *dp = opendir(USERFILES_DIR);
     if (dp == 0)
     {
-        TRACE(3, "No such file or directory: %s\n", USER_FILE_DIR);
+        TRACE(3, "No such file or directory: %s\n", USERFILES_DIR);
         rc = ISMRC_NotFound;
         sprintf(outbuf, "{ \"RC\":\"%d\", \"ErrorString\":\"Unable to read file list, No such file or directory\" }", rc);
         goto FUNC_END;
@@ -1079,7 +1078,7 @@ static void ism_admin_internal_FileList(concat_alloc_t *output_buffer)
     {
         struct stat sb;
         char buff[USER_MAX_FILE_PATH];
-        snprintf(buff, sizeof(buff), "%s/%s", USER_FILE_DIR, ep->d_name);
+        snprintf(buff, sizeof(buff), "%s/%s", USERFILES_DIR, ep->d_name);
         if (stat(buff, &sb) < 0 || !S_ISREG(sb.st_mode))
             continue;
 
@@ -1095,7 +1094,7 @@ static void ism_admin_internal_FileList(concat_alloc_t *output_buffer)
     closedir(dp);
     if ( found == 0 ) {
         char buf[512];
-        sprintf(buf, "/tmp/userfiles directory is empty.\n");
+        sprintf(buf, USERFILES_DIR " directory is empty.\n");
         ism_common_allocBufferCopyLen(output_buffer, buf, strlen(buf));
     }
 

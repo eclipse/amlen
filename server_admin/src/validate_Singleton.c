@@ -82,7 +82,7 @@ static int validatePluginJvmParam(int maxHeapSize, const char * vmArgs) {
     if(err == 255) {
         char * buf;
         int length;
-        sprintf(logFile, "/tmp/userfiles/validatePluginVM.%d.log",pid);
+        sprintf(logFile, USERFILES_DIR "/validatePluginVM.%d.log",pid);
         if(ism_common_readFile(logFile, &buf, &length) == ISMRC_OK) {
             ism_common_setErrorData(ISMRC_PluginJvmError, "%s", buf);
             ism_common_free(ism_memory_admin_misc,buf);
@@ -426,7 +426,7 @@ XAPI int32_t ism_config_validate_Singleton(json_t *currPostObj, json_t *objval, 
              memset(&pskTmpFile, 0, sizeof(pskTmpFile));
              sprintf(pskTmpFile,"%s%s", USERFILES_DIR, pskFile);
 
-             /* Validate PSK file, File should have been uploaded to /tmp/userfiles directory already. */
+             /* Validate PSK file, File should have been uploaded to userfiles directory already. */
              if (!ism_config_isFileExist(pskTmpFile)) {
             	 TRACE(4, "The PreSharedKey File %s needs to be uploaded first", pskFile);
             	 rc = 6169;

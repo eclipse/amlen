@@ -33,7 +33,7 @@ echo "" >> ${LOGFILE}
 echo "Backup file name: ${FILENAME}" >> ${LOGFILE}
 echo "" >> ${LOGFILE}
 
-TMPDIR=/tmp/userfiles
+TMPDIR=${IMA_SVR_DATA_PATH}/userfiles
 NOW=$(date +"%H%M%S-%m%d%Y")
 RSTMPDIR="$TMPDIR/$FILENAME.tmpdir"
 cd $TMPDIR
@@ -162,7 +162,7 @@ else
     rc=$?
     if [[ $rc == 0 ]]
     then
-        touch /tmp/userfiles/.v2Config
+        touch ${IMA_SVR_DATA_PATH}/userfiles/.v2Config
     fi
 fi
 

@@ -185,7 +185,7 @@ NEXT_KEY:
         goto VALIDATION_END;
     }
 
-    /* if url given, download via curl request to the /tmp/userfiles directory but only on creates and updates to the url path	*/
+    /* if url given, download via curl request to the userfiles directory but only on creates and updates to the url path	*/
     if (isSrcUrl == 1 && ((action == 0) || (crlSrcChanged == 1 && overwrite == 1 ))) {
        	char * filePath = NULL;
        	int filePathLen;

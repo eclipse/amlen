@@ -74,7 +74,9 @@ public class SecurityProfilesResource extends AbstractIsmConfigResource {
 
     //Relative to com.ibm.ima.serverInstallDirectory (only works when installed alongsidethe server 
     private final static String TRUSTSTORE_DIR = "/certificates/truststore/";
-    private final static String TMP_DIR = "/tmp/userfiles";
+    
+    //Relative to com.ibm.ima.serverDataDirectory (only works when installed alongsidethe server 
+    private final static String USERFILES_DIR = "/userfiles";
 
     public final static int SECURITY_PROFILE_RESOURCE_SUCCESS = 0;
     public final static int SECURITY_PROFILE_RESOURCE_FAILED = 1;
@@ -415,9 +417,9 @@ public class SecurityProfilesResource extends AbstractIsmConfigResource {
             // make sure the profile exists
             List<SecurityProfile> profiles = _getSecurityProfile(serverInstance, securityProfile);
 
-            // handle the file upload to temp
+            // handle the file upload to userfiles dir
             ArrayList<String> files = new ArrayList<String>();
-            result = uploader.uploadFiles(uriInfo, mpMessage, getClientLocale(), TMP_DIR, files);
+            result = uploader.uploadFiles(uriInfo, mpMessage, getClientLocale(), ISMWebUIProperties.instance().getServerDataDirectory()+USERFILES_DIR, files);
 
             // verify and copy to the truststore
             StringBuilder errors = new StringBuilder();
