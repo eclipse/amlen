@@ -99,17 +99,23 @@ spec:
   
                               scp -o BatchMode=yes -r amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
 
-                              set +x
+                              cd monitor
+                              cp -r ../build/scripts ./
+                              tar -czf amlen-monitor.tar.gz Dockerfile requirements.txt scripts
+                              scp -o BatchMode=yes -r amlen-monitor.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
 
                               uid1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/EclipseAmlenServer-centos7-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" | grep -oP '(?<=\"id\": \")[^\"]*\')
+                              sleep 60
   
                               uid2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" | grep -oP '(?<=\"id\": \")[^\"]*\') 
+                              sleep 60
   
                               uid3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" | grep -oP '(?<=\"id\": \")[^\"]*\')
+                              sleep 60
 
-                              set -x
-                              
-                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle"
+                              uid4=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-monitor/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/amlen-monitor.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" | grep -oP '(?<=\"id\": \")[^\"]*\')
+
+                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" "$uid4 amlen-monitor"
                               do
                                 set -- $uid
                                 for i in {1..30}
