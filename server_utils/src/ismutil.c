@@ -1782,7 +1782,7 @@ XAPI int  ism_common_stack_trace(int tmp)
    char line[1024];
    FILE *fp;
    pthread_mutex_lock(&g_utillock);
-   if ( (fp = fopen("/tmp/gdb_cmds","we")) )
+   if ( (fp = fopen(IMA_SVR_DATA_PATH "/diag/gdb_cmds","we")) )
    {
      char nm[1024];
      if ( tmp )
@@ -1803,7 +1803,7 @@ XAPI int  ism_common_stack_trace(int tmp)
      fprintf(fp,"thread apply all backtrace\n");
      fprintf(fp,"quit");
      fclose(fp);
-     snprintf(line,sizeof(line),"gdb -batch -x /tmp/gdb_cmds -p %u",getpid());
+     snprintf(line,sizeof(line),"gdb -batch -x " IMA_SVR_DATA_PATH "/diag/gdb_cmds -p %u",getpid());
      rc = system(line);
      if ( rc != -1 ) rc = WEXITSTATUS(rc);
      TRACE(1,"After executing %s with output to %s: rc=%d\n",line,nm,rc);
@@ -1818,7 +1818,7 @@ XAPI int  ism_common_stack_trace(int tmp)
    }
    else
    {
-     TRACE(1,"Faile to open /tmp/gdb_cmds ; errno = %d\n",errno);
+     TRACE(1,"Failed to open " IMA_SVR_DATA_PATH "/diag/gdb_cmds ; errno = %d\n",errno);
      rc = -1 ;
    }
    pthread_mutex_unlock(&g_utillock);
@@ -1862,7 +1862,7 @@ XAPI int ism_common_check_health(void)
   {
     if ( healthAlert < traceLoops )
     {
-       ism_common_stack_trace(1);
+       ism_common_stack_trace(0);
     }
     else
     if ( healthAlert < traceLoops + stopLoops )
