@@ -64,6 +64,7 @@ extern int ism_security_context_isAdminListener(ismSecurity_t *sContext);
 extern void ism_security_context_setSuperUser(ismSecurity_t *sContext);
 extern int ism_security_getSecurityContextAllowNullPassword(ismSecurity_t *sContext);
 extern void ism_security_setLDAPSConfig(ismLDAPConfig_t * ldapConfig);
+extern bool ism_config_confirmAdminUserPassword(char * password);
 
 
 extern ism_trclevel_t * ism_defaultTrace;
@@ -195,7 +196,6 @@ static int ism_security_authenticateAdminUser(char *username, char *password) {
 
     /* check if username is valid AdminUserName */
     char *adminUserName = ism_config_getAdminUserName();
-    char *adminUserPasswd = ism_config_getAdminUserPasswordHash();
 
     if ( username && adminUserName && strcmp(username, adminUserName) == 0 ) {
         if ( password && ism_config_confirmAdminUserPassword(password) ) {
