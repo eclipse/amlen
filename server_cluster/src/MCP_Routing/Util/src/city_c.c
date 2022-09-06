@@ -507,27 +507,29 @@ uint128 CityHash128(const char *s, size_t len) {
 //   len -= iters * 240;
 //   do {
 // #undef CHUNK
-// #define CHUNK(r)                                \
-//     PERMUTE64(x, z, y);                          \
-//     b += Fetch64(s);                            \
-//     c += Fetch64(s + 8);                        \
-//     d += Fetch64(s + 16);                       \
-//     e += Fetch64(s + 24);                       \
-//     f += Fetch64(s + 32);                       \
-//     a += b;                                     \
-//     h += f;                                     \
-//     b += c;                                     \
-//     f += d;                                     \
-//     g += e;                                     \
-//     e += z;                                     \
-//     g += x;                                     \
-//     z = _mm_crc32_u64(z, b + g);                \
-//     y = _mm_crc32_u64(y, e + h);                \
-//     x = _mm_crc32_u64(x, f + a);                \
-//     e = Rotate(e, r);                           \
-//     c += e;                                     \
-//     s += 40
-// 
+
+/* #define CHUNK(r)                                \
+     PERMUTE64(x, z, y);                         \
+     b += Fetch64(s);                            \
+     c += Fetch64(s + 8);                        \
+     d += Fetch64(s + 16);                       \
+     e += Fetch64(s + 24);                       \
+     f += Fetch64(s + 32);                       \
+     a += b;                                     \
+     h += f;                                     \
+     b += c;                                     \
+     f += d;                                     \
+     g += e;                                     \
+     e += z;                                     \
+     g += x;                                     \
+     z = _mm_crc32_u64(z, b + g);                \
+     y = _mm_crc32_u64(y, e + h);                \
+     x = _mm_crc32_u64(x, f + a);                \
+     e = Rotate(e, r);                           \
+     c += e;                                     \
+     s += 40
+*/
+ 
 //     CHUNK(0) ; PERMUTE64(a, h, c);
 //     CHUNK(33); PERMUTE64(a, h, f);
 //     CHUNK(0) ; PERMUTE64(b, h, f);
