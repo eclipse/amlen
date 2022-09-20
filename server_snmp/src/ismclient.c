@@ -650,8 +650,8 @@ XAPI char * ismcli_ISMClient(char *user, char *protocol, char *command, int proc
         result = ism_common_strdup(ISM_MEM_PROBE(ism_memory_snmp_misc,1000),rbuf);
     } else {
     	char * res_logBuffer=result;
+    	char maskBuffer[2048];
     	if(strstr(result, "BindPassword")!=NULL){
-	    	char maskBuffer[2048];
 	    	res_logBuffer=maskBuffer;
 	    	ism_cli_maskJSONField(result, "BindPassword", res_logBuffer);
 	    }
