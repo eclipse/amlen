@@ -860,9 +860,11 @@ function bld_imaproxy_rpm {
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/lib/libimaproxy.so ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/lib/libismutil.so ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
 
-    cp --no-preserve=ownership ${IMA_ICU_LIBDIR}/libicudata.so.60.3 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/libicudata.so.60
-    cp --no-preserve=ownership ${IMA_ICU_LIBDIR}/libicui18n.so.60.3 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/libicui18n.so.60
-    cp --no-preserve=ownership ${IMA_ICU_LIBDIR}/libicuuc.so.60.3 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/libicuuc.so.60
+    if [ "$SHIP_ICU" == "yes" ] ; then
+        cp --no-preserve=ownership ${IMA_ICU_LIBDIR}/libicudata.so.60.3 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/libicudata.so.60
+        cp --no-preserve=ownership ${IMA_ICU_LIBDIR}/libicui18n.so.60.3 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/libicui18n.so.60
+        cp --no-preserve=ownership ${IMA_ICU_LIBDIR}/libicuuc.so.60.3 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/libicuuc.so.60
+    fi
 
     cp --no-preserve=ownership ${BUILD_ROOT}/server_proxy/proxy.cfg ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/config/imaproxy.cfg
     cp --no-preserve=ownership ${BUILD_ROOT}/server_proxy/proxy.cfg ${PROXY_BASE_DIR}/${IMA_PROXY_DATA_PATH}/config/imaproxy.cfg
@@ -928,7 +930,7 @@ function bld_imaproxy_rpm {
 }
 function bld_all_rpms {
     bld_imabridge_rpm
-    bld_imaserverplus_rpm
+    bld_imaserverplain_rpm
     bld_imagui_rpm
     bld_imaproxy_rpm
 }
