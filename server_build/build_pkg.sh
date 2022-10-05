@@ -330,6 +330,7 @@ function prep_server {
     # Copy required binaries from server_ship
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imaserver $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/bin/.
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/icu_gettext $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/bin/.
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imahasher $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/bin/.
 
     # Copy default certificate for AdminEndpoint
     cp --no-preserve=ownership ${BUILD_ROOT}/server_main/keystore/MessageSightCert.pem $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/certificates/keystore/AdminDefaultCert.pem

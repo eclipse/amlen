@@ -67,6 +67,9 @@ class Server:
 
         self.username = getUsername()
         self.password = getPassword()
+
+    def updatePassword(self, password):
+        self.password = password
         
     def restart(self, cleanStore=False, maintenance=None):
         DELAY = 5
@@ -332,6 +335,26 @@ class Server:
             raise Exception(error_text)
         else:
             self.logger.info("Admin endpoint has been configured")
+
+    def reconfigureAdminEndpoint(self, newpassword):
+        self.logger.info("Re-Configuring admin endpoint")
+        
+        adminSecProfileInput = {
+            "AdminUserID": self.username,
+            "AdminUserPassword": newpassword
+        }
+        
+        status_code, response_text = self.postConfigurationRequest(adminSecProfileInput, hide=True)
+        if status_code != 200:
+            error_text = "Unexpected response code when reconfiguring admin credentials for MessageGateway server %s: %s" % (self.serverName, status_code)
+            self.logger.error(error_text) 
+            self.logger.error(response_text)
+            return False
+
+        self.logger.info("Password has been updated")
+
+        self.pssword = newpassword
+        return True
 
     def uploadFile(self, filename):
         name = os.path.basename(filename)

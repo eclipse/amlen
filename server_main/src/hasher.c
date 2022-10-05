@@ -27,20 +27,27 @@
 #include <sys/time.h>
 
 extern bool ism_config_confirmAdminUserPassword2(char * password,char * encoding);
+extern char * ism_security_createAdminUserPasswordHash(const char * password);
 
 void printHelp(void) {
   printf("Syntax:\n\n");
-  printf("    hasher -p <password> -e <encoding>\n");
+  printf("    hasher -p <password> -e <encoding> [-s]\n");
   printf("\nCheck if the password matches the encoding\n");
   printf("\nSupports original messagesight encoding and the new SHA512 hash format\n");
   printf("\nOriginal messagesight encoding is a 32 character alphanumeric encryption\n");
   printf("\nnew SHA512 hash format is _<version>:<salt>:<hash>\n");
+  printf("\nif running silent (-s) then nothing is printed rc=0 is match, 1 is mismatch, 255 is error\n");
+  printf("    hasher -c <newpassword> [-s]\n");
+  printf("\nCreate a new encoding for the given password\n");
+  printf("\nif running silent (-s) then only the new encoding will be printed\n");
 }
 
 int main(int argc, char** argv)
 {
   char * password = NULL;
   char * encoding = NULL;
+  char * newpassword = NULL;
+  bool silent = false;
 
   int i=0;
 
@@ -57,6 +64,12 @@ int main(int argc, char** argv)
         return 255;
       }
 
+      if (arg == 's')
+      {
+        silent = true;
+        continue;
+      }
+
       // Validate there is a value associated with the argument
       if (i == argc - 1 || argv[i+1][0] == '-')
       {
@@ -69,6 +82,7 @@ int main(int argc, char** argv)
       {
         case 'p': password = argv[++i]; break;
         case 'e': encoding = argv[++i]; break;
+        case 'c': newpassword = argv[++i]; break;
         default:
           printf("Unrecognised argument: %s\n", argv[i]);
           printHelp();
@@ -83,22 +97,37 @@ int main(int argc, char** argv)
     }
   }
 
-  if ( password == NULL || encoding == NULL ) 
-  {
-    printHelp();
-    return 255;
+  if ( newpassword == NULL ) {
+    if ( password == NULL || encoding == NULL ) 
+    {
+      printHelp();
+      return 255;
+    }
+
+    if (!silent) {printf("checking password %s against encoding %s\n",password,encoding);}
+
+    if ( ism_config_confirmAdminUserPassword2(password,encoding) ) 
+    {
+      if (!silent) {printf("Password matches\n");}
+      return 0;
+    } 
+    else 
+    {
+      if (!silent) {printf("Password does not match\n");}
+      return 1;
+    } 
   }
+  else {
+    if ( password != NULL || encoding != NULL )
+    {
+      printHelp();
+      return 255;
+    }
 
-  printf("checking password %s against encoding %s\n",password,encoding);
+    if (!silent) {printf("Creating password encoding:\n");}
 
-  if ( ism_config_confirmAdminUserPassword2(password,encoding) ) 
-  {
-    printf("Password matches\n");
+    char * pass = ism_security_createAdminUserPasswordHash(newpassword);
+    printf("%s\n",pass);
     return 0;
-  } 
-  else 
-  {
-    printf("Password does not match\n");
-    return 1;
-  } 
+  }
 }

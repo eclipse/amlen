@@ -4656,21 +4656,26 @@ XAPI bool ism_config_confirmAdminUserPassword2(char * password,char * encoding) 
                 return strcmp(hash,hash2) == 0;
             }
             default: {
-                TRACE(2,"Password encoding version too high.");
+                TRACE(2,"Password encoding version too high.\n");
                 return false;
             }
         }
     } else {
-        TRACE(5,"WARNING: legacy password encoding in use, recomend changing passwords");
+        TRACE(5,"WARNING: legacy password encoding in use, recomend changing AdminUserPassword.\n");
         char * decrypted = ism_config_getAdminUserPassword();
-        return strcmp(decrypted,password) == 0;
+        if (decrypted != NULL) {
+            return strcmp(decrypted,password) == 0;
+        }
     }
     return false;
 }
 
 XAPI bool ism_config_confirmAdminUserPassword(char * password) {
     char * encoding = ism_config_getAdminUserPasswordHash();
-    return ism_config_confirmAdminUserPassword2(password,encoding);
+    if ( ism_config_confirmAdminUserPassword2(password,encoding) ) {
+        return true;
+    }
+    return false;
 }
 
 XAPI int ism_config_updateCfgFile(ism_prop_t *props, int compType) {
