@@ -55,8 +55,6 @@
 		<antcall target="build-tms" />
 		<property name="jsdoc.fails.build" value="false" />
 		<antcall target="build-serverplugin" />
-		<antcall target="build-server_proxy" />
-		<antcall target="build-client_proxy" />
 		<antcall target="build-gui" />
 		<antcall target="build-server_proxy_br" />
 		<ant dir="${workspace}/client_build" target="build_sdk_oss" inheritRefs="false" />
@@ -69,6 +67,25 @@
 		<antcall target="cunit-server" />
 	</target>
 
+	<target name="fvtbuild" depends="build-init">
+		<property name="isFullBuild" value="true"/>
+		<echo>Building ${IMA_PRODUCTNAME_FULL}</echo>
+		<antcall target="build-server" />
+		<antcall target="build-tms" />
+		<property name="jsdoc.fails.build" value="false" />
+		<antcall target="build-serverplugin" />
+		<antcall target="build-server_proxy" />
+		<antcall target="build-client_proxy" />
+		<antcall target="build-gui" />
+		<antcall target="build-server_proxy_br" />
+		<ant dir="${workspace}/client_build" target="build_sdk_oss" inheritRefs="false" />
+		<antcall target="pack-msgs" />
+		<antcall target="build-perf" />
+		<antcall target="check-build" />
+		<antcall target="build-all-rpms" />
+		<antcall target="tmp_copy"/>
+		<antcall target="cunit-server" />
+	</target>
 
 	<!-- full build target - getting everything here working in Amlen build is still work in progress -->
 	<target name="fullbuild" depends="build-init">
@@ -353,8 +370,34 @@
 		<build.activity label="Building RPMS" activityIdProperty="startRPMBuildId" />
 		<!-- load tmp properties -->
 
+		<property name="pkgmode" value="default_rpms" /> 
+		<exec dir="${basedir}" executable="${basedir}/build_pkg.sh" resultproperty="app-retcode" resolveexecutable="true">
+			<arg value="${pkgmode}" />
+			<arg value="${broot}" />
+			<arg value="${workspace}" />
+			<arg value="${ISM_VERSION_ID}" />
+			<arg value="${buildLabel}" />
+		</exec>
+
+		<!-- Run after check-build, so need own error checking -->
+		<condition property="app-errcode">
+			<not>
+				<equals arg1="${app-retcode}" arg2="0" />
+			</not>
+		</condition>
+		<fail message="build-rpms failed with exit code ${app-retcode}">
+			<condition>
+				<isset property="app-errcode" />
+			</condition>
+		</fail>
+	</target>
+
+	<!-- Build RPMS -->
+	<target name="build-all-rpms">
+		<build.activity label="Building RPMS" activityIdProperty="startRPMBuildId" />
+		<!-- load tmp properties -->
+
 		<property name="pkgmode" value="all_rpms" /> 
-		<echo>Setting pkgmode to all_rpms ${pkgmode}</echo>
 		<exec dir="${basedir}" executable="${basedir}/build_pkg.sh" resultproperty="app-retcode" resolveexecutable="true">
 			<arg value="${pkgmode}" />
 			<arg value="${broot}" />
