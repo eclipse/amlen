@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="up00022_" xml:lang="en-us">
+    <title>High Availability Pairing: User Provided TLS Credentials</title>
+    <body>
+    <section>
+        <title>High Availability Pairing</title>
+        <p><ph conref="../TextEntities.dita#TextEntities/ISM"/> 
+        allows two instances of the software to be put into an Active-Passive relationship to enable a fast failover mechanism to provide a Highly 
+        Available system. The connection between the two instances can optionally have TLS enabled. This uses credentials in the binary to 
+        secure the connection for initial pairing. If a pair has been created it is highly recommended to switch to user provided credentials as
+        the default credentials can be read from the open source repository.</p>
+        
+        <p>For details on how to create credentials see <xref href="authenticationtls.dita" scope="local"/>.</p>
+
+        <p>Before creating a High Availability Pair place the certificate, key and optionally the certificate authority on both servers.
+        For <ph conref="../TextEntities.dita#TextEntities/ISM"/> the default location is: <filepath>/var/lib/amlen-server/data/certificates/keystore</filepath>
+        The key must be called <filepath>ha_key.pem</filepath> and must be in pem format. The certificate must be called <filepath>ha_cert.pem</filepath>
+        and must be in pem format. The keystore location can be changed in the server.cfg.</p>
+
+        <p>Certificate credentials can be disabled to allow servers using different credentials to form a pair. This is not recommended as a permanent
+        solution, however can be used as a temporary solution during upgrade scenarios. The primary use-case is during upgrade from a version of
+        <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> that does not support user provided credentials.  This
+        is done by setting RequireCertificates to false in the HighAvailability configuration of the <ph conref="../TextEntities.dita#TextEntities/ISM"/> 
+        Instance. An example of this is:</p>
+
+        <codeblock>
+        curl -m 10 -u "${IMA_USER}" -k -X POST -d 
+                '{ "HighAvailability": 
+                        { "Group": "haPair1",
+                          "EnableHA": true,
+                          "StartupMode": "AutoDetect",
+                          "RemoteDiscoveryNIC": "10.0.1.24",
+                          "LocalReplicationNIC": "10.0.1.25",
+                          "LocalDiscoveryNIC": "10.0.1.26",
+                          "PreferredPrimary": true,
+                          "UseSecuredConnections":true,
+                          "RequireCertificates": false,
+                        }
+                 }' "${IMA_ADMIN}/configuration" 
+        </codeblock>
+
+        <p> If user provided credentials are supplied then certificates are always required and the RequireCertificates setting will be ignored </p>
+    </section>
+    <section>
+        <title>Migrating HA Pairs to New User Provided Credentials</title>
+        <p>This procedure can be used for migrating a High Availability Pair from either the default credentials or from previous user provided credentials.</p>
+
+        <p> For <ph conref="../TextEntities.dita#TextEntities/ISM"/> the default location for the credentials is: 
+        /var/lib/amlen-server/data/certificates/keystore. The key must be called HA_key.pem and must be in pem format. The certificate 
+        must be called HA_cert.pem and must be in pem format. The keystore location can be changed in the <filepath>server.cfg</filepath>.</p>
+
+        <p>Support for pairing between <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> and <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+        requires the latest iFix from <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> 5.0.0.2 only. On 
+        <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> the default location for the key and certificate is:/var/messagesight/data/certificates/keystore</p>
+
+        <p>For details on how to create credentials see <xref href="authenticationtls.dita" scope="local"/>.</p>
+
+        <p>The procedure is:</p>
+        <ol>
+            <li>Place the key and certificate on the standby instance and define the truststore if using Certificate Authorities</li>
+            <li>Restart the standby instance. The standby instance will not become active in the pair. Example results from HighAvailability will be:
+            <codeblock>curl -m 10 -u "${IMA_USER}" -k -X GET "${IMA_ADMIN}/service/status/HighAvailability"
+            Response from the Primary:
+            {  "Version":"v1", 
+               "HighAvailability": {
+                   "Status": "Active",
+                   "Enabled": true,
+                   "Group": "haPair1",
+                   "NewRole": "PRIMARY",
+                   "OldRole": "PRIMARY",
+                   "ActiveNodes": 1,
+                   "SyncNodes": 1,
+                   "PrimaryLastTime": "2021-05-05T16:48:22Z",
+                   "PctSyncCompletion": -1, 
+                   "ReasonCode": 0,
+                   "RemoteServerName":"3ac46d703cde:9089"
+               }
+            }
+            Running the command again against the rcently restarted secondary:
+            curl  -u "${IMA_USER}" -k -X GET "${IMA_ADMIN}/service/status/HighAvailability"
+            Response:
+            {  "Version":"v1", 
+               "HighAvailability": {
+                   "Status": "Active",
+                   "Enabled": true,
+                   "Group": "haPair1",
+                   "NewRole": "UNSYNC",
+                   "OldRole": "UNSYNC",
+                   "ActiveNodes": 0,
+                   "SyncNodes": 0,
+                   "PrimaryLastTime": "",
+                   "PctSyncCompletion": -1,
+                   "ReasonCode": 0,
+                   "RemoteServerName":""
+               }
+            }
+            </codeblock></li>
+            <li>Place the key and certificate on the primary instance and define the
+            truststore if using Certificate Authorities.</li>
+            <li> <lines>Restart the primary instance
+                The primary instance will restart and remain the primary instance
+                The unsynchronized instance will start to synchronize and once completed will become a standby.</lines>
+            The initial HighAvailability status will show:
+            <codeblock>
+            #Running the command against the primary
+            curl -m 10 -u "${IMA_USER}" -k -X GET "${IMA_ADMIN}/service/status/HighAvailability
+            #Response:
+            "{  "Version":"v1",
+                "HighAvailability": {
+                    "Status": "Active",
+                    "Enabled": true,
+                    "Group": "haPair1",
+                    "NewRole": "PRIMARY",
+                    "OldRole": "UNSYNC",
+                    "ActiveNodes": 2,
+                    "SyncNodes": 1,
+                    "PrimaryLastTime": "2021-05-05T16:48:39Z",
+                    "PctSyncCompletion": 1,
+                    "ReasonCode": 0,
+                    "RemoteServerName":""
+                }
+            }
+            #Running the command against the secondary
+            curl -m 10 -u "${IMA_USER}" -k -X GET "${IMA_ADMIN}/service/status/HighAvailability"
+            #Response:
+            {  "Version":"v1",
+               "HighAvailability": {
+                   "Status": "Active",
+                   "Enabled": true,
+                   "Group": "haPair1",
+                   "NewRole": "UNSYNC",
+                   "OldRole": "UNSYNC",
+                   "ActiveNodes": 2,
+                   "SyncNodes": 0,
+                   "PrimaryLastTime": "",
+                   "PctSyncCompletion": -1,
+                   "ReasonCode": 0,
+                   "RemoteServerName":""
+                }
+            }
+            </codeblock>
+            Once the procedure has completed, they should return to:
+            <codeblock>
+            curl -m 10 -u "${IMA_USER}" -k -X GET "${IMA_ADMIN}/service/status/HighAvailability"
+            {  "Version":"v1",
+               "HighAvailability": {
+                   "Status": "Active",
+                   "Enabled": true,
+                   "Group": "haPair1",
+                   "NewRole": "PRIMARY",
+                   "OldRole": "PRIMARY",
+                   "ActiveNodes": 2,
+                   "SyncNodes": 2,
+                   "PrimaryLastTime": "2021-05-05T17:16:07Z",
+                   "PctSyncCompletion": -1,
+                   "ReasonCode": 0,
+                   "RemoteServerName":"3ac46d703cde:9089"
+                }
+            }
+            curl -m 10 -u "${IMA_USER}" -k -X GET "${IMA_ADMIN}/service/status/HighAvailability"
+            {  "Version":"v1",
+               "HighAvailability": {
+                   "Status": "Active",
+                   "Enabled": true,
+                   "Group": "haPair1",
+                   "NewRole": "STANDBY",
+                   "OldRole": "UNSYNC",
+                   "ActiveNodes": 2,
+                   "SyncNodes": 2,
+                   "PrimaryLastTime": "",
+                   "PctSyncCompletion": -1,
+                   "ReasonCode": 0,
+                   "RemoteServerName":"3704cacfea12:9089"
+                }
+            }
+            </codeblock>
+            </li>
+        </ol>
+    </section>
+    </body>
+</topic>
