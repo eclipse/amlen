@@ -54,4 +54,4 @@ export AMLEN_MAX_BUILD_JOBS=3
 export IMA_SOURCELEVEL_INFO=${GIT_COMMIT}
 echo "Git commit info is ${IMA_SOURCELEVEL_INFO}"
 
-ant -f $SROOT/server_build/build.xml  2>&1 | tee $BROOT/ant.log
+ant -f $SROOT/server_build/build.xml ${BUILD_TYPE}  2>&1 | tee $BROOT/ant.log
