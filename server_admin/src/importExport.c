@@ -1398,7 +1398,7 @@ XAPI int ism_config_json_parseServiceImportPayload(ism_http_t *http, ism_rest_ap
         	sprintf(filePath, USERFILES_DIR "/%s.tmpdir" IMA_SVR_DATA_PATH "/data/config/server_dynamic.json", fileName);
         	newConfigRoot = ism_config_json_fileToObject(filePath);
         	if ( newConfigRoot ) {
-        	    sprintf(filePath, USERFILES_DIR "/%s.tmpdir", fileName);d
+        	    sprintf(filePath, USERFILES_DIR "/%s.tmpdir", fileName);
         	    unlink(filePath);
         	}
         } else {
