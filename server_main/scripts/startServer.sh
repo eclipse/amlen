@@ -89,6 +89,28 @@ if [ -f "/etc/os-release" ]; then
     fi
 fi
 
+if [ "${CONTAINER_PASSWORD_CHECK}" = "true" ]; then
+    echo "Doing password check" >> ${INITLOG}
+    SECRET=`cat /secrets/adminpassword/password`
+    OLD=`cat ${SVR_DATA_DIR}/data/config/server_dynamic.json | grep -oP '(?<=\"AdminUserPassword\": \")[^\"]*'`
+    ${SVR_INSTALL_DIR}/bin/imahasher -s -p $SECRET -e $OLD
+    MATCH=$?
+    if [ $MATCH == 0 ]; then
+        echo "  Password check complete" >> ${INITLOG}
+    elif [ $MATCH == 1 ]; then
+        echo "  Password mismatch" >> ${INITLOG}
+        NEWENCODING=`/usr/share/amlen-server/bin/imahasher -s -c $SECRET `
+        CONFIRM=`cat ${SVR_DATA_DIR}/data/config/server_dynamic.json | grep -oP '(?<=\"AdminUserPassword\": \")[^\"]*'`
+        if [ $CONFIRM != $NEWENCODING ]; then
+            echo "  Updating password failed" >> ${INITLOG}
+        else
+            echo "  Password update successful" >> ${INITLOG}
+        fi
+    else
+        echo "  Something went wrong running imahasher" >> ${INITLOG}
+    fi
+fi
+
 # Start imaserver
 echo "Start imaserver" >> ${INITLOG}
 

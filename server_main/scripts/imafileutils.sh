@@ -34,6 +34,7 @@ function validate_json
 }
 
 ACTION=$1
+USERFILESDIR=${IMA_SVR_DATA_PATH}/userfiles
 
 if [ ${ACTION} == "remove" ]
 then

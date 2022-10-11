@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="up00022_" xml:lang="en-us">
+    <title>Clustering: User Provided TLS Credentials</title>
+    <body>
+    <section>
+        <title>Clustering</title>
+        <p><ph conref="../TextEntities.dita#TextEntities/ISM"/>
+        allows multiple instances of the software to be put into a cluster to provide scalability.
+        The connection between the two instances can optionally have TLS enabled. This uses credentials in the binary to
+        secure the connection for initial pairing. If a cluster has been created using the default credentials it is recommended to switch to user 
+        provided credentials as the default credentials can be read from the open source repository.</p>
+
+        <p>Before creating a cluster place the certificate, key and optionally the certificate authority on each server. 
+        For <ph conref="../TextEntities.dita#TextEntities/ISM"/> the default location is: <filepath>/var/lib/amlen-server/data/certificates/keystore</filepath>
+        The key must be called <filepath>Cluster_key.pem</filepath> and must be in pem format. The certificate must be called <filepath>Cluster_cert.pem</filepath>
+        and must be in pem format.The keystore location can be changed in the server.cfg.</p>
+  
+        <p>For details on how to create credentials see <xref href="authenticationtls.dita" scope="local"/>.</p>
+
+        <p>Certificate credentials can be disabled to allow servers using different credentials to form a cluster. This is not recommended as a permanent
+        solution, however can be used as a temporary solution during upgrade scenarios. The primary use-case is during upgrade from a version of
+        <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> that does not support user provided credentials.  This
+        is done by setting RequireCertificates to false in the ClusterMembership configuration of the <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+        Instance. An example of this is:</p>
+
+        <codeblock>
+        curl -X POST    -d  "{
+              \"ClusterMembership\": {
+                    \"EnableClusterMembership\": true,
+                    \"ControlAddress\": \"10.0.1.5\",
+                    \"MessagingAddress\": \"10.0.1.5\",
+                    \"DiscoveryServerList\":\"10.0.1.5:9104,10.0.1.4:9104\",
+                    \"UseMulticastDiscovery\": false,
+                    \"ClusterName\": \"MyCluster\",
+                    \"MessagingUseTLS\":true,
+                    \"CertificatesRequired\":false}
+              }"  http://127.0.0.1:9089/ima/v1/configuration
+        </codeblock>
+
+        <p> If user provided credentials are supplied then certificates are always required and the RequireCertificates setting will be ignored </p>
+    </section>
+    <section>
+        <title>Migrating A Cluster To New User Provided Credentials</title>
+        <p>This procedure can be used for migrating a Cluster from either the default credentials or from previous user provided credentials.</p>
+
+        <p> For <ph conref="../TextEntities.dita#TextEntities/ISM"/> the default location for the credentials is:
+        /var/lib/amlen-server/data/certificates/keystore. The key must be called Cluster_key.pem and must be in pem format. The certificate
+        must be called Cluster_cert.pem and must be in pem format. The keystore location can be changed in the <filepath>server.cfg</filepath>.</p>
+
+        <p>Support for clustering between <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> and <ph conref="../TextEntities.dita#TextEntities/ISM"/>
+        requires the latest iFix from <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> 5.0.0.2 only. On
+        <ph conref="../TextEntities.dita#TextEntities/ISM_prev"/> the default location for the key and certificate is:/var/messagesight/data/certificates/keystore</p>
+
+        <p>For details on how to create credentials see <xref href="authenticationtls.dita" scope="local"/>.</p>
+
+        <p>During this procedure, instance will in turn be removed form the cluster, they will not be able to re-join the cluster until 
+        all instances have been restarted.</p>
+        <p>The procedure is:</p>
+        <ol>
+            <li>Place the credentials (key, certificate and cafile if appropriate) on all instances.</li>
+            <li>If using High Availability pairing restart all standby instances wait for them to resynchronize.</li>
+            <li>Select one instance as the last instance to restart.</li>
+            <li>Restart each instance in turn checking that the cluster status on the last instance has the disconnected server 
+               count incremented:
+               <codeblock>
+               curl -m 10 -u "${IMA_USER}" -k -X GET "${IMA_ADMIN}/service/status/Cluster"
+                    {  "Version":"v1",
+                       "Cluster": {
+                           "Status": "Active",
+                           "Name": "MyCluster",
+                           "Enabled": true,
+                           "ConnectedServers": 2,
+                           "DisconnectedServers": 1
+                       }
+                    }
+                </codeblock></li>
+            <li>Restart the last instance</li>
+            <li>Wait for the cluster status to be available on the last instance and check that the connected server count
+                is back to what it started as:
+                <codeblock>
+                curl -m 10 -u "${IMA_USER}" -k -X GET "${IMA_ADMIN}/service/status/Cluster"
+                    {  "Version":"v1",
+                       "Cluster": {
+                           "Status": "Active",
+                           "Name": "MyCluster",
+                           "Enabled": true,
+                           "ConnectedServers": 3,
+                           "DisconnectedServers": 0 
+                        }
+                    }
+                </codeblock></li>
+        </ol>
+    </section>
+    </body>
+</topic>

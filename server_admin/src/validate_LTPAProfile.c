@@ -218,7 +218,7 @@ XAPI int32_t ism_config_validate_LTPAProfile(json_t *currPostObj, json_t *valida
         const char *ltpaKeyStore = ism_common_getStringProperty(ism_common_getConfigProperties(), "LTPAKeyStore");
 
         if (getenv("CUNIT") == NULL) {
-            ltpaKeyStore = IMA_SVR_DATA_PATH "/userfiles";
+            ltpaKeyStore = USERFILES_DIR;
         }
 
         if ( ltpaKeyStore ) {

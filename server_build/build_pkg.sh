@@ -330,6 +330,7 @@ function prep_server {
     # Copy required binaries from server_ship
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imaserver $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/bin/.
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/icu_gettext $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/bin/.
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imahasher $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/bin/.
 
     # Copy default certificate for AdminEndpoint
     cp --no-preserve=ownership ${BUILD_ROOT}/server_main/keystore/MessageSightCert.pem $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/certificates/keystore/AdminDefaultCert.pem
@@ -640,6 +641,7 @@ function rpmbuild_server {
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaserver-docker.env $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership -r ${BUILD_ROOT}/operator/build/* $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imahasher $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     dos2unix $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imaserver-docker.env
 

@@ -32,6 +32,7 @@
 #include <curl/curl.h>
 #include <throttle.h>
 #include <openssl/evp.h>
+#include <sasl_scram.h>
 
 extern int auditLogControl;
 extern int isAuthenticationCacheDisabled;
@@ -57,11 +58,13 @@ extern void ism_security_setLDAPGlobalEnv(ismLDAPConfig_t * ldapConfig);
 extern int ism_security_context_getCheckGroup(ismSecurity_t *sContext);
 extern char *ism_config_getAdminUserName(void);
 extern char *ism_config_getAdminUserPassword(void);
+extern char *ism_config_getAdminUserPasswordHash(void);
 extern int ism_security_context_isSuperUser(ismSecurity_t *sContext);
 extern int ism_security_context_isAdminListener(ismSecurity_t *sContext);
 extern void ism_security_context_setSuperUser(ismSecurity_t *sContext);
 extern int ism_security_getSecurityContextAllowNullPassword(ismSecurity_t *sContext);
 extern void ism_security_setLDAPSConfig(ismLDAPConfig_t * ldapConfig);
+extern bool ism_config_confirmAdminUserPassword(char * password);
 
 
 extern ism_trclevel_t * ism_defaultTrace;
@@ -193,14 +196,12 @@ static int ism_security_authenticateAdminUser(char *username, char *password) {
 
     /* check if username is valid AdminUserName */
     char *adminUserName = ism_config_getAdminUserName();
-    char *adminUserPasswd = ism_config_getAdminUserPassword();
 
     if ( username && adminUserName && strcmp(username, adminUserName) == 0 ) {
-        if ( adminUserPasswd && password && strcmp(adminUserPasswd, password) == 0 ) {
+        if ( password && ism_config_confirmAdminUserPassword(password) ) {
             rc = ISMRC_OK;
         }
     }
-    if ( adminUserPasswd ) ism_common_free(ism_memory_admin_misc,adminUserPasswd);
     return rc;
 }
 
@@ -1062,6 +1063,38 @@ static int ism_config_hex2int(const char h){
     else
         return toupper(h) - 'A' + 10;
 }
+
+#define ADMIN_PASSWORD_ITERATIONS 4096
+
+XAPI void ism_security_1wayHashAdminUserPassword(const char * password, const char * salt, char * _hash) {
+  ism_sasl_scram_context * context = ism_sasl_scram_context_new(SASL_MECHANISM_SCRAM_SHA_512);
+  char salt_password_buf[128];
+  concat_alloc_t salt_password_outbuf={salt_password_buf, sizeof(salt_password_buf)};
+  ism_sasl_scram_salt_password (context, password, strlen(password),
+        salt, 8,
+        ADMIN_PASSWORD_ITERATIONS, &salt_password_outbuf);
+  char * saltedpassword = alloca(salt_password_outbuf.used);
+  memcpy(saltedpassword, salt_password_outbuf.buf, salt_password_outbuf.used);
+  saltedpassword[salt_password_outbuf.used]=0;
+
+  for (size_t l = 0; l < 64;  l++) {
+     sprintf(_hash + 2 * l, "%02x", (unsigned char)saltedpassword[l]);
+  }
+}
+
+XAPI char * ism_security_createAdminUserPasswordHash(const char * password) {
+  uint64_t rval;
+  uint8_t * randbuf = (uint8_t *)&rval;
+
+  RAND_bytes(randbuf, 8);
+  char hash[129];
+  ism_security_1wayHashAdminUserPassword(password,(char *)&rval,hash);
+  char encoding[128 + 20 + 5];
+  sprintf(encoding,"_1:%020lu:%s",rval,hash);
+
+  return ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),encoding);
+}
+
 
 /* DO not change key in this function. Changing will cause backward compatibility issue */
 XAPI char * ism_security_encryptAdminUserPasswd(const char * src) {

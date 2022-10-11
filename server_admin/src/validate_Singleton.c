@@ -82,7 +82,7 @@ static int validatePluginJvmParam(int maxHeapSize, const char * vmArgs) {
     if(err == 255) {
         char * buf;
         int length;
-        sprintf(logFile, IMA_SVR_DATA_PATH "/userfiles/validatePluginVM.%d.log",pid);
+        sprintf(logFile, USERFILES_DIR "/validatePluginVM.%d.log",pid);
         if(ism_common_readFile(logFile, &buf, &length) == ISMRC_OK) {
             ism_common_setErrorData(ISMRC_PluginJvmError, "%s", buf);
             ism_common_free(ism_memory_admin_misc,buf);
