@@ -2,6 +2,7 @@
 FROM quay.io/centos/centos:centos7.9.2009 as builder
 
 ENV DEPS_HOME ${HOME}/deps
+ENV MONGOC_HOME /usr
 
 RUN mkdir -p ${DEPS_HOME}
 
@@ -19,7 +20,9 @@ RUN yum --nogpgcheck -y install epel-release && \
     # Temporarily installing cunit packages from DEPS_HOME while EPEL mirrors are down
     yum -y install CUnit CUnit-devel && \
     # Needed to build rpms in container
-    yum -y install rpm-build
+    yum -y install rpm-build && \
+    # Needed to build the proxy
+    yum -y install mongo-c-driver-devel
 
 #Get the dependencies we need that aren't packaged (JMS and java treated separately)
 RUN wget https://github.com/d3/d3/releases/download/v3.5.6/d3.zip -O ${DEPS_HOME}/d3-3.5.6.zip && \
@@ -51,4 +54,14 @@ RUN cd /usr/lib/ && \
     unzip dita-ot-3.7.2.zip && \
     rm dita-ot-3.7.2.zip && \
     ln -s /usr/lib/dita-ot-3.7.2/bin/dita /usr/bin/dita
+
+#Statsd is a little awkward to install, needed for building the proxy
+RUN cd /deps && \
+    mkdir statsd && \
+    wget https://github.com/romanbsd/statsd-c-client/archive/refs/heads/master.zip && \
+    unzip master.zip && \
+    cd statsd-c-client-master && \
+    make && \
+    cp libstatsdclient.so /usr/lib64 && \
+    cp statsd-client.h /usr/include 
 

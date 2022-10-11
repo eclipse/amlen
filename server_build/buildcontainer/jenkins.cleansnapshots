@@ -1,0 +1,114 @@
+def prs
+def branches
+pipeline {
+  agent {
+    kubernetes {
+      label 'amlen-buildalltier1-pod'
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    resources:
+      limits:
+        memory: "300Mi"
+        cpu: "200m"
+      requests:
+        memory: "300Mi"
+        cpu: "200m"
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+"""
+    }
+  }
+
+    parameters{
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: 'main', name: 'branchName', type: 'PT_BRANCH', description: 'Branch to get the server_build/buildcontainer/jenkins.promotebuild script from'
+    }
+
+    stages {
+        stage('PRs') {
+            steps {
+                withCredentials([string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
+                    sshagent (['projects-storage.eclipse.org-bot-ssh']) {
+                        script {
+                            prs = sh returnStatus: true, script: '''
+                                prsremoved=0
+                                closed='  "state": "closed",'
+                                storage='genie.amlen@projects-storage.eclipse.org'
+                                url='https://api.github.com/repos/eclipse/amlen/pulls'
+                                rootpath='/home/data/httpd/download.eclipse.org/amlen/snapshots'
+                                for file in `ssh -o BatchMode=yes $storage find $rootpath -name 'PR-*'` 
+                                do 
+                                    if [[ `curl -s -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" $url/${file:57} | grep -w state` == $closed ]] 
+                                    then 
+                                        echo removing $file
+                                        ssh -o BatchMode=yes $storage rm -r $file
+                                        prsremoved=$[prsremoved+1]
+                                    else
+                                        echo keeping $file
+                                    fi
+                                done
+                                exit $prsremoved
+                            '''
+                            if (prs == 255) {
+                                error 'script failed'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Branches') {
+            steps {
+                withCredentials([string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
+                    sshagent (['projects-storage.eclipse.org-bot-ssh']) {
+                        script {
+                            branches = sh returnStatus:true, script: '''
+                                branchesremoved=0
+                                missing="Branch not found"
+                                storage='genie.amlen@projects-storage.eclipse.org'
+                                url='https://api.github.com/repos/eclipse/amlen/branches'
+                                rootpath='/home/data/httpd/download.eclipse.org/amlen/snapshots'
+                                for file in `ssh -o BatchMode=yes $storage ls -d -- $rootpath/[^"PR-"]*` 
+                                do 
+                                    if [[ `curl -s -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" $url/${file:54} | grep -w message` =~ $missing ]] 
+                                    then 
+                                        echo removing $file
+                                        ssh -o BatchMode=yes $storage rm -r $file
+                                        branchesremoved=$[branchesremoved+1]
+                                    else
+                                        echo keeping $file
+                                    fi
+                                done
+                                exit $branchesremoved
+                            '''
+                            if (branches == 255) {
+                                error 'script failed'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        unsuccessful {
+            emailext subject: 'Problem cleaning up snapshots',
+            body: """Check Jenkins to view the results. Claims to have removed $prs PRs and $branches branches""",
+            to: 'n7p9u9h6p7h8q7p1@ibm-watson-iot.slack.com'
+        }
+        success {
+            emailext subject: 'Cleaning snapshots worked',
+            body: """removed $prs PRs and $branches branches""",
+            to: 'n7p9u9h6p7h8q7p1@ibm-watson-iot.slack.com'
+        }
+    }
+}
