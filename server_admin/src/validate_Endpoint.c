@@ -192,7 +192,11 @@ static int ism_config_convertEndpointInterfaceVars(json_t *mobj, char *name) {
                            ism_common_getRuntimeTempDir(),
                            varpos+strlen("${IMASERVER_RUNTIME_DIR}"));
 
-            json_object_set(mobj, "Interface", json_string(alteredstring));
+            TRACE(9, "%s: Before %s, after %s\n", __FUNCTION__, interfaceStr, alteredstring);
+
+            json_object_set_new(mobj, "Interface", json_string(alteredstring));
+        } else {
+            TRACE(9, "%s: No replacement vars in  %s\n", __FUNCTION__, interfaceStr);
         }
         
     }
