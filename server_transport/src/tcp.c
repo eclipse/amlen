@@ -294,11 +294,25 @@ static int createSocket(const char * ipAddr, int port, const char * endpoint) {
     int32_t flags;
     char portstr[10];
     char ipstr[INET6_ADDRSTRLEN];
+    char uds_filename[PATH_MAX];
 
 
 
     if (ipAddr && (strcmpi(ipAddr, "All") == 0)) {
         ipAddr = NULL;
+    }
+
+    /*
+     * Unix domain socket with var for path that we need to expand
+     */ 
+    if (ipAddr && *ipAddr == '$') {
+        int replacements = ism_common_expandUDSPathVars(uds_filename, sizeof(uds_filename), ipAddr);
+
+        if (replacements > 0) {
+            ipAddr = (const char *)uds_filename;
+        } else if (replacements < 0) {
+            return -1;
+        }
     }
 
     /*
@@ -3576,6 +3590,9 @@ int ism_transport_connect(ism_transport_t * transport, ism_transport_t * ctransp
     struct sockaddr_un sockunix;
     int  rc;
     char portstr[10];
+    char uds_filename[PATH_MAX];
+
+
     transport->tobj = (struct ism_transobj *)ism_transport_allocBytes(transport, sizeof(ism_connection_t), 1);
     memset(transport->tobj, 0, sizeof(ism_connection_t));
     if (transport->originated == 0) {
@@ -3625,6 +3642,19 @@ int ism_transport_connect(ism_transport_t * transport, ism_transport_t * ctransp
     } else {
         if (transport->originated != 2)
             transport->tid = transport->index % numOfIOProcs;
+    }
+
+    /*
+     * Unix domain socket with var for path that we need to expand
+     */ 
+    if (server && *server == '$') {
+        int replacements = ism_common_expandUDSPathVars(uds_filename, sizeof(uds_filename), server);
+
+        if (replacements > 0) {
+            server = (const char *)uds_filename;
+        } else if (replacements < 0) {
+            return -1;
+        }
     }
 
     /*

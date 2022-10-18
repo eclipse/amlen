@@ -1093,6 +1093,11 @@ XAPI void ism_common_delay(int strategy);
  */
 XAPI const char *ism_common_getRuntimeTempDir(void);
 
+/**
+ * Expands variable in path for a Unix Domain Socket
+ */
+XAPI int ism_common_expandUDSPathVars(char *expandedString, int maxSize, const char *inString);
+
 
  /**
   * Emergency shutdown

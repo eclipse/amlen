@@ -160,49 +160,6 @@ static char * ism_config_getIfaNameOrAddress(char *IPAddress, char *name, int mo
     return ifcName;
 }
 
-
-// Endpoint interfaces can be files used for Unix Domain Sockets.
-// We have to be careful over the location of such files as some distributed filesystems
-// that might be used for our datadir (CephFS) can't be used for them.
-// Therefore we allow the special string ${IMASERVER_RUNTIME_DIR} and replace it
-// with a suitable temporary directory here
-static int ism_config_convertEndpointInterfaceVars(json_t *mobj, char *name) {
-    char *interfaceStr = NULL;
-
-    json_t *interface = json_object_get(mobj, "Interface");
-
-    if ( interface ) {
-        interfaceStr = (char *)json_string_value(interface);
-    }
-
-    if ( interfaceStr ) {
-        char *varpos = strstr(interfaceStr, "${IMASERVER_RUNTIME_DIR}");
-
-        if (varpos != NULL) {
-            //Replace ${IMASERVER_RUNTIME_DIR} with the actual temporary dir
-            size_t newsize =  strlen(interfaceStr)
-                            + strlen(ism_common_getRuntimeTempDir())
-                            - strlen("${IMASERVER_RUNTIME_DIR}")
-                            + 1;
-            char *alteredstring = alloca( newsize );
-            int prefixlen = (int)(varpos - interfaceStr);
-
-            snprintf(alteredstring, newsize, "%.*s%s%s", 
-                           prefixlen, interfaceStr,
-                           ism_common_getRuntimeTempDir(),
-                           varpos+strlen("${IMASERVER_RUNTIME_DIR}"));
-
-            TRACE(9, "%s: Before %s, after %s\n", __FUNCTION__, interfaceStr, alteredstring);
-
-            json_object_set_new(mobj, "Interface", json_string(alteredstring));
-        } else {
-            TRACE(9, "%s: No replacement vars in  %s\n", __FUNCTION__, interfaceStr);
-        }
-        
-    }
-    return ISMRC_OK;
-}
-
 XAPI int ism_config_updateEndpointInterfaceName(json_t *mobj, char *name) {
     char *interfaceStr = NULL;
     char *interfaceNameStr = NULL;
@@ -798,12 +755,6 @@ NEXT_KEY:
 
     /* Add missing default values */
     rc = ism_config_addMissingDefaults(item, mergedObj, reqList);
-    if (rc != ISMRC_OK) {
-        goto VALIDATION_END;
-    }
-
-    /* If interface has variables for dir names, convert to paths */
-    rc = ism_config_convertEndpointInterfaceVars(mergedObj, name);
     if (rc != ISMRC_OK) {
         goto VALIDATION_END;
     }

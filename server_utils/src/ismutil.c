@@ -67,7 +67,7 @@ char         g_procname[20];
 pthread_mutex_t     g_utillock;
 pthread_mutex_t     trc_lock;
 static ism_threadkey_t     ism_threadKey;
-static char g_runtime_dir[PATH_MAX+1] = ""; //temporary directory retrieved via ism_common_getRuntimeTempDir() 
+static char g_runtime_dir[PATH_MAX] = ""; //temporary directory retrieved via ism_common_getRuntimeTempDir() 
 
 //thread local storage used for memory account, in memory tracing, other pervasive things
 __thread ism_tls_t *ism_common_threaddata = NULL;
@@ -158,7 +158,7 @@ XAPI void  ism_common_initUtil2(int type) {
 
         /* Work out a temp dir to use */
         if(getenv("IMASERVER_RUNTIME_DIR")) {
-            if(snprintf(g_runtime_dir, sizeof(g_runtime_dir), "%s/imaserver", getenv("IMASERVER_RUNTIME_DIR")) >= sizeof(g_runtime_dir)) {
+            if(snprintf(g_runtime_dir, sizeof(g_runtime_dir), "%s", getenv("IMASERVER_RUNTIME_DIR")) >= sizeof(g_runtime_dir)) {
                 g_runtime_dir[0] = '\0';
             }
         }
@@ -4226,4 +4226,44 @@ const char * ism_common_UUIDtoBinary(const char * uuid_str, char * buf) {
     uuid[3] = endian_int32(uuid[3]);
     memcpy(buf, uuid, 16);
     return buf;
+}
+
+
+/* 
+ * We use Unix Domain Sockets and therefore the "IP address" for a socket is sometimes a filename
+ *
+ * We have to be careful over the location of such files as some distributed filesystems
+ * that might be used for our datadir (CephFS) can't be used for them.
+ * Therefore we allow the special string ${IMASERVER_RUNTIME_DIR} at the start of the string
+ * and replace it with a suitable temporary directory here. 
+ *
+ * @return: On success returns number of replacements (0 or 1). On failure returns -1
+ */
+int ism_common_expandUDSPathVars(char *expandedString, int maxSize, const char *inString) {
+    int rc = 0;
+
+    if (strncmp(inString, "${IMASERVER_RUNTIME_DIR}", strlen("${IMASERVER_RUNTIME_DIR}")) == 0) {
+    
+        //Check the string (including terminating NULL) fits in the target buffer
+        size_t newsize =  strlen(inString)
+                    + strlen(ism_common_getRuntimeTempDir())
+                    - strlen("${IMASERVER_RUNTIME_DIR}")
+                    + 1;
+    
+        if (newsize > maxSize) {
+            TRACE(4, "%s: ERROR: inString %s, PathLen %lu too long!\n", __FUNCTION__, inString, newsize);
+            return -1;
+        }
+    
+        //Replace ${IMASERVER_RUNTIME_DIR} with the actual temporary dir
+        snprintf(expandedString, newsize, "%s%s", 
+                 ism_common_getRuntimeTempDir(),
+                 inString+strlen("${IMASERVER_RUNTIME_DIR}"));
+
+        TRACE(9, "%s: Before %s, after %s\n", __FUNCTION__, inString, expandedString);
+        rc = 1;
+    } else {
+        TRACE(9, "%s: No replacement vars in  %s\n", __FUNCTION__, inString);
+    }
+    return rc;
 }

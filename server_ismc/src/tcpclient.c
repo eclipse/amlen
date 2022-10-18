@@ -81,6 +81,7 @@ int ismc_connect(ismc_connection_t * conn) {
     ism_field_t  field;
     action_t *   action;
     char         versionbuf[24];
+    char uds_filename[512];
 
     if (!conn)
         return ismc_setError(ISMRC_NullPointer, "The connection object is NULL");
@@ -120,6 +121,19 @@ int ismc_connect(ismc_connection_t * conn) {
     ism_common_setProperty(conn->h.props, "RecvBufferSize", NULL);
 
 #ifndef _WIN32
+    /*
+     * Unix domain socket with var for path that we need to expand
+     */ 
+    if (server && *server == '$') {
+        int replacements = ism_common_expandUDSPathVars(uds_filename, sizeof(uds_filename), server);
+
+        if (replacements > 0) {
+            server = (const char *)uds_filename;
+        } else if (replacements < 0) {
+            rc = ISMRC_UnableToConnect;
+            ismc_setError(rc, "Cannot expand path for Unix Domain Socket");
+        }
+    }
     if (*server == '/') {
         struct sockaddr_un sockunix;
         unixinfo = hints;

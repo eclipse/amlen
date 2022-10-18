@@ -65,6 +65,22 @@ static int createAdminEndpoint(simpleServer_t * server) {
     int rc = 0;
     SOCKET sock;
     size_t sockAddrLen;
+    const char *server_address = server->address;
+    char uds_filename[512];
+
+    /*
+     * Unix domain socket with var for path that we need to expand
+     */ 
+    if (server_address && *server_address == '$') {
+        int replacements = ism_common_expandUDSPathVars(uds_filename, sizeof(uds_filename), server_address);
+
+        if (replacements > 0) {
+            server_address = (const char *)uds_filename;
+        } else if (replacements < 0) {
+            return ISMRC_EndpointSocket;
+        }
+    }
+
 #if 0
     int xrc = stat(server->address, &sbuf);
     if (xrc == 0 && (sbuf.st_mode & S_IFMT) == S_IFSOCK) {
@@ -78,7 +94,7 @@ static int createAdminEndpoint(simpleServer_t * server) {
 #endif
     memset(&sockAddr, 0, sizeof(sockAddr));
     sockAddr.sun_family = AF_UNIX;
-    ism_common_strlcpy(sockAddr.sun_path, server->address, sizeof(sockAddr.sun_path));
+    ism_common_strlcpy(sockAddr.sun_path, server_address, sizeof(sockAddr.sun_path));
     sockAddrLen = SUN_LEN(&sockAddr);
     sock = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
     /*
@@ -88,7 +104,7 @@ static int createAdminEndpoint(simpleServer_t * server) {
     if (rc == -1) {
         int err = errno;
         char * errstr = strerror(err);
-        TRACE(3, "Unable to bind admin socket: addr=%s rc=%d error=%s\n", server->address, err, errstr);
+        TRACE(3, "Unable to bind admin socket: addr=%s rc=%d error=%s\n", server_address, err, errstr);
         close(sock);
         return ISMRC_EndpointSocket;
     }
@@ -97,7 +113,7 @@ static int createAdminEndpoint(simpleServer_t * server) {
     if (rc == -1) {
         int err = errno;
         char * errstr = strerror(err);
-        TRACE(3, "Unable to listen to admin socket: addr=%s rc=%d error=%s\n", server->address, err, errstr);
+        TRACE(3, "Unable to listen to admin socket: addr=%s rc=%d error=%s\n", server_address, err, errstr);
         close(sock);
         return ISMRC_EndpointSocket;
     }
