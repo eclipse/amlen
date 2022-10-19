@@ -34,6 +34,7 @@ function validate_json
 }
 
 ACTION=$1
+USERFILESDIR=${IMA_SVR_DATA_PATH}/userfiles
 
 if [ ${ACTION} == "remove" ]
 then
@@ -45,7 +46,7 @@ then
     fi
 
     FILENAME=$(echo $URL | /usr/bin/awk -F'/' '{print $NF}')
-    /bin/rm -rf ${IMA_SVR_DATA_PATH}/userfiles/$FILENAME
+    /bin/rm -rf ${USERFILESDIR}/$FILENAME
     error=$?
     if [ $error -ne 0 ] ; then
         exit 1

@@ -53,6 +53,20 @@ IMASERVERCFG=${SVR_DATA_DIR}/data/config/server.cfg
 PATH=${SVR_INSTALL_DIR}/bin:$PATH
 export PATH
 
+# Work out what we'll use as a temporary dir
+# Useful advice: http://0pointer.net/blog/projects/tmp.html
+# (NB: sockets can't be put on e.g. CephFS so we avoid using a dir under our data dir)
+if [ -z "${IMASERVER_RUNTIME_DIR}" ]
+then
+    if [ -z "${XDG_RUNTIME_DIR}" ]
+    then
+        export IMASERVER_RUNTIME_DIR=/tmp/imaserver
+    else
+        export IMASERVER_RUNTIME_DIR=${XDG_RUNTIME_DIR}/imaserver
+    fi
+fi
+mkdir -p -m 700  ${IMASERVER_RUNTIME_DIR}
+
 # Initialize imaserver if systemd hasn't already done it
 if [ "$SYSTEMD_STARTED_IMASERVER" != "1" ]
 then

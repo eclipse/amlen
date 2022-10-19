@@ -107,7 +107,10 @@ else
     touch ${IMACFGDIR}/store.init
 
     # Make use of a unix domain socket for MQConnectivity connection into server
-    sed -i 's%Interface\.!MQConnectivityEndpoint\( *\)=\( *\).*%Interface.!MQConnectivityEndpoint\1=\2'${DATADIR}'/MQConnectivityEndpoint_'${SHORT_UUID}'%g' ${IMASERVERCFG}
+    # We don't put this under our data dir as that might be on a distributed fs unsuitable
+    # for ephemeral data...so we include the string literal: ${IMASERVER_RUNTIME_DIR} which
+    # is interpreted at runtime.
+    sed -i 's%Interface\.!MQConnectivityEndpoint\( *\)=\( *\).*%Interface.!MQConnectivityEndpoint\1=\2'\${IMASERVER_RUNTIME_DIR}'/MQConnectivityEndpoint_'${SHORT_UUID}'%g' ${IMASERVERCFG}
 
     touch ${IMACFGDIR}/MessageSightInstance.inited
 

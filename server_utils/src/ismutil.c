@@ -67,6 +67,7 @@ char         g_procname[20];
 pthread_mutex_t     g_utillock;
 pthread_mutex_t     trc_lock;
 static ism_threadkey_t     ism_threadKey;
+static char g_runtime_dir[PATH_MAX] = ""; //temporary directory retrieved via ism_common_getRuntimeTempDir() 
 
 //thread local storage used for memory account, in memory tracing, other pervasive things
 __thread ism_tls_t *ism_common_threaddata = NULL;
@@ -86,7 +87,6 @@ static int stopLoops=5 ;
 static int i_am_the_main=0;
 static double next_st_trace=0;
 static int stack_trace_cnt;
-static const char *stDir;
 
 /* Health categories */
 typedef enum {
@@ -156,7 +156,15 @@ XAPI void  ism_common_initUtil2(int type) {
         if (rc)
             strcpy(g_procname, "imaserver");
 
-
+        /* Work out a temp dir to use */
+        if(getenv("IMASERVER_RUNTIME_DIR")) {
+            if(snprintf(g_runtime_dir, sizeof(g_runtime_dir), "%s", getenv("IMASERVER_RUNTIME_DIR")) >= sizeof(g_runtime_dir)) {
+                g_runtime_dir[0] = '\0';
+            }
+        }
+        if (strlen(g_runtime_dir) == 0) {
+            snprintf(g_runtime_dir, sizeof(g_runtime_dir), "/tmp");
+        }
 
         /* Discover the execution environment */
         ism_common_initExecEnv(type);
@@ -1779,22 +1787,40 @@ XAPI int  ism_common_del_my_health(void)
 XAPI int  ism_common_stack_trace(int tmp)
 {
    int rc ;
+   char gdbcmds_fname[PATH_MAX+1];
    char line[1024];
    FILE *fp;
+   const char *outDir = NULL;
+
+   int cmdsfname_bytesneeded = snprintf(gdbcmds_fname, sizeof(gdbcmds_fname), "%s/gdb_cmds",
+                                        ism_common_getRuntimeTempDir() );
+
+   if (cmdsfname_bytesneeded > sizeof(gdbcmds_fname)) {
+      TRACE(1,"%s: gdbcmds filename too long!\n",__func__);
+      return -1;
+   }
+
    pthread_mutex_lock(&g_utillock);
-   if ( (fp = fopen("/tmp/gdb_cmds","we")) )
+   if ( (fp = fopen(gdbcmds_fname,"we")) )
    {
      char nm[1024];
-     if ( tmp )
-     {
-       ism_common_strlcpy(nm,"/tmp/ISM_health_stack.txt",sizeof(nm));
+     int stackfnamebytes=0;
+     
+     if (!tmp) {
+        outDir = ism_common_getStringConfig("Store.DiskPersistPath");
      }
-     else
-     {
-       if (!stDir ) stDir = ism_common_getStringConfig("Store.DiskPersistPath");
-       if (!stDir ) stDir = "/tmp";
-       snprintf(nm,sizeof(nm),"%s/ISM_health_stack_%3.3u",stDir,(stack_trace_cnt++)&15);
+     if (!outDir ) {
+        outDir = ism_common_getRuntimeTempDir();
      }
+     stackfnamebytes =  snprintf(nm,sizeof(nm),"%s/ISM_health_stack_%3.3u",
+                                       outDir,(stack_trace_cnt++)&15);
+
+     if (stackfnamebytes >= sizeof(nm)) {
+        TRACE(1,"%s: stacktrace filename too long!\n",__func__);
+        pthread_mutex_unlock(&g_utillock);
+        return -1;
+     }
+
      unlink(nm);
      fprintf(fp,"set logging file %s\n",nm);
      fprintf(fp,"set logging overwrite on\n");
@@ -1803,7 +1829,14 @@ XAPI int  ism_common_stack_trace(int tmp)
      fprintf(fp,"thread apply all backtrace\n");
      fprintf(fp,"quit");
      fclose(fp);
-     snprintf(line,sizeof(line),"gdb -batch -x /tmp/gdb_cmds -p %u",getpid());
+     int linebytes = snprintf(line,sizeof(line),"gdb -batch -x %s -p %u", gdbcmds_fname, getpid());
+     
+     if (linebytes > sizeof(line)) {
+        TRACE(1,"%s: gdb command too long!\n",__func__);
+        pthread_mutex_unlock(&g_utillock);
+        return -1;
+     }
+
      rc = system(line);
      if ( rc != -1 ) rc = WEXITSTATUS(rc);
      TRACE(1,"After executing %s with output to %s: rc=%d\n",line,nm,rc);
@@ -1818,7 +1851,7 @@ XAPI int  ism_common_stack_trace(int tmp)
    }
    else
    {
-     TRACE(1,"Faile to open /tmp/gdb_cmds ; errno = %d\n",errno);
+     TRACE(1,"Failed to open %s ; errno = %d\n", gdbcmds_fname,errno);
      rc = -1 ;
    }
    pthread_mutex_unlock(&g_utillock);
@@ -1852,9 +1885,7 @@ XAPI int ism_common_check_health(void)
   {
     if ( next_st_trace && stack_trace_cnt )
     {
-      if (!stDir ) stDir = ism_common_getStringConfig("Store.DiskPersistPath");
-      if (!stDir ) stDir = "/tmp";
-      TRACE(5,"There have been %u stack trace so far (written to files %s/ISM_health_stack_XXX)\n",stack_trace_cnt,stDir);
+      TRACE(5,"There have been %u stack trace so far\n", stack_trace_cnt);
     }
     next_st_trace = now + tooLongTH*2e-1 ; // 60 secs
   }
@@ -1862,7 +1893,9 @@ XAPI int ism_common_check_health(void)
   {
     if ( healthAlert < traceLoops )
     {
-       ism_common_stack_trace(1);
+       //Write some traces to temporary directory in case reason we are unhealthy is we are struggling to write
+       //to our disk persist path
+       ism_common_stack_trace((healthAlert & 0x01 )? 1 : 0);
     }
     else
     if ( healthAlert < traceLoops + stopLoops )
@@ -2000,7 +2033,7 @@ XAPI int ism_common_getThreadName(char * buf, int len) {
     ism_tls_t * tls = (ism_tls_t *)ism_common_getThreadKey(ism_threadKey, NULL);
     if (__builtin_expect(!tls, 0))
         makeTLS(512, NULL);
-    if ((tls != NULL) && (tls->tname != NULL)) {
+    if (tls != NULL) {
       rc = ism_common_strlcpy(buf, tls->tname, len);
         if (len > rc)
           return rc;
@@ -3590,6 +3623,15 @@ XAPI void ism_common_freeTLS(void) {
   }
 }
 
+/*
+ * Returns a pointer to a (const) string that we use for
+ * temporary data that is possibly (but not guarenteed) to be cleared
+ * before our next start
+ */
+XAPI const char *ism_common_getRuntimeTempDir(void) {
+    return g_runtime_dir;
+}
+
 
 static const char b64digit [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -4184,4 +4226,44 @@ const char * ism_common_UUIDtoBinary(const char * uuid_str, char * buf) {
     uuid[3] = endian_int32(uuid[3]);
     memcpy(buf, uuid, 16);
     return buf;
+}
+
+
+/* 
+ * We use Unix Domain Sockets and therefore the "IP address" for a socket is sometimes a filename
+ *
+ * We have to be careful over the location of such files as some distributed filesystems
+ * that might be used for our datadir (CephFS) can't be used for them.
+ * Therefore we allow the special string ${IMASERVER_RUNTIME_DIR} at the start of the string
+ * and replace it with a suitable temporary directory here. 
+ *
+ * @return: On success returns number of replacements (0 or 1). On failure returns -1
+ */
+int ism_common_expandUDSPathVars(char *expandedString, int maxSize, const char *inString) {
+    int rc = 0;
+
+    if (strncmp(inString, "${IMASERVER_RUNTIME_DIR}", strlen("${IMASERVER_RUNTIME_DIR}")) == 0) {
+    
+        //Check the string (including terminating NULL) fits in the target buffer
+        size_t newsize =  strlen(inString)
+                    + strlen(ism_common_getRuntimeTempDir())
+                    - strlen("${IMASERVER_RUNTIME_DIR}")
+                    + 1;
+    
+        if (newsize > maxSize) {
+            TRACE(4, "%s: ERROR: inString %s, PathLen %lu too long!\n", __FUNCTION__, inString, newsize);
+            return -1;
+        }
+    
+        //Replace ${IMASERVER_RUNTIME_DIR} with the actual temporary dir
+        snprintf(expandedString, newsize, "%s%s", 
+                 ism_common_getRuntimeTempDir(),
+                 inString+strlen("${IMASERVER_RUNTIME_DIR}"));
+
+        TRACE(9, "%s: Before %s, after %s\n", __FUNCTION__, inString, expandedString);
+        rc = 1;
+    } else {
+        TRACE(9, "%s: No replacement vars in  %s\n", __FUNCTION__, inString);
+    }
+    return rc;
 }

@@ -1086,6 +1086,18 @@ XAPI  void      ism_common_sleep(int micros);
  */
 XAPI void ism_common_delay(int strategy);
 
+/**
+ * Returns a pointer to a (const) string that we use for
+ * temporary data that is possibly (but not guarenteed) to be cleared
+ * before our next start
+ */
+XAPI const char *ism_common_getRuntimeTempDir(void);
+
+/**
+ * Expands variable in path for a Unix Domain Socket
+ */
+XAPI int ism_common_expandUDSPathVars(char *expandedString, int maxSize, const char *inString);
+
 
  /**
   * Emergency shutdown
