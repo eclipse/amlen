@@ -434,6 +434,12 @@ static pid_t  createExternalProcess(externalProcessInfo_t * procInfo, const char
         sprintf(buffer, "QUALIFY_SHARED=%s", value);
         env[varindex++] = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),buffer);
     }
+    value = getenv("IMASERVER_RUNTIME_DIR");
+    if (value) {
+        char buffer[strlen(value)+strlen("IMASERVER_RUNTIME_DIR")+2];
+        sprintf(buffer, "IMASERVER_RUNTIME_DIR=%s", value);
+        env[varindex++] = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),buffer);
+    }
     pid = vfork();
     if(!pid) {
         // Child process
