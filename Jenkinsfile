@@ -80,16 +80,13 @@ spec:
                 }
             }
         }
-        stage('Deploy') {
+        stage('Upload') {
             steps {
                 container('jnlp') {
-                    echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
-                    withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId: 'bvt-token', variable: 'BVT_KEY'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
+                    echo "In Upload, BUILD_LABEL is ${env.BUILD_LABEL}"
                       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
                           sh '''
                               pwd
-                              echo ${GIT_BRANCH}
-                              echo "BUILD_LABEL is ${BUILD_LABEL}"
                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                               ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
                               scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
@@ -110,6 +107,21 @@ spec:
                               cp -r ../build/scripts ./
                               tar -czf amlen-monitor.tar.gz Dockerfile requirements.txt scripts
                               scp -o BatchMode=yes -r amlen-monitor.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                          '''
+                    }
+                }
+            }
+        }
+        // send a mail on unsuccessful and fixed builds
+        stage('Deploy') {
+            steps {
+                container('jnlp') {
+                    echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
+                    withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId: 'bvt-token', variable: 'BVT_KEY'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
+                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                          sh '''
+                              pwd
+                              NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 
                               uid1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/EclipseAmlenServer-centos7-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" | grep -oP '(?<=\"id\": \")[^\"]*\')
                               sleep 60
