@@ -123,7 +123,9 @@ if [ -n "$BUILD_LOG" ]; then
         # until we can clean up compiler warnings (with gcc9) we cannot tee stderr without breaking the travis build (exceed 4MB log size)
         ${MAKCMD} ${target} >> $BUILD_LOG 2>&1
     else
-        ${MAKCMD} ${target} >> $BUILD_LOG 2> >(tee -a $BUILD_LOG >&2 | tail -n 200)
+        echo "JON: Yep in this leg"
+        ${MAKCMD} ${target} >> $BUILD_LOG 2>&1
+        #${MAKCMD} ${target} >> $BUILD_LOG 2> >(tee -a $BUILD_LOG >&2 | tail -n 200)
     fi
 else
     ${MAKCMD} ${target}
