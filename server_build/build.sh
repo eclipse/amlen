@@ -119,11 +119,14 @@ if [ -n "$BUILD_LOG" ]; then
     #exec 3>&1 
     #exec > >(tee -a ${BUILD_LOG} >/dev/null) 2> >(tee -a ${BUILD_LOG} >&3)
     # ${MAKCMD} ${target} >> "$BUILD_LOG"
-    if [ "$ASAN_BUILD" == "yes" ] ; then
+
+    if [[ "$START_DIR" == *"spidercast"* ]] ; then
+        # spidercast uses lots of deprecated C++
         # until we can clean up compiler warnings (with gcc9) we cannot tee stderr without breaking the travis build (exceed 4MB log size)
+        echo "Not printing spidercast errors due to depracted C++ warnings. See build_log for details: ${BUILD_LOG}"
         ${MAKCMD} ${target} >> $BUILD_LOG 2>&1
     else
-        echo "JON: Yep in this leg"
+        echo "Build log at ${BUILD_LOG} but make stderr also shown here"
         ${MAKCMD} ${target} >> $BUILD_LOG 2> >(tee -a $BUILD_LOG >&2)
         #${MAKCMD} ${target} >> $BUILD_LOG 2>&1
         #${MAKCMD} ${target} >> $BUILD_LOG 2> >(tee -a $BUILD_LOG >&2 | tail -n 200)
