@@ -124,7 +124,8 @@ if [ -n "$BUILD_LOG" ]; then
         ${MAKCMD} ${target} >> $BUILD_LOG 2>&1
     else
         echo "JON: Yep in this leg"
-        ${MAKCMD} ${target} >> $BUILD_LOG 2>&1
+        ${MAKCMD} ${target} >> $BUILD_LOG 2> >(tee -a $BUILD_LOG >&2)
+        #${MAKCMD} ${target} >> $BUILD_LOG 2>&1
         #${MAKCMD} ${target} >> $BUILD_LOG 2> >(tee -a $BUILD_LOG >&2 | tail -n 200)
     fi
 else
