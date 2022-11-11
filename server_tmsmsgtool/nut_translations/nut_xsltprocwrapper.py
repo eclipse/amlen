@@ -54,10 +54,11 @@ def runXSLTProc(logger, langliststr, replace_filename_vars, input, output,
 
         try:
             procoutput = subprocess.run(xsltprocarglist, 
-                                    capture_output=True)
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE)
         except Exception as e:
             logger.error("Failed to run %s - error %s" %
-                             (shlex.join(xsltprocarglist), e))
+                             (' '.join(shlex.quote(x) for x in xsltprocarglist), e))
             raise e
 
-        logger.info("Output from running: "+shlex.join(xsltprocarglist)+" is: "+procoutput.stdout.decode('utf-8')+" and stderr: "+procoutput.stderr.decode('utf-8'))
+        logger.info("Output from running: "+' '.join(shlex.quote(x) for x in xsltprocarglist)+" is: "+procoutput.stdout.decode('utf-8')+" and stderr: "+procoutput.stderr.decode('utf-8'))

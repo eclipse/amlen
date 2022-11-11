@@ -2239,6 +2239,10 @@ static int findjvm(char * jvmdll, int len, const char * jvmname) {
         snprintf(jvmdll, len, "%s/lib/amd64/classic/%s", java_home, JVMDLLNAME);
         if (!access(jvmdll, CANREAD))
             return 0;
+        //Path in IBM Java 11:
+        snprintf(jvmdll, len, "%s/lib/server/%s", java_home, JVMDLLNAME);
+        if (!access(jvmdll, CANREAD))
+            return 0;
         jvmname = "lib/amd64/server";
     }
     snprintf(jvmdll, len, "%s/jre/%s/%s", java_home, jvmname, JVMDLLNAME);

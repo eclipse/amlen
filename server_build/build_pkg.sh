@@ -840,7 +840,9 @@ function bld_imaproxy_rpm {
         if [ ! -z $CURL_HOME -a -e $CURL_HOME/lib ] ; then
             cp --no-preserve=ownership $CURL_HOME/lib/libcurl.so.4 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
         fi
+    fi
 
+    if [ "$SHIP_MONGO" != "no" ] ; then
         if [ -n "$MONGOC_HOME" -a -e $MONGOC_HOME/lib64 ] ; then
           cp --no-preserve=ownership $MONGOC_HOME/lib64/libbson-1.0.so.0 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
           cp --no-preserve=ownership $MONGOC_HOME/lib64/libmongoc-1.0.so.0 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.

@@ -57,13 +57,13 @@ def runMsgTool(logger, langliststr, replace_filename_vars, input, outputbasedir,
         try:
             output = subprocess.run(msgtoolarglist, 
                                     cwd=msgtoolbindir,
-                                    capture_output=True)
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except Exception as e:
             logger.error("Failed to run %s - error %s" %
-                             (shlex.join(msgtoolarglist), e))
+                             (' '.join(shlex.quote(x) for x in msgtoolarglist), e))
             raise e
 
-        logger.info("Output from running: "+shlex.join(msgtoolarglist)+" is: "+output.stdout.decode('utf-8')+" and stderr: "+output.stderr.decode('utf-8'))
+        logger.info("Output from running: "+' '.join(shlex.quote(x) for x in msgtoolarglist)+" is: "+output.stdout.decode('utf-8')+" and stderr: "+output.stderr.decode('utf-8'))
 
         #Copy msgtoolbindir/ism.xml to outputbasedir
         outputbasedir_varsreplaced = nut_utils.parseFileNameForLangVars(outputbasedir, lang)
