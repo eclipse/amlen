@@ -1,0 +1,33 @@
+# get PVC and Extract Names
+- name: Check PVC existence
+  block:
+    - name: Check PVC existence
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: PersistentVolumeClaim
+        namespace: "{{ iotNamespace }}"
+        label_selectors:
+        - app="{{_amlen_name}}-{{item}}"
+      register: pvc_result
+      loop: "{{ range(0,size,1)|list}}"
+
+
+  rescue:
+    - name: Debug failed result
+      debug:
+        msg: "{{ ansible_failed_result }}"
+  ignore_errors: yes
+
+- name: Debug pvc_result
+  debug:
+    var: pvc_result
+
+- name: Mark for Deletion for PVC
+  when: pvc_result['resources'] | length > 0
+  k8s:
+    definition: '{{ pvc }}'
+    state: absent
+  loop: "{{ pvc_result['resources'] }}"
+  loop_control:
+    loop_var: pvc
+
