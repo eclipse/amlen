@@ -1,0 +1,41 @@
+# get PVC and Extract Names
+#
+- name: Debug 
+  debug:
+    msg: "{{_amlen_name}}-{{item}}"
+  loop: "{{ range(0,size,1)|list}}"
+
+- name: Check PVC existence
+  block:
+    - name: Check PVC existence
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: PersistentVolumeClaim
+        namespace: "{{ _amlen_namespace }}"
+        label_selectors:
+        - app={{_amlen_name}}-{{item}}
+      register: pvc_result
+      loop: "{{ range(0,size,1)|list}}"
+
+
+  rescue:
+    - name: Debug failed result
+      debug:
+        msg: "{{ ansible_failed_result }}"
+  ignore_errors: yes
+
+- name: Debug pvc_result
+  debug:
+    var: pvc_result
+
+- name: Mark for Deletion for PVC
+  when: 
+  - pvc_result.results | length > 0 and pvc_result.results[0].resources | length > 0 
+  k8s:
+    definition: '{{ pvc }}'
+    state: absent
+  loop: "{{ pvc_result | json_query('results[*].resources') }}"
+
+  loop_control:
+    loop_var: pvc
+
