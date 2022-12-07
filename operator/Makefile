@@ -28,8 +28,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# amlen.com/amlen2-bundle:$VERSION and amlen.com/amlen2-catalog:$VERSION.
-IMAGE_TAG_BASE ?= amlen.com/amlen
+# eclipse.org/amlen2-bundle:$VERSION and eclipse.org/amlen2-catalog:$VERSION.
+IMAGE_TAG_BASE ?= eclipse.org/amlen
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -101,7 +101,7 @@ deploy: kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/c
 .PHONY: produce-deployment
 produce-deployment: kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default > amlen-operator.yaml
+	$(KUSTOMIZE) build config/default > eclipse-amlen-operator.yaml
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
