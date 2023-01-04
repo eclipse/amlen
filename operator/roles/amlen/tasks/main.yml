@@ -18,10 +18,43 @@
   loop: "{{ range(0,size,1)|list}}"
   loop_control:
     loop_var: pair_id
+  when:
+  - operator_pause is not defined or not operator_pause
 
 - name: deploy LDAP
   include_tasks: deploy_ldap.yml
-  when: 
+  when:
   - ldap is defined
   - ldap.enabled is defined
   - ldap.enabled
+  - operator_pause is not defined or not operator_pause
+
+- name: update paused status
+  operator_sdk.util.k8s_status:
+    api_version: eclipse.org/v1alpha1
+    kind: Amlen
+    name: "{{ _amlen_name }}"
+    namespace: "{{ _amlen_namespace }}"
+    status:
+      conditions:
+        - type: Ready
+          status: "True"
+          message: "Operator Paused for Manual Upgrade"
+          reason: "ManualPause"
+  when:
+    - operator_pause is defined and operator_pause
+
+- name: update running status
+  operator_sdk.util.k8s_status:
+    api_version: eclipse.org/v1alpha1
+    kind: Amlen
+    name: "{{ _amlen_name }}"
+    namespace: "{{ _amlen_namespace }}"
+    status:
+      conditions:
+        - type: Ready
+          status: "True"
+          message: "Amlen not ready"
+          reason: "Ready"
+  when:
+    - operator_pause is not defined or not operator_pause
