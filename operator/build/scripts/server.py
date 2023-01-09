@@ -46,6 +46,30 @@ MSSERVER_KEY   = "/secrets/internal_certs/tls.key"
 # Configuration
 MSSERVER_CONFIG="/etc/msserver/iotmsserverconfig.json"
 
+def checkForPause(filename):
+    modificationtime = None
+    Paused = false
+
+    try:
+        modificationtime = os.path.getmtime(filename)
+    except FileNotFoundError as e:
+        logger.debug("Doing normal check as pause file doesn't exist: "+filename)
+    except Exception as e:
+        logger.error('Error looking for for pause file modification time: '+repr(e))
+        logger.error("Doing normal check as couldn't read modification time for "+filename)
+        modificationtime = None
+
+    if  modificationtime is not None:
+        now              = time.time()
+        timediff = now - modificationtime
+
+        if now - modificationtime > 24*60*60:
+            logger.warning("Old Pause file found ignored - Should the following file be deleted? "+filename)
+        else:
+            Paused=True
+            logger.warning("Found Pause file - will test/log but report ok to avoid container restart ("+filename+")")
+    return Paused
+
 def getUsername():
     return "sysadmin"
 
