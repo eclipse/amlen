@@ -53,7 +53,7 @@ def getLogger(name="amlen-configurator"):
 
 logger = getLogger("amlen-configurator")
 
-PASSWORD_FILE="/secrets/adminpassword/password"
+PASSWORD_FILE="/secrets/admin/adminPassword"
 def getPassword():
     with open(PASSWORD_FILE) as f:
         return f.readline().rstrip()
