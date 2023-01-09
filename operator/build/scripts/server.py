@@ -36,7 +36,7 @@ MESSAGESIGHT_SHUTDOWN_GRACE_PERIOD = 60
 DEFAULT_HEARTBEAT = 10
 
 # Files with username/password
-PASSWORD_FILE="/secrets/adminpassword/password"
+PASSWORD_FILE="/secrets/admin/adminPassword"
 
 # Certificates
 CA_PUBLIC_CERT = "/secrets/internal_certs/ca.crt"
@@ -48,7 +48,7 @@ MSSERVER_CONFIG="/etc/msserver/iotmsserverconfig.json"
 
 def checkForPause(filename):
     modificationtime = None
-    Paused = false
+    Paused = False
 
     try:
         modificationtime = os.path.getmtime(filename)
