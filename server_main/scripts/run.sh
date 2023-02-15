@@ -20,17 +20,17 @@ cp /secrets/sslcerts/ca/ca_public_cert.pem ${DESTINATION}
 cp /secrets/sslcerts/device/tls.crt ${DESTINATION}
 cp /secrets/sslcerts/device/tls.key ${DESTINATION}
 
-KEYSTORE=/var/lib/amlen/data/certificates/keystore/
+KEYSTORE=${IMA_SVR_DATA_PATH}/data/certificates/keystore/
 mkdir -p -m 2770 ${KEYSTORE}
 cp /secrets/sslcerts/device/tls.key ${KEYSTORE}
 cp /secrets/sslcerts/device/tls.crt ${KEYSTORE}
 
-TRUSTSTORE=/var/lib/amlen/data/certificates/truststore/IoTSecurityProfile
+TRUSTSTORE=${IMA_SVR_DATA_PATH}/data/certificates/truststore/IoTSecurityProfile
 mkdir -p -m 2770 ${TRUSTSTORE}
 cp /secrets/sslcerts/ca/ca_public_cert.pem ${TRUSTSTORE}
 
 cp /secrets/sslcerts/ha/tls.key ${KEYSTORE}HA_tls.key
 cp /secrets/sslcerts/ha/tls.crt ${KEYSTORE}HA_tls.crt
-cp /secrets/sslcerts/ha/ca.crt /var/lib/amlen/data/certificates/truststore/HA_cafile.pem
+cp /secrets/sslcerts/ha/ca.crt ${IMA_SVR_DATA_PATH}/data/certificates/truststore/HA_cafile.pem
 
-exec /opt/ibm/imaserver/bin/startServer.sh
+exec ${IMA_SVR_INSTALL_PATH}/bin/startServer.sh
