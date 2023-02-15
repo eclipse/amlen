@@ -25,7 +25,7 @@ import re
 import base64
 import yaml
 import argparse
-from subprocess import Popen, PIPE, check_output, TimeoutExpired
+from subprocess import Popen, PIPE, check_output
 from requests.auth import HTTPBasicAuth
 from ansible.module_utils.server import Server
 
@@ -111,7 +111,7 @@ def deployLDAP(instanceA, instanceB, certificate,bindpassword):
                             }
                    }
        
-    server.uploadFile({'file': ("ldap.pem",certificate)})
+    server.upload_file({'file': ("ldap.pem",certificate)})
     rc, content = server.postConfigurationRequest(primaryInput)
     if rc != 200:
         logger.error("Unexpected response code when configuring LDAP %s: %s" % (server.serverName, rc)) 

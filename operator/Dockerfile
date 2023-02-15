@@ -6,3 +6,7 @@ RUN ansible-galaxy collection install -r ${HOME}/requirements.yml \
 
 COPY watches.yaml ${HOME}/watches.yaml
 COPY roles/ ${HOME}/roles/
+
+USER root
+RUN chmod -R g=u ${HOME}
+USER ${USER_UID}

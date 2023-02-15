@@ -25,7 +25,7 @@ import re
 import base64
 import yaml
 import argparse
-from subprocess import Popen, PIPE, check_output, TimeoutExpired
+from subprocess import Popen, PIPE, check_output
 from requests.auth import HTTPBasicAuth
 from ansible.module_utils.server import Server
 
@@ -55,10 +55,10 @@ def getLogger(name="amlen-configurator"):
 logger = getLogger("amlen-configurator")
 
 def deployHA(instanceA, instanceB):
-    groupName = instanceA.groupName
+    groupName = instanceA.group_name
     
-    p1HA, p1State = instanceA.getHAState(wait=True)
-    p2HA, p2State = instanceB.getHAState(wait=True)
+    p1HA, p1State = instanceA.get_ha_state(wait=True)
+    p2HA, p2State = instanceB.get_ha_state(wait=True)
         
     if p1HA and p1State == "PRIMARY":
         # A is primary - valid pair
@@ -78,11 +78,11 @@ def deployHA(instanceA, instanceB):
             server1 = instanceA
             server2 = instanceB
     
-    server1Down = (server1.getStatus(wait=False) == None)
-    server2Down = (server2.getStatus(wait=False) == None)
+    server1Down = (server1.get_status(wait=False) == None)
+    server2Down = (server2.get_status(wait=False) == None)
 
-    server1HA, server1State = server1.getHAState(wait=False)
-    server2HA, server2State = server2.getHAState(wait=False)
+    server1HA, server1State = server1.get_ha_state(wait=False)
+    server2HA, server2State = server2.get_ha_state(wait=False)
 
     setupHA = False
     if ((server2Down or not server2HA) and not server1Down and 
@@ -101,29 +101,29 @@ def deployHA(instanceA, instanceB):
     # Wait for sync only if server1 node is up 
     # and HA was established before the deploy
     if not server2Down:
-        isHA, state = server2.getHAState(wait=True)
+        isHA, state = server2.get_ha_state(wait=True)
         if not isHA or state == "UNSYNC_ERROR" or state == "UNKNOWN":
-            msg = "Node %s could not synchronize (%s - %s)" % (server2.serverName, isHA, state)
+            msg = "Node %s could not synchronize (%s - %s)" % (server2.server_name, isHA, state)
             logger.warning(msg)
             if server2HA:
                 logger.info("Standby lost information about HA, reestablishing it")
                 setupHA = True
 
     if setupHA:
-        logger.info("Configuring new HA pair %s and %s" % (server1.serverName, server2.serverName))
+        logger.info("Configuring new HA pair %s and %s" % (server1.server_name, server2.server_name))
         configureHA(server1, server2, groupName)
 
     if needExtraRestart:
         server1.restart()
         server2.restart()
 
-    isHA, state = server1.getHAState(wait=True)
+    isHA, state = server1.get_ha_state(wait=True)
     if not isHA or state == "UNSYNC_ERROR" or state == "UNKNOWN" or state == "HADISABLED":
-        logger.warning("Node %s could not synchronize (%s - %s)" % (server1.serverName, isHA, state))    
+        logger.warning("Node %s could not synchronize (%s - %s)" % (server1.server_name, isHA, state))    
     
-    logger.info("Configuring existing HA pair %s and %s" % (server1.serverName, server2.serverName))
-    server1.configureUsernamePassword()
-    server2.configureUsernamePassword()
+    logger.info("Configuring existing HA pair %s and %s" % (server1.server_name, server2.server_name))
+    server1.configure_username_password()
+    server2.configure_username_password()
     
     configureHA(server1, server2, groupName)
     
@@ -144,8 +144,8 @@ def configureHA(server1, server2, groupName):
     standbyInput = {"HighAvailability": {}}
 
     scenario = 0
-    server1HA, server1State = server1.getHAState(wait=False)
-    server2HA, server2State = server2.getHAState(wait=False)
+    server1HA, server1State = server1.get_ha_state(wait=False)
+    server2HA, server2State = server2.get_ha_state(wait=False)
     
     # If server1 has HA enabled, but is in error, unsync or hadisabled state, assume 
     # it's not a properly a properly configured HA 
@@ -157,21 +157,21 @@ def configureHA(server1, server2, groupName):
     if server2HA and (server2State == "UNSYNC" or server2State == "UNSYNC_ERROR" or server2State == "HADISABLED"):
         server2HA = False
         
-    logger.info("server1 %s: HA enabled - %s, state - %s" % (server1.serverName, server1HA, server1State))
-    logger.info("server2 %s: HA enabled - %s, state - %s" % (server2.serverName, server2HA, server2State))
+    logger.info("server1 %s: HA enabled - %s, state - %s" % (server1.server_name, server1HA, server1State))
+    logger.info("server2 %s: HA enabled - %s, state - %s" % (server2.server_name, server2HA, server2State))
     
     if not server1HA and not server2HA:
         scenario = 1
         
         # Put standby in maintenance mode so that it won't stop new primary from coming up
-        server2.switchToMaintMode()
+        server2.switch_to_maint_mode()
 
         primaryInput["HighAvailability"]={
                     "EnableHA":               True,
                     "ExternalReplicationNIC": "",
-                    "RemoteDiscoveryNIC":     server2.serverName,
-                    "LocalReplicationNIC":    server1.serverName,
-                    "LocalDiscoveryNIC":      server1.serverName,                    
+                    "RemoteDiscoveryNIC":     server2.server_name,
+                    "LocalReplicationNIC":    server1.server_name,
+                    "LocalDiscoveryNIC":      server1.server_name,                    
                     "ReplicationPort":        9085,
                     "Group":                  groupName,
                     "PreferredPrimary":       True,
@@ -180,25 +180,25 @@ def configureHA(server1, server2, groupName):
                     "HeartbeatTimeout":       DEFAULT_HEARTBEAT
         }
         
-        rc, content = server1.postConfigurationRequest(primaryInput)
+        rc, content = server1.post_configuration_request(primaryInput)
         if rc != 200:
-            logger.error("Unexpected response code when configuring HA primary server %s: %s" % (server1.serverName, rc)) 
+            logger.error("Unexpected response code when configuring HA primary server %s: %s" % (server1.server_name, rc)) 
             logger.error(content)
-            raise Exception("Unexpected response code when configuring HA primary server %s: %s" % (server1.serverName, rc))
+            raise Exception("Unexpected response code when configuring HA primary server %s: %s" % (server1.server_name, rc))
 
         # Restart primary and wait for HA to come up properly
         server1.restart()
-        if not server1.checkHAStatus():
-            error_text = "HA primary Amlen server %s could not be configured as standalone" % (server1.serverName)
+        if not server1.check_ha_status():
+            error_text = "HA primary Amlen server %s could not be configured as standalone" % (server1.server_name)
             logger.error(error_text) 
             raise Exception(error_text)
 
         standbyInput["HighAvailability"]={
                     "EnableHA":               True,
                     "ExternalReplicationNIC": "",
-                    "RemoteDiscoveryNIC":     server1.serverName,
-                    "LocalReplicationNIC":    server2.serverName,
-                    "LocalDiscoveryNIC":      server2.serverName,                    
+                    "RemoteDiscoveryNIC":     server1.server_name,
+                    "LocalReplicationNIC":    server2.server_name,
+                    "LocalDiscoveryNIC":      server2.server_name,                    
                     "ReplicationPort":        9085,
                     "Group":                  groupName,
                     "PreferredPrimary":       False,
@@ -207,18 +207,18 @@ def configureHA(server1, server2, groupName):
                     "HeartbeatTimeout":       DEFAULT_HEARTBEAT
         }
 
-        rc, content = server2.postConfigurationRequest(standbyInput)
+        rc, content = server2.post_configuration_request(standbyInput)
         if rc != 200:
-            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server2.serverName, rc)
+            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server2.server_name, rc)
             logger.error(error_text) 
             logger.error(content)
             raise Exception(error_text)
 
         # Clear the store on new standby and switch it into production mode
-        server2.cleanStore()
-        server2.switchToProductionMode() 
-        if not server2.checkHAStatus():
-            error_text = "HA standby Amlen server %s could not be configured" % (server2.serverName)
+        server2.clean_store()
+        server2.switch_to_production_mode() 
+        if not server2.check_ha_status():
+            error_text = "HA standby Amlen server %s could not be configured" % (server2.server_name)
             logger.error(error_text) 
             raise Exception(error_text)
         
@@ -226,9 +226,9 @@ def configureHA(server1, server2, groupName):
         primaryInput["HighAvailability"]={
                     "StartupMode":"AutoDetect"
         }
-        rc, content = server1.postConfigurationRequest(primaryInput)
+        rc, content = server1.post_configuration_request(primaryInput)
         if rc != 200:
-            error_text = "Unexpected response code when configuring HA primary server %s: %s" % (server1.serverName, rc)
+            error_text = "Unexpected response code when configuring HA primary server %s: %s" % (server1.server_name, rc)
             logger.error(error_text) 
             logger.error(content)
             raise Exception(error_text)
@@ -239,9 +239,9 @@ def configureHA(server1, server2, groupName):
         standbyInput["HighAvailability"]={
                     "EnableHA":               True,
                     "ExternalReplicationNIC": "",
-                    "RemoteDiscoveryNIC":     server1.serverName,
-                    "LocalReplicationNIC":    server2.serverName,
-                    "LocalDiscoveryNIC":      server2.serverName,                    
+                    "RemoteDiscoveryNIC":     server1.server_name,
+                    "LocalReplicationNIC":    server2.server_name,
+                    "LocalDiscoveryNIC":      server2.server_name,                    
                     "ReplicationPort":        9085,
                     "Group":                  groupName,
                     "PreferredPrimary":       False,
@@ -249,9 +249,9 @@ def configureHA(server1, server2, groupName):
                     "UseSecuredConnections":  True,
                     "HeartbeatTimeout":       DEFAULT_HEARTBEAT
         }
-        rc, content = server2.postConfigurationRequest(standbyInput)
+        rc, content = server2.post_configuration_request(standbyInput)
         if rc != 200:
-            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server2.serverName, rc)
+            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server2.server_name, rc)
             logger.error(error_text) 
             logger.error(content)
             raise Exception(error_text)
@@ -264,26 +264,26 @@ def configureHA(server1, server2, groupName):
                     "UseSecuredConnections":  True,
                     "HeartbeatTimeout":       DEFAULT_HEARTBEAT
         }
-        rc, content = server1.postConfigurationRequest(primaryInput)
+        rc, content = server1.post_configuration_request(primaryInput)
         if rc != 200:
-            error_text = "Unexpected response code when configuring HA primary server %s: %s" % (server1.serverName, rc)
+            error_text = "Unexpected response code when configuring HA primary server %s: %s" % (server1.server_name, rc)
             logger.warn(error_text) 
             logger.warn(content)
         
-        server2.cleanStore()
+        server2.clean_store()
 
-        if not server2.checkHAStatus():
-            logger.error("Error configuring HA for Amlen server %s" % (server2.serverName)) 
-            raise Exception("Error configuring HA for Amlen server %s" % (server2.serverName))
+        if not server2.check_ha_status():
+            logger.error("Error configuring HA for Amlen server %s" % (server2.server_name)) 
+            raise Exception("Error configuring HA for Amlen server %s" % (server2.server_name))
 
     elif server2HA and not server1HA:
         scenario = 3
         primaryInput["HighAvailability"]={
                     "EnableHA":               True,
                     "ExternalReplicationNIC": "",
-                    "RemoteDiscoveryNIC":     server2.serverName,
-                    "LocalReplicationNIC":    server1.serverName,
-                    "LocalDiscoveryNIC":      server1.serverName,                    
+                    "RemoteDiscoveryNIC":     server2.server_name,
+                    "LocalReplicationNIC":    server1.server_name,
+                    "LocalDiscoveryNIC":      server1.server_name,                    
                     "ReplicationPort":        9085,
                     "Group":                  groupName,
                     "PreferredPrimary":       True,
@@ -292,9 +292,9 @@ def configureHA(server1, server2, groupName):
                     "HeartbeatTimeout":       DEFAULT_HEARTBEAT
         }
         
-        rc, content = server1.postConfigurationRequest(primaryInput)
+        rc, content = server1.post_configuration_request(primaryInput)
         if rc != 200:
-            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server1.serverName, rc)
+            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server1.server_name, rc)
             logger.error(error_text) 
             logger.error(content)
             raise Exception(error_text)
@@ -307,16 +307,16 @@ def configureHA(server1, server2, groupName):
                     "UseSecuredConnections":  True,
                     "HeartbeatTimeout":       DEFAULT_HEARTBEAT
         }
-        rc, content = server2.postConfigurationRequest(standbyInput)
+        rc, content = server2.post_configuration_request(standbyInput)
         if rc != 200:
-            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server2.serverName, rc)
+            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server2.server_name, rc)
             logger.warn(error_text) 
             logger.warn(content)
         
-        server1.cleanStore()
+        server1.clean_store()
         
-        if not server1.checkHAStatus():
-            error_text = "Error configuring HA for Amlen server %s" % (server1.serverName)
+        if not server1.check_ha_status():
+            error_text = "Error configuring HA for Amlen server %s" % (server1.server_name)
             logger.error(error_text) 
             raise Exception(error_text)
     else:
@@ -329,22 +329,22 @@ def configureHA(server1, server2, groupName):
                     "UseSecuredConnections":  True,
                     "HeartbeatTimeout":       DEFAULT_HEARTBEAT
         }
-        rc, content = server1.postConfigurationRequest(updateInput)
+        rc, content = server1.post_configuration_request(updateInput)
         if rc != 200:
-            error_text = "Unexpected response code when configuring HA primary server %s: %s" % (server1.serverName, rc)
+            error_text = "Unexpected response code when configuring HA primary server %s: %s" % (server1.server_name, rc)
             logger.warn(error_text) 
             logger.warn(content)
 
-        rc, content = server2.postConfigurationRequest(updateInput)
+        rc, content = server2.post_configuration_request(updateInput)
         if rc != 200:
-            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server2.serverName, rc)
+            error_text = "Unexpected response code when configuring HA standby server %s: %s" % (server2.server_name, rc)
             logger.warn(error_text) 
             logger.warn(content)
             
     logger.info("HA scenario %s" % (str(scenario)))
 
     # Wait for HA pair to synchronize
-    ok = server1.checkHAStatus()
+    ok = server1.check_ha_status()
     if ok == False:
         # Restart both servers and try again
         logger.warn("Initial HA synchronization failed, restarting server1")
@@ -352,16 +352,16 @@ def configureHA(server1, server2, groupName):
         if server2 != None:
             logger.warn("Initial HA synchronization failed, restarting server2")
             server2.restart()
-        ok = server1.checkHAStatus()
+        ok = server1.check_ha_status()
         
         if ok == False:
-            raise Exception("Amlen HA configuration error (%s, %s)" % (server1.serverName, server2.serverName))
+            raise Exception("Amlen HA configuration error (%s, %s)" % (server1.server_name, server2.server_name))
     
-    logger.info("HA configured properly for (%s, %s)" % (server1.serverName, server2.serverName))
+    logger.info("HA configured properly for (%s, %s)" % (server1.server_name, server2.server_name))
 
-def deploy(servers):
+def deploy(servers, path):
     if len(servers) == 1:
-        servers[0].configureStandAloneHA(enableHA=False)
+        servers[0].configure_stand_alone_ha(enableHA=False)
     elif len(servers) == 2:
         deployHA(servers[0], servers[1])
     else:
@@ -370,7 +370,7 @@ def deploy(servers):
         raise Exception(error_text)
 
     for server in servers:
-        server.configureFileLogging()
+        server.configure_file_logging(path)
 
 if __name__ == '__main__':
     fields = {
@@ -378,8 +378,10 @@ if __name__ == '__main__':
         "suffix": {"required": True, "type": "str"},
         "password": {"required": True, "type": "str"},
         "ca.crt": {"required": True, "type": "str"},
+        "caname": {"required": True, "type": "str"},
         "tls.crt": {"required": True, "type": "str"},
         "tls.key": {"required": True, "type": "str"},
+        "path": {"required": True, "type": "str"},
         "config": {"required": False, "type": "str"},
     }
 
@@ -389,9 +391,11 @@ if __name__ == '__main__':
     suffix = module.params['suffix']
     password = module.params['password']
     cacrt = module.params['ca.crt']
+    caname = module.params['caname']
     tlscrt = module.params['tls.crt']
     tlskey = module.params['tls.key']
     config = module.params['config']
+    path = module.params['path']
     
     try:
         instances=[]
@@ -406,16 +410,15 @@ if __name__ == '__main__':
         else:
            config = None
         for instance in names:
-            imaserver = Server(instance, logger )
-            imaserver.setCredentials(password)
-            imaserver.loadFile("ca.crt",cacrt)
-            imaserver.loadFile("tls.crt",tlscrt)
-            imaserver.loadFile("tls.key",tlskey)
+            imaserver = Server(instance, logger, password=password )
+            imaserver.load_file(caname,cacrt)
+            imaserver.load_file("tls.crt",tlscrt)
+            imaserver.load_file("tls.key",tlskey)
             if config != None:
-               imaserver.setConfig(config)
+               imaserver.set_config(config)
             instances.append(imaserver)
         
-        deploy(instances)
+        deploy(instances, path)
         
         # Add this service to the config map all MBGs
 

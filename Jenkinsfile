@@ -13,7 +13,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-centos7-build
-    image: quay.io/amlen/amlen-builder-centos7:1.0.0.5
+    image: quay.io/amlen/amlen-builder-centos7:latest
     imagePullPolicy: Always
     command:
     - cat
@@ -62,6 +62,7 @@ spec:
 
                 container('amlen-centos7-build') {
                    sh '''
+                       set -e
                        pwd 
                        free -m 
                        cd server_build 
@@ -74,6 +75,7 @@ spec:
                        export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
                        make bundle
                        make produce-deployment
+                       pylint --fail-under=5 build/scripts/*.py
                        cd ../Documentation/doc_infocenter
                        ant
                       '''
