@@ -1,6 +1,6 @@
-- name: get name
+- name: set name
   set_fact:
-    name: "{{ _amlen_name }}-{{pair_id}}"
+    name: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}"
 
 - name: Get Pods
   k8s_info:
@@ -16,13 +16,22 @@
   set_fact:
     names: "{{r_pods | community.general.json_query('results[*].resources[0].metadata.name') |join(',')}}"
 
-- name: Create headlessService
+- name: check for pre-existing service
+  k8s_info:
+    kind: Service
+    name: "{{_amlen_service_name | default('noservice')}}"
+    namespace: "{{ _amlen_namespace }}"
+  register: service
+
+- name: Create service if not using preexisting one {{ _amlen_state }}
   k8s:
     state: "{{ _amlen_state }}"
     merge_type:
     - strategic-merge
     - merge
     definition: "{{ lookup('template', './templates/headlessService.j2' ) | from_yaml }}"
+  when:
+    - service.resources | length == 0
 
 - name: get password
   k8s_info:
@@ -98,6 +107,7 @@
     tls.crt: "{{certs.resources[0].data['tls.crt']|b64decode}}"
     tls.key: "{{certs.resources[0].data['tls.key']|b64decode}}"
     config: "{{config2}}"
-  async: 120
-  poll: 10
+    path: "{{_amlen_directory}}"
+  async: 600
+  poll: 30
   no_log: False

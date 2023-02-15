@@ -4,12 +4,12 @@ metadata:
   name: "{{ pair_name }}"
   namespace: "{{ _amlen_namespace }}"
   labels:
-    app: "{{ pair_name }}"
+    app: "{{ app_name }}"
 spec:
   replicas: {{ ha.enabled | default(false) | ternary( 2 , 1 ) }}
   selector:
     matchLabels:
-      app: "{{ pair_name }}"
+      app: "{{ app_name }}"
   strategy:
     type: RollingUpdate
   ports:
@@ -24,13 +24,14 @@ spec:
 {% endfor %}
 
 
-  serviceName: "{{ pair_name }}"
+  serviceName: "{{ _amlen_service_name | default(pair_name) }}"
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Delete
   template:
     metadata:
       labels:
-        app: "{{ pair_name }}"
+        app: "{{ app_name }}"
+        release: "{{ _amlen_release }}"
       annotations:
         kubectl.kubernetes.io/default-container: amlen
     spec:
@@ -40,7 +41,7 @@ spec:
         whenUnsatisfiable: "{{_amlen_topology_spread_constraints_when_unsatisfiable}}"
         labelSelector: 
           matchLabels:
-            app: "{{ pair_name }}"
+            app: "{{ app_name }}"
       containers:
       - name: monitor
         image: "{{ _amlen_monitor_image }}:{{ _amlen_monitor_image_tag}}"
@@ -56,8 +57,8 @@ spec:
             command:
             - python3
             - "{{_amlen_bin_directory | default('/usr/share/amlen-server/bin/')}}readiness.py"
-          initialDelaySeconds: 10
-          timeoutSeconds: 5
+          initialDelaySeconds: 30
+          timeoutSeconds: 60
           periodSeconds: 20
           successThreshold: 1
           failureThreshold: 3
@@ -66,9 +67,9 @@ spec:
             command:
             - python3
             - "{{_amlen_bin_directory | default('/usr/share/amlen-server/bin/')}}liveness.py"
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           timeoutSeconds: 5 
-          periodSeconds: 10
+          periodSeconds: 30
           successThreshold: 1
           failureThreshold: 3
         resources:
