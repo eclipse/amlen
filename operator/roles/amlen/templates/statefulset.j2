@@ -85,9 +85,13 @@ spec:
         - name: adminpassword
           mountPath: /secrets/admin
         - name: device-certs
-          mountPath: /secrets/device_certs
+          mountPath: /secrets/sslcerts/device
+{% if ssl_ca_sources is defined %}
+        - name: common-ca-secrets
+          mountPath: /secrets/sslcerts/ca
+{% endif %}
         - name: ha-certs
-          mountPath: /secrets/ha_certs
+          mountPath: /secrets/sslcerts/ha
         env:
         - name: CONTAINER_PASSWORD_CHECK
           value: "true"
@@ -107,6 +111,15 @@ spec:
           secret:
             secretName: "{{ha_certs_secret}}"
             optional: {{ standalone }}
+{% if ssl_ca_sources is defined %}
+        - name: common-ca-secrets
+          projected:
+            sources:
+{% for key, value in ssl_ca_sources.items() %}
+            - secret:
+                name: {{value}}
+{% endfor %}
+{% endif %}
  
 {% if _amlen_persistence == "false" %}
         - name: data
