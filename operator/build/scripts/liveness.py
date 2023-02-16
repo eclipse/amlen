@@ -11,82 +11,54 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-import socket
-import subprocess
-import time
 import sys
-import os
 import json
-import requests
-import logging
 import traceback
-import re
-import base64
-import yaml
-import argparse
-import server
-from subprocess import Popen, PIPE, check_output, TimeoutExpired
-from requests.auth import HTTPBasicAuth
-from server import Server, checkForPause
+from server import Server, check_for_pause, get_logger
 
-PAUSE_FILE = '/var/messagesight/liveness-pause'
-LivenessPaused = false
+PAUSE_FILE = '/tmp/liveness-pause'
+logger = get_logger("amlen-liveness")
 
-def getLogger(name="liveness"):
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-
-    # Only add the handlers once!
-    if logger.handlers == []:
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-
-        chFormatter = logging.Formatter('%(asctime)-25s %(name)-50s %(threadName)-16s %(levelname)-8s %(message)s')
-        ch.setFormatter(chFormatter)
-
-        logger.addHandler(ch)
-
-    return logger
-
-logger = getLogger("liveness")
-
-def exitWithCondition(returncode):
-    """Exits with the return code specified....UNLESS Liveness Probes pauses (via checkForLivenessPause() )
+def exit_with_condition(returncode):
+    """Exits with the return code specified....
+       UNLESS Liveness Probes pauses (via checkForLivenessPause() )
        If paused, always exits with a return code of 0
     """
-    if checkForPause(PAUSE_FILE):
-       logger.warning("Exiting with 0 due to Pause file - would have returned: "+str(returncode))
-       sys.exit(0)
+    if check_for_pause(PAUSE_FILE,logger):
+        logger.warning("Exiting with 0 due to Pause file - would have returned: %s", returncode)
+        sys.exit(0)
 
     sys.exit(returncode)
 
-if __name__ == "__main__":
-
+def main():
     try:
-        imaserver = Server("localhost", logger )
-        status = imaserver.getStatus()
+        imaserver = Server("localhost", logger)
+        status = imaserver.get_status()
 
         if not status:
-            print ('No JSON response from server status API.')
-            exitWithCondition(1)
+            print('No JSON response from server status API.')
+            exit_with_condition(1)
         elif 'Server' in status and 'ErrorCode' in status['Server']:
             logger.debug(json.dumps(status, indent=4))
-            errorCode = status['Server']['ErrorCode']
-            if errorCode == 0:
+            error_code = status['Server']['ErrorCode']
+            if error_code == 0:
                 logger.info('Server is alive!')
-                exitWithCondition(0)
+                exit_with_condition(0)
             else:
-                logger.error('Server returned ErrorCode: [{0}]'.format(errorCode))
-                exitWithCondition(1)
+                logger.error('Server returned ErrorCode: [%s];', error_code)
+                exit_with_condition(1)
         else:
             logger.debug(json.dumps(status, indent=4))
             logger.error('Server status API did not return a value for ErrorCode.')
-            exitWithCondition(1)
+            exit_with_condition(1)
 
-    except Exception as e:
-        logger.error('Unexpected error while requesting server status: '+repr(e))
+    except Exception as ex: # pylint: disable=W0703
+        logger.error('Unexpected error while requesting server status: {%s}', repr(ex))
         traceback.print_exc()
-        exitWithCondition(1)
+        exit_with_condition(1)
 
     logger.error('No error detected but could not determine server status.')
-    exitWithCondition(1)
+    exit_with_condition(1)
+
+if __name__ == "__main__":
+    main()

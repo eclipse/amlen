@@ -1,6 +1,6 @@
-- name: get name
+- name: set name
   set_fact:
-    name: "{{ _amlen_name }}-{{pair_id}}"
+    name: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}"
 
 - name: Get Pods
   k8s_info:
@@ -16,13 +16,22 @@
   set_fact:
     names: "{{r_pods | community.general.json_query('results[*].resources[0].metadata.name') |join(',')}}"
 
-- name: Create headlessService
+- name: check for pre-existing service
+  k8s_info:
+    kind: Service
+    name: "{{_amlen_service_name | default('noservice')}}"
+    namespace: "{{ _amlen_namespace }}"
+  register: service
+
+- name: Create service if not using preexisting one {{ _amlen_state }}
   k8s:
     state: "{{ _amlen_state }}"
     merge_type:
     - strategic-merge
     - merge
     definition: "{{ lookup('template', './templates/headlessService.j2' ) | from_yaml }}"
+  when:
+    - service.resources | length == 0
 
 - name: get password
   k8s_info:
@@ -38,6 +47,13 @@
     namespace: "{{ _amlen_namespace }}"
   register: certs
 
+- name: get ca
+  k8s_info:
+    kind: Secret
+    name: "{{ ca_secret | default(device_certs_secret)}}"
+    namespace: "{{ _amlen_namespace }}"
+  register: ca
+
 - name: create admin services
   k8s:
     state: "{{ _amlen_state }}"
@@ -49,55 +65,17 @@
   loop_control:
     loop_var: node_index
 
-- name: move keys
-  k8s_exec:
-    namespace: "{{ _amlen_namespace }}"
-    pod: "{{pair_name}}-{{node_index}}"
-    container: "amlen"
-    command: cp /secrets/ha_certs/tls.key {{_amlen_directory | default('/var/lib/amlen-server/')}}data/certificates/keystore/HA_key.pem
-  loop: "{{ range(0,nodes|int)|list}}"
-  loop_control:
-    loop_var: node_index
-  when:
-  - ha is defined
-  - ha.enabled
-
-
-- name: move certs
-  k8s_exec:
-    namespace: "{{ _amlen_namespace }}"
-    pod: "{{pair_name}}-{{node_index}}"
-    container: "amlen"
-    command: cp /secrets/ha_certs/tls.crt {{_amlen_directory | default('/var/lib/amlen-server/')}}data/certificates/keystore/HA_cert.pem
-  loop: "{{ range(0,nodes|int)|list}}"
-  loop_control:
-    loop_var: node_index
-  when:
-  - ha is defined
-  - ha.enabled
-
-- name: move CA
-  k8s_exec:
-    namespace: "{{ _amlen_namespace }}"
-    pod: "{{pair_name}}-{{node_index}}"
-    container: "amlen"
-    command: cp /secrets/ha_certs/ca.crt {{_amlen_directory | default('/var/lib/amlen-server/')}}data/certificates/truststore/HA_cafile.pem
-  loop: "{{ range(0,nodes|int)|list}}"
-  loop_control:
-    loop_var: node_index
-  when:
-  - ha is defined
-  - ha.enabled
-
 - name: configure
   configure:
     servers: "{{names}}"
-    suffix: ".{{name}}.{{_amlen_namespace}}.svc.cluster.local"
-    password: "{{secret.resources[0].data.password|b64decode}}"
-    ca.crt: "{{certs.resources[0].data['ca.crt']|b64decode}}"
+    suffix: ".{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
+    password: "{{secret.resources[0].data.adminPassword|b64decode}}"
+    ca.crt: "{{ca.resources[0].data[ca_cert_name | default('ca.crt')] | b64decode}}"
+    caname: "{{ca_cert_name | default('ca.crt')}}"
     tls.crt: "{{certs.resources[0].data['tls.crt']|b64decode}}"
     tls.key: "{{certs.resources[0].data['tls.key']|b64decode}}"
     config: "{{config2}}"
-  async: 120
-  poll: 10
+    path: "{{_amlen_directory}}"
+  async: 600
+  poll: 30
   no_log: False

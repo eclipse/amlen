@@ -11,75 +11,41 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-import socket
-import subprocess
 import time
-import sys
-import os
-import json
-import requests
-import logging
-import traceback
-import re
-import base64
-import yaml
-import argparse
-from subprocess import Popen, PIPE, check_output, TimeoutExpired
-from requests.auth import HTTPBasicAuth
-from server import Server
-
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+from server import Server, get_logger
 
 # Constants
 DEFAULT_HEARTBEAT = 10
 
-def getLogger(name="amlen-configurator"):
-    logging.basicConfig(filename='/tmp/configure.log', level=logging.DEBUG)
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-
-    # Only add the handlers once!
-    if logger.handlers == []:
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-
-        chFormatter = logging.Formatter('%(asctime)-25s %(name)-50s %(threadName)-16s %(levelname)-8s %(message)s')
-        ch.setFormatter(chFormatter)
-
-        logger.addHandler(ch)
-
-    return logger
-
-logger = getLogger("amlen-configurator")
+logger = get_logger("amlen-monitor")
 
 PASSWORD_FILE="/secrets/admin/adminPassword"
-def getPassword():
-    with open(PASSWORD_FILE) as f:
-        return f.readline().rstrip()
+def get_password():
+    with open(PASSWORD_FILE, encoding="utf-8") as password_file:
+        return password_file.readline().rstrip()
 
 if __name__ == '__main__':
-    
+
     imaserver = Server("localhost", logger )
-    currentPassword = getPassword()
-    while (True) : 
-        newPassword = getPassword()
+    current_password = get_password()
+    while True :
+        new_password = get_password()
         try:
             imaserver.getStatus()
-        except Exception as e:
+        except Exception: # pylint: disable=W0703
             try:
-                imaserver.updatePassword(newPassword)
-                imaserver.getStatus()
-                currentPassword = newPassword
-            except Exception as e:
-                imaserver.updatePassword(currentPassword)
-                logger.info("Neither old or new passwords work")              
- 
-        if newPassword != currentPassword :
+                imaserver.update_password(new_password)
+                imaserver.get_status()
+                current_password = new_password
+            except Exception: # pylint: disable=W0703
+                imaserver.update_password(current_password)
+                logger.info("Neither old or new passwords work")
+
+        if new_password != current_password :
             logger.info("Attempting to change password")
-            if imaserver.reconfigureAdminEndpoint(newPassword):
+            if imaserver.reconfigureAdminEndpoint(new_password):
                 logger.info("Password change succesful")
-                currentPassword = newPassword
+                current_password = new_password
             else :
                 logger.info("Password change not succesful")
         time.sleep(DEFAULT_HEARTBEAT)
