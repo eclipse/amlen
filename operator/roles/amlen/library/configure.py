@@ -361,7 +361,7 @@ def configureHA(server1, server2, groupName):
 
 def deploy(servers, path):
     if len(servers) == 1:
-        servers[0].configure_stand_alone_ha(enableHA=False)
+        servers[0].configure_stand_alone_ha(enable_ha=False)
     elif len(servers) == 2:
         deployHA(servers[0], servers[1])
     else:
