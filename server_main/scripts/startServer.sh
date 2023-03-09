@@ -91,7 +91,7 @@ fi
 
 if [ "${CONTAINER_PASSWORD_CHECK}" = "true" ]; then
     echo "Doing password check" >> ${INITLOG}
-    SECRET=`cat /secrets/adminpassword/password`
+    SECRET=`cat /secrets/admin/adminPassword`
     OLD=`cat ${SVR_DATA_DIR}/data/config/server_dynamic.json | grep -oP '(?<=\"AdminUserPassword\": \")[^\"]*'`
     ${SVR_INSTALL_DIR}/bin/imahasher -s -p $SECRET -e $OLD
     MATCH=$?
