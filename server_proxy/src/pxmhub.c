@@ -48,6 +48,7 @@
 #include <sasl_scram.h>
 #define MAX_MQTT_SERVERS 16
 
+
 /*
  * TLS methods
  */
