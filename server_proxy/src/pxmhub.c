@@ -2830,6 +2830,9 @@ static int mhubGetAddress(ism_server_t * server,  ism_transport_t * transport, i
         transport->server_addr = ism_transport_putString(transport, addr);
     }
     transport->serverport = port;
+    TRACE(5, "mhubGetAddress: connect=%u name=%s server_addr=%s server_port=%u broker=%s\n",
+                transport->index, transport->name, transport->server_addr, transport->serverport,
+                (mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
 
     req = ism_common_calloc(ISM_MEM_PROBE(ism_memory_proxy_eventstreams,16),1, sizeof(*req)+sizeof(*sigevt)+sizeof(*hints)+16);
     sigevt = (struct sigevent *)(req+1);
@@ -3751,7 +3754,7 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
         return 0;
 
     ism_transport_t * transport = ism_transport_newOutgoing(NULL, 1);
-    TRACE(5, "Start mhub metadata connection: org=%s mhub=%s\n", mhub->tenant->name, mhub->id);
+    TRACE(5, "Creating mhub metadata connection: org=%s mhub=%s\n", mhub->tenant->name, mhub->id);
     ism_tcp_init_transport(transport);
     transport->originated = 1;
     transport->protocol = "mhub_metadata";
@@ -3774,12 +3777,12 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
     mhub->metadata = transport;
     int rc = ism_kafka_createConnection(transport, (ism_server_t *)mhub);
     if(rc){
-    		char * erbuf = alloca(2048);
+    	char * erbuf = alloca(2048);
 		ism_common_formatLastError(erbuf, 2048);
-		TRACE(7, "Failed create the metadata connection. name=%s rc=%d errmsg=%s\n", transport->clientID,  rc, erbuf);
+		TRACE(5, "Failed to create the metadata connection. connect=%u name=%s servername=%s rc=%d errmsg=%s\n",  transport->index, transport->clientID, (mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0], rc, erbuf);
 		transport->close(transport, rc, 0, erbuf);
     }else{
-    		TRACE(6, "Start mhub metadata connection: connect=%u name=%s\n", transport->index, transport->name);
+    		TRACE(5, "Created mhub metadata connection: connect=%u name=%s servername=%s\n", transport->index, transport->name, (mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
     }
     return 0;
 }
@@ -3922,9 +3925,9 @@ static void mhubMetadataRequest(ism_mhub_t * mhub, ism_transport_t * transport) 
     if (g_shuttingDown)
         return;
 
-    TRACE(6, "MessageHub MetadataRequest: connect=%u name=%s broker=%s:%u host=%s\n",
+    TRACE(5, "MessageHub MetadataRequest: connect=%u name=%s server_addr=%s server_port=%u broker=%s\n",
             transport->index, transport->name, transport->server_addr, transport->serverport,
-            transport->client_host ? transport->client_host : "");
+            (mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
     ism_kafka_putInt4(buf, MetadataRequest0);
     ism_kafka_putInt4(buf, 0x20000);   /* Correlation ID */
     ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);   /* Use our hostname as the kafka clientID */
