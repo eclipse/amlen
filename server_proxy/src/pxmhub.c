@@ -3794,6 +3794,12 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
 						transport->index, transport->name, transport->server_addr, transport->serverport,
 									(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0], rc, erbuf);
 		transport->close(transport, rc, 0, erbuf);
+
+		//If the Metadata connection creation failed, retry again in a timer
+		ism_mhub_lock(mhub);
+		if(!g_shuttingDown && mhub->enabled==1)
+			ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(mhub->retry++));
+		ism_mhub_unlock(mhub);
     }else{
     	LOG(INFO, Server, 981, "%u%s%s%u%s", "Created mhub metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
 				transport->index, transport->name, transport->server_addr, transport->serverport,
@@ -3814,7 +3820,7 @@ static int mhubRetryConnect(ism_timer_t key, ism_time_t now, void * userdata) {
 
     //Only create connection if MSPROXY is not shutdown
     if(!g_shuttingDown){
-    		createMetadataConnection(mhub);
+    	createMetadataConnection(mhub);
     }else{
 		TRACE(5, "Failed to connect metadata connection. Msproxy is shutting down. tenant=%s name=%s\n",
 				(mhub->tenant!=NULL)?mhub->tenant->name:"", mhub->name);
