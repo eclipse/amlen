@@ -3901,10 +3901,12 @@ static int createDataConnection(ism_mhub_t * mhub, mhub_topic_t * topic, int par
 		//Close the connection
 		char * erbuf = alloca(2048);
 		ism_common_formatLastError(erbuf, 2048);
-		TRACE(7, "Failed create the data connection. name=%s partition=%d nodeid=%d rc=%d errmsg=%s\n", transport->clientID, part, nodeid, rc, erbuf);
+		LOG(ERROR, Server, 985, "%u%s%s%u%d%d%d%s",  "Failed to create the mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5} rc={6} errmsg={7}",
+		    			transport->index, transport->name, transport->server_addr, transport->serverport, part, nodeid, rc, erbuf);
 		transport->close(transport, rc, 0, erbuf);
 	} else {
-		TRACE(6, "Start mhub data connection: connect=%u name=%s\n", transport->index, transport->name);
+		LOG(INFO, Server, 986, "%u%s%s%u%d%d",  "Created mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5}",
+				    			transport->index, transport->name, transport->server_addr, transport->serverport, part, nodeid);
 	}
     return 0;
 }
@@ -3924,7 +3926,7 @@ static int mhubCreateData(ism_timer_t key, ism_time_t now, void * userdata) {
      broker.broker = info->broker;
      broker.broker_len = strlen(info->broker);
      broker.port = info->port;
-     TRACE(8, "mhubCreateData mhub=%s topic=%s broker=%s broker_len=%d port=%d\n", info->mhub->id, (topic ? topic->name : ""),
+     TRACE(5, "mhubCreateData mhub=%s topic=%s broker=%s broker_len=%d port=%d\n", info->mhub->id, (topic ? topic->name : ""),
              broker.broker, broker.broker_len, broker.port);
      if (topic) {
          createDataConnection(info->mhub, topic, info->partid, info->leader, &broker);
