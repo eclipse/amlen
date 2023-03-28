@@ -3791,8 +3791,8 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
     	char * erbuf = alloca(2048);
 		ism_common_formatLastError(erbuf, 2048);
 		LOG(ERROR, Server, 980, "%u%s%s%u%s%d%s",  "Failed to create the metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4} rc={5} errmsg={6}",
-						transport->index, transport->name, transport->server_addr, transport->serverport,
-									(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0], rc, erbuf);
+				transport->index, transport->name, transport->server_addr, transport->serverport,
+				(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0], rc, erbuf);
 		transport->close(transport, rc, 0, erbuf);
 
 		//If the Metadata connection creation failed, retry again in a timer
@@ -3803,8 +3803,8 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
 
     }else{
     	LOG(INFO, Server, 981, "%u%s%s%u%s", "Created mhub metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
-				transport->index, transport->name, transport->server_addr, transport->serverport,
-							(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
+    			transport->index, transport->name, transport->server_addr, transport->serverport,
+				(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
     }
     return 0;
 }
@@ -3823,9 +3823,9 @@ static int mhubRetryConnect(ism_timer_t key, ism_time_t now, void * userdata) {
     if(!g_shuttingDown){
     	createMetadataConnection(mhub);
     }else{
-		TRACE(5, "Failed to connect metadata connection. Msproxy is shutting down. tenant=%s name=%s\n",
-				(mhub->tenant!=NULL)?mhub->tenant->name:"", mhub->name);
-	}
+    	TRACE(5, "Failed to connect metadata connection. Msproxy is shutting down. tenant=%s name=%s\n",
+    			(mhub->tenant!=NULL)?mhub->tenant->name:"", mhub->name);
+    }
     return 0;
 }
 
@@ -3962,11 +3962,11 @@ static void mhubMetadataRequest(ism_mhub_t * mhub, ism_transport_t * transport) 
     ism_kafka_putString(buf, transport->pobj->topic, -1);
 
     //LOG when to send the Metadata Request with server info
-	LOG(INFO, Server, 979, "%u%s%s%u%s", "MessageHub metadatarequest submitted: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
-			transport->index, transport->name, transport->server_addr, transport->serverport,
-						(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
+    LOG(INFO, Server, 979, "%u%s%s%u%s", "MessageHub metadatarequest submitted: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
+    		transport->index, transport->name, transport->server_addr, transport->serverport,
+			(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
 
-	transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
+    transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
 }
 
 /*
