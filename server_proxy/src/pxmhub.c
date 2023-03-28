@@ -3734,11 +3734,8 @@ static int mhubReceiveMetadata(ism_transport_t * transport, char * inbuf, int bu
 
         ism_mhub_lock(mhub);
 		if(!g_shuttingDown && mhub->enabled==1){
-			ism_mhub_unlock(mhub);
 			ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(mhub->retry++));
-		}else{
-			ism_mhub_unlock(mhub);
-		}
+		ism_mhub_unlock(mhub);
 
         return 1;
     } else {
@@ -3801,11 +3798,9 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
 		//If the Metadata connection creation failed, retry again in a timer
 		ism_mhub_lock(mhub);
 		if(!g_shuttingDown && mhub->enabled==1){
-			ism_mhub_unlock(mhub);
 			ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(mhub->retry++));
-		}else{
-			ism_mhub_unlock(mhub);
-		}
+		ism_mhub_unlock(mhub);
+
     }else{
     	LOG(INFO, Server, 981, "%u%s%s%u%s", "Created mhub metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
 				transport->index, transport->name, transport->server_addr, transport->serverport,
