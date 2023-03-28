@@ -3839,15 +3839,18 @@ xUNUSED static int mhubDataRetryConnect(ism_timer_t key, ism_time_t now, void * 
         ism_common_cancelTimer(key);
     pthread_mutex_lock(&mhub_part->lock);
     ism_transport_t * transport= mhub_part->transport;
+    ism_kafka_con_t * pobj = (ism_kafka_con_t *)transport->pobj;
     pthread_mutex_unlock(&mhub_part->lock);
 
     if(!g_shuttingDown){
     	 	 transport->ready = 7;  //Set ready for Connect Timeout. See ddosTimer
-		int rc = ism_kafka_createConnection(transport, transport->pobj->server);
+		int rc = ism_kafka_createConnection(transport, pobj->server);
 		if(rc){
+
 			char * erbuf = alloca(2048);
 			ism_common_formatLastError(erbuf, 2048);
-			TRACE(7, "Failed create the data connection. name=%s rc=%d errmsg=%s\n", transport->clientID, rc, erbuf);
+			LOG(ERROR, Server, 987, "%u%s%s%u%d%d%d%s",  "Failed to create the mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5} rc={6} errmsg={7}",
+					    			transport->index, transport->name, transport->server_addr, transport->serverport, pobj->partID, pobj->nodeID, rc, erbuf);
 			transport->close(transport, rc, 0,  erbuf);
 		}
     } else {
@@ -3906,7 +3909,7 @@ static int createDataConnection(ism_mhub_t * mhub, mhub_topic_t * topic, int par
 		transport->close(transport, rc, 0, erbuf);
 	} else {
 		LOG(INFO, Server, 986, "%u%s%s%u%d%d",  "Created mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5}",
-				    			transport->index, transport->name, transport->server_addr, transport->serverport, part, nodeid);
+				    	transport->index, transport->name, transport->server_addr, transport->serverport, part, nodeid);
 	}
     return 0;
 }
