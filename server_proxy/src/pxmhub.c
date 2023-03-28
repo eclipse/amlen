@@ -3747,8 +3747,8 @@ static int mhubReceiveMetadata(ism_transport_t * transport, char * inbuf, int bu
         }
         pthread_spin_unlock(&mhub->lock);
         LOG(INFO, Server, 984, "%u%s%s%u%s",  "Mhub Metadata processing is completed: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
-						transport->index, transport->name, transport->server_addr, transport->serverport,
-									(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
+        		transport->index, transport->name, transport->server_addr, transport->serverport,
+				(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
     }
     return 0;
 }
@@ -3789,17 +3789,17 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
     int rc = ism_kafka_createConnection(transport, (ism_server_t *)mhub);
     if(rc){
     	char * erbuf = alloca(2048);
-		ism_common_formatLastError(erbuf, 2048);
-		LOG(ERROR, Server, 980, "%u%s%s%u%s%d%s",  "Failed to create the metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4} rc={5} errmsg={6}",
-				transport->index, transport->name, transport->server_addr, transport->serverport,
+    	ism_common_formatLastError(erbuf, 2048);
+    	LOG(ERROR, Server, 980, "%u%s%s%u%s%d%s",  "Failed to create the metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4} rc={5} errmsg={6}",
+    			transport->index, transport->name, transport->server_addr, transport->serverport,
 				(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0], rc, erbuf);
-		transport->close(transport, rc, 0, erbuf);
+    	transport->close(transport, rc, 0, erbuf);
 
-		//If the Metadata connection creation failed, retry again in a timer
-		ism_mhub_lock(mhub);
-		if(!g_shuttingDown && mhub->enabled==1)
-			ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(mhub->retry++));
-		ism_mhub_unlock(mhub);
+    	//If the Metadata connection creation failed, retry again in a timer
+    	ism_mhub_lock(mhub);
+    	if(!g_shuttingDown && mhub->enabled==1)
+    		ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(mhub->retry++));
+    	ism_mhub_unlock(mhub);
 
     }else{
     	LOG(INFO, Server, 981, "%u%s%s%u%s", "Created mhub metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
