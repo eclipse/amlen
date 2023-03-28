@@ -4419,8 +4419,8 @@ static void moreOutgoing(ism_transport_t * transport, int rc, struct addrinfo * 
         transport->client_addr = ism_transport_putString(transport, tmpStr);
     }
 
-    TRACE(7, "moreOutgoing: connect=%u server=[%s]:%u client=[%s]:%u state=0x%x sock=%d result=%s (%d)\n", transport->index,
-    		transport->server_addr, transport->serverport,transport->client_addr, transport->clientport,
+    TRACE(7, "moreOutgoing: connect=%u server=[%s]:%u server_name=%s client=[%s]:%u state=0x%x sock=%d result=%s (%d)\n", transport->index,
+    		transport->server_addr, transport->serverport, transport->tobj->servername, transport->client_addr, transport->clientport,
     		connection->state, sock, strerror(err), err);
 }
 
