@@ -2879,6 +2879,12 @@ static int requestShutdownTimer(ism_timer_t timer, ism_time_t timestamp, void * 
     return 0;
 }
 
+/**
+ * This function will determine whether to make a metadata request or create
+ * a new TCP connection to the boostrap server and make the metadata request.
+ *
+ * @param mhub the mhub object
+ */
 static int needMetadata(ism_mhub_t * mhub)
 {
 	ism_mhub_lock(mhub);
