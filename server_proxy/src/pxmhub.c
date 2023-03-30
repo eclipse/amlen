@@ -2879,6 +2879,27 @@ static int requestShutdownTimer(ism_timer_t timer, ism_time_t timestamp, void * 
     return 0;
 }
 
+static int needMetadata(ism_mhub_t * mhub)
+{
+	ism_mhub_lock(mhub);
+	if (mhub->enabled==1 && !mhub->expectingMetadata) {
+		if (mhub->metadata && mhub->metadata->pobj->state == TCP_CONNECTED) {
+			mhub->expectingMetadata = 1;
+			mhubMetadataRequest(mhub, mhub->metadata);
+		} else {
+			//Metadata is broken, need new transport.
+			mhub->prev_state = mhub->state;
+			mhub->state = MHS_Opening;
+			if (mhub->stateChanged) {
+				mhub->stateChanged(mhub);       /* Notify of state change */
+			}
+			ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(0));
+		}
+	}
+	ism_mhub_unlock(mhub);
+	return 0;
+}
+
 
 /*
  * process a produce response
@@ -3218,22 +3239,7 @@ static int mhubReceiveKafka(ism_transport_t * transport, char * inbuf, int bufle
      * Request metadata
      */
     if (needmetadata > 0) {
-         ism_mhub_lock(mhub);
-         if (mhub->enabled==1 && !mhub->expectingMetadata) {
-             if (mhub->metadata && mhub->metadata->pobj->state == TCP_CONNECTED) {
-                 mhub->expectingMetadata = 1;
-                 mhubMetadataRequest(mhub, transport);
-             } else {
-                //Metadata is broken, need new transport.
-                 mhub->prev_state = mhub->state;
-                 mhub->state = MHS_Opening;
-                 if (mhub->stateChanged) {
-                    mhub->stateChanged(mhub);       /* Notify of state change */
-                 }
-                 ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(0));
-             }
-         }
-         ism_mhub_unlock(mhub);
+         needMetadata(mhub);
     }
     return 0;
 }
@@ -5176,25 +5182,8 @@ int ism_mhub_publishEvent(ism_mhub_t * mhub, mqtt_pmsg_t * pmsg, const char * cl
 
 	pthread_mutex_unlock(&mhub_part->lock);
 
-	if(needmetadata){
-		//Check to make sure an MetadataRequest has been in progress. If not, request for Metadata
-		ism_mhub_lock(mhub);
-		//Check if we are expecting metadata, no need to submit another one
-		if (mhub->enabled==1 && !mhub->expectingMetadata) {
-			if (mhub->metadata && mhub->metadata->pobj->state == TCP_CONNECTED) {
-				mhub->expectingMetadata = 1;
-				mhubMetadataRequest(mhub, transport);
-			} else {
-				//Metadata is broken, need new transport.
-				mhub->prev_state = mhub->state;
-				mhub->state = MHS_Opening;
-				if (mhub->stateChanged) {
-					mhub->stateChanged(mhub);       /* Notify of state change */
-				}
-				ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(0));
-			}
-		}
-		ism_mhub_unlock(mhub);
+	if(needmetadata > 0){
+		needMetadata(mhub);
 	}
 
 	return rc;
