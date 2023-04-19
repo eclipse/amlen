@@ -29,8 +29,8 @@ TRUSTSTORE=${IMA_SVR_DATA_PATH}/data/certificates/truststore/IoTSecurityProfile
 mkdir -p -m 2770 ${TRUSTSTORE}
 cp /secrets/sslcerts/ca/ca_public_cert.pem ${TRUSTSTORE}
 
-cp /secrets/sslcerts/ha/tls.key ${KEYSTORE}HA_tls.key
-cp /secrets/sslcerts/ha/tls.crt ${KEYSTORE}HA_tls.crt
+cp /secrets/sslcerts/ha/tls.key ${KEYSTORE}HA_key.pem
+cp /secrets/sslcerts/ha/tls.crt ${KEYSTORE}HA_crt.pem
 cp /secrets/sslcerts/ha/ca.crt ${IMA_SVR_DATA_PATH}/data/certificates/truststore/HA_cafile.pem
 
 exec ${IMA_SVR_INSTALL_PATH}/bin/startServer.sh
