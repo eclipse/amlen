@@ -3872,17 +3872,16 @@ xUNUSED static int mhubDataRetryConnect(ism_timer_t key, ism_time_t now, void * 
 
     if(!g_shuttingDown){
     	transport->ready = 7;  //Set ready for Connect Timeout. See ddosTimer
-		int rc = ism_kafka_createConnection(transport, pobj->server);
-		if(rc){
-
-			char * erbuf = alloca(2048);
-			ism_common_formatLastError(erbuf, 2048);
-			LOG(ERROR, Server, 987, "%u%s%s%u%d%d%d%s",  "Failed to create the mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5} rc={6} errmsg={7}",
-					    			transport->index, transport->name, transport->server_addr, transport->serverport, pobj->partID, pobj->nodeID, rc, erbuf);
-			transport->close(transport, rc, 0,  erbuf);
-		}
+    	int rc = ism_kafka_createConnection(transport, pobj->server);
+    	if(rc){
+    		char * erbuf = alloca(2048);
+    		ism_common_formatLastError(erbuf, 2048);
+    		LOG(ERROR, Server, 987, "%u%s%s%u%d%d%d%s",  "Failed to create the mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5} rc={6} errmsg={7}",
+			    			transport->index, transport->name, transport->server_addr, transport->serverport, pobj->partID, pobj->nodeID, rc, erbuf);
+    		transport->close(transport, rc, 0,  erbuf);
+    	}
     } else {
-    		TRACE(5, "Failed to connect. Msproxy is shutting down. name=%s\n", transport->clientID);
+    	TRACE(5, "Failed to connect. Msproxy is shutting down. name=%s\n", transport->clientID);
     }
     return 0;
 }
