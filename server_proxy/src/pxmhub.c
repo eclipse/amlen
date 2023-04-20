@@ -999,7 +999,7 @@ static mhub_topic_t * changePartitions(ism_mhub_t * mhub, mhub_topic_t * mtopic,
     if (partcount < mtopic->partcount) {
         for (i = partcount; i < mtopic->partcount; i++) {
             mhub_part_t * part = mtopic->partitions+i;
-        	pthread_mutex_lock(&part->lock);
+            pthread_mutex_lock(&part->lock);
             if (part->transport) {
                 ism_transport_t * transport = part->transport;
                 pthread_mutex_unlock(&part->lock);
@@ -3327,7 +3327,9 @@ static int processPartMetadata(ism_mhub_t * mhub, mhub_broker_list_t * brokers, 
             	    									mhub->id, topicname, partid, partrc, leader, part->leader);
             	if(part->transport){
             		ism_transport_t * transport = part->transport;
+            		pthread_mutex_unlock(&part->lock);
             		transport->close(transport, ISMRC_EndpointDisabled, 0, "Change in partition leader");
+            		pthread_mutex_lock(&part->lock);
             		needDataConn=1;
             	}
 
