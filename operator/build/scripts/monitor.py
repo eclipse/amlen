@@ -26,6 +26,9 @@ def get_password():
 
 if __name__ == '__main__':
 
+    if os.environ.get("AMLEN_MONITOR_CODE") == None:
+        return
+
     imaserver = Server("localhost", logger )
     current_password = get_password()
     while True :
