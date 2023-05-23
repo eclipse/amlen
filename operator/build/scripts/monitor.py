@@ -11,6 +11,7 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
+import os
 import time
 from server import Server, get_logger
 
@@ -27,7 +28,7 @@ def get_password():
 if __name__ == '__main__':
 
     if os.environ.get("AMLEN_OPERATOR") == None:
-        return
+        exit
 
     imaserver = Server("localhost", logger )
     current_password = get_password()
