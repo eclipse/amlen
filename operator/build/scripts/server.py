@@ -291,12 +291,6 @@ class Server:
 
         return is_ha, state
 
-    def get_configuration(self, configuration_type, wait=True):
-        return get_thing(self, f"configuraiton/HighAvailability", wait)
-
-    def get_status(self, wait=True):
-        return get_thing(self, f"service/status", wait)
-
     def get_thing(self, thing, wait=True):
 
         thing = None
@@ -327,6 +321,13 @@ class Server:
             time.sleep(5)
 
         return thing
+
+    def get_configuration(self, configuration_type, wait=True):
+        return get_thing(self, f"configuraiton/HighAvailability", wait)
+
+    def get_status(self, wait=True):
+        return get_thing(self, f"service/status", wait)
+
 
     def check_ha_status(self):
         okay = False
