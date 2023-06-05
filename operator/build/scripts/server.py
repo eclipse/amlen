@@ -323,10 +323,10 @@ class Server:
         return thing
 
     def get_configuration(self, configuration_type, wait=True):
-        return get_thing(self, f"configuraiton/HighAvailability", wait)
+        return self.get_thing(f"configuraiton/HighAvailability", wait)
 
     def get_status(self, wait=True):
-        return get_thing(self, f"service/status", wait)
+        return self.get_thing(f"service/status", wait)
 
 
     def check_ha_status(self):
