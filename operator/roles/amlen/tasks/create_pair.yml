@@ -207,13 +207,15 @@
     - fail:
         msg: "statefulset recovery only possible if pod is not ready"
       when:
-        statefulset.resources[0].status.readyReplicas != 1
+      - statefulset.resources[0].status.readyReplicas is defined
+      - statefulset.resources[0].status.readyReplicas == 1
 
     - name: start recovery code
       recover:
         command: "start"
-        server: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-0"
+        server: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-0.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
         remoteServer: ""
+        password: "{{secret.resources[0].data.adminPassword|b64decode}}"
 
     - name: Verify it worked
       k8s_info:
@@ -236,8 +238,9 @@
     - name: stop recovery code
       recover:
         command: "stop"
-        server: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-0"
-        remoteServer: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-1" 
+        server: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-0.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
+        remoteserver: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-1.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
+        password: "{{secret.resources[0].data.adminPassword|b64decode}}"
 
 - name: run post install jobs
   include_tasks: install.yml

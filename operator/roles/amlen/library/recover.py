@@ -57,25 +57,15 @@ logger = getLogger()
 def startRecovery(server):
     groupName = server.group_name
     
-    HA, state = server.get_ha_state(wait=True)
-        
-    if HA and state == "UNSYNC":
-        # A is primary - valid pair
-        server1 = instanceA
-    
-    down = (server.get_status(wait=False) == None)
+    payload = {"HighAvailability": {"StartupMode" : "StandAlone", "RemoteDiscoveryNIC":"none"}}
 
-    if down and HA:
+    rc, content = server.post_configuration_request(payload)
+    if rc != 200:
+        logger.error("Unexpected response code when modifying HA configuration for %s: %s" % (server.server_name, rc)) 
+        logger.error(content)
+        raise Exception("Unexpected response code when modifying HA configuration for %s: %s" % (server.server_name, rc))
 
-        payload = {"HighAvailability": {"StartupMode" : "StandAlone", "RemoteDiscoveryNIC":"none"}}
-
-        rc, content = server.post_configuration_request(payload)
-        if rc != 200:
-            logger.error("Unexpected response code when modifying HA configuration for %s: %s" % (server.server_name, rc)) 
-            logger.error(content)
-            raise Exception("Unexpected response code when modifying HA configuration for %s: %s" % (server.server_name, rc))
-
-        server,restart())
+    server.restart()
 
 def stopRecovery(server,remoteServerName):
     payload = {"HighAvailability": {"StartupMode" : "AutoDetect", "RemoteDiscoveryNIC":remoteServerName}}
@@ -89,6 +79,7 @@ if __name__ == '__main__':
         "server": {"required": True, "type": "str" },
         "remoteServer": {"required": True, "type": "str" },
         "command": {"required": True, "type": "str"},
+        "password": {"required": True, "type": "str"},
     }
 
     module = AnsibleModule(argument_spec=fields)
@@ -96,15 +87,16 @@ if __name__ == '__main__':
     server = module.params['server']
     command = module.params['command']
     remoteServer = module.params['remoteServer']
+    password = module.params['password']
     
     try:
-        imaserver = Server(instance, logger)
-        if commaned.lower() == "start":
+        imaserver = Server(instance, logger, password=password)
+        if command.lower() == "start":
             startRecovery(imaserver)
         elif command.lower() == "stop":
             stopRecovery(imaserver,remoteServer)
         else:
-            logger.critical("Command unknown: %s" % command
+            logger.critical("Command unknown: %s" % command)
             raise Exception("Command unknown")
 
     except Exception as e:

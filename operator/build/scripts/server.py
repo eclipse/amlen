@@ -292,10 +292,10 @@ class Server:
         return is_ha, state
 
     def get_configuration(self, configuration_type, wait=True):
-        return get_something(self, f"configuraiton/{HighAvailability", wait)
+        return get_thing(self, f"configuraiton/HighAvailability", wait)
 
     def get_status(self, wait=True):
-        return get_something(self, f"service/status", wait)
+        return get_thing(self, f"service/status", wait)
 
     def get_thing(self, thing, wait=True):
 
