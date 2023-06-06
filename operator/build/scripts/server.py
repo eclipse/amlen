@@ -238,7 +238,7 @@ class Server:
 
     def get_ha_startup_mode(self):
         jconfig = self.get_configuration("HighAvailability", False)
-        return jstatus["HighAvailability"]["StartupMode"]
+        return jconfig["HighAvailability"]["StartupMode"]
 
     def get_ha_sync_nodes(self):
         jstatus = self.get_status(False)
@@ -323,7 +323,7 @@ class Server:
         return object
 
     def get_configuration(self, configuration_type, wait=True):
-        return self.get_object(f"configuraiton/HighAvailability", wait)
+        return self.get_object(f"configuration/HighAvailability", wait)
 
     def get_status(self, wait=True):
         return self.get_object(f"service/status", wait)
