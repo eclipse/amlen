@@ -236,6 +236,10 @@ class Server:
                 self.logger.critical(error_text)
                 raise Exception(error_text)
 
+    def get_ha_startup_mode(self):
+        jconfig = self.get_configuration("HighAvailability", False)
+        return jconfig["HighAvailability"]["StartupMode"]
+
     def get_ha_sync_nodes(self):
         jstatus = self.get_status(False)
         if 'HighAvailability' not in jstatus:
@@ -287,35 +291,43 @@ class Server:
 
         return is_ha, state
 
-    def get_status(self, wait=True):
-        status = None
+    def get_object(self, object, wait=True):
+
+        return_object = None
         retries = 10
         for _ in range(0, retries):
-            status_url = f"https://{self.server_name}:9089/ima/v1/service/status"
+            url = f"https://{self.server_name}:9089/ima/v1/{object}"
             try:
-                response = requests.get(url=status_url,
+                response = requests.get(url=url,
                                         auth=HTTPBasicAuth(self.username, self.password),
                                         timeout=10,
                                         verify=False)
                 if response.status_code == 200:
-                    status_text = response.content
+                    text = response.content
                     self.logger.debug(response.content)
-                    status = json.loads(status_text)
+                    return_object = json.loads(text)
                     break
                 if response.status_code in (400, 401):
-                    print (f"Accessing {status_url} with {self.username} failed")
+                    print (f"Accessing {url} with {self.username} failed")
                     raise Exception(f"Error accessing {self.server_name} - {response.status_code}")
             except requests.exceptions.Timeout:
-                self.logger.info("Timed out waiting to connect to %s, retrying" , status_url)
+                self.logger.info("Timed out waiting to connect to %s, retrying" , url)
             except requests.exceptions.RequestException:
-                self.logger.info("Failed to connect to %s, retrying" , status_url)
+                self.logger.info("Failed to connect to %s, retrying" , url)
 
             if not wait:
                 break
 
             time.sleep(5)
 
-        return status
+        return return_object
+
+    def get_configuration(self, configuration_type, wait=True):
+        return self.get_object(f"configuration/HighAvailability", wait)
+
+    def get_status(self, wait=True):
+        return self.get_object(f"service/status", wait)
+
 
     def check_ha_status(self):
         okay = False

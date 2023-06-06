@@ -21,8 +21,9 @@ def ready(instance):
 
     if p1_ha and p1_state == "PRIMARY":
         logger.info("We are primary so check node count!")
+        startup_mode = instance.get_ha_startup_mode()
         nodes = instance.get_ha_sync_nodes()
-        return bool(nodes > 1)
+        return bool(nodes > 1 or startup_mode.lower() == "standalone")
     if p1_ha and p1_state == "STANDBY":
         logger.info("We are standby!")
         return True

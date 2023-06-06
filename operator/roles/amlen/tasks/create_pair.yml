@@ -164,22 +164,83 @@
     nodes: "{{ ha.enabled | default(false) | ternary(2,1) }}"
 
 - name: Wait until pods are available
-  k8s_info:
-    kind: Pod
-    name: "{{ pair_name }}-{{id}}"
-    namespace: "{{ _amlen_namespace }}"
-  register: r_pods
-  until:
-  - r_pods.resources[0].status.containerStatuses[0].started is defined
-  - r_pods.resources[0].status.containerStatuses[0].started == True
-  - r_pods.resources[0].status.containerStatuses[0].state is defined
-  - r_pods.resources[0].status.containerStatuses[0].state.running is defined
-  retries: 10
-  delay: 10
-  ignore_errors: no
-  loop: "{{ range(0,nodes|int)|list}}"
-  loop_control:
-    loop_var: id
+  block:
+    - k8s_info:
+        kind: Pod
+        name: "{{ pair_name }}-{{id}}"
+        namespace: "{{ _amlen_namespace }}"
+      register: r_pods
+      until:
+      - r_pods.resources[0].status.containerStatuses[0].started is defined
+      - r_pods.resources[0].status.containerStatuses[0].started == True
+      - r_pods.resources[0].status.containerStatuses[0].state is defined
+      - r_pods.resources[0].status.containerStatuses[0].state.running is defined
+      retries: 10
+      delay: 10
+      ignore_errors: no
+      loop: "{{ range(0,nodes|int)|list}}"
+      loop_control:
+        loop_var: id
+  rescue:
+    - fail:
+        msg: "automatic recovery not possible for non HA systems"
+      when:
+        nodes == 1 
+
+    - k8s_info:
+        kind: StatefulSet
+        name: "{{ pair_name }}"
+        namespace: "{{ _amlen_namespace }}"
+      register: statefulset
+      until:
+      - statefulset.resources[0].status.readyReplicas is defined
+      retries: 10
+      delay: 10
+
+
+
+    - fail:
+        msg: "statefulset contains 2 pods manual recovery needed"
+      when:
+        statefulset.resources[0].status.replicas == 2 
+
+    - fail:
+        msg: "statefulset recovery only possible if pod is not ready"
+      when:
+      - statefulset.resources[0].status.readyReplicas is defined
+      - statefulset.resources[0].status.readyReplicas == 1
+
+    - name: start recovery code
+      recover:
+        command: "start"
+        server: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-0.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
+        remoteServer: ""
+        password: "{{secret.resources[0].data.adminPassword|b64decode}}"
+
+    - name: Verify it worked
+      k8s_info:
+        kind: Pod
+        name: "{{ pair_name }}-{{id}}"
+        namespace: "{{ _amlen_namespace }}"
+      register: r_pods
+      until:
+      - r_pods.resources[0].status.containerStatuses[0].started is defined
+      - r_pods.resources[0].status.containerStatuses[0].started == True
+      - r_pods.resources[0].status.containerStatuses[0].state is defined
+      - r_pods.resources[0].status.containerStatuses[0].state.running is defined
+      retries: 10
+      delay: 10
+      ignore_errors: no
+      loop: "{{ range(0,nodes|int)|list}}"
+      loop_control:
+        loop_var: id
+
+    - name: stop recovery code
+      recover:
+        command: "stop"
+        server: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-0.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
+        remoteServer: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-1.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
+        password: "{{secret.resources[0].data.adminPassword|b64decode}}"
 
 - name: run post install jobs
   include_tasks: install.yml
