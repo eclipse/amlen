@@ -291,21 +291,21 @@ class Server:
 
         return is_ha, state
 
-    def get_thing(self, thing, wait=True):
+    def get_object(self, object, wait=True):
 
-        thing = None
+        return_object = None
         retries = 10
         for _ in range(0, retries):
-            url = f"https://{self.server_name}:9089/ima/v1/{thing}"
+            url = f"https://{self.server_name}:9089/ima/v1/{object}"
             try:
                 response = requests.get(url=url,
                                         auth=HTTPBasicAuth(self.username, self.password),
                                         timeout=10,
                                         verify=False)
                 if response.status_code == 200:
-                    thing_text = response.content
+                    text = response.content
                     self.logger.debug(response.content)
-                    thing = json.loads(thing_text)
+                    return_object = json.loads(text)
                     break
                 if response.status_code in (400, 401):
                     print (f"Accessing {url} with {self.username} failed")
@@ -320,13 +320,13 @@ class Server:
 
             time.sleep(5)
 
-        return thing
+        return object
 
     def get_configuration(self, configuration_type, wait=True):
-        return self.get_thing(f"configuraiton/HighAvailability", wait)
+        return self.get_object(f"configuraiton/HighAvailability", wait)
 
     def get_status(self, wait=True):
-        return self.get_thing(f"service/status", wait)
+        return self.get_object(f"service/status", wait)
 
 
     def check_ha_status(self):
