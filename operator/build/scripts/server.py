@@ -320,7 +320,7 @@ class Server:
 
             time.sleep(5)
 
-        return object
+        return return_object
 
     def get_configuration(self, configuration_type, wait=True):
         return self.get_object(f"configuration/HighAvailability", wait)
