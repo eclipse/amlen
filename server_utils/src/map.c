@@ -25,7 +25,7 @@
 #define FNV_OFFSET_BASIS_32 0x811C9DC5
 #define FNV_PRIME_32 0x1000193
 
-#define FREE(x)       if (x != NULL) { ism_common_free(ism_memory_utils_misc,x); x = NULL; }
+#define FREE(x)       if (x != NULL) { ism_common_free(ism_memory_utils_map,x); x = NULL; }
 //#define MAP_DEBUG
 typedef uint32_t (* hash_func_t)(const void * in, size_t *lens);
 struct ismHashMap_t
@@ -128,7 +128,7 @@ static void HM_resize_map(ismHashMap *hash_map) {
     if (hash_map->capacity > 0xFFFFFF)
         return;
 
-    if ((elements = (ismHashMapEntry **)ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,135),2 * hash_map->capacity, sizeof(ismHashMapEntry *))) == NULL) {
+    if ((elements = (ismHashMapEntry **)ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_map,135),2 * hash_map->capacity, sizeof(ismHashMapEntry *))) == NULL) {
         return;
     }
     prev_capacity = hash_map->capacity;
@@ -153,7 +153,7 @@ static void HM_resize_map(ismHashMap *hash_map) {
         }
     }
 
-    ism_common_free(ism_memory_utils_misc,hash_map->elements);
+    ism_common_free(ism_memory_utils_map,hash_map->elements);
     hash_map->elements = elements;
 }
 
@@ -175,7 +175,7 @@ XAPI uint32_t ism_common_computeHashCode(const char * ptr, size_t length) {
 XAPI ismHashMap *ism_common_createHashMap(uint32_t capacity, ismHashFunctionType_t hashType) {
     ismHashMap *hash_map;
 
-    if ((hash_map = (ismHashMap *) ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,137),1, sizeof(ismHashMap))) == NULL) {
+    if ((hash_map = (ismHashMap *) ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_map,137),1, sizeof(ismHashMap))) == NULL) {
         return (NULL);
     }
     if (capacity < 0x1000000) {
@@ -188,7 +188,7 @@ XAPI ismHashMap *ism_common_createHashMap(uint32_t capacity, ismHashFunctionType
         hash_map->capacity = 0x1000000;
     }
 
-    if ((hash_map->elements = (ismHashMapEntry **) ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,138),hash_map->capacity, sizeof(ismHashMapEntry *))) == NULL) {
+    if ((hash_map->elements = (ismHashMapEntry **) ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_map,138),hash_map->capacity, sizeof(ismHashMapEntry *))) == NULL) {
         FREE(hash_map);
         return (NULL);
     }
@@ -233,7 +233,7 @@ XAPI void ism_common_destroyHashMapAndFreeValues(ismHashMap * hash_map, ism_free
             lle_next = lle->next;
             if(lle->value && freeCB)
             	freeCB(lle->value);
-            ism_common_free(ism_memory_utils_misc,lle);
+            ism_common_free(ism_memory_utils_map,lle);
             lle = lle_next;
         }
     }
@@ -276,7 +276,7 @@ XAPI int ism_common_putHashMapElement(ismHashMap *hash_map, const void *key, int
     hash_code = hash_map->hashFunc(key, &keyLen);
     index = hash_code & hash_map->mask;
 
-    if ((new_lle = (ismHashMapEntry *) ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,140),sizeof(ismHashMapEntry) + keyLen)) == NULL) {
+    if ((new_lle = (ismHashMapEntry *) ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_map,140),sizeof(ismHashMapEntry) + keyLen)) == NULL) {
         return (-1);
     }
 
@@ -596,7 +596,7 @@ int ism_common_getHashMapNumElements(const ismHashMap *hash_map) {
  * @return the array with all entries in the map. Last element of the array is (void*)-1;
  */
 ismHashMapEntry ** ism_common_getHashMapEntriesArray(ismHashMap * hash_map) {
-    ismHashMapEntry ** result = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,141),(hash_map->nelements + 1) * sizeof(ismHashMapEntry*));
+    ismHashMapEntry ** result = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_map,141),(hash_map->nelements + 1) * sizeof(ismHashMapEntry*));
     ismHashMapEntry *hme;
     int index;
     int counter = 0;

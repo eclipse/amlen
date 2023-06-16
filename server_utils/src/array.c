@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define FREE(x)       if (x != NULL) { ism_common_free(ism_memory_utils_misc,x); x = NULL; }
+#define FREE(x)       if (x != NULL) { ism_common_free(ism_memory_utils_array,x); x = NULL; }
 static int arrayLockType = 1;
 struct ismUtilsArray_t
 {
@@ -60,7 +60,7 @@ static inline void arrayUnlock(ismArray_t array) {
 XAPI ismArray_t ism_common_createArray(uint32_t capacity) {
     ismArray_t array;
     uint32_t i;
-    if ((array = (ismArray_t) ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,250),sizeof(struct ismUtilsArray_t)+(capacity*sizeof(uintptr_t)))) == NULL) {
+    if ((array = (ismArray_t) ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_array,250),sizeof(struct ismUtilsArray_t)+(capacity*sizeof(uintptr_t)))) == NULL) {
         return (NULL);
     }
     array->capacity = capacity;
@@ -96,7 +96,7 @@ XAPI void ism_common_destroyArrayAndFreeValues(ismArray_t array, ism_freeValueOb
     }
     pthread_spin_destroy(&(array->lock));
     pthread_mutex_destroy(&array->mutex);
-    ism_common_free(ism_memory_utils_misc,array);
+    ism_common_free(ism_memory_utils_array,array);
 }
 /*
  * Put an object into the list

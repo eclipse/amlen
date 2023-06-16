@@ -236,7 +236,7 @@ static void * domAlloc(xdom * dom, int size) {
      * If the current chunk is not big enough, allocate a new one
      */
     if (dom->DomLeft < (size+pad)) {
-        char * newdom = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,3),DOM_ALLOC);
+        char * newdom = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_xml,3),DOM_ALLOC);
         if (!newdom) {
             fatalerror(dom, 5, "05", "Unable to allocate memory.", NULL);
             return NULL;
@@ -661,7 +661,7 @@ static int isEquals(int ch) {
  * xml object constructor
  */
 xdom * ism_xml_new(char * systemId) {
-    xdom * dom = (xdom *) ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,4),DOM_ALLOC);
+    xdom * dom = (xdom *) ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_xml,4),DOM_ALLOC);
 
     if (!dom) {
         return NULL;
@@ -677,7 +677,7 @@ xdom * ism_xml_new(char * systemId) {
         strcpy(dom->SIDBuf, systemId);
         dom->SystemId = dom->SIDBuf;
     } else {
-        dom->SystemId = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),systemId);
+        dom->SystemId = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_xml,1000),systemId);
     }
     dom->logx = &logcallx;
     dom->Line = 1;
@@ -736,15 +736,15 @@ void ism_xml_setSystemId(xdom * dom, const char * systemId, int line, int fileno
         fileno = 255;
     if (systemId) {
         if (!dom->fileNames) {
-            dom->fileNames = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,5),sizeof(char *), 512);
+            dom->fileNames = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_xml,5),sizeof(char *), 512);
             // SA_ASSUME(dom->fileNames != NULL);
-            dom->fileNames[0] = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),dom->SystemId ? dom->SystemId : "");
+            dom->fileNames[0] = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_xml,1000),dom->SystemId ? dom->SystemId : "");
         }
         if (!dom->fileNames[fileno])
-            dom->fileNames[fileno] = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),systemId);
+            dom->fileNames[fileno] = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_xml,1000),systemId);
         if (!strcmp(dom->fileNames[fileno], systemId)) {
-            ism_common_free(ism_memory_utils_misc,dom->fileNames[fileno]);
-            dom->fileNames[fileno] = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),systemId);
+            ism_common_free(ism_memory_utils_xml,dom->fileNames[fileno]);
+            dom->fileNames[fileno] = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_xml,1000),systemId);
         }
     }
     if (line >= 0)
@@ -775,29 +775,29 @@ void ism_xml_free(xdom * dom) {
     char * nd;
     while (d) {
         nd  = *(char * *)d;
-        ism_common_free(ism_memory_utils_misc,d);
+        ism_common_free(ism_memory_utils_xml,d);
         d = nd;
     }
     dom->DomChunk = 0;
     if (dom->copybuf) {
-        ism_common_free(ism_memory_utils_misc,dom->copybuf);
+        ism_common_free(ism_memory_utils_xml,dom->copybuf);
         dom->copybuf = NULL;
     }
     if (dom->SystemId && dom->SystemId != dom->SIDBuf) {
-        ism_common_free(ism_memory_utils_misc,dom->SystemId);
+        ism_common_free(ism_memory_utils_xml,dom->SystemId);
         dom->SystemId = NULL;
     }
     if (dom->fileNames) {
         for (i=0; i<512; i++) {
             if (dom->fileNames[i]) {
-                ism_common_free(ism_memory_utils_misc,dom->fileNames[i]);
+                ism_common_free(ism_memory_utils_xml,dom->fileNames[i]);
                 dom->fileNames[i] = NULL;
             }
         }
-        ism_common_free(ism_memory_utils_misc,dom->fileNames);
+        ism_common_free(ism_memory_utils_xml,dom->fileNames);
         dom->fileNames = NULL;
     }
-    ism_common_free(ism_memory_utils_misc,dom);
+    ism_common_free(ism_memory_utils_xml,dom);
 }
 
 
@@ -818,7 +818,7 @@ int ism_xml_include(xdom * dom, char * name, int fileno) {
     }
     fseek(f, 0, SEEK_END);
     len = ftell(f);
-    buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,13),len+2);
+    buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_xml,13),len+2);
     if (!buf) {
         warnerror(dom, "22", "Unable to allocate memory.", NULL);
         fclose(f);
@@ -830,7 +830,7 @@ int ism_xml_include(xdom * dom, char * name, int fileno) {
     buf[bread+1] = 0;                                        /* Double null*/
     if (bread != len) {
         warnerror(dom, "23", "Unable to read file: ", name);
-        ism_common_free(ism_memory_utils_misc,buf);
+        ism_common_free(ism_memory_utils_xml,buf);
         fclose(f);
         return -3;
     }
@@ -839,7 +839,7 @@ int ism_xml_include(xdom * dom, char * name, int fileno) {
     /*
      *
      */
-    savesysid = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),ism_xml_getSystemId(dom));
+    savesysid = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_xml,1000),ism_xml_getSystemId(dom));
     saveline  = ism_xml_getLine(dom);
     savefileno = ism_xml_getFileno(dom);
     ism_xml_setSystemId(dom, name, 1, fileno);
@@ -848,7 +848,7 @@ int ism_xml_include(xdom * dom, char * name, int fileno) {
     }
     rc = ism_xml_parse(dom, buf, len, 0);
     ism_xml_setSystemId(dom, savesysid, saveline, savefileno);
-    ism_common_free(ism_memory_utils_misc,savesysid);
+    ism_common_free(ism_memory_utils_xml,savesysid);
     return rc;
 }
 
@@ -932,7 +932,7 @@ int ism_xml_parse (xdom * dom, char * buf, int len, int copy) {
      * Copy buffer if requested
      */
     if (copy) {
-        dom->copybuf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,16),len+1);
+        dom->copybuf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_xml,16),len+1);
         // SA_ASSUME(dom->copybuf != NULL);
         memcpy(dom->copybuf, buf, len);
         buf = dom->copybuf;
@@ -1092,7 +1092,7 @@ int ism_xml_parse_stream(xdom * dom, ism_xml_getch_t get_ch, void * parm) {
     int  ch, prevch;
     int  mode;
     char * tag = NULL;
-    char * buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,17),32700);
+    char * buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_xml,17),32700);
     char * bufend = buf+32700;
     char * start = NULL;
     char * bufp;
@@ -1105,7 +1105,7 @@ int ism_xml_parse_stream(xdom * dom, ism_xml_getch_t get_ch, void * parm) {
         rc = setjmp(dom->env);
         if (rc) {
             dom->jmpset = 0;
-            ism_common_free(ism_memory_utils_misc,buf);
+            ism_common_free(ism_memory_utils_xml,buf);
             return rc;
         }
         savewarnings = 0;
@@ -1772,7 +1772,7 @@ XAPI void *  ism_xml_getuserdata(xdom * dom) {
  */
 XAPI xdompos_t * ism_xml_saveposition(xdom * dom, xdompos_t * dompos) {
     if (!dompos)
-        dompos = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,19),1, sizeof(xdompos_t));
+        dompos = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_xml,19),1, sizeof(xdompos_t));
     // SA_ASSUME(dompos != NULL);
     memcpy(dompos, dom, sizeof(xdompos_t));
     dompos->dom = dom;
@@ -1808,7 +1808,7 @@ XAPI xnode_t * ism_xml_node(xdom * dom) {
  * xml free a dom position object.
  */
 XAPI void ism_xml_freeposition(xdompos_t * dompos) {
-    ism_common_free(ism_memory_utils_misc,dompos);
+    ism_common_free(ism_memory_utils_xml,dompos);
 }
 
 

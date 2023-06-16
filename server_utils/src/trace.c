@@ -60,13 +60,13 @@ static void removeFile(const char * fileName);
 XAPI void ism_trace_startWorker(void) {
     stopWork = 0;
 
-    workTableLock = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,21),sizeof(pthread_mutex_t));
-    workAvailable = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,22),sizeof(pthread_cond_t));
+    workTableLock = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_trace,21),sizeof(pthread_mutex_t));
+    workAvailable = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_trace,22),sizeof(pthread_cond_t));
 
     pthread_mutex_init(workTableLock, NULL);
     pthread_cond_init(workAvailable, NULL);
 
-    ism_trace_work_table = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,23),1, sizeof(ism_common_list));
+    ism_trace_work_table = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_trace,23),1, sizeof(ism_common_list));
     ism_common_list_init(ism_trace_work_table, 0, NULL);
 
     ism_common_startThread(&workThread, processWork, NULL, NULL, 0, ISM_TUSAGE_NORMAL, 0, "trcwork",
@@ -87,9 +87,9 @@ void ism_trace_stopWorker(void) {
 
     pthread_mutex_destroy(workTableLock);
     pthread_cond_destroy(workAvailable);
-    ism_common_free(ism_memory_utils_misc,workTableLock);
-    ism_common_free(ism_memory_utils_misc,workAvailable);
-    ism_common_free(ism_memory_utils_misc,ism_trace_work_table);
+    ism_common_free(ism_memory_utils_trace,workTableLock);
+    ism_common_free(ism_memory_utils_trace,workAvailable);
+    ism_common_free(ism_memory_utils_trace,ism_trace_work_table);
 }
 
 /**
@@ -105,7 +105,7 @@ void * processWork(void * arg, void * context, int value) {
     ism_common_list * failedFiles = NULL;  /* List of files that failed to transfer */
     char * fileName;
 
-    failedFiles = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,27),1, sizeof(ism_common_list));
+    failedFiles = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_trace,27),1, sizeof(ism_common_list));
     ism_common_list_init(failedFiles, 1, NULL);
 
     int maxFiles = 0;
@@ -144,7 +144,7 @@ void * processWork(void * arg, void * context, int value) {
             action = imaTRC_Compress;
 
             if (traceDestination) {
-                ism_common_free(ism_memory_utils_misc,traceDestination);
+                ism_common_free(ism_memory_utils_trace,traceDestination);
             }
             traceDestination = ism_common_getTraceBackupDestination();
 
@@ -184,14 +184,14 @@ void * processWork(void * arg, void * context, int value) {
                 }
 
                 if (action == imaTRC_None) {
-                    ism_common_free(ism_memory_utils_misc,entry->fileName);
-                    ism_common_free(ism_memory_utils_misc,entry);
+                    ism_common_free(ism_memory_utils_trace,entry->fileName);
+                    ism_common_free(ism_memory_utils_trace,entry);
 
                     continue;
                 }
 
                 if (entry->retryCount >= MAX_ERROR_COUNT) {
-                    char * compressedFile = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,31),strlen(entry->fileName) + sizeof(COMPRESSED_SUFFIX));
+                    char * compressedFile = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_trace,31),strlen(entry->fileName) + sizeof(COMPRESSED_SUFFIX));
 
                     action = imaTRC_Compress;
                     sprintf(compressedFile, "%s"COMPRESSED_SUFFIX, entry->fileName);
@@ -201,7 +201,7 @@ void * processWork(void * arg, void * context, int value) {
                         if (ism_common_list_remove_head(failedFiles, (void **)&fileName) == 0) {
                             TRACE(5, "The list of files we failed to offload is too long, dropping %s\n", fileName);
                             removeFile(fileName);
-                            ism_common_free(ism_memory_utils_misc,fileName);
+                            ism_common_free(ism_memory_utils_trace,fileName);
                         }
                     }
 
@@ -235,8 +235,8 @@ void * processWork(void * arg, void * context, int value) {
                          */
                         ism_common_listIterator iter;
 
-                        ism_common_free(ism_memory_utils_misc,entry->fileName);
-                        ism_common_free(ism_memory_utils_misc,entry);
+                        ism_common_free(ism_memory_utils_trace,entry->fileName);
+                        ism_common_free(ism_memory_utils_trace,entry);
 
                         TRACE(5, "Transfer succeeded, reset retry and error counts and resend any failed files\n");
 
@@ -260,12 +260,12 @@ void * processWork(void * arg, void * context, int value) {
                             rc = runProcessTrace(action, entry->fileName,
                                     maxFiles, traceDestination?traceDestination:"", "move");
                             TRACE(8, "Resent %s: rc=%d\n", fileName, rc);
-                            ism_common_free(ism_memory_utils_misc,fileName);
+                            ism_common_free(ism_memory_utils_trace,fileName);
                         }
                     }
                 } else {
-                    ism_common_free(ism_memory_utils_misc,entry->fileName);
-                    ism_common_free(ism_memory_utils_misc,entry);
+                    ism_common_free(ism_memory_utils_trace,entry->fileName);
+                    ism_common_free(ism_memory_utils_trace,entry);
                 }
             }
         }
@@ -343,8 +343,8 @@ void ism_trace_add_work(ism_trace_work_entry_t * entry) {
              * Check for symlink first and remove the actual file too.
              */
             removeFile(entry->fileName);
-            ism_common_free(ism_memory_utils_misc,entry->fileName);
-            ism_common_free(ism_memory_utils_misc,entry);
+            ism_common_free(ism_memory_utils_trace,entry->fileName);
+            ism_common_free(ism_memory_utils_trace,entry);
         }
     }
 

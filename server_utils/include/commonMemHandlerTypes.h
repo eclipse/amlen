@@ -135,8 +135,19 @@ typedef struct tag_ism_common_memGroupInfo_t {
     ISM_COMMON_MEMORY_TYPE(ism_memory_saslScram,                 ism_memory_SaslScram,           "SaslSCRAM",                           commonMem_DuringLowMemEnabled)
     ISM_COMMON_MEMORY_TYPE(ism_memory_saslScramProfile,          ism_memory_SaslScram,           "SaslSCRAMProfile",                    commonMem_DuringLowMemEnabled)
     ISM_COMMON_MEMORY_TYPE(ism_memory_bufferPools,               ism_memory_Utilities,           "BufferPools",                         commonMem_DuringLowMemEnabled)
-
-    ///Add new types above this line... And don't forget to update the memory statistics routines (ism_common_getMemoryStatistics() in commonMemHandler.c) to include them...
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_rehash,              ism_memory_Utilities,           "Certificate Rehashing",               commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_filter,              ism_memory_Utilities,           "Filters",                             commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_selector,            ism_memory_Utilities,           "Selectors",                           commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_props,               ism_memory_Utilities,           "Properties",                          commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_log,                 ism_memory_Utilities,           "Logging",                             commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_trace,               ism_memory_Utilities,           "Tracing",                             commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_map,                 ism_memory_Utilities,           "Hash maps",                           commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_array,               ism_memory_Utilities,           "Arrays",                              commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_list,                ism_memory_Utilities,           "Lists",                               commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_sslutils,            ism_memory_Utilities,           "SSL Utility Functions",               commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_xml,                 ism_memory_Utilities,           "XML Parsing",                         commonMem_DuringLowMemEnabled)
+    ISM_COMMON_MEMORY_TYPE(ism_memory_utils_throttle,            ism_memory_Utilities,           "Throttling",                          commonMem_DuringLowMemEnabled)
+    ///Add new types above this line... 
     ISM_COMMON_MEMORY_TYPE_END(ism_common_mem_numtypes)
 
 #undef ISM_COMMON_MEMORY_GROUP_START

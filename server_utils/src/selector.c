@@ -744,25 +744,25 @@ int ism_common_compileSelectRuleOpt(ismRule_t * * xrule, int * outlen, const cha
 	memset(rulec, 0, sizeof(rulex));
 	rulec->ruledef = (char *)ruledef;
 	rulec->buflen = 64*1024;
-	rulec->buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,116),rulec->buflen);
+	rulec->buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_selector,116),rulec->buflen);
 	if (options&SELOPT_Internal)
 	    rulec->opt_internal = 1;
 	rulec->options = (uint16_t)options;
-	token = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,117),tokenlen);
+	token = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_selector,117),tokenlen);
 
 	if (ruledef == NULL)
 	    ruledef = "";
 	rulec->ruledef = (char *)ruledef;
 	rc = compile(rulec, token, tokenlen);
 	if (rc == 0) {
-	    ret = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,118),rulec->bufpos);
+	    ret = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_selector,118),rulec->bufpos);
 	    memcpy(ret, rulec->buf, rulec->bufpos);
 	    *xrule = ret;
 	    if (outlen)
 	        *outlen = rulec->bufpos;
 	}
-	ism_common_free(ism_memory_utils_misc,rulec->buf);
-	ism_common_free(ism_memory_utils_misc,token);
+	ism_common_free(ism_memory_utils_selector,rulec->buf);
+	ism_common_free(ism_memory_utils_selector,token);
 	return rc;
 }
 
@@ -1271,7 +1271,7 @@ static const char * opname(int op, int kind) {
  */
 void ism_common_freeSelectRule(ismRule_t * rule) {
     if (rule) {
-        ism_common_free(ism_memory_utils_misc,rule);
+        ism_common_free(ism_memory_utils_selector,rule);
     }
 }
 

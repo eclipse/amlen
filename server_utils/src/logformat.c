@@ -739,7 +739,7 @@ void * ism_log_announcer(void * param, void * context, int value) {
         	}
         }
 
-        ism_common_free(ism_memory_utils_misc,logent);
+        ism_common_free(ism_memory_utils_log,logent);
     }
     return NULL;
 }
@@ -788,7 +788,7 @@ XAPI void ism_common_logInvoke(ism_common_log_context *context, const ISM_LOGLEV
     /*
      * Construct the log entry
      */
-    logent = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,161),sizeof(ismLogEvent_t) + buf.used);
+    logent = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_log,161),sizeof(ismLogEvent_t) + buf.used);
     if (logent) {
         logent->timestamp = ism_common_currentTimeNanos();
         logent->category  = category;
@@ -816,7 +816,7 @@ XAPI void ism_common_logInvoke(ism_common_log_context *context, const ISM_LOGLEV
     if (!logent || g_logEntCount > LOG_ENT_MAX || (g_logEntLost && g_logEntCount > LOG_ENT_RESUME)) {
         g_logEntLost++;
         if (logent) {     /* If we made a logent, free it since we are not enqueuing it */
-            ism_common_free(ism_memory_utils_misc,logent);
+            ism_common_free(ism_memory_utils_log,logent);
         }
     } else {
         g_logEntCount++;
@@ -904,7 +904,7 @@ int ism_log_createLoggerSingle(ism_prop_t * props) {
     int   rc = 0;
     const char * type = ism_common_getStringProperty(props, "LogDestinationType");
     const char * destination = ism_common_getStringProperty(props, "LogDestination");
-    ism_logWriter_t * lw = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,163),1, sizeof(ism_logWriter_t));
+    ism_logWriter_t * lw = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_log,163),1, sizeof(ism_logWriter_t));
 
     pthread_mutex_lock(&logLock);
 
@@ -987,7 +987,7 @@ XAPI int ism_log_createLogger(int which, ism_prop_t * props) {
 
 	TRACE(5, "Creating logger %s:%s\n", type, destination);
 
-    ism_logWriter_t * lw = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,164),1, sizeof(ism_logWriter_t));
+    ism_logWriter_t * lw = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_log,164),1, sizeof(ism_logWriter_t));
 
     pthread_mutex_lock(&logLock);
 
@@ -1077,10 +1077,10 @@ XAPI int ism_log_updateLogger(int which, ism_prop_t * props) {
 	TRACE(5, "Creating logger %s:%s\n", type, destination);
 
     pthread_mutex_lock(&logLock);
-    ism_logWriter_t * lw = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,165),sizeof(ism_logWriter_t));
+    ism_logWriter_t * lw = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_log,165),sizeof(ism_logWriter_t));
     memcpy(lw, g_logwriter[which], sizeof(ism_logWriter_t));
     if (g_logwriter[which]->destination && g_logwriter[which]->isfile) {
-    	lw->destination = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),g_logwriter[which]->destination);
+    	lw->destination = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_log,1000),g_logwriter[which]->destination);
     }
 
     int changed = 0;
@@ -1132,7 +1132,7 @@ XAPI int ism_log_updateLogger(int which, ism_prop_t * props) {
     		// file handle and destination pointer
     		if (oldlw->isfile && lw->desttype == DESTTYPE_SYSLOG) {
     			fclose(oldlw->file);
-    			ism_common_free(ism_memory_utils_misc,oldlw->destination);
+    			ism_common_free(ism_memory_utils_log,oldlw->destination);
 
     			g_logwriter[which]->isfile = 0;
     			g_logwriter[which]->destination = NULL;
@@ -1274,7 +1274,7 @@ static int destroyClientLogObj(ismClientLogObj * clientLogObj, char *keyStr)
 			ism_log_checkStructId(logObj->structId, ismLOG_LOGOBJ_STRUCTID);
 			msgcode=logObj->msgcode;
 			ism_log_invalidateStructId(logObj->structId);
-			ism_common_free(ism_memory_utils_misc,logObj);
+			ism_common_free(ism_memory_utils_log,logObj);
 			logObj=NULL;
 		}
 		removedCount++;
@@ -1288,7 +1288,7 @@ static int destroyClientLogObj(ismClientLogObj * clientLogObj, char *keyStr)
 	clientLogObj->msglogtable=NULL;
 
 	ism_log_invalidateStructId(clientLogObj->structId);
-	ism_common_free(ism_memory_utils_misc,clientLogObj);
+	ism_common_free(ism_memory_utils_log,clientLogObj);
 
 	ism_common_freeHashMapEntriesArray(dataEntries);
 
@@ -1373,7 +1373,7 @@ int ism_common_conditionallyLogged(ism_common_log_context *context, const ISM_LO
 
     if (clientLogItem==NULL) {
     	/*Initialize the clientLog Object*/
-    	clientLogObj= ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,169),1,sizeof(ismClientLogObj));
+    	clientLogObj= ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_log,169),1,sizeof(ismClientLogObj));
     	ism_log_setStructId(clientLogObj->structId, ismLOG_CLIENTLOGOBJ_STRUCTID);
     	clientLogObj->msglogtable = ism_common_createHashMap(128,HASH_INT32);
 	    ism_common_putHashMapElement(g_logtable, key, keysize, clientLogObj, NULL);
@@ -1387,7 +1387,7 @@ int ism_common_conditionallyLogged(ism_common_log_context *context, const ISM_LO
 
     if (logItem==NULL){
 
-    	logObj= ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,170),1,sizeof(ismLogObj));
+    	logObj= ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_log,170),1,sizeof(ismLogObj));
     	ism_log_setStructId(logObj->structId, ismLOG_LOGOBJ_STRUCTID);
 		logObj->msgcode = msgCode;
 		logObj->timestamp_last_logged=ctime;
@@ -1545,7 +1545,7 @@ static int logTableCleanUpTimerTask(ism_timer_t key, ism_time_t timestamp, void 
 					//Remove from the table.
 					ism_common_removeHashMapElement(clientLogObj->msglogtable, dataMsgLogEntries[msgloccount]->key, dataMsgLogEntries[msgloccount]->key_len);
 					ism_log_invalidateStructId(logObj->structId);
-					ism_common_free(ism_memory_utils_misc,logObj);
+					ism_common_free(ism_memory_utils_log,logObj);
 
 					msgLogRemovedCount++;
 					TRACE(7,"logTableCleanUpTimerTask: removed log object from the client log table: key=%s msgcode=%d totalremoved=%d\n", keyStr,msgcode, msgLogRemovedCount);

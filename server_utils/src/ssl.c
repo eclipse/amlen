@@ -359,7 +359,7 @@ static int readPSKFile(FILE * fin, ismHashMap * map) {
         }
 		if (key) {
 		    int keylen;
-		    binkey = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,63),strlen(key)/2 + 1);
+		    binkey = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_sslutils,63),strlen(key)/2 + 1);
 		    keylen = ism_common_fromHexString(key, binkey+1);
 		    if (keylen < 0 || keylen > 256) {
 		        TRACE(8, "PSK key conversion failed on line %d:  \"%s\"\n", lineCounter, key);
@@ -372,7 +372,7 @@ static int readPSKFile(FILE * fin, ismHashMap * map) {
 		            key = ism_common_removeHashMapElement(map, id, 0);
 		            if (key) {
 		                TRACEX(9, TLS, 0, "Remove PSK: identity=%s\n", id);
-		                ism_common_free(ism_memory_utils_misc,key);
+		                ism_common_free(ism_memory_utils_sslutils,key);
 		            }
 		        }
 		    }
@@ -389,7 +389,7 @@ static void freePSKMap(ismHashMap * map) {
 	ismHashMapEntry **entries = ism_common_getHashMapEntriesArray(map);
 	int count = 0;
 	while (entries[count] != ((void*) -1)) {
-		ism_common_free(ism_memory_utils_misc,entries[count]->value);
+		ism_common_free(ism_memory_utils_sslutils,entries[count]->value);
 		count++;
 	}
 	ism_common_freeHashMapEntriesArray(entries);
@@ -514,7 +514,7 @@ static int addAllowedClientCert(ismHashMap * map, const char * crtFileName) {
         sslGatherErr(&buf);
         TRACE(4, "Unable to parse client certificate %s: %s\n", crtFileName, buf.buf);
         if (buf.inheap)
-            ism_common_free(ism_memory_utils_misc,buf.buf);
+            ism_common_free(ism_memory_utils_sslutils,buf.buf);
         return 0;
     }
     hash = X509_subject_name_hash(cert);
@@ -2200,7 +2200,7 @@ static void freeTrustedCertCB(void *data) {
             if (certData->pkey)
                 EVP_PKEY_free(certData->pkey);
             ism_common_list_destroy(&certData->crlLocations);
-            ism_common_free(ism_memory_utils_misc,certData);
+            ism_common_free(ism_memory_utils_sslutils,certData);
         }
     }
 }
@@ -2227,7 +2227,7 @@ static inline BIO * createReadBIO(const char * buf, int length, char ** extraBuf
 
 /* Free entry of admin action list */
 void ssl_free_data(void *data) {
-    ism_common_free(ism_memory_utils_misc,data);
+    ism_common_free(ism_memory_utils_sslutils,data);
 }
 
 
@@ -2236,7 +2236,7 @@ void ssl_free_data(void *data) {
  */
 static int readCerts(const char * certs, int length, ism_common_list * certList, int trusted) {
     BIO * certdata = NULL;
-    char * buf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),certs);
+    char * buf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_sslutils,1000),certs);
     char * extrabuf = NULL;
     if (trusted) {
         ism_common_list_init(certList, 0, freeTrustedCertCB);
@@ -2252,7 +2252,7 @@ static int readCerts(const char * certs, int length, ism_common_list * certList,
     }
 
     if (length < 1) {
-        ism_common_free(ism_memory_utils_misc,buf);
+        ism_common_free(ism_memory_utils_sslutils,buf);
         return ISMRC_CertificateNotValid;
     }
 
@@ -2262,7 +2262,7 @@ static int readCerts(const char * certs, int length, ism_common_list * certList,
         int rc = ISMRC_OK;
         while (!BIO_eof(certdata)) {
             if (trusted) {
-                sslTrustCertData_t * tcd = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,72),sizeof(sslTrustCertData_t));
+                sslTrustCertData_t * tcd = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_sslutils,72),sizeof(sslTrustCertData_t));
                 if (tcd) {
                     X509 * cert = PEM_read_bio_X509_AUX(certdata, NULL, NULL, NULL);
                     if (cert) {
@@ -2278,17 +2278,17 @@ static int readCerts(const char * certs, int length, ism_common_list * certList,
                             traceSSLError("Failed to extract public key ");
                             X509_free(cert);
                             BIO_free(certdata);
-                            ism_common_free(ism_memory_utils_misc,buf);
+                            ism_common_free(ism_memory_utils_sslutils,buf);
                             return ISMRC_CertificateNotValid;
                         }
                     } else {
                         err = ERR_peek_last_error();
                     }
-                    ism_common_free(ism_memory_utils_misc,tcd);
+                    ism_common_free(ism_memory_utils_sslutils,tcd);
                     break;
                 } else {
                     BIO_free(certdata);
-                    ism_common_free(ism_memory_utils_misc,buf);
+                    ism_common_free(ism_memory_utils_sslutils,buf);
                     return ISMRC_AllocateError;
                 }
             } else {
@@ -2307,14 +2307,14 @@ static int readCerts(const char * certs, int length, ism_common_list * certList,
             rc = ISMRC_CertificateNotValid;
         }
         BIO_free(certdata);
-        ism_common_free(ism_memory_utils_misc,buf);
+        ism_common_free(ism_memory_utils_sslutils,buf);
         if (extrabuf)
-            ism_common_free(ism_memory_utils_misc,extrabuf);
+            ism_common_free(ism_memory_utils_sslutils,extrabuf);
         return rc;
     }
-    ism_common_free(ism_memory_utils_misc,buf);
+    ism_common_free(ism_memory_utils_sslutils,buf);
     if (extrabuf)
-        ism_common_free(ism_memory_utils_misc,extrabuf);
+        ism_common_free(ism_memory_utils_sslutils,extrabuf);
     return ISMRC_AllocateError;
 }
 
@@ -2335,11 +2335,11 @@ static int readKey(const char * buf, int length, EVP_PKEY ** pKey) {
         *pKey = key;
         BIO_free(keydata);
         if (extrabuf)
-            ism_common_free(ism_memory_utils_misc,extrabuf);
+            ism_common_free(ism_memory_utils_sslutils,extrabuf);
         return rc;
     }
     if (extrabuf)
-        ism_common_free(ism_memory_utils_misc,extrabuf);
+        ism_common_free(ism_memory_utils_sslutils,extrabuf);
     return ISMRC_AllocateError;
 }
 
@@ -2365,7 +2365,7 @@ static X509_CRL * readCRL(const char * buf, int length) {
         ism_common_setError(ISMRC_AllocateError);
     }
     if (extrabuf)
-        ism_common_free(ism_memory_utils_misc,extrabuf);
+        ism_common_free(ism_memory_utils_sslutils,extrabuf);
     return result;
 }
 #endif
@@ -2655,7 +2655,7 @@ static int parseCrlLocations(X509 * cert, ism_common_list * crlLocations) {
                         for (j = 0; j < sk_GENERAL_NAME_num(dp->distpoint->name.fullname); j++) {
                             GENERAL_NAME *gn = sk_GENERAL_NAME_value(dp->distpoint->name.fullname, j);
                             if (gn != NULL && gn->type == GEN_URI) {
-                                const char * uri = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),(const char *) gn->d.ia5->data);
+                                const char * uri = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_sslutils,1000),(const char *) gn->d.ia5->data);
                                 if (uri == NULL) {
                                     rc = ISMRC_AllocateError;
                                     break;
@@ -2807,20 +2807,20 @@ static void freeOrgConfig(const char * name) {
                 SSL_CTX_free(orgConfig->ctx);
             }
             if (orgConfig->serverCert) {
-                ism_common_free(ism_memory_utils_misc,orgConfig->serverCert);
+                ism_common_free(ism_memory_utils_sslutils,orgConfig->serverCert);
             }
             if (orgConfig->serverKey) {
-                ism_common_free(ism_memory_utils_misc,orgConfig->serverKey);
+                ism_common_free(ism_memory_utils_sslutils,orgConfig->serverKey);
             }
             if (orgConfig->trustCerts) {
-                ism_common_free(ism_memory_utils_misc,orgConfig->trustCerts);
+                ism_common_free(ism_memory_utils_sslutils,orgConfig->trustCerts);
                 ism_common_list_destroy(&orgConfig->trustCertsList);
             }
             if (orgConfig->name) {
-                ism_common_free(ism_memory_utils_misc,(char *)orgConfig->name);
+                ism_common_free(ism_memory_utils_sslutils,(char *)orgConfig->name);
             }
             pthread_mutex_destroy(&orgConfig->lock);
-            ism_common_free(ism_memory_utils_misc,orgConfig);
+            ism_common_free(ism_memory_utils_sslutils,orgConfig);
             ism_common_removeHashMapElement(orgConfigMap, name, 0);
         }
     }
@@ -2834,7 +2834,7 @@ typedef struct crlUpdateTask_t {
 
 
 xUNUSED static crlUpdateTask_t * createUpdateCRLTask(const char * orgname, uint32_t generation) {
-    crlUpdateTask_t * task = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,88),sizeof(crlUpdateTask_t) + strlen(orgname) + 1);
+    crlUpdateTask_t * task = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_sslutils,88),sizeof(crlUpdateTask_t) + strlen(orgname) + 1);
     if (task) {
         task->orgName = (char *)(task + 1);
         strcpy((char*) task->orgName, orgname);
@@ -2882,7 +2882,7 @@ int ism_ssl_waitPendingCRL(ima_transport_info_t * transport, const char * org, v
                     TRACE(8, "call wait callback: connect=%d rc=%s (%d)\n", transport->index,
                             X509_verify_cert_error_string(waiter->verify_rc), waiter->verify_rc);
                     waitcb(waiter->verify_rc, data);
-                    ism_common_free(ism_memory_utils_misc,waiter);
+                    ism_common_free(ism_memory_utils_sslutils,waiter);
                     waiter = NULL;
                 }
                 break;
@@ -2910,7 +2910,7 @@ int ism_ssl_waitPendingCRL(ima_transport_info_t * transport, const char * org, v
  * Create a new CRL name
  */
 static tlsCrl_t * newCrlObj(const char * crlname) {
-    tlsCrl_t * ret = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,90),1, sizeof(tlsCrl_t) + strlen(crlname)+1);
+    tlsCrl_t * ret = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_sslutils,90),1, sizeof(tlsCrl_t) + strlen(crlname)+1);
     ret->name = (const char *)(ret+1);
     strcpy((char *)ret->name, crlname);
     ret->inprocess = 1;
@@ -2925,7 +2925,7 @@ int ism_ssl_test_addWaiter(ima_transport_info_t * transport, const char * org) {
     tlsCrlWait_t * waiter;
     tlsOrgConfig_t * orgConfig = ism_common_getHashMapElement(orgConfigMap, org, 0);
     if (orgConfig) {
-        waiter = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,91),1, sizeof(tlsCrlWait_t));
+        waiter = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_sslutils,91),1, sizeof(tlsCrlWait_t));
         waiter->transport = transport;
         waiter->transport_ssl = transport->ssl;
         waiter->rc = ISMRC_AsyncCompletion;
@@ -2996,7 +2996,7 @@ int ism_ssl_needCRL(ima_transport_info_t * transport, const char * org, X509 * c
             }
 
             /* Construct the waiter object */
-            waiter = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,92),1, sizeof(tlsCrlWait_t) + len + count*sizeof(void *));
+            waiter = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_sslutils,92),1, sizeof(tlsCrlWait_t) + len + count*sizeof(void *));
             char * data = (char *)(waiter+1);
             data += count * sizeof(void *);
             waiter->transport = transport;
@@ -3055,7 +3055,7 @@ int ism_ssl_needCRL(ima_transport_info_t * transport, const char * org, X509 * c
                     oldwaiter->next = waiter;
                 }
             } else {
-                ism_common_free(ism_memory_utils_misc,waiter);
+                ism_common_free(ism_memory_utils_sslutils,waiter);
             }
 
             /* Schedule the update */
@@ -3291,7 +3291,7 @@ int ism_ssl_stopCrlWait(ima_transport_info_t * transport, const char * org) {
                         else
                             orgConfig->waiters = waiter->next;
                         nextwaiter = waiter->next;
-                        ism_common_free(ism_memory_utils_misc,waiter);
+                        ism_common_free(ism_memory_utils_sslutils,waiter);
                         ret++;
                     } else {
                         oldwaiter = waiter;
@@ -3369,7 +3369,7 @@ static void releaseCrlWaiters(tlsOrgConfig_t * orgConfig, tlsCrl_t * crlobj) {
                 else
                     orgConfig->waiters = waiter->next;
                 tlsCrlWait_t * nextwaiter = waiter->next;
-                ism_common_free(ism_memory_utils_misc,waiter);
+                ism_common_free(ism_memory_utils_sslutils,waiter);
                 waiter = nextwaiter;
             } else {
                 oldwaiter = waiter;
@@ -3512,7 +3512,7 @@ static int processCRLUpdate(crlUpdateTask_t * task) {
         freeOrgConfig(task->orgName);    /* Decrement the use count */
     } else {
         rc = 1;
-        ism_common_free(ism_memory_utils_misc,task);
+        ism_common_free(ism_memory_utils_sslutils,task);
         ism_common_HashMapUnlock(orgConfigMap);
     }
     return rc;
@@ -3660,9 +3660,9 @@ int ism_ssl_setSNIConfig(const char * name, const char * serverCert, const char 
     ism_common_HashMapLock(orgConfigMap);
     tlsOrgConfig_t * orgConfig = ism_common_getHashMapElement(orgConfigMap, name, 0);
     if (orgConfig == NULL) {
-        orgConfig = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,97),1, sizeof(tlsOrgConfig_t));
+        orgConfig = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_sslutils,97),1, sizeof(tlsOrgConfig_t));
         pthread_mutex_init(&orgConfig->lock, NULL);
-        orgConfig->name = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),name);
+        orgConfig->name = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_sslutils,1000),name);
         TRACE(7, "orgConfig was created for org %s: orgConfig=%p\n", name, orgConfig);
         orgConfig->useCount = 1;
         ism_common_putHashMapElement(orgConfigMap, name, 0, orgConfig, NULL);
@@ -3687,27 +3687,27 @@ int ism_ssl_setSNIConfig(const char * name, const char * serverCert, const char 
                 break;
             }
             if (serverCert) {
-                serverCert = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),serverCert);
-                serverKey = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),serverKey);
+                serverCert = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_sslutils,1000),serverCert);
+                serverKey = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_sslutils,1000),serverKey);
                 if ((serverCert == NULL) || (serverKey == NULL)) {
                     SSL_CTX_free(ctx);
                     if (serverCert)
-                        ism_common_free(ism_memory_utils_misc,(char*)serverCert);
+                        ism_common_free(ism_memory_utils_sslutils,(char*)serverCert);
                     if (serverKey)
-                        ism_common_free(ism_memory_utils_misc,(char*)serverKey);
+                        ism_common_free(ism_memory_utils_sslutils,(char*)serverKey);
                     rc = ISMRC_AllocateError;
                     ism_common_setError(rc);
                     break;
                 }
             }
             if (trustCerts && requireClientCert) {
-                trustCerts = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),trustCerts);
+                trustCerts = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_sslutils,1000),trustCerts);
                 if (trustCerts == NULL) {
                     SSL_CTX_free(ctx);
                     if (serverCert)
-                        ism_common_free(ism_memory_utils_misc,(char*)serverCert);
+                        ism_common_free(ism_memory_utils_sslutils,(char*)serverCert);
                     if (serverKey)
-                        ism_common_free(ism_memory_utils_misc,(char*)serverKey);
+                        ism_common_free(ism_memory_utils_sslutils,(char*)serverKey);
                     rc = ISMRC_AllocateError;
                     ism_common_setError(rc);
                     break;
@@ -3716,10 +3716,10 @@ int ism_ssl_setSNIConfig(const char * name, const char * serverCert, const char 
                 if (rc != ISMRC_OK) {
                     SSL_CTX_free(ctx);
                     if (serverCert)
-                        ism_common_free(ism_memory_utils_misc,(char*)serverCert);
+                        ism_common_free(ism_memory_utils_sslutils,(char*)serverCert);
                     if (serverKey)
-                        ism_common_free(ism_memory_utils_misc,(char*)serverKey);
-                    ism_common_free(ism_memory_utils_misc,(char*)trustCerts);
+                        ism_common_free(ism_memory_utils_sslutils,(char*)serverKey);
+                    ism_common_free(ism_memory_utils_sslutils,(char*)trustCerts);
                     break;
                 }
             }
@@ -3729,14 +3729,14 @@ int ism_ssl_setSNIConfig(const char * name, const char * serverCert, const char 
          * Delete the old values in the orgConfig
          */
         if (orgConfig->trustCerts) {
-            ism_common_free(ism_memory_utils_misc,orgConfig->trustCerts);
+            ism_common_free(ism_memory_utils_sslutils,orgConfig->trustCerts);
             ism_common_list_destroy(&orgConfig->trustCertsList);
             orgConfig->trustCerts = NULL;
         }
         if (orgConfig->serverCert) {
-            ism_common_free(ism_memory_utils_misc,orgConfig->serverCert);
+            ism_common_free(ism_memory_utils_sslutils,orgConfig->serverCert);
             orgConfig->serverCert = NULL;
-            ism_common_free(ism_memory_utils_misc,orgConfig->serverKey);
+            ism_common_free(ism_memory_utils_sslutils,orgConfig->serverKey);
             orgConfig->serverKey = NULL;
         }
         if (orgConfig->crlUpdateTimer) {
