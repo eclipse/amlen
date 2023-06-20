@@ -58,7 +58,7 @@ ism_prop_t * ism_common_newProperties(int count) {
     if (bufsize < 1000)
         bufsize = 1000;
     size = sizeof(ism_prop_t) + count * sizeof(ism_propent_t) + bufsize;
-    ret = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,128),size);
+    ret = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_props,128),size);
     memset(ret, 0, sizeof(ism_prop_t));
     ret->props = (ism_propent_t *)(ret+1);
     ret->suballoc.size = size-sizeof(ism_prop_t);
@@ -85,7 +85,7 @@ static char * allocPropertyBytes(ism_prop_t * props, int len, int align) {
         }
         if (!suba->next) {
             int newlen = ((len+1200+sizeof(struct suballoc_t)) & ~0x3ff) - 16; /* 16 -s the malloc overhead. for small allocations the ideal size is power of 2 - 16 */
-            suba->next = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,129),newlen);
+            suba->next = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_props,129),newlen);
             suba->next->next = 0;
             suba->next->size = newlen-sizeof(struct suballoc_t);
             suba->next->pos  = 0;
@@ -108,9 +108,9 @@ void ism_common_freeProperties(ism_prop_t * props) {
             struct suballoc_t * freesub = suba;
             suba = suba->next;
             freesub->next = NULL;
-            ism_common_free(ism_memory_utils_misc,freesub);
+            ism_common_free(ism_memory_utils_props,freesub);
         }
-        ism_common_free(ism_memory_utils_misc,props);
+        ism_common_free(ism_memory_utils_props,props);
     }
 }
 
@@ -547,7 +547,7 @@ int ism_common_clearProperties(ism_prop_t * props) {
         struct suballoc_t * freesub = suba;
         suba = suba->next;
         freesub->next = NULL;
-        ism_common_free(ism_memory_utils_misc,freesub);
+        ism_common_free(ism_memory_utils_props,freesub);
     }
     props->suballoc.next = NULL;
 	props->propcount = 0;

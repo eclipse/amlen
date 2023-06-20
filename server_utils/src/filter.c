@@ -567,13 +567,13 @@ struct ism_regex_t {
  * @return A regex specific return code
  */
 static inline int ism_regex_compile_withflags(ism_regex_t * pregex, const char * regex_str, int flags) {
-    ism_regex_t regex = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,219),1, sizeof(regex_t));
+    ism_regex_t regex = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_filter,219),1, sizeof(regex_t));
     int     rc;
 
     rc = regcomp(&regex->regex, regex_str, flags);
     if (rc) {
         *pregex = NULL;
-        ism_common_free(ism_memory_utils_misc,regex);
+        ism_common_free(ism_memory_utils_filter,regex);
     } else {
         *pregex = regex;
     }
@@ -654,7 +654,7 @@ void ism_regex_free(ism_regex_t regex) {
     if (!regex)
         return;
    regfree(&regex->regex);
-   ism_common_free(ism_memory_utils_misc,regex);
+   ism_common_free(ism_memory_utils_filter,regex);
 }
 
 /*
@@ -2169,12 +2169,12 @@ ism_acl_t * ism_protocol_findACL(const char * name, int create, ismMessageSelect
             ism_protocol_lockACLList(true,lockStrategy);
             acl = ism_common_getHashMapElement(acl_list, name, namelen);
             if (!acl) {
-                acl = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,222),1, sizeof(ism_acl_t) + namelen + 1);
+                acl = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_filter,222),1, sizeof(ism_acl_t) + namelen + 1);
                 if (acl) {
                     acl->hash = ism_common_createHashMap(100, HASH_STRING);
                     if (!acl->hash) {
                         ism_common_setError(ISMRC_AllocateError);
-                        ism_common_free(ism_memory_utils_misc,acl);
+                        ism_common_free(ism_memory_utils_filter,acl);
                         acl = NULL;
                     } else {
                         acl->name = (char *)(acl+1);
@@ -2286,7 +2286,7 @@ int ism_protocol_deleteACL(const char * name, ism_ACLcallback_f create_cb) {
         if (create_cb)
             create_cb(acl);
         ism_protocol_unlockACL(acl);
-        ism_common_free(ism_memory_utils_misc,acl);
+        ism_common_free(ism_memory_utils_filter,acl);
         return 0;
     } else {
         pthread_rwlock_unlock(&acl_lock);
@@ -2372,7 +2372,7 @@ static int check_acl_for_tenant(const char * name, const char * acl_name) {
 
     if (acl_name && (strlen(acl_name) > 2)) {
         if (strncmp(acl_name, acl_prefix, 2) == 0) {
-            acl_name_local = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),acl_name);
+            acl_name_local = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_filter,1000),acl_name);
 
             /* just check second token since we know it starts with a- */
             strtok(acl_name_local, sep);
@@ -2380,10 +2380,10 @@ static int check_acl_for_tenant(const char * name, const char * acl_name) {
 
             if (strcmp(name, acl_token) == 0) {
                 TRACE(8, "Found application acl: %s for tenant: %s\n", name, acl_name);
-                ism_common_free(ism_memory_utils_misc,acl_name_local);
+                ism_common_free(ism_memory_utils_filter,acl_name_local);
                 return 0;
             } else {
-                ism_common_free(ism_memory_utils_misc,acl_name_local);
+                ism_common_free(ism_memory_utils_filter,acl_name_local);
             }
         }
     }
@@ -2431,7 +2431,7 @@ int ism_rlac_deleteACL(const char * tenant_name) {
     TRACE(5, "Deleting any existing application acls for the tenant: %s\n", tenant_name);
 
     if (acl_list) {
-        filter_context = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,227),1, sizeof(rlac_filter_context_t));
+        filter_context = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_filter,227),1, sizeof(rlac_filter_context_t));
         filter_context->name = tenant_name;
         filter_context->buf = &buf;
         ism_common_enumerateHashMap(acl_list, rlac_buf_callback, filter_context);
@@ -2445,7 +2445,7 @@ int ism_rlac_deleteACL(const char * tenant_name) {
         if (buf.inheap ) {
            ism_common_freeAllocBuffer(&buf);
         }
-        ism_common_free(ism_memory_utils_misc,filter_context);
+        ism_common_free(ism_memory_utils_filter,filter_context);
     }
     return 0;
 }
@@ -2481,7 +2481,7 @@ int ism_protocol_setACL(const char * aclsrc, int acllen, int opt, ism_ACLcallbac
     }
 
     /* Make a copy of the list and change CR or LF to NUL */
-    aclcopy = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,229),acllen+2);
+    aclcopy = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_filter,229),acllen+2);
     memcpy(aclcopy, aclsrc, acllen);
     aclcopy[acllen] = 0;
     aclcopy[acllen+1] = 0xFF;
@@ -2590,7 +2590,7 @@ int ism_protocol_setACL(const char * aclsrc, int acllen, int opt, ism_ACLcallbac
         acl = NULL;
     }
     if (aclcopy)
-        ism_common_free(ism_memory_utils_misc,aclcopy);
+        ism_common_free(ism_memory_utils_filter,aclcopy);
     return rc;
 }
 
@@ -2611,7 +2611,7 @@ int ism_protocol_setACLfile2(const char * aclfile, ism_ACLcallback_f create_cb, 
         fseek(f, 0, SEEK_END);
         len = ftell(f);
         if (len > 0) {
-            buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,231),len+2);
+            buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_filter,231),len+2);
         }
         if (!buf) {
             TRACE(4, "Unable to allocate memory for ACL file: %s\n", aclfile);
@@ -2627,7 +2627,7 @@ int ism_protocol_setACLfile2(const char * aclfile, ism_ACLcallback_f create_cb, 
         buf[bread] = 0;
         if (bread != len) {
             TRACE(4, "Unable to read the ACL file:%s\n", aclfile);
-            ism_common_free(ism_memory_utils_misc,buf);
+            ism_common_free(ism_memory_utils_filter,buf);
             fclose(f);
             return ISMRC_NotFound;
         }
@@ -2818,7 +2818,7 @@ mqtt_prop_ctx_t * ism_common_makeMqttPropCtx(mqtt_prop_field_t * idtbl, int vers
     max_array = max_id;
     if (max_array > 127)
         max_array = 127;
-    ctx = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,233),1, sizeof(mqtt_prop_ctx_t) + (sizeof(mqtt_prop_field_t) * (max_array+1+more_count)));
+    ctx = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_filter,233),1, sizeof(mqtt_prop_ctx_t) + (sizeof(mqtt_prop_field_t) * (max_array+1+more_count)));
     ctx->version = version;
     ctx->array_id = max_array;
     ctx->max_id = max_id;
@@ -2850,7 +2850,7 @@ mqtt_prop_ctx_t * ism_common_makeMqttPropCtx(mqtt_prop_field_t * idtbl, int vers
  */
 int  ism_common_freeMqttPropCtx(mqtt_prop_ctx_t * ctx) {
     if (ctx)
-        ism_common_free(ism_memory_utils_misc,ctx);
+        ism_common_free(ism_memory_utils_filter,ctx);
     return 0;
 }
 

@@ -1738,7 +1738,7 @@ static void freeConsumer(ism_jms_prodcons_t * consumer) {
         ism_common_free(ism_memory_protocol_misc,consumer->name);
     if (consumer->rule)
     	//The rule is found via ism_common_compileSelectRule so is created by utils
-        ism_common_free(ism_memory_utils_misc,consumer->rule);
+        ism_common_free(ism_memory_utils_selector,consumer->rule);
     pthread_spin_destroy(&consumer->lock);
     ism_common_free(ism_memory_protocol_misc,consumer);
 }

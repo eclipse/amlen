@@ -92,7 +92,7 @@ static int getFileContent(const char * path, const char * name, char * * xbuf, i
     fseek(f, 0, SEEK_END);
     len =  ftell(f);
     if (len >= 0 && len < maxsize) {
-        buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,122),len+1);
+        buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_rehash,122),len+1);
         if (buf) {
             buf[len] = 0;
             rewind(f);
@@ -162,11 +162,11 @@ static int linkHashLink(file_hash_t * hash, const char * dirpath, const char * t
         for (i=0; i<targetcount; i++) {
             /* If it already points to a file containing this fingerprint, no link is required */
             if (!memcmp(targethash[i].fingerprint, hash->fingerprint, sizeof(hash->fingerprint))) {
-                ism_common_free(ism_memory_utils_misc,targethash);
+                ism_common_free(ism_memory_utils_rehash,targethash);
                 return 0;
             }
         }
-        ism_common_free(ism_memory_utils_misc,targethash);
+        ism_common_free(ism_memory_utils_rehash,targethash);
         unique++;
         sprintf(hashfile, (hash->kind == 'r' ? "%s.r%d" : "%s.%d"), hash->hash, unique);
     }
@@ -276,14 +276,14 @@ static int doTrustFile(const char * dirpath, const char * name, file_hash_t * * 
 
     /* If this is a PEM file, return the hash and fingerprint objects we found */
     if (hashcount) {
-        file_hash_t * ret = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,125),hashcount * sizeof(file_hash_t));
+        file_hash_t * ret = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_rehash,125),hashcount * sizeof(file_hash_t));
         memcpy(ret, hashes, hashcount * sizeof(file_hash_t));
         *hash = ret;
     }
 
     /* Free up the buffer containing the file */
     if (filebuf)
-        ism_common_free(ism_memory_utils_misc,filebuf);
+        ism_common_free(ism_memory_utils_rehash,filebuf);
     return hashcount;
 }
 
@@ -344,7 +344,7 @@ int  ism_common_hashTrustDirectory(const char * dirpath, int leave_links, int ve
                     for (i=0; i<hashcount; i++) {
                         addcount += linkHashLink(hash+i, dirpath, dent->d_name, verbose);
                     }
-                    ism_common_free(ism_memory_utils_misc,hash);
+                    ism_common_free(ism_memory_utils_rehash,hash);
                 }
             }
             dent = readdir(dp);

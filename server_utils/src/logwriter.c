@@ -161,18 +161,18 @@ void ism_log_toTrace(const ismLogOut_t * le) {
         if (buflen < 8192) {
             buf = alloca(buflen);
         } else {
-            buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,142),buflen);
+            buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_log,142),buflen);
             inheap = 1;
         }
         bytes_needed = build_log_msg(le, 0, le->msgf, buf, buflen);
         if (bytes_needed > buflen) {
             if (inheap)
-                buf = ism_common_realloc(ISM_MEM_PROBE(ism_memory_utils_misc,143),buf, bytes_needed);
+                buf = ism_common_realloc(ISM_MEM_PROBE(ism_memory_utils_log,143),buf, bytes_needed);
             else {
                 if (bytes_needed < 8192 - buflen) {
                     buf = alloca(bytes_needed);
                 } else {
-                    buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,144),bytes_needed);
+                    buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_log,144),bytes_needed);
                     inheap = 1;
                 }
             }
@@ -182,7 +182,7 @@ void ism_log_toTrace(const ismLogOut_t * le) {
         TRACE(6, "Log logid=%d from %s at %s:%d\n", le->msgnum, le->func, le->location, le->lineno);
         traceFunction(6, 0, le->location, le->lineno, "%s\n", buf);
         if (inheap)
-            ism_common_free(ism_memory_utils_misc,buf);
+            ism_common_free(ism_memory_utils_log,buf);
     }
 }
 
@@ -230,11 +230,11 @@ int ism_log_setWriterDestination(ism_logWriter_t * lw, const char * destination)
 
             lw->file = f;
             lw->isfile = isfile;
-            lw->destination = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),destination);
+            lw->destination = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_log,1000),destination);
 
             if (oldIsFile) {
                 fclose(oldFile);
-                ism_common_free(ism_memory_utils_misc,oldDestination);
+                ism_common_free(ism_memory_utils_log,oldDestination);
             }
         }
     }
@@ -246,7 +246,7 @@ int ism_log_setWriterDestination(ism_logWriter_t * lw, const char * destination)
  */
 void ism_log_closeWriter(ism_logWriter_t * lw) {
     if (lw) {
-        ism_common_free(ism_memory_utils_misc,lw);
+        ism_common_free(ism_memory_utils_log,lw);
         lw = NULL;
     }
 }
@@ -308,19 +308,19 @@ void ism_log_toISMLogger(ism_logWriter_t * lw, int kind, ismLogOut_t * logout) {
     if (buflen < 8192) {
         buf = alloca(buflen);
     } else {
-        buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,148),buflen);
+        buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_log,148),buflen);
         inheap = 1;
     }
     if (lw->desttype == DESTTYPE_FILE) {
         bytes_needed = build_log_msg(logout, 0, msgf, buf, buflen);
         if (bytes_needed > buflen) {
             if (inheap)
-                buf = ism_common_realloc(ISM_MEM_PROBE(ism_memory_utils_misc,149),buf, bytes_needed);
+                buf = ism_common_realloc(ISM_MEM_PROBE(ism_memory_utils_log,149),buf, bytes_needed);
             else {
                 if (bytes_needed < 8192 - buflen) {
                     buf = alloca(bytes_needed);
                 } else {
-                    buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,150),bytes_needed);
+                    buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_log,150),bytes_needed);
                     inheap = 1;
                 }
             }
@@ -345,12 +345,12 @@ void ism_log_toISMLogger(ism_logWriter_t * lw, int kind, ismLogOut_t * logout) {
         bytes_needed = build_log_msg(logout, pri, msgf, buf, buflen);
         if (bytes_needed > buflen) {
             if (inheap)
-                buf = ism_common_realloc(ISM_MEM_PROBE(ism_memory_utils_misc,151),buf, bytes_needed);
+                buf = ism_common_realloc(ISM_MEM_PROBE(ism_memory_utils_log,151),buf, bytes_needed);
             else {
                 if (bytes_needed < 8192 - buflen) {
                     buf = alloca(bytes_needed);
                 } else {
-                    buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,152),bytes_needed);
+                    buf = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_log,152),bytes_needed);
                     inheap = 1;
                 }
             }
@@ -364,7 +364,7 @@ void ism_log_toISMLogger(ism_logWriter_t * lw, int kind, ismLogOut_t * logout) {
         callback(buf);
     }
     if (inheap)
-        ism_common_free(ism_memory_utils_misc,buf);
+        ism_common_free(ism_memory_utils_log,buf);
 }
 
 /*
@@ -601,13 +601,13 @@ int ism_log_initSyslog(ism_prop_t * props) {
 
     // Try to establish syslog connection using specified configuration
     // If successful, update syslogConnection object
-    ismSyslogConnection_t * tempConnection = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,154),1, sizeof(ismSyslogConnection_t));
+    ismSyslogConnection_t * tempConnection = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_log,154),1, sizeof(ismSyslogConnection_t));
     if (host) {
-        tempConnection->ip = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),host);
+        tempConnection->ip = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_log,1000),host);
     } else if (syslogConnection && syslogConnection->ip) {
-        tempConnection->ip = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),syslogConnection->ip);
+        tempConnection->ip = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_log,1000),syslogConnection->ip);
     } else {
-        tempConnection->ip = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_misc,1000),DUMMY_LINKLOCAL_ADDR);
+        tempConnection->ip = ism_common_strdup(ISM_MEM_PROBE(ism_memory_utils_log,1000),DUMMY_LINKLOCAL_ADDR);
     }
 
     if (port != -1) {
@@ -628,8 +628,8 @@ int ism_log_initSyslog(ism_prop_t * props) {
     rc = ism_log_openSysLogConnection(tempConnection);
     if (rc) {
         ism_log_closeSysLogConnection(tempConnection);
-        ism_common_free(ism_memory_utils_misc,(char*)tempConnection->ip);
-        ism_common_free(ism_memory_utils_misc,tempConnection);
+        ism_common_free(ism_memory_utils_log,(char*)tempConnection->ip);
+        ism_common_free(ism_memory_utils_log,tempConnection);
 
         return rc;
     }
@@ -648,7 +648,7 @@ int ism_log_initSyslog(ism_prop_t * props) {
         syslogConnection->isconnected = 0;
 
         if (strcmp(tempConnection->ip, syslogConnection->ip)) {
-            ism_common_free(ism_memory_utils_misc,(char*)syslogConnection->ip);
+            ism_common_free(ism_memory_utils_log,(char*)syslogConnection->ip);
             syslogConnection->ip = tempConnection->ip;
         }
         syslogConnection->port = tempConnection->port;
@@ -657,7 +657,7 @@ int ism_log_initSyslog(ism_prop_t * props) {
         rc = ism_log_openSysLogConnection(syslogConnection);
     }
 
-    ism_common_free(ism_memory_utils_misc,tempConnection);
+    ism_common_free(ism_memory_utils_log,tempConnection);
 
     return rc;
 }
@@ -717,7 +717,7 @@ static ismFilterItem_t * insertFilterItem(uint32_t value, uint32_t level, uint32
             *max = 32;
         else
             *max = *max * 4;
-        vals = ism_common_realloc(ISM_MEM_PROBE(ism_memory_utils_misc,159),vals, *max * sizeof(ismFilterItem_t));
+        vals = ism_common_realloc(ISM_MEM_PROBE(ism_memory_utils_log,159),vals, *max * sizeof(ismFilterItem_t));
 
         vals[(*count)].level = level;
         vals[(*count)].kind = kind;

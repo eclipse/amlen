@@ -577,7 +577,7 @@ void ism_common_free_memaligned(ism_common_memoryType type, void *mem)
 /// @remark once posix_memalign is wrapped properly then this will adjust accounting
 ///        until then it just calls realloc
 //*************************************************************************
-void * ism_common_realloc_memaligned(ism_common_memoryType type, void *mem, size_t size)
+void * ism_common_realloc_memaligned(uint32_t probe, void *mem, size_t size)
 {
     return realloc(mem, size);
 }
@@ -812,8 +812,8 @@ void ism_common_traceMemoryStatistics( int32_t TraceLevel )
                 if ( total > 0 ) {
                     uint32_t typeId = 0;
                     for (typeId = 0; typeId < ism_common_mem_numtypes; typeId++) {
-                        if (ism_common_getMemoryGroupFromType(typeId) == groupId)
-                            TRACE(TraceLevel, "    Memory Type(%s) Used(%lu)\n", ism_common_getMemoryTypeName(typeId), memoryStats.types[typeId]);{
+                        if (ism_common_getMemoryGroupFromType(typeId) == groupId) {
+                            TRACE(TraceLevel, "    Memory Type(%s) Used(%lu)\n", ism_common_getMemoryTypeName(typeId), memoryStats.types[typeId]);
                         }
                     }
                 }

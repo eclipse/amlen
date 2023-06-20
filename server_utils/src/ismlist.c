@@ -23,7 +23,7 @@ int ism_common_list_init(ism_common_list *list, int synchronized, void (*destroy
      list->tail = NULL;
      list->destroy = destroy;
      if (synchronized) {
-      	list->lock = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,203),sizeof(pthread_spinlock_t));
+      	list->lock = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_list,203),sizeof(pthread_spinlock_t));
     	if (list->lock == NULL)
       		return -1;
        	pthread_spin_init(list->lock,0);
@@ -47,7 +47,7 @@ static void removeAll(ism_common_list *list){
     	}
     	freeNode = pNode;
     	pNode = freeNode->next;
-    	ism_common_free(ism_memory_utils_misc,freeNode);
+    	ism_common_free(ism_memory_utils_list,freeNode);
     }
     list->head = list->tail = NULL;
     list->size = 0;
@@ -65,7 +65,7 @@ void ism_common_list_destroy(ism_common_list *list) {
     if (list->lock){
     	pthread_spin_unlock(list->lock);
     	pthread_spin_destroy(list->lock);
-    	ism_common_free(ism_memory_utils_misc,(void*)list->lock);
+    	ism_common_free(ism_memory_utils_list,(void*)list->lock);
     	list->lock = (void*)-1;
     }
 }
@@ -86,7 +86,7 @@ int ism_common_list_to_array(ism_common_list *list, void ***array) {
         	pthread_spin_unlock(list->lock);
     	return 0;
     }
-    *array = result = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_misc,206),list->size*(sizeof(void *)));
+    *array = result = ism_common_malloc(ISM_MEM_PROBE(ism_memory_utils_list,206),list->size*(sizeof(void *)));
     if (result == NULL) {
         if (list->lock)
         	pthread_spin_unlock(list->lock);
@@ -101,7 +101,7 @@ int ism_common_list_to_array(ism_common_list *list, void ***array) {
 }
 
 #define INIT_NODE(NODE, DATA)  \
-	NODE = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,207),1,sizeof(ism_common_list_node)); \
+	NODE = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_list,207),1,sizeof(ism_common_list_node)); \
 	if (NODE == NULL) \
 		return -1; \
 	NODE->data = (void *)DATA;
@@ -152,7 +152,7 @@ static int insertAfter(ism_common_list *list, ism_common_list_node * prevNode, i
 			ism_common_list_node * pNode = LIST->head; \
 			if (DATA) *DATA = pNode->data; \
 			LIST->head = pNode->next; \
-			ism_common_free(ism_memory_utils_misc,pNode); \
+			ism_common_free(ism_memory_utils_list,pNode); \
 			if (LIST->head) \
 				LIST->head->prev = NULL; \
 			else \
@@ -169,7 +169,7 @@ static int insertAfter(ism_common_list *list, ism_common_list_node * prevNode, i
 			if (DATA) \
                 *DATA = pNode->data; \
 			LIST->tail = pNode->prev; \
-			ism_common_free(ism_memory_utils_misc,pNode); \
+			ism_common_free(ism_memory_utils_list,pNode); \
 			if (LIST->tail) \
 			    LIST->tail->next = NULL; \
 			else \
@@ -225,7 +225,7 @@ int ism_common_list_from_array(ism_common_list *list, void **array, int size) {
     	int i;
     	retVal = 0;
     	for (i = 0; i < size; i++){
-			ism_common_list_node *newNode = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,210),1,sizeof(ism_common_list_node));
+			ism_common_list_node *newNode = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_list,210),1,sizeof(ism_common_list_node));
 			if (!newNode){
 				retVal = -1;
 				break;
@@ -243,7 +243,7 @@ int ism_common_list_from_array(ism_common_list *list, void **array, int size) {
  *
  */
 XAPI void ism_common_list_array_free(void **array) {
-    ism_common_free(ism_memory_utils_misc,array);
+    ism_common_free(ism_memory_utils_list,array);
 }
 
 /*
@@ -428,7 +428,7 @@ int ism_common_list_remove(ism_common_list *list, ism_common_listIterator *iter,
     node->next->prev = node->prev;
     if (data)
         *data = node->data;
-    ism_common_free(ism_memory_utils_misc,node);
+    ism_common_free(ism_memory_utils_list,node);
     list->size--;
 	return 0;
 }

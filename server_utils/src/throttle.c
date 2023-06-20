@@ -76,7 +76,7 @@ int ism_throttle_incrementAuthFailedCount(const char * clientID) {
     ism_time_t ctime= ism_common_currentTimeNanos();
 
     if (item == NULL){
-    	throttleObj = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,53),1, sizeof(ismThrottleObj));
+    	throttleObj = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_throttle,53),1, sizeof(ismThrottleObj));
     } else {
     	throttleObj = (ismThrottleObj *) item;
     }
@@ -116,7 +116,7 @@ int ism_throttle_incrementClienIDStealCount(const char * clientID) {
     ism_time_t ctime= ism_common_currentTimeNanos();
 
     if (item == NULL){
-    	throttleObj = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,54),1, sizeof(ismThrottleObj));
+    	throttleObj = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_throttle,54),1, sizeof(ismThrottleObj));
     } else {
     	throttleObj = (ismThrottleObj *) item;
     }
@@ -156,7 +156,7 @@ int ism_throttle_incrementConnCloseError(const char * clientID, int rc) {
     ism_time_t ctime= ism_common_currentTimeNanos();
 
     if (item == NULL){
-    	throttleObj = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,55),1, sizeof(ismThrottleObj));
+    	throttleObj = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_throttle,55),1, sizeof(ismThrottleObj));
     } else {
     	throttleObj = (ismThrottleObj *) item;
     }
@@ -214,7 +214,7 @@ int ism_throttle_termThrottle(void) {
 		ismThrottleObj * clientObj=NULL;
 		while (array[i] != ((void*)-1)) {
 			clientObj = (ismThrottleObj *)array[i]->value;
-			ism_common_free(ism_memory_utils_misc,clientObj);
+			ism_common_free(ism_memory_utils_throttle,clientObj);
 			clientObj=NULL;
 			i++;
 		}
@@ -270,7 +270,7 @@ static int delayTableCleanUpTimerTask(ism_timer_t key, ism_time_t timestamp, voi
 			//Remove from the table.
 			ism_common_removeHashMapElement(g_throttletable, dataEntries[i]->key, dataEntries[i]->key_len);
 			if(throttleObj)
-				ism_common_free(ism_memory_utils_misc,throttleObj);
+				ism_common_free(ism_memory_utils_throttle,throttleObj);
 			removedCount++;
 		}
 		i++;
@@ -334,7 +334,7 @@ int ism_throttle_removeThrottleObj(const char * clientID) {
 				rcount= throttleObj->authFailedCount;
 				stealcount= throttleObj->clientIDStealCount;
 				conncloseerr= throttleObj->connCloseErrorCount;
-				ism_common_free(ism_memory_utils_misc,throttleObj);
+				ism_common_free(ism_memory_utils_throttle,throttleObj);
 			}
 			TRACE(6, "Remove Entry from Throttle Table: ClientID=%s. FailedAuthNum=%d. StealCount=%d. ConnCloseErrorCount=%d\n", clientID, rcount, stealcount, conncloseerr);
 		}
@@ -358,7 +358,7 @@ static int removeThrottleConfiguration(void)
 	if (throttleLimitCount>0){
 		for(i=0; i<throttleLimitCount; i++){
 			ismDelay * delay =  throttleDelay[i];
-			ism_common_free(ism_memory_utils_misc,delay);
+			ism_common_free(ism_memory_utils_throttle,delay);
 		}
 		throttleLimitCount=0;
 	}
@@ -422,7 +422,7 @@ int ism_throttle_parseThrottleConfiguration(void)
 				int delayValue = ism_common_getIntConfig(delayName, 0);
 				if (delayValue>0){
 					/*If no delay value. Skip the creation of the object*/
-					ismDelay * proxyDelay = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,60),1, sizeof(ismDelay));
+					ismDelay * proxyDelay = ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_throttle,60),1, sizeof(ismDelay));
 					proxyDelay->delay_time = delayValue;
 					proxyDelay->delay_in_nanos = delayValue * MILLION;
 					proxyDelay->limit = limitvalue;
@@ -439,9 +439,9 @@ int ism_throttle_parseThrottleConfiguration(void)
 			}else if(proplen == THROTTLE_CONNCLOSEERROR_LIMIT_STR_SIZE && strncasecmp(THROTTLE_CONNCLOSEERROR_LIMIT_STR,propName, THROTTLE_CONNCLOSEERROR_LIMIT_STR_SIZE)==0 ){
 
 				if(throttleConnCloseErrorDelay!=NULL)
-					ism_common_free(ism_memory_utils_misc,throttleConnCloseErrorDelay);
+					ism_common_free(ism_memory_utils_throttle,throttleConnCloseErrorDelay);
 
-				throttleConnCloseErrorDelay =  ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_misc,62),1, sizeof(ismDelay));
+				throttleConnCloseErrorDelay =  ism_common_calloc(ISM_MEM_PROBE(ism_memory_utils_throttle,62),1, sizeof(ismDelay));
 
 				int limitvalue = ism_common_getIntProperty(props, propName,0);
 				int delayValue = ism_common_getIntConfig(THROTTLE_CONNCLOSEERROR_DELAY_STR, 0);
@@ -732,7 +732,7 @@ int ism_throttle_setEnabled(int enabled) {
             //Remove from the table.
             ism_common_removeHashMapElement(g_throttletable, array[i]->key, array[i]->key_len);
             if(clientObj)
-                ism_common_free(ism_memory_utils_misc,clientObj);
+                ism_common_free(ism_memory_utils_throttle,clientObj);
             clientObj=NULL;
             i++;
         }
