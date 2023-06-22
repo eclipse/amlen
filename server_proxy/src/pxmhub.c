@@ -999,7 +999,7 @@ static mhub_topic_t * changePartitions(ism_mhub_t * mhub, mhub_topic_t * mtopic,
     if (partcount < mtopic->partcount) {
         for (i = partcount; i < mtopic->partcount; i++) {
             mhub_part_t * part = mtopic->partitions+i;
-        		pthread_mutex_lock(&part->lock);
+            pthread_mutex_lock(&part->lock);
             if (part->transport) {
                 ism_transport_t * transport = part->transport;
                 pthread_mutex_unlock(&part->lock);
@@ -3309,18 +3309,33 @@ struct mhub_dataConnectInfo {
  */
 static int processPartMetadata(ism_mhub_t * mhub, mhub_broker_list_t * brokers, int brokercnt,
         const char * topicn, int topiclen, int partid, int partrc, int leader) {
-    int i;
+    int i, needDataConn=0;
     char * topicname = alloca(topiclen + 1);
     memcpy(topicname, topicn, topiclen);
     topicname[topiclen] = 0;
     mhub_topic_t * topic = findTopic(mhub, topicname);
-    TRACE(9, "Partition metadata: mhub=%s, topic=%s partid=%u rc=%d leader=%d\n", mhub->id, topicname, partid, partrc, leader);
+    LOG(INFO, Server, 988, "%s%s%u%d%d", "Process Metadata Partition: mhub={0}, topic={1} partid={2} rc={3} leader={4}",
+    									mhub->id, topicname, partid, partrc, leader);
     if (topic) {
         mhub_part_t * part = topic->partitions+partid;
+        pthread_mutex_lock(&part->lock);
         if (partrc == 0 && leader < brokercnt) {
             part->valid = 1;
+            if(part->leader != leader){
+            	//If leader changed, need to disconnect transport.
+            	LOG(WARN, Server, 989, "%s%s%u%d%d%d", "Process Metadata Partition. Leadership changed: mhub={0}, topic={1} partid={2} rc={3} leader={4} prev_leader={5}",
+            	    									mhub->id, topicname, partid, partrc, leader, part->leader);
+            	if(part->transport){
+            		ism_transport_t * transport = part->transport;
+            		pthread_mutex_unlock(&part->lock);
+            		transport->close(transport, ISMRC_EndpointDisabled, 0, "Change in partition leader");
+            		pthread_mutex_lock(&part->lock);
+            		needDataConn=1;
+            	}
+
+            }
             part->leader = leader;
-            if (!part->transport) {
+            if (!part->transport || needDataConn) {
                 int brokerlen = 0;
                 for (i = 0; i < brokercnt; i++){
                     if (brokers[i].nodeid == leader){
@@ -3349,6 +3364,7 @@ static int processPartMetadata(ism_mhub_t * mhub, mhub_broker_list_t * brokers, 
                 part->valid = 2;   /* Topic not valid */
             }
         }
+        pthread_mutex_unlock(&part->lock);
     }
     return 0;
 }
@@ -3855,18 +3871,17 @@ xUNUSED static int mhubDataRetryConnect(ism_timer_t key, ism_time_t now, void * 
     pthread_mutex_unlock(&mhub_part->lock);
 
     if(!g_shuttingDown){
-    	 	 transport->ready = 7;  //Set ready for Connect Timeout. See ddosTimer
-		int rc = ism_kafka_createConnection(transport, pobj->server);
-		if(rc){
-
-			char * erbuf = alloca(2048);
-			ism_common_formatLastError(erbuf, 2048);
-			LOG(ERROR, Server, 987, "%u%s%s%u%d%d%d%s",  "Failed to create the mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5} rc={6} errmsg={7}",
-					    			transport->index, transport->name, transport->server_addr, transport->serverport, pobj->partID, pobj->nodeID, rc, erbuf);
-			transport->close(transport, rc, 0,  erbuf);
-		}
+    	transport->ready = 7;  //Set ready for Connect Timeout. See ddosTimer
+    	int rc = ism_kafka_createConnection(transport, pobj->server);
+    	if(rc){
+    		char * erbuf = alloca(2048);
+    		ism_common_formatLastError(erbuf, 2048);
+    		LOG(ERROR, Server, 987, "%u%s%s%u%d%d%d%s",  "Failed to create the mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5} rc={6} errmsg={7}",
+			    			transport->index, transport->name, transport->server_addr, transport->serverport, pobj->partID, pobj->nodeID, rc, erbuf);
+    		transport->close(transport, rc, 0,  erbuf);
+    	}
     } else {
-    		TRACE(5, "Failed to connect. Msproxy is shutting down. name=%s\n", transport->clientID);
+    	TRACE(5, "Failed to connect. Msproxy is shutting down. name=%s\n", transport->clientID);
     }
     return 0;
 }
