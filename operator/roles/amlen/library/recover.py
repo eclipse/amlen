@@ -90,7 +90,7 @@ if __name__ == '__main__':
     password = module.params['password']
     
     try:
-        imaserver = Server(instance, logger, password=password)
+        imaserver = Server(server, logger, password=password)
         if command.lower() == "start":
             startRecovery(imaserver)
         elif command.lower() == "stop":
