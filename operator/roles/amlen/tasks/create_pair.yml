@@ -208,12 +208,26 @@
       - statefulset.resources[0].status.readyReplicas is defined
       - statefulset.resources[0].status.readyReplicas == 1
 
-    - name: start recovery code
-      recover:
-        command: "start"
-        server: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-0.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
-        remoteServer: ""
-        password: "{{secret.resources[0].data.adminPassword|b64decode}}"
+    - name: "Patch statefulset (temporarily disable readiness)"
+      kubernetes.core.k8s_json_patch:
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: "{{ _amlen_namespace }}"
+        name: "{{ pair_name }}"
+        patch:
+          - op: replace
+            path: "/spec/template/spec/containers/0/readinessProbe/exec/command/0"
+            value: "touch"
+          - op: replace
+            path: "/spec/template/spec/containers/0/readinessProbe/exec/command/1"
+            value: "/tmp/readiness_disabled"
+
+    - name: "Delete the first pod so it comes back without the readiness probe"
+      kubernetes.core.k8s:
+        state: absent
+        kind: Pod
+        name: "{{ pair_name }}-0"
+        namespace: "{{ _amlen_namespace }}"
 
     - name: Verify it worked
       k8s_info:
@@ -232,13 +246,6 @@
       loop: "{{ range(0,nodes|int)|list}}"
       loop_control:
         loop_var: id
-
-    - name: stop recovery code
-      recover:
-        command: "stop"
-        server: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-0.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
-        remoteServer: "{{ _amlen_release }}-{{ _amlen_name }}-{{pair_id}}-1.{{_amlen_service_name | default(name)}}.{{_amlen_namespace}}.svc.cluster.local"
-        password: "{{secret.resources[0].data.adminPassword|b64decode}}"
 
 - name: run post install jobs
   include_tasks: install.yml
