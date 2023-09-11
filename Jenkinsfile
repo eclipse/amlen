@@ -1,4 +1,4 @@
-// By default we build on the oldest supported distro (centos7)
+// By default we build on the oldest supported distro (alma8)
 // A Jenkinsfile used for other distros (with associated build container Dockerfiles)
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
@@ -6,14 +6,14 @@
 pipeline {
   agent {
     kubernetes {
-      label 'amlen-centos7-build-pod'
+      label 'amlen-alma8-build-pod'
       yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
-  - name: amlen-centos7-build
-    image: quay.io/amlen/amlen-builder-centos7:1.0.0.7
+  - name: amlen-alma8-build
+    image: quay.io/amlen/amlen-builder-alma8:1.0.0.6
     imagePullPolicy: Always
     command:
     - cat
@@ -48,10 +48,10 @@ spec:
   stages {
         stage('Init') {
             steps {
-                container('amlen-centos7-build') {
+                container('amlen-alma8-build') {
                     script {
                         if (env.BUILD_LABEL == null ) {
-                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsecentos7"
+                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipsealma8"
                         }
                     }
                     echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
@@ -62,7 +62,7 @@ spec:
             steps {
                 echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
 
-                container('amlen-centos7-build') {
+                container('amlen-alma8-build') {
                    sh '''
                        set -e
                        pwd 
@@ -95,23 +95,30 @@ spec:
                           sh '''
                               pwd
                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                              ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                              scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                              scp -o BatchMode=yes -r Documentation/docs genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                              scp -o BatchMode=yes -r client_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-                              scp -o BatchMode=yes -r server_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                              ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
+                              scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
+                              scp -o BatchMode=yes -r Documentation/docs genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
+                              scp -o BatchMode=yes -r client_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
+                              scp -o BatchMode=yes -r server_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
   
                               sed -i "s/IMG_TAG/$NOORIGIN_BRANCH/" operator/roles/amlen/defaults/main.yml
                               cd operator
                               tar -czf operator.tar.gz Dockerfile requirements.yml roles watches.yaml
-                              scp -o BatchMode=yes -r operator.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                              scp -o BatchMode=yes -r operator.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
                               mv bundle.Dockerfile Dockerfile
   
                               tar -czf operator_bundle.tar.gz Dockerfile bundle
-                              scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                              scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
   
-                              scp -o BatchMode=yes -r eclipse-amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+                              scp -o BatchMode=yes -r eclipse-amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
 
+<<<<<<< HEAD
+=======
+                              cd monitor
+                              cp -r ../build/scripts ./
+                              tar -czf amlen-monitor.tar.gz Dockerfile requirements.txt scripts
+                              scp -o BatchMode=yes -r amlen-monitor.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/
+>>>>>>> 775cbbb... Move to alma8 by default
                           '''
                     }
                 }
@@ -128,19 +135,26 @@ spec:
                               pwd
                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 
-                              c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/EclipseAmlenServer-centos7-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
+                              c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/EclipseAmlenServer-alma8-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
                               uid1=$(echo ${c1} | grep -oP '(?<=\"id\": \")[^\"]*\')
                               sleep 60
   
-                              c2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\") 
+                              c2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/operator.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\") 
                               uid2=$(echo ${c2} | grep -oP '(?<=\"id\": \")[^\"]*\')
                               sleep 60
   
-                              c3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
+                              c3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
                               uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
                               sleep 60
 
+<<<<<<< HEAD
                               for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
+=======
+                              c4=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-monitor/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/amlen-monitor.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
+                              uid4=$(echo ${c4} | grep -oP '(?<=\"id\": \")[^\"]*\')
+
+                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" "$uid4 amlen-monitor"
+>>>>>>> 775cbbb... Move to alma8 by default
                               do
                                 set -- $uid
                                 for i in {1..30}
