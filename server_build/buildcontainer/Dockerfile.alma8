@@ -39,3 +39,28 @@ RUN wget https://github.com/d3/d3/releases/download/v3.5.6/d3.zip -O ${DEPS_HOME
     
 #Get the JMS jars (separate as need to consider whether these are right locations/jars to grab - consider fscontext.jar/providerutil.jar)
 RUN wget https://repo1.maven.org/maven2/org/apache/geronimo/specs/geronimo-jms_1.1_spec/1.1.1/geronimo-jms_1.1_spec-1.1.1.jar  -O ${DEPS_HOME}/jms.jar 
+
+#Get the operator-sdk that is required for building the operator images
+RUN export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac) && \
+    export OS=$(uname | awk '{print tolower($0)}') && \
+    export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.22.0 && \
+    curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH} && \
+    chmod +x operator-sdk_${OS}_${ARCH} && mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
+
+#Get dita which is required for building the documentation
+RUN cd /usr/lib/ && \
+    wget https://github.com/dita-ot/dita-ot/releases/download/3.7.2/dita-ot-3.7.2.zip && \
+    unzip dita-ot-3.7.2.zip && \
+    rm dita-ot-3.7.2.zip && \
+    ln -s /usr/lib/dita-ot-3.7.2/bin/dita /usr/bin/dita
+
+#Statsd is a little awkward to install, needed for building the proxy
+RUN cd /deps && \
+    mkdir statsd && \
+    wget https://github.com/romanbsd/statsd-c-client/archive/refs/heads/master.zip && \
+    unzip master.zip && \
+    cd statsd-c-client-master && \
+    make && \
+    cp libstatsdclient.so /usr/lib64 && \
+    cp statsd-client.h /usr/include
+

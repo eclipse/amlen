@@ -13,7 +13,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-alma8-build
-    image: quay.io/amlen/amlen-builder-alma8:1.0.0.6
+    image: quay.io/amlen/amlen-builder-alma8:1.0.0.7-pre.ib
     imagePullPolicy: Always
     command:
     - cat
