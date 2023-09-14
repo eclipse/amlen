@@ -3,6 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
+def message = curl https://api.github.com/repos/eclipse/amlen/git/commits/${GIT_COMMIT}
 
 pipeline {
   agent {
