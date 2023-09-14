@@ -3,8 +3,6 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def message = ""
-def something = "default"
 
 pipeline {
   agent none
@@ -14,11 +12,11 @@ pipeline {
             agent any 
             steps {
                 script {
-                    something = sh (returnStdout: true, script: ''' 
+                    distro = sh (returnStdout: true, script: ''' 
                         if [[ `git log -1 --pretty=%B` =~ [[]distro=([A-Za-z0-9]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "centos7"; fi
                     '''
                     )
-                    echo "yes or no: $something"
+                    echo "selecting linux distribution: $distro"
                 }
             }
         }
@@ -69,7 +67,6 @@ spec:
             
                     steps {
                         container("amlen-${distro}-build") {
-                            echo "${something}"
                             script {
                                 if (env.BUILD_LABEL == null ) {
                                     env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse${distro}"
