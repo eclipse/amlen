@@ -13,16 +13,18 @@ pipeline {
             agent any 
             steps {
                 script {
+                    echo "default values ${distro} ${buildImage}"
                     distro = sh (returnStdout: true, script: ''' 
                         if [[ `git log -1 --pretty=%B` =~ [[]distro=([A-Za-z0-9]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${distro}"; fi
                     '''
                     ).trim()
                     buildImage = sh (returnStdout: true, script: ''' 
-                        if [[ `git log -1 --pretty=%B` =~ [[]buildImage=([A-Za-z0-9.]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${buildImage}"; fi
+                        if [[ `git log -1 --pretty=%B` =~ [[]buildImage=([A-Za-z0-9.-]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${buildImage}"; fi
                     '''
                     ).trim()
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
+                    env
                 }
             }
         }
