@@ -14,7 +14,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-${distro}-build
-    image: quay.io/amlen/amlen-builder-{distro}:1.0.0.7-pre.ib
+    image: quay.io/amlen/amlen-builder-${distro}:1.0.0.7-pre.ib
     imagePullPolicy: Always
     command:
     - cat
