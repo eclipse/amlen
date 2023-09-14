@@ -21,11 +21,12 @@ pipeline {
                             x=1 
                         fi
                         message=`git log -1 --skip=$x --pretty=%B`
-                        echo message
-                        if [[ message =~ [[]distro=([A-Za-z0-9]+)[]] ]]
+                        echo $message
+                        if [[ "$message" =~ [[]distro=([A-Za-z0-9]+)[]] ]]
                         then 
                             echo ${BASH_REMATCH[1]} 
                         else 
+                            echo "Using default distro"
                             echo "${distro}"
                         fi
                     '''
@@ -37,11 +38,12 @@ pipeline {
                             x=1 
                         fi
                         message=`git log -1 --skip=$x --pretty=%B`
-                        echo message
-                        if [[ message =~ [[]buildImage=([A-Za-z0-9.-]+)[]] ]] 
+                        echo $message
+                        if [[ "$message" =~ [[]buildImage=([A-Za-z0-9.-]+)[]] ]] 
                         then 
                             echo ${BASH_REMATCH[1]} 
                         else 
+                            echo "Using default buildImage"
                             echo "${buildImage}"
                         fi
                     '''
