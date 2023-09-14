@@ -21,8 +21,8 @@ pipeline {
                         if [[ `git log -1 --pretty=%B` =~ [[]buildImage=([A-Za-z0-9.]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${buildImage}"; fi
                     '''
                     )
-                    echo "selecting linux distribution: $distro"
-                    echo "selecting build image: $buildImage"
+                    echo "selecting linux distribution: ${distro}."
+                    echo "selecting build image: ${buildImage}."
                 }
             }
         }
