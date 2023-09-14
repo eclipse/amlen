@@ -51,7 +51,8 @@ spec:
         stage("Pre") {
             steps {
                 script {
-                    echo curl https://api.github.com/repos/eclipse/amlen/git/commits/${GIT_COMMIT}
+                    c1=$(curl https://api.github.com/repos/eclipse/amlen/git/commits/${GIT_COMMIT})
+                    echo "$c1"
                 }
             }
         }
