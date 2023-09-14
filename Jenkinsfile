@@ -3,7 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def message = curl https://api.github.com/repos/eclipse/amlen/git/commits/${GIT_COMMIT}
+def message = ""
 
 pipeline {
   agent {
@@ -48,6 +48,14 @@ spec:
   } 
 
   stages {
+        stage("Pre") {
+            steps {
+                script {
+                    echo curl https://api.github.com/repos/eclipse/amlen/git/commits/${GIT_COMMIT}
+                }
+            }
+        }
+          
         stage('Init') {
             steps {
                 container("amlen-${distro}-build") {
