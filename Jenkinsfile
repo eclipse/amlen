@@ -49,7 +49,7 @@ spec:
   stages {
         stage('Init') {
             steps {
-                container('amlen-${distro}-build') {
+                container("amlen-${distro}-build") {
                     script {
                         if (env.BUILD_LABEL == null ) {
                             env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse${distro}"
@@ -63,7 +63,7 @@ spec:
             steps {
                 echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
 
-                container('amlen-${distro}-build') {
+                container("amlen-${distro}-build") {
                    sh '''
                        set -e
                        pwd 
