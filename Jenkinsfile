@@ -13,9 +13,9 @@ pipeline {
             agent any 
             steps {
                 script {
-                    something = sh ''' 
+                    something = sh (returnStdout: true, ''' 
                         if [[ `git log -1 --pretty=%B` =~ [[]distro=([A-Za-z0-9]*)[]] ]] ; then echo "Yipee" ; else echo "Boo"; fi
-                    '''
+                    ''')
                     echo "yes or no: $something"
                 }
             }
