@@ -14,7 +14,7 @@ pipeline {
             steps {
                 script {
                     something = sh (returnStdout: true, script: ''' 
-                        if [[ `git log -1 --pretty=%B` =~ [[]distro=([A-Za-z0-9]*)[]] ]] ; then echo "Yipee" ; else echo "Boo"; fi
+                        if [[ `git log -1 --pretty=%B` =~ [[]distro=([A-Za-z0-9]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "centos7"; fi
                     '''
                     )
                     echo "yes or no: $something"
@@ -22,7 +22,7 @@ pipeline {
             }
         }
           
-        stage('Init') {
+        stage("Run") {
             agent {
                 kubernetes {
                 label "amlen-${distro}-build-pod"
@@ -63,11 +63,19 @@ spec:
 """
                 }
             } 
-            steps {
-                container("amlen-${distro}-build") {
-                    script {
-                        if (env.BUILD_LABEL == null ) {
-                            env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse${distro}"
+            stages{
+                stage("init") {
+            
+                    steps {
+                        container("amlen-${distro}-build") {
+                            echo $something
+                            script {
+                                if (env.BUILD_LABEL == null ) {
+                                    env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse${distro}"
+                                }
+                            }
+                            echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
+                            echo "COMMIT: ${env.GIT_COMMIT}"
                         }
                     }
                     echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
@@ -180,75 +188,62 @@ spec:
       medium: Memory
 """
                 }
-            } 
-            steps {
-                container('jnlp') {
-                    echo "In Upload, BUILD_LABEL is ${env.BUILD_LABEL}"
-                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-                          sh '''
-                              pwd
-                              NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                              ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                              scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                              scp -o BatchMode=yes -r Documentation/docs genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                              scp -o BatchMode=yes -r client_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                              scp -o BatchMode=yes -r server_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-  
-                              sed -i "s/IMG_TAG/$NOORIGIN_BRANCH/" operator/roles/amlen/defaults/main.yml
-                              cd operator
-                              tar -czf operator.tar.gz Dockerfile requirements.yml roles watches.yaml
-                              scp -o BatchMode=yes -r operator.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                              mv bundle.Dockerfile Dockerfile
-  
-                              tar -czf operator_bundle.tar.gz Dockerfile bundle
-                              scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-  
-                              scp -o BatchMode=yes -r eclipse-amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-
-                              scp -o BatchMode=yes -r amlen-monitor.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                          '''
+                stage('Build') {
+                    steps {
+                        echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
+                        container("amlen-${distro}-build") {
+                           sh '''
+                               set -e
+                               pwd 
+                               free -m 
+                               cd server_build 
+                               if [[ "$BRANCH_NAME" == "main" ]] ; then
+                                   export BUILD_TYPE=fvtbuild
+                               fi
+                               bash buildcontainer/build.sh
+                               cd ../operator
+                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                               export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+                               make bundle
+                               make produce-deployment
+                               pylint --fail-under=5 build/scripts/*.py
+                               cd ../Documentation/doc_infocenter
+                               ant
+                               cd ../../
+                               tar -c client_ship -f client_ship.tar.gz
+                               tar -c server_ship -f server_ship.tar.gz
+                              '''
+                        }
                     }
                 }
-            }
-        }
-        // send a mail on unsuccessful and fixed builds
-        stage('Deploy') {
-            agent {
-                kubernetes {
-                    label "amlen-${distro}-build-pod"
-                    yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: amlen-${distro}-build
-    image: quay.io/amlen/amlen-builder-${distro}:1.0.0.7-pre.ib
-    imagePullPolicy: Always
-    command:
-    - cat
-    tty: true
-    resources:
-      limits:
-        memory: "4Gi"
-        cpu: "2"
-      requests:
-        memory: "4Gi"
-        cpu: "2"
-    volumeMounts:
-    - mountPath: /dev/shm
-      name: dshm
-  - name: jnlp
-    volumeMounts:
-    - name: volume-known-hosts
-      mountPath: /home/jenkins/.ssh
-  volumes:
-  - name: volume-known-hosts
-    configMap:
-      name: known-hosts
-  - name: dshm
-    emptyDir:
-      medium: Memory
-"""
+                stage('Upload') {
+                    steps {
+                        container('jnlp') {
+                            echo "In Upload, BUILD_LABEL is ${env.BUILD_LABEL}"
+                              sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                                  sh '''
+                                      pwd
+                                      NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                                      ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                      scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                      scp -o BatchMode=yes -r Documentation/docs genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                      scp -o BatchMode=yes -r client_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                      scp -o BatchMode=yes -r server_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+          
+                                      sed -i "s/IMG_TAG/$NOORIGIN_BRANCH/" operator/roles/amlen/defaults/main.yml
+                                      cd operator
+                                      tar -czf operator.tar.gz Dockerfile requirements.yml roles watches.yaml
+                                      scp -o BatchMode=yes -r operator.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                      mv bundle.Dockerfile Dockerfile
+          
+                                      tar -czf operator_bundle.tar.gz Dockerfile bundle
+                                      scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+          
+                                      scp -o BatchMode=yes -r eclipse-amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                  '''
+                            }
+                        }
+                    }
                 }
             } 
             steps {
@@ -272,18 +267,7 @@ spec:
                               uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
                               sleep 60
 
-<<<<<<< HEAD
-<<<<<<< HEAD
                               for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
-=======
-                              c4=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-monitor/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/alma8/amlen-monitor.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
-=======
-                              c4=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-monitor/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/amlen-monitor.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
->>>>>>> 3638673... parameterize the distro
-                              uid4=$(echo ${c4} | grep -oP '(?<=\"id\": \")[^\"]*\')
-
-                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" "$uid4 amlen-monitor"
->>>>>>> 775cbbb... Move to alma8 by default
                               do
                                 set -- $uid
                                 for i in {1..30}
@@ -311,6 +295,7 @@ spec:
                               fi
   
                           '''
+                // send a mail on unsuccessful and fixed builds
                       }
                     }
                 }
