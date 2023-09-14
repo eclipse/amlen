@@ -14,12 +14,17 @@ pipeline {
             steps {
                 script {
                     echo "default values ${distro} ${buildImage}"
+                    if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
                     distro = sh (returnStdout: true, script: ''' 
-                        if [[ `git log -1 --pretty=%B` =~ [[]distro=([A-Za-z0-9]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${distro}"; fi
+                        x = 0
+                        if [[ ! -z "$CHANGE_ID" ]] ; then x = 1 ; fi
+                        if [[ `git log -1 --skip=$x --pretty=%B` =~ [[]distro=([A-Za-z0-9]+)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${distro}"; fi
                     '''
                     ).trim()
                     buildImage = sh (returnStdout: true, script: ''' 
-                        if [[ `git log -1 --pretty=%B` =~ [[]buildImage=([A-Za-z0-9.-]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${buildImage}"; fi
+                        x = 0
+                        if [[ ! -z "$CHANGE_ID" ]] ; then x = 1 ; fi
+                        if [[ `git log -1 --skip=$x --pretty=%B` =~ [[]buildImage=([A-Za-z0-9.-]+)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${buildImage}"; fi
                     '''
                     ).trim()
                     echo "selecting linux distribution: ${distro}."
