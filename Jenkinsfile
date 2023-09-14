@@ -7,7 +7,7 @@ def distro = "almalinux8"
 pipeline {
   agent {
     kubernetes {
-      label 'amlen-${distro}-build-pod'
+      label "amlen-${distro}-build-pod"
       yaml """
 apiVersion: v1
 kind: Pod
