@@ -4,6 +4,7 @@
 //
 def distro = "almalinux8"
 def message = ""
+def something = ""
 
 pipeline {
   agent none
