@@ -6,10 +6,26 @@ def distro = "almalinux8"
 def message = ""
 
 pipeline {
-  agent {
-    kubernetes {
-      label "amlen-${distro}-build-pod"
-      yaml """
+  agent none
+
+  stages {
+        stage("Pre") {
+            agent any 
+            steps {
+                script {
+                    sh ''' 
+                        c1=$(curl https://api.github.com/repos/eclipse/amlen/git/commits/${GIT_COMMIT})
+                        echo "$c1"
+                    '''
+                }
+            }
+        }
+          
+        stage('Init') {
+            agent {
+                kubernetes {
+                label "amlen-${distro}-build-pod"
+                yaml """
 apiVersion: v1
 kind: Pod
 spec:
@@ -44,22 +60,8 @@ spec:
     emptyDir:
       medium: Memory
 """
-    }
-  } 
-
-  stages {
-        stage("Pre") {
-            steps {
-                script {
-                    sh ''' 
-                        c1=$(curl https://api.github.com/repos/eclipse/amlen/git/commits/${GIT_COMMIT})
-                        echo "$c1"
-                    '''
                 }
-            }
-        }
-          
-        stage('Init') {
+            } 
             steps {
                 container("amlen-${distro}-build") {
                     script {
@@ -73,6 +75,44 @@ spec:
             }
         }
         stage('Build') {
+            agent {
+                kubernetes {
+                    label "amlen-${distro}-build-pod"
+                    yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: amlen-${distro}-build
+    image: quay.io/amlen/amlen-builder-${distro}:1.0.0.7-pre.ib
+    imagePullPolicy: Always
+    command:
+    - cat
+    tty: true
+    resources:
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+      requests:
+        memory: "4Gi"
+        cpu: "2"
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+  - name: jnlp
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+  - name: dshm
+    emptyDir:
+      medium: Memory
+"""
+                }
+            } 
             steps {
                 echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
 
@@ -102,6 +142,44 @@ spec:
             }
         }
         stage('Upload') {
+            agent {
+                kubernetes {
+                    label "amlen-${distro}-build-pod"
+                    yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: amlen-${distro}-build
+    image: quay.io/amlen/amlen-builder-${distro}:1.0.0.7-pre.ib
+    imagePullPolicy: Always
+    command:
+    - cat
+    tty: true
+    resources:
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+      requests:
+        memory: "4Gi"
+        cpu: "2"
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+  - name: jnlp
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+  - name: dshm
+    emptyDir:
+      medium: Memory
+"""
+                }
+            } 
             steps {
                 container('jnlp') {
                     echo "In Upload, BUILD_LABEL is ${env.BUILD_LABEL}"
@@ -134,6 +212,44 @@ spec:
         }
         // send a mail on unsuccessful and fixed builds
         stage('Deploy') {
+            agent {
+                kubernetes {
+                    label "amlen-${distro}-build-pod"
+                    yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: amlen-${distro}-build
+    image: quay.io/amlen/amlen-builder-${distro}:1.0.0.7-pre.ib
+    imagePullPolicy: Always
+    command:
+    - cat
+    tty: true
+    resources:
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+      requests:
+        memory: "4Gi"
+        cpu: "2"
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+  - name: jnlp
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+  - name: dshm
+    emptyDir:
+      medium: Memory
+"""
+                }
+            } 
             steps {
                 container('jnlp') {
                     echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
