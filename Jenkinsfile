@@ -3,6 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
+def buildImage = "1.0.0.6"
 
 pipeline {
   agent none
@@ -13,10 +14,15 @@ pipeline {
             steps {
                 script {
                     distro = sh (returnStdout: true, script: ''' 
-                        if [[ `git log -1 --pretty=%B` =~ [[]distro=([A-Za-z0-9]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "centos7"; fi
+                        if [[ `git log -1 --pretty=%B` =~ [[]distro=([A-Za-z0-9]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${distro}"; fi
+                    '''
+                    )
+                    buildImage = sh (returnStdout: true, script: ''' 
+                        if [[ `git log -1 --pretty=%B` =~ [[]buildImage=([A-Za-z0-9.]*)[]] ]] ; then echo ${BASH_REMATCH[1]} ; else echo "${buildImage}"; fi
                     '''
                     )
                     echo "selecting linux distribution: $distro"
+                    echo "selecting build image: $buildImage"
                 }
             }
         }
@@ -31,7 +37,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-${distro}-build
-    image: quay.io/amlen/amlen-builder-${distro}:1.0.0.7-pre.ib
+    image: quay.io/amlen/amlen-builder-${distro}:${buildImage}
     imagePullPolicy: Always
     command:
     - cat
