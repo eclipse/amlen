@@ -29,10 +29,10 @@ pipeline {
                     '''
                     ).trim()
                     buildImage = sh (returnStdout: true, script: ''' 
-                        x = 0
+                        x=0
                         if [[ ! -z "$CHANGE_ID" ]] 
                         then 
-                            x = 1 
+                            x=1 
                         fi
                         if [[ `git log -1 --skip=$x --pretty=%B` =~ [[]buildImage=([A-Za-z0-9.-]+)[]] ]] 
                         then 
