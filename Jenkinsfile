@@ -14,7 +14,6 @@ pipeline {
             steps {
                 script {
                     echo "default values ${distro} ${buildImage}"
-                    if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
                     distro = sh (returnStdout: true, script: ''' 
                         x = 0
                         if [[ ! -z "$CHANGE_ID" ]] 
