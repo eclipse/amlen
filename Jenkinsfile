@@ -26,7 +26,6 @@ pipeline {
                         then 
                             echo ${BASH_REMATCH[1]} 
                         else 
-                            echo "Using default distro"
                             echo "${distro}"
                         fi
                     '''
@@ -43,7 +42,6 @@ pipeline {
                         then 
                             echo ${BASH_REMATCH[1]} 
                         else 
-                            echo "Using default buildImage"
                             echo "${buildImage}"
                         fi
                     '''
