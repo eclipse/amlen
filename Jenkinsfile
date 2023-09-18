@@ -255,6 +255,7 @@ spec:
                               sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
                                   sh '''
                                       pwd
+                                      distro='''+distro+'''
                                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                                       ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                                       scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
@@ -287,6 +288,7 @@ spec:
                               sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
                                   sh '''
                                       pwd
+                                      distro='''+distro+'''
                                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
         
                                       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
