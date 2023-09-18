@@ -336,8 +336,8 @@ spec:
                               }
                           }
                       }
-                    }
-                }
+                  }
+              }
             }
         }
         stage("MakeBundle") {
