@@ -40,7 +40,7 @@ pipeline {
                         then 
                             echo ${BASH_REMATCH[1]} 
                         else 
-                            echo "${buildImage}"
+                            echo "--${buildImage}--"
                         fi
                     '''
                     ).trim()
