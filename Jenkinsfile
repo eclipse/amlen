@@ -16,10 +16,10 @@ pipeline {
                     echo "default values ${distro} ${buildImage}"
                     distro = sh (returnStdout: true, script: ''' 
                         x=0
-                        if [[ ! -z "$CHANGE_ID" ]] 
-                        then 
-                            x=1 
-                        fi
+#                        if [[ ! -z "$CHANGE_ID" ]] 
+#                        then 
+#                            x=1 
+#                        fi
                         message=`git log -1 --skip=$x --pretty=%B`
                         echo $message
                         if [[ "$message" =~ [[]distro=([A-Za-z0-9]+)[]] ]]
@@ -32,10 +32,10 @@ pipeline {
                     ).trim()
                     buildImage = sh (returnStdout: true, script: ''' 
                         x=0
-                        if [[ ! -z "$CHANGE_ID" ]] 
-                        then 
-                            x=1 
-                        fi
+#                        if [[ ! -z "$CHANGE_ID" ]] 
+#                        then 
+#                            x=1 
+#                        fi
                         message=`git log -1 --skip=$x --pretty=%B`
                         echo $message
                         if [[ "$message" =~ [[]buildImage=([A-Za-z0-9.-]+)[]] ]] 
