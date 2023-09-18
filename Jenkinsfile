@@ -306,7 +306,7 @@ spec:
                                       for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
                                       do
                                         set -- $uid
-                                        for i in {1..30}
+                                        for i in {1..45}
                                         do
                                           phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
                                           phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
