@@ -14,7 +14,7 @@ pipeline {
             steps {
                 script {
                     echo "default values ${distro} ${buildImage}"
-                    distro = sh (returnStdout: true, script: ''' 
+                    distro2 = sh (returnStdout: true, script: ''' 
                         x=0
 #                        if [[ ! -z "$CHANGE_ID" ]] 
 #                        then 
@@ -29,7 +29,7 @@ pipeline {
                         fi
                     '''
                     ).trim()
-                    buildImage = sh (returnStdout: true, script: ''' 
+                    buildImage2 = sh (returnStdout: true, script: ''' 
                         x=0
 #                        if [[ ! -z "$CHANGE_ID" ]] 
 #                        then 
@@ -44,6 +44,10 @@ pipeline {
                         fi
                     '''
                     ).trim()
+                    echo "updating linux distribution: ${distro} -> ${distro2}."
+                    echo "updating build image: ${buildImage} -> ${buildImage2}."
+                    distro=distro2
+                    buildImage=buildImage2
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
                     env
