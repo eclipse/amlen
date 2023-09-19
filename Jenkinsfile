@@ -102,8 +102,11 @@ spec:
                     steps {
                         container("amlen-${distro}-build") {
                             script {
+                                if (env.BUILD_TIMESTAMP == null) {
+                                    env.BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim()
+                                }
                                 if (env.BUILD_LABEL == null ) {
-                                    env.BUILD_LABEL = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim() +"_eclipse${distro}"
+                                    env.BUILD_LABEL = "${env.BUILD_TIMESTAMP}_eclipse${distro}"
                                 }
                             }
                             echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
