@@ -371,8 +371,6 @@ spec:
         }
         stage("UploadBundle") {
 	    steps {
-		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
-
 		container("jnlp") {
                       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 			   sh '''
