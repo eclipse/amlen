@@ -3,7 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def buildImage = "1.0.0.6"
+def buildImage = "1.0.0.7"
 
 pipeline {
   agent none
@@ -16,10 +16,6 @@ pipeline {
                     echo "default values ${distro} ${buildImage}"
                     distro2 = sh (returnStdout: true, script: ''' 
                         x=0
-#                        if [[ ! -z "$CHANGE_ID" ]] 
-#                        then 
-#                            x=1 
-#                        fi
                         message=`git log -1 --skip=$x --pretty=%B`
                         if [[ "$message" =~ [[]distro=([A-Za-z0-9]+)[]] ]]
                         then 
@@ -31,10 +27,6 @@ pipeline {
                     ).trim()
                     buildImage2 = sh (returnStdout: true, script: ''' 
                         x=0
-#                        if [[ ! -z "$CHANGE_ID" ]] 
-#                        then 
-#                            x=1 
-#                        fi
                         message=`git log -1 --skip=$x --pretty=%B`
                         if [[ "$message" =~ [[]buildImage=([A-Za-z0-9.-]+)[]] ]] 
                         then 
