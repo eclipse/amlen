@@ -242,7 +242,8 @@ spec:
                                    tar -c server_ship -f server_ship.tar.gz
                                   '''
                            }
-                           catch {
+                           catch (Exception e) {
+                               echo "Exception: " + e.toString()
                                distro='''+distro+'''
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                                ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
