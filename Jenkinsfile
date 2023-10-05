@@ -219,38 +219,40 @@ spec:
                     steps {
                         echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
                         container("amlen-${distro}-build") {
-                           try {
-                               sh '''
-                                   set -e
-                                   pwd 
-                                   free -m 
-                                   cd server_build 
-                                   if [[ "$BRANCH_NAME" == "main" ]] ; then
-                                       export BUILD_TYPE=fvtbuild
-                                   fi
-                                   bash buildcontainer/build.sh
-                                   cd ../operator
-                                   NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                                   export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                                   make bundle
-                                   make produce-deployment
-                                   pylint --fail-under=5 build/scripts/*.py
-                                   cd ../Documentation/doc_infocenter
-                                   ant
-                                   cd ../../
-                                   tar -c client_ship -f client_ship.tar.gz
-                                   tar -c server_ship -f server_ship.tar.gz
-                                  '''
-                           }
-                           catch (Exception e) {
-                               echo "Exception: " + e.toString()
-                               sh '''
-                                   distro='''+distro+'''
-                                   NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                                   ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                                   scp -o BatchMode=yes -r $BUILDLOG genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                               '''
-                               currentBuild.result = 'FAILURE'
+                           script {
+                               try {
+                                   sh '''
+                                       set -e
+                                       pwd 
+                                       free -m 
+                                       cd server_build 
+                                       if [[ "$BRANCH_NAME" == "main" ]] ; then
+                                           export BUILD_TYPE=fvtbuild
+                                       fi
+                                       bash buildcontainer/build.sh
+                                       cd ../operator
+                                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                                       export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+                                       make bundle
+                                       make produce-deployment
+                                       pylint --fail-under=5 build/scripts/*.py
+                                       cd ../Documentation/doc_infocenter
+                                       ant
+                                       cd ../../
+                                       tar -c client_ship -f client_ship.tar.gz
+                                       tar -c server_ship -f server_ship.tar.gz
+                                      '''
+                               }
+                               catch (Exception e) {
+                                   echo "Exception: " + e.toString()
+                                   sh '''
+                                       distro='''+distro+'''
+                                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                                       ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                       scp -o BatchMode=yes -r $BUILDLOG genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                   '''
+                                   currentBuild.result = 'FAILURE'
+                               }
                            }
                         }
                     }
