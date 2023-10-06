@@ -73,7 +73,7 @@ spec:
     - mountPath: /dev/shm
       name: dshm
     - name: volume-known-hosts
-      mountPath: /home/root/.ssh
+      mountPath: /home/jenkins/.ssh
   - name: jnlp
     volumeMounts:
     - name: volume-known-hosts
