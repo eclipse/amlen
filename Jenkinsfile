@@ -339,8 +339,6 @@ spec:
         
                                       if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
                                         curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d '{"state":"pending","target_url":"https://example.com/build/status","description":"test","context":"bvt"}'
-        
-                                        curl -ik -H "Content-Type:application/json" -H "Authorization: Basic ${BVT_KEY}" -X POST -d "{\\\"build_label\\\":\\\"${BUILD_LABEL}_git-${GIT_COMMIT}\\\",\\\"stream\\\":\\\"amlen\\\",\\\"repo\\\":\\\"amlen\\\",\\\"branch\\\":\\\"${NOORIGIN_BRANCH}\\\",\\\"release\\\":\\\"amlen\\\",\\\"product\\\":\\\"amlen\\\",\\\"aftype\\\":\\\"BVT\\\",\\\"username\\\":\\\"jenkins\\\",\\\"version\\\":\\\"5.0.0.3\\\",\\\"distro"\\\":\\\"${DISTRO}\\\"}" https://169.61.23.35:8443/notifications || true
                                       fi
           
                                   '''
