@@ -338,7 +338,7 @@ spec:
                                       done
         
                                       if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
-                                        curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${DISTRO} BUILD=${BUILD_LABEL} COMMIT=${GIT_COMMIT}\\\",\\\"context\\\":\\\"bvt\\\"}"
+                                        curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${DISTRO} BUILD=${BUILD_LABEL}}\\\",\\\"context\\\":\\\"bvt\\\"}"
                                       fi
           
                                   '''
