@@ -172,7 +172,7 @@ spec:
 	    steps {
 		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
 
-		container("amlen-centos7-build") {
+		container("jnlp") {
                       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 			   sh '''
 			       set -e
@@ -180,6 +180,9 @@ spec:
 			       cd operator
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+                               THING=`curl "https://quay.io/api/v1/repository/amlen/operator/tag/"`
+                               echo $THING
+                               echo $THING | jq
                                SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
                                echo $SHA
 			       IMG=quay.io/amlen/operator:$SHA
