@@ -71,15 +71,15 @@ spec:
                        if [[ "$BRANCH_NAME" == "main" ]] ; then
                            export BUILD_TYPE=fvtbuild
                        fi
-                       # bash buildcontainer/build.sh
+                         bash buildcontainer/build.sh
                        cd ../operator
                        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                        export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
                        make bundle
-                       # make produce-deployment
-                       # pylint --fail-under=5 build/scripts/*.py
+                       make produce-deployment
+                       pylint --fail-under=5 build/scripts/*.py
                        cd ../Documentation/doc_infocenter
-                       # ant
+                       ant
                       '''
                 }
             }
