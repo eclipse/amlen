@@ -182,6 +182,7 @@ spec:
 			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
                                THING=`curl "https://quay.io/api/v1/repository/amlen/operator/tag/" | jq`
                                echo $THING
+                               echo $THING
                                SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
                                echo $SHA
 			       IMG=quay.io/amlen/operator:$SHA
