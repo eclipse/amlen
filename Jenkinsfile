@@ -175,6 +175,90 @@ spec:
                 }
             }
         }
+        stage("Bundle") {
+            agent {
+                kubernetes {
+                label "amlen-${distro}-build-pod"
+                yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: amlen-${distro}-build
+    image: quay.io/amlen/amlen-builder-${distro}:${buildImage}
+    imagePullPolicy: Always
+    command:
+    - cat
+    tty: true
+    resources:
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+      requests:
+        memory: "4Gi"
+        cpu: "2"
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  - name: jnlp
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+  - name: dshm
+    emptyDir:
+      medium: Memory
+"""
+                }
+            } 
+            stages{
+                stage('Bundle') {
+                    steps {
+                        echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
+
+                        container("amlen-${distro}-build") {
+                           script {
+                               try {
+                                   sh '''
+                                       set -e
+                                       pwd 
+                                       free -m 
+                                       cd operator
+                                       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+                                       docker pull $IMG || exit 1
+                                       IMG=`docker image inspect $IMG | grep "\"quay.io/" | grep @sha256 | tr -d '", '`
+                                       make bundle
+                                       mv bundle.Dockerfile Dockerfile
+          
+                                       tar -czf operator_bundle.tar.gz Dockerfile bundle
+                                       scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${DISTRO}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
+          
+                                      '''
+                               }
+                               catch (Exception e) {
+                                   echo "Exception: " + e.toString()
+                                   sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                                       sh '''
+                                           distro='''+distro+'''
+                                           NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                                           ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                           scp -o BatchMode=yes -r $BUILDLOG genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                       '''
+                                   }
+                                   currentBuild.result = 'FAILURE'
+                               }
+                           }
+                        }
+                    }
+                }
+            }
+        }
     }
     post {
         // send a mail on unsuccessful and fixed builds
