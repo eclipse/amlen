@@ -181,9 +181,7 @@ spec:
 			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
                                SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
                                echo $SHA
-                               curl -X GET https://quay.io/api/v1/repository/amlen/operator/tag/ 
-			       docker pull $IMG || exit 1
-			       IMG=`docker image inspect $IMG | grep "\"quay.io/" | grep @sha256 | tr -d '", '`
+			       IMG=quay.io/amlen/operator:$SHA
 			       make bundle
 			       mv bundle.Dockerfile Dockerfile
   
