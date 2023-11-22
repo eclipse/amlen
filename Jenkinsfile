@@ -178,6 +178,7 @@ spec:
 			       pwd 
 			       free -m 
 			       cd operator
+                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
                                SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
                                echo $SHA
