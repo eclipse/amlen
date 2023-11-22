@@ -181,7 +181,8 @@ spec:
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
                                echo $NOORIGIN_BRANCH
-                               SHA=`curl "https://quay.io/api/v1/repository/amlen/operator/tag/" | jq -r ".tags[] | select(.\"expiration\"==null) | select(.\"name\"==\\\"$NOORIGIN_BRANCH\\\") | .manifest_digest"`
+                               #SHA=`curl "https://quay.io/api/v1/repository/amlen/operator/tag/" | jq -r ".tags[] | select(.\"expiration\"==null) | select(.\"name\"==\\\"$NOORIGIN_BRANCH\\\") | .manifest_digest"`
+                               SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
                                echo $SHA
 			       IMG=quay.io/amlen/operator:$SHA
 			       make bundle
