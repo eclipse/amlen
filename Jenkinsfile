@@ -177,7 +177,6 @@ spec:
 			   sh '''
 			       set -e
 			       pwd 
-			       free -m 
 			       cd operator
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
