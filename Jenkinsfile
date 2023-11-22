@@ -28,6 +28,8 @@ spec:
     volumeMounts:
     - mountPath: /dev/shm
       name: dshm
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
   - name: jnlp
     volumeMounts:
     - name: volume-known-hosts
