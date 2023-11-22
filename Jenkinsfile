@@ -180,7 +180,7 @@ spec:
 			       cd operator
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                               SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
+                               SHA=`python find_sha.py $NOORIGIN_BRANCH`
                                echo $SHA
 			       IMG=quay.io/amlen/operator:$SHA
 			       make bundle
