@@ -179,7 +179,7 @@ spec:
 			       free -m 
 			       cd operator
 			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                               SHA=python3 find_sha.py $NOORIGIN_BRANCH
+                               SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
                                echo $SHA
                                curl -X GET https://quay.io/api/v1/repository/amlen/operator/tag/ 
 			       docker pull $IMG || exit 1
