@@ -105,10 +105,6 @@ spec:
   
                               scp -o BatchMode=yes -r eclipse-amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
 
-                              cd monitor
-                              cp -r ../build/scripts ./
-                              tar -czf amlen-monitor.tar.gz Dockerfile requirements.txt scripts
-                              scp -o BatchMode=yes -r amlen-monitor.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
                           '''
                     }
                 }
@@ -137,10 +133,7 @@ spec:
                               uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
                               sleep 60
 
-                              c4=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-monitor/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/amlen-monitor.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
-                              uid4=$(echo ${c4} | grep -oP '(?<=\"id\": \")[^\"]*\')
-
-                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" "$uid4 amlen-monitor"
+                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
                               do
                                 set -- $uid
                                 for i in {1..30}
@@ -216,45 +209,41 @@ spec:
 """
                 }
             } 
-            stages{
-                stage('Bundle') {
-                    steps {
-                        echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
+	    steps {
+		echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
 
-                        container("amlen-${distro}-build") {
-                           script {
-                               try {
-                                   sh '''
-                                       set -e
-                                       pwd 
-                                       free -m 
-                                       cd operator
-                                       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                                       docker pull $IMG || exit 1
-                                       IMG=`docker image inspect $IMG | grep "\"quay.io/" | grep @sha256 | tr -d '", '`
-                                       make bundle
-                                       mv bundle.Dockerfile Dockerfile
+		container("amlen-${distro}-build") {
+		   script {
+		       try {
+			   sh '''
+			       set -e
+			       pwd 
+			       free -m 
+			       cd operator
+			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+			       docker pull $IMG || exit 1
+			       IMG=`docker image inspect $IMG | grep "\"quay.io/" | grep @sha256 | tr -d '", '`
+			       make bundle
+			       mv bundle.Dockerfile Dockerfile
+  
+			       tar -czf operator_bundle.tar.gz Dockerfile bundle
+			       scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${DISTRO}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
           
-                                       tar -czf operator_bundle.tar.gz Dockerfile bundle
-                                       scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                                       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${DISTRO}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
-          
-                                      '''
-                               }
-                               catch (Exception e) {
-                                   echo "Exception: " + e.toString()
-                                   sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-                                       sh '''
-                                           distro='''+distro+'''
-                                           NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                                           ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                                           scp -o BatchMode=yes -r $BUILDLOG genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                                       '''
-                                   }
-                                   currentBuild.result = 'FAILURE'
-                               }
-                           }
-                        }
+			      '''
+		       }
+		       catch (Exception e) {
+			   echo "Exception: " + e.toString()
+			   sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+			       sh '''
+				   distro='''+distro+'''
+				   NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+				   ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+				   scp -o BatchMode=yes -r $BUILDLOG genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+			       '''
+			   }
+			   currentBuild.result = 'FAILURE'
+		       }
                     }
                 }
             }
