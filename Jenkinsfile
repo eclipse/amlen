@@ -171,8 +171,7 @@ spec:
 		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
 
 		container("amlen-centos7-build") {
-		   script {
-		       try {
+                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 			   sh '''
 			       set -e
 			       pwd 
@@ -186,27 +185,15 @@ spec:
 			       make bundle
 			       mv bundle.Dockerfile Dockerfile
   
-			       tar -czf operator_bundle.tar.gz Dockerfile bundle
-			       scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${DISTRO}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
+			       tar -czf operator_bundle_digest.tar.gz Dockerfile bundle
+			       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${DISTRO}/operator_bundle_digest.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
           
 			      '''
-		       }
-		       catch (Exception e) {
-			   echo "Exception: " + e.toString()
-			   sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-			       sh '''
-				   NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-				   ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-				   scp -o BatchMode=yes -r $BUILDLOG genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
-			       '''
-			   }
-			   currentBuild.result = 'FAILURE'
 		       }
                     }
                 }
             }
-        }
     }
     post {
         // send a mail on unsuccessful and fixed builds
