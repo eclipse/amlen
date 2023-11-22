@@ -172,7 +172,7 @@ spec:
 	    steps {
 		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
 
-		container("amlen-centos7-build") {
+		container("jnlp") {
                       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 			   sh '''
 			       set -e
