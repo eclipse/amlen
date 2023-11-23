@@ -168,7 +168,7 @@ spec:
                 }
             }
         }
-        stage("Bundle") {
+        stage("MakeBundle") {
 	    steps {
 		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
 
@@ -207,6 +207,23 @@ spec:
 			       cd operator
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 			       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+			      '''
+		       }
+                    }
+                }
+            }
+        stage("BuildBundle") {
+	    steps {
+		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
+
+		container("jnlp") {
+                    withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
+                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+			   sh '''
+			       set -e
+			       pwd 
+			       cd operator
+                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${DISTRO}/operator_bundle_digest.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
                                echo $c
                                uid=$(echo ${c} | grep -oP '(?<=\"id\": \")[^\"]*\')
