@@ -199,6 +199,7 @@ spec:
 		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
 
 		container("jnlp") {
+                    withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
                       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 			   sh '''
 			       set -e
@@ -207,12 +208,36 @@ spec:
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 			       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
 			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${DISTRO}/operator_bundle_digest.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
+                               echo $c
+                               uid=$(echo ${c} | grep -oP '(?<=\"id\": \")[^\"]*\')
+                               sleep 60
+
+                               set -- $uid
+                               for i in {1..30}
+                               do
+                                 phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
+                                 phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
+                                 if [[ 'complete' == $phase ]]
+                                 then
+                                   break
+                                 fi
+                                 sleep 10
+                               done
+                              
+                               phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
+                               phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
+                               if [[ 'complete' != $phase ]]
+                               then
+                                 echo $2 phase is $phase
+                                 exit 1
+                               fi
           
 			      '''
 		       }
                     }
                 }
             }
+        }
     }
     post {
         // send a mail on unsuccessful and fixed builds
