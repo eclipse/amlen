@@ -184,7 +184,7 @@ spec:
                                #SHA=`curl "https://quay.io/api/v1/repository/amlen/operator/tag/" | jq -r ".tags[] | select(.\"expiration\"==null) | select(.\"name\"==\\\"$NOORIGIN_BRANCH\\\") | .manifest_digest"`
                                SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
                                echo $SHA
-			       IMG=quay.io/amlen/operator:$SHA
+			       IMG=quay.io/amlen/operator@$SHA
 			       make bundle
 			       mv bundle.Dockerfile Dockerfile
   
