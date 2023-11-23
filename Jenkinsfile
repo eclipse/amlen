@@ -215,7 +215,7 @@ spec:
                                set -- $uid
                                for i in {1..30}
                                do
-                                 phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
+                                 phase=$(curl -s https://quay.io/api/v1/repository/amlen/operator-bundle/build/$uid)
                                  phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
                                  if [[ 'complete' == $phase ]]
                                  then
@@ -224,11 +224,11 @@ spec:
                                  sleep 10
                                done
                               
-                               phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
+                               phase=$(curl -s https://quay.io/api/v1/repository/amlen/operator-bundle/build/$uid)
                                phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
                                if [[ 'complete' != $phase ]]
                                then
-                                 echo $2 phase is $phase
+                                 echo phase is $phase
                                  exit 1
                                fi
           
