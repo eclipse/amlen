@@ -226,10 +226,10 @@ spec:
 			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${DISTRO}/operator_bundle_digest.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
                                echo $c
                                uid=$(echo ${c} | grep -oP '(?<=\"id\": \")[^\"]*\')
-                               sleep 60
+                               sleep 240
 
                                set -- $uid
-                               for i in {1..30}
+                               for i in {1..60}
                                do
                                  phase=$(curl -s https://quay.io/api/v1/repository/amlen/operator-bundle/build/$uid)
                                  phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
