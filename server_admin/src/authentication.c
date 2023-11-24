@@ -1067,32 +1067,40 @@ static int ism_config_hex2int(const char h){
 #define ADMIN_PASSWORD_ITERATIONS 4096
 
 XAPI void ism_security_1wayHashAdminUserPassword(const char * password, const char * salt, char * _hash) {
-  ism_sasl_scram_context * context = ism_sasl_scram_context_new(SASL_MECHANISM_SCRAM_SHA_512);
-  char salt_password_buf[128];
-  concat_alloc_t salt_password_outbuf={salt_password_buf, sizeof(salt_password_buf)};
-  ism_sasl_scram_salt_password (context, password, strlen(password),
-        salt, 8,
-        ADMIN_PASSWORD_ITERATIONS, &salt_password_outbuf);
-  char * saltedpassword = alloca(salt_password_outbuf.used);
-  memcpy(saltedpassword, salt_password_outbuf.buf, salt_password_outbuf.used);
-  saltedpassword[salt_password_outbuf.used]=0;
+    char salt_password_buf[128];
+    concat_alloc_t salt_password_outbuf={salt_password_buf, sizeof(salt_password_buf)};
 
-  for (size_t l = 0; l < 64;  l++) {
-     sprintf(_hash + 2 * l, "%02x", (unsigned char)saltedpassword[l]);
-  }
+    ism_sasl_scram_mechanism_salt_password(SASL_MECHANISM_SCRAM_SHA_512,
+            password, strlen(password),
+            salt, 8,
+            ADMIN_PASSWORD_ITERATIONS,
+            &salt_password_outbuf);
+  
+    if (salt_password_outbuf.used < 64) {
+        //We expect the hash to be at *least* 64 bytes long
+        //If not, we give up as the world doesn't make any sense
+        ISM_FFDC(ismCommonFFDCPROBE_050,CORE_DUMP_ALWAYS,"Bad Hash Length", salt_password_outbuf.used,
+                             "Salt", salt, strlen(salt),
+                             NULL);
+    }
+
+    for (size_t l = 0; l < 64;  l++) {
+        sprintf(_hash + 2 * l, "%02x", (unsigned char)salt_password_outbuf.buf[l]);
+    }
+    ism_common_freeAllocBuffer(&salt_password_outbuf);
 }
 
 XAPI char * ism_security_createAdminUserPasswordHash(const char * password) {
-  uint64_t rval;
-  uint8_t * randbuf = (uint8_t *)&rval;
+    uint64_t rval;
+    uint8_t * randbuf = (uint8_t *)&rval;
 
-  RAND_bytes(randbuf, 8);
-  char hash[129];
-  ism_security_1wayHashAdminUserPassword(password,(char *)&rval,hash);
-  char encoding[128 + 20 + 5];
-  sprintf(encoding,"_1:%020lu:%s",rval,hash);
+    RAND_bytes(randbuf, 8);
+    char hash[129];
+    ism_security_1wayHashAdminUserPassword(password,(char *)&rval,hash);
+    char encoding[128 + 20 + 5];
+    sprintf(encoding,"_1:%020lu:%s",rval,hash);
 
-  return ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),encoding);
+    return ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),encoding);
 }
 
 
