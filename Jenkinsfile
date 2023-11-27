@@ -13,7 +13,7 @@ kind: Pod
 spec:
   containers:
   - name: amlen-centos7-build
-    image: quay.io/amlen/amlen-builder-centos7:1.0.0.6
+    image: quay.io/amlen/amlen-builder-centos7:1.0.0.7
     imagePullPolicy: Always
     command:
     - cat
@@ -28,6 +28,8 @@ spec:
     volumeMounts:
     - mountPath: /dev/shm
       name: dshm
+    - name: volume-known-hosts
+      mountPath: /home/root/.ssh
   - name: jnlp
     volumeMounts:
     - name: volume-known-hosts
@@ -69,7 +71,7 @@ spec:
                        if [[ "$BRANCH_NAME" == "main" ]] ; then
                            export BUILD_TYPE=fvtbuild
                        fi
-                       bash buildcontainer/build.sh
+                         bash buildcontainer/build.sh
                        cd ../operator
                        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                        export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
@@ -105,10 +107,6 @@ spec:
   
                               scp -o BatchMode=yes -r eclipse-amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
 
-                              cd monitor
-                              cp -r ../build/scripts ./
-                              tar -czf amlen-monitor.tar.gz Dockerfile requirements.txt scripts
-                              scp -o BatchMode=yes -r amlen-monitor.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
                           '''
                     }
                 }
@@ -137,10 +135,7 @@ spec:
                               uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
                               sleep 60
 
-                              c4=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-monitor/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/amlen-monitor.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
-                              uid4=$(echo ${c4} | grep -oP '(?<=\"id\": \")[^\"]*\')
-
-                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" "$uid4 amlen-monitor"
+                              for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
                               do
                                 set -- $uid
                                 for i in {1..30}
@@ -162,15 +157,99 @@ spec:
                                   exit 1
                                 fi
                               done
-
                               if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
                                 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d '{"state":"pending","target_url":"https://example.com/build/status","description":"test","context":"bvt"}'
-
                                 curl -ik -H "Content-Type:application/json" -H "Authorization: Basic ${BVT_KEY}" -X POST -d "{\\\"build_label\\\":\\\"${BUILD_LABEL}_git-${GIT_COMMIT}\\\",\\\"stream\\\":\\\"amlen\\\",\\\"repo\\\":\\\"amlen\\\",\\\"branch\\\":\\\"${NOORIGIN_BRANCH}\\\",\\\"release\\\":\\\"amlen\\\",\\\"product\\\":\\\"amlen\\\",\\\"aftype\\\":\\\"BVT\\\",\\\"username\\\":\\\"jenkins\\\",\\\"version\\\":\\\"5.0.0.3\\\"}" https://169.61.23.35:8443/notifications || true
                               fi
   
                           '''
                       }
+                    }
+                }
+            }
+        }
+        stage("MakeBundle") {
+	    steps {
+		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
+
+                container('amlen-centos7-build') {
+                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+			   sh '''
+			       set -e
+			       pwd 
+			       cd operator
+                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+                               echo $NOORIGIN_BRANCH
+                               #SHA=`curl "https://quay.io/api/v1/repository/amlen/operator/tag/" | jq -r ".tags[] | select(.\"expiration\"==null) | select(.\"name\"==\\\"$NOORIGIN_BRANCH\\\") | .manifest_digest"`
+                               SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
+                               echo $SHA
+			       export IMG=quay.io/amlen/operator@$SHA
+			       make bundle
+			       mv bundle.Dockerfile Dockerfile
+  
+			       tar -czf operator_bundle_digest.tar.gz Dockerfile bundle
+			      '''
+	             }
+                }
+            }
+        }
+        stage("UploadBundle") {
+	    steps {
+		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
+
+		container("jnlp") {
+                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+			   sh '''
+			       set -e
+			       pwd 
+			       cd operator
+                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+			       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+			      '''
+		       }
+                }
+            }
+        }
+        stage("BuildBundle") {
+	    steps {
+		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
+
+		container("jnlp") {
+                    withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
+                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+			   sh '''
+			       set -e
+			       pwd 
+			       cd operator
+                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator_bundle_digest.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
+                               echo $c
+                               uid=$(echo ${c} | grep -oP '(?<=\"id\": \")[^\"]*\')
+                               sleep 240
+
+                               set -- $uid
+                               for i in {1..60}
+                               do
+                                 phase=$(curl -s https://quay.io/api/v1/repository/amlen/operator-bundle/build/$uid)
+                                 phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
+                                 if [[ 'complete' == $phase ]]
+                                 then
+                                   break
+                                 fi
+                                 sleep 10
+                               done
+                              
+                               phase=$(curl -s https://quay.io/api/v1/repository/amlen/operator-bundle/build/$uid)
+                               phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
+                               if [[ 'complete' != $phase ]]
+                               then
+                                 echo phase is $phase
+                                 exit 1
+                               fi
+          
+			      '''
+		      }
                     }
                 }
             }
