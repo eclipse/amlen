@@ -4050,6 +4050,7 @@ uint64_t ism_common_get_ffdc_count(void);
 #define ismCommonFFDCPROBE_047 47
 #define ismCommonFFDCPROBE_048 48
 #define ismCommonFFDCPROBE_049 49
+#define ismCommonFFDCPROBE_050 50
 
 
 /*----- start stuff for processing structure identifiers -----*/

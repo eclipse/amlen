@@ -128,6 +128,13 @@ int ism_sasl_scram_salt_password (ism_sasl_scram_context * context, const char *
                         int iteration, concat_alloc_t * outbuf) ;
 
 /**
+ * Salting the password - alternative when we don't have a ism_sasl_scram_context
+ */
+int ism_sasl_scram_mechanism_salt_password (ism_sasl_machanism_e mechanism, const char *in, int in_size,
+                        const char *salt, int salt_size,
+                        int iteration, concat_alloc_t * outbuf) ;
+
+/**
  * Perform keyed-hash message authentication
  *
  * NOTE: OpenSSL HMAC will be used.

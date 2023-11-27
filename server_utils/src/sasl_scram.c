@@ -103,6 +103,8 @@ ism_sasl_scram_context *  ism_sasl_scram_context_new(ism_sasl_machanism_e in_mec
     context->state = SASL_SCRAM_STATE_NEW;
     context->server_response_props = ism_common_newProperties(10);
     context->mechanism = in_mechanism;
+
+    //This switch needs to be kept in sync with the equivalent in getEVPMDfromMechanism()
     switch(context->mechanism ){
         case SASL_MECHANISM_SCRAM_SHA_256:
             context->scram_evp = EVP_sha256();
@@ -276,6 +278,10 @@ int ism_sasl_scram_parse_properties (char  * inbuf, ism_prop_t * props) {
 /**
  * Salting the password
  *
+ * NB: Don't call this directly. Callers should use ism_sasl_scram_salt_password 
+ * (prefered but caller needs ism_sasl_scram_context) or 
+ * ism_sasl_scram_mechanism_salt_password
+ * 
  * RFC Spec on SaltedPassword
  *    SaltedPassword  := Hi(Normalize(password), salt, i)
  *
@@ -290,11 +296,10 @@ int ism_sasl_scram_parse_properties (char  * inbuf, ism_prop_t * props) {
      Hi := U1 XOR U2 XOR ... XOR Ui
  *
  */
-int ism_sasl_scram_salt_password (ism_sasl_scram_context * context, const char *password, int password_size,
+static int ism_sasl_scram_EVP_salt_password (const EVP_MD *evp, 
+                        const char *password, int password_size,
                         const char *salt, int salt_size,
                         int iteration, concat_alloc_t * outbuf) {
-
-    const EVP_MD *evp = context->scram_evp;
     unsigned int  digest_size = 0;
     unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned char tempbuf[EVP_MAX_MD_SIZE];
@@ -347,6 +352,57 @@ int ism_sasl_scram_salt_password (ism_sasl_scram_context * context, const char *
 
     return 0;
 }
+
+/**
+ * Choose an Envelope API message digest appropriate for the scheme we're using
+ */
+static const EVP_MD *getEVPMDfromMechanism(ism_sasl_machanism_e in_mechanism) {
+    const EVP_MD *evpmd = NULL;
+
+    //This switch needs to be kept in sync with the equivalent in ism_sasl_scram_context_new()
+    switch(in_mechanism ){
+        case SASL_MECHANISM_SCRAM_SHA_256:
+            evpmd = EVP_sha256();
+            break;
+        case SASL_MECHANISM_SCRAM_SHA_512:
+        default:
+            evpmd = EVP_sha512();
+    }
+
+    return evpmd;
+}
+
+/**
+ * Salting the password
+ *
+ * This should be the default function called when salting passwords (but see also
+ * ism_sasl_scram_mechanism_salt_password)
+ */
+int ism_sasl_scram_salt_password (ism_sasl_scram_context * context, const char *password, int password_size,
+                        const char *salt, int salt_size,
+                        int iteration, concat_alloc_t * outbuf) {
+    return ism_sasl_scram_EVP_salt_password (context->scram_evp, password,
+                password_size, salt, salt_size, iteration, outbuf);
+}
+
+/**
+ * Wrapper around ism_sasl_scram_EVP_salt_password to be used when we don't have a
+ * ism_sasl_scram_context - normally use ism_sasl_scram_salt_password
+ */
+int ism_sasl_scram_mechanism_salt_password (ism_sasl_machanism_e in_mechanism, 
+                        const char *password, int password_size,
+                        const char *salt, int salt_size,
+                        int iteration, concat_alloc_t * outbuf) {
+
+    const EVP_MD *evp = getEVPMDfromMechanism(in_mechanism);
+
+    if (evp == NULL) {
+        return 1;
+    }
+    return ism_sasl_scram_EVP_salt_password (evp, password,
+                password_size, salt, salt_size, iteration, outbuf);
+}
+
 
 /**
  * Perform keyed-hash message authentication
