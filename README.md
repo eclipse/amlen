@@ -79,3 +79,7 @@ There is a a Docker file and build script that we use to do the build at Eclipse
 of the dependencies and setting of the environment variables. There can be found in the 
 [server_build/buildcontainer](server_build/buildcontainer) directory.
 
+# Releasing
+Releasing of Amlen itself is done via the eclipse release process
+
+Releasing the operator (and bundle) is handeled seperately see [operator/README.md](operator/README.md)
