@@ -182,10 +182,11 @@ spec:
             } 
          }
 	 stage('Deploy') {
+             agent any
 	     steps {
 		 container('jnlp') {
 		     echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
-		     withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId: 'bvt-token', variable: 'BVT_KEY'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
+		     withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
 		       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 			   sh '''
 			       pwd
@@ -202,7 +203,7 @@ spec:
    
 			       c3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
 			       uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
-                                      sleep 60
+                               sleep 60
         
 			       for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
 			       do
@@ -238,32 +239,70 @@ spec:
 	   }
 	}
         stage("MakeBundle") {
-	    steps {
-		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
-
-                container('amlen-centos7-build') {
-                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-			   sh '''
-			       set -e
-			       pwd 
-			       cd operator
-                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-			       IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                               echo $NOORIGIN_BRANCH
-                               #SHA=`curl "https://quay.io/api/v1/repository/amlen/operator/tag/" | jq -r ".tags[] | select(.\"expiration\"==null) | select(.\"name\"==\\\"$NOORIGIN_BRANCH\\\") | .manifest_digest"`
-                               SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
-                               echo $SHA
-			       export IMG=quay.io/amlen/operator@$SHA
-			       make bundle
-			       mv bundle.Dockerfile Dockerfile
-  
-			       tar -czf operator_bundle_digest.tar.gz Dockerfile bundle
-			      '''
-	             }
+            agent {
+                kubernetes {
+                label "amlen-${distro}-build-pod"
+                yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: amlen-${distro}-build
+    image: quay.io/amlen/amlen-builder-${distro}:${buildImage}
+    imagePullPolicy: Always
+    command:
+    - cat
+    tty: true
+    resources:
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+      requests:
+        memory: "4Gi"
+        cpu: "2"
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  - name: jnlp
+    volumeMounts:
+    - name: volume-known-hosts
+      mountPath: /home/jenkins/.ssh
+  volumes:
+  - name: volume-known-hosts
+    configMap:
+      name: known-hosts
+  - name: dshm
+    emptyDir:
+      medium: Memory
+"""
                 }
-            }
+            } 
+ 	    steps {
+               container('amlen-centos7-build') {
+                   sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+	               sh '''
+		           set -e
+		           pwd 
+		           cd operator
+                           NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+	 	           IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+                           echo $NOORIGIN_BRANCH
+                           SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
+                           echo $SHA
+		           export IMG=quay.io/amlen/operator@$SHA
+		           make bundle
+		           mv bundle.Dockerfile Dockerfile
+   
+ 		           tar -czf operator_bundle_digest.tar.gz Dockerfile bundle
+ 		     '''
+	          }
+              }
+           } 
         }
         stage("UploadBundle") {
+            agent any
 	    steps {
 		container("jnlp") {
                       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
@@ -279,6 +318,7 @@ spec:
             }
         }
         stage("BuildBundle") {
+            agent any
 	    steps {
 		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
 
