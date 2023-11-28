@@ -90,7 +90,6 @@ spec:
             } 
             stages{
                 stage("init") {
-            
                     steps {
                         container("amlen-${distro}-build") {
                             script {
@@ -107,113 +106,6 @@ spec:
                     }
                     echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
                     echo "COMMIT: ${env.GIT_COMMIT}"
-                }
-            }
-        }
-        stage('Build') {
-            agent {
-                kubernetes {
-                    label "amlen-${distro}-build-pod"
-                    yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: amlen-${distro}-build
-    image: quay.io/amlen/amlen-builder-${distro}:1.0.0.7-pre.ib
-    imagePullPolicy: Always
-    command:
-    - cat
-    tty: true
-    resources:
-      limits:
-        memory: "4Gi"
-        cpu: "2"
-      requests:
-        memory: "4Gi"
-        cpu: "2"
-    volumeMounts:
-    - mountPath: /dev/shm
-      name: dshm
-  - name: jnlp
-    volumeMounts:
-    - name: volume-known-hosts
-      mountPath: /home/jenkins/.ssh
-  volumes:
-  - name: volume-known-hosts
-    configMap:
-      name: known-hosts
-  - name: dshm
-    emptyDir:
-      medium: Memory
-"""
-                }
-            } 
-            steps {
-                echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
-
-                container("amlen-${distro}-build") {
-                   sh '''
-                       set -e
-                       pwd 
-                       free -m 
-                       cd server_build 
-                       if [[ "$BRANCH_NAME" == "main" ]] ; then
-                           export BUILD_TYPE=fvtbuild
-                       fi
-                         bash buildcontainer/build.sh
-                       cd ../operator
-                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                       export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                       make bundle
-                       make produce-deployment
-                       pylint --fail-under=5 build/scripts/*.py
-                       cd ../Documentation/doc_infocenter
-                       ant
-                       cd ../../
-                       tar -c client_ship -f client_ship.tar.gz
-                       tar -c server_ship -f server_ship.tar.gz
-                      '''
-                }
-            }
-        }
-        stage('Upload') {
-            agent {
-                kubernetes {
-                    label "amlen-${distro}-build-pod"
-                    yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: amlen-${distro}-build
-    image: quay.io/amlen/amlen-builder-${distro}:1.0.0.7-pre.ib
-    imagePullPolicy: Always
-    command:
-    - cat
-    tty: true
-    resources:
-      limits:
-        memory: "4Gi"
-        cpu: "2"
-      requests:
-        memory: "4Gi"
-        cpu: "2"
-    volumeMounts:
-    - mountPath: /dev/shm
-      name: dshm
-  - name: jnlp
-    volumeMounts:
-    - name: volume-known-hosts
-      mountPath: /home/jenkins/.ssh
-  volumes:
-  - name: volume-known-hosts
-    configMap:
-      name: known-hosts
-  - name: dshm
-    emptyDir:
-      medium: Memory
-"""
                 }
                 stage('Build') {
                     steps {
@@ -290,65 +182,63 @@ spec:
                     }
                 }
             } 
-            steps {
-                stage('Deploy') {
-                    steps {
-                        container('jnlp') {
-                            echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
-                            withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId: 'bvt-token', variable: 'BVT_KEY'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
-                              sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-                                  sh '''
-                                      pwd
-                                      distro='''+distro+'''
-                                      NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-        
-                                      c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
-                                      uid1=$(echo ${c1} | grep -oP '(?<=\"id\": \")[^\"]*\')
+         }
+	 stage('Deploy') {
+	     steps {
+		 container('jnlp') {
+		     echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
+		     withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId: 'bvt-token', variable: 'BVT_KEY'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
+		       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+			   sh '''
+			       pwd
+			       distro='''+distro+'''
+			       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+ 
+			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
+			       uid1=$(echo ${c1} | grep -oP '(?<=\"id\": \")[^\"]*\')
+			       sleep 60
+   
+			       c2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\") 
+			       uid2=$(echo ${c2} | grep -oP '(?<=\"id\": \")[^\"]*\')
+			       sleep 60
+   
+			       c3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
+			       uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
                                       sleep 60
-          
-                                      c2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\") 
-                                      uid2=$(echo ${c2} | grep -oP '(?<=\"id\": \")[^\"]*\')
-                                      sleep 60
-          
-                                      c3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
-                                      uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
-                                      sleep 60
         
-                                      for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
-                                      do
-                                        set -- $uid
-                                        for i in {1..45}
-                                        do
-                                          phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
-                                          phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
-                                          if [[ 'complete' == $phase ]]
-                                          then
-                                            break
-                                          fi
-                                          sleep 10
-                                        done
-                                      
-                                        phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
-                                        phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
-                                        if [[ 'complete' != $phase ]]
-                                        then
-                                          echo $2 phase is $phase
-                                          exit 1
-                                        fi
-                                      done
-        
-                                      if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
-                                        curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${DISTRO} BUILD=${BUILD_LABEL}}\\\",\\\"context\\\":\\\"bvt\\\"}"
-                                      fi
-          
-                                  '''
-                              }
-                          }
-                      }
-                  }
-              }
-            }
-        }
+			       for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
+			       do
+				 set -- $uid
+				 for i in {1..45}
+				 do
+				   phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
+				   phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
+				   if [[ 'complete' == $phase ]]
+				   then
+				     break
+				   fi
+				   sleep 10
+				 done
+			       
+				 phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
+				 phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
+				 if [[ 'complete' != $phase ]]
+				 then
+				   echo $2 phase is $phase
+				   exit 1
+				 fi
+			       done
+ 
+			       if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
+				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${DISTRO} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
+			       fi
+   
+			   '''
+                       }
+                     }
+                 }
+	   }
+	}
         stage("MakeBundle") {
 	    steps {
 		echo "In Bundle, BUILD_LABEL is ${env.BUILD_LABEL}"
