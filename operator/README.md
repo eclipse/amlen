@@ -1,6 +1,27 @@
 # Amlen Operator
 
-The ansible operator for deploying Amlen systems. Currently under development.
+The ansible operator for deploying Amlen systems. 
+
+## Release process
+
+The release process is currently a bit awkward what needs to happen is:
+
+push a change that moves the version from the current alpha version to the actual version, ie if the version is 1.0.3-a then submit a PR
+to change it to version 1.0.3
+
+When that has merged into main and completed the build:
+- Tag the operator-bundle:main-d as version-pre eg 1.0.3-pre
+- Tag the operator:main as v1.0.3
+
+Push a change that moves the version in main to the next alpha channel eg 1.0.4-a
+
+When that has merged into main and completed the build:
+- Tag the operator-bundle:(version)-pre as (version) eg add 1.0.3 tag to the 1.0.3-pre tag
+
+This results in:
+- operator-bundle:main which points to operator-bundle:main with a version of 1.0.4-a (can be used in development environments)
+- operator-bundle:main-d which points to the digest of operator-bundle:main with a version of 1.0.4a
+- operator-bundle:1.0.3 which points to the digest of operator:v1.0.3 with a version of 1.0.3 (can be used in production environments)
 
 ## Quick Start
 
