@@ -229,7 +229,7 @@ spec:
 			       done
  
 			       if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
-				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${DISTRO} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
+				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
 			       fi
    
 			   '''
@@ -280,7 +280,7 @@ spec:
                 }
             } 
  	    steps {
-               container('amlen-centos7-build') {
+               container("amlen-${distro}-build") {
                    sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 	               sh '''
 		           set -e
@@ -308,10 +308,11 @@ spec:
                       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 			   sh '''
 			       set -e
+			       distro='''+distro+'''
 			       pwd 
 			       cd operator
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-			       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/
+			       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
 			      '''
 		       }
                 }
@@ -327,10 +328,11 @@ spec:
                       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
 			   sh '''
 			       set -e
+			       distro='''+distro+'''
 			       pwd 
 			       cd operator
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/centos7/operator_bundle_digest.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
+			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator_bundle_digest.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
                                echo $c
                                uid=$(echo ${c} | grep -oP '(?<=\"id\": \")[^\"]*\')
                                sleep 240
