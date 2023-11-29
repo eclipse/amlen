@@ -3,7 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def buildImage = "1.0.0.7"
+def buildImage = "latest"
 
 pipeline {
   agent none
