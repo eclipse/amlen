@@ -83,3 +83,4 @@ of the dependencies and setting of the environment variables. There can be found
 Releasing of Amlen itself is done via the eclipse release process
 
 Releasing the operator (and bundle) is handeled seperately see [operator/README.md](operator/README.md)
+
