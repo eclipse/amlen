@@ -279,42 +279,46 @@ spec:
 """
                 }
             } 
- 	    steps {
-               container("amlen-${distro}-build") {
-                   sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-	               sh '''
-		           set -e
-		           pwd 
-		           cd operator
-                           NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-	 	           IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                           echo $NOORIGIN_BRANCH
-                           SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
+            stages{
+                stage("init") {
+                    steps {
+                       container("amlen-${distro}-build") {
+                           sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                               sh '''
+                                   set -e
+                                   pwd 
+                                   cd operator
+                                   NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                                   IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
+                                   echo $NOORIGIN_BRANCH
+                                   SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
                            echo $SHA
 		           export IMG=quay.io/amlen/operator@$SHA
 		           make bundle
 		           mv bundle.Dockerfile Dockerfile
    
  		           tar -czf operator_bundle_digest.tar.gz Dockerfile bundle
- 		     '''
-	          }
-              }
-           } 
-        }
-        stage("UploadBundle") {
-            agent any
-	    steps {
-		container("jnlp") {
-                      sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-			   sh '''
-			       set -e
-			       distro='''+distro+'''
-			       pwd 
-			       cd operator
-                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-			       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-			      '''
-		       }
+                             '''
+                          }
+                      }
+                   } 
+                }
+                stage("UploadBundle") {
+                    agent any
+                    steps {
+                        container("jnlp") {
+                              sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                                   sh '''
+                                       set -e
+                                       distro='''+distro+'''
+                                       pwd 
+                                       cd operator
+                                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                                       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                                      '''
+                               }
+                        }
+                    }
                 }
             }
         }
