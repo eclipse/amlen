@@ -304,7 +304,6 @@ spec:
                    } 
                 }
                 stage("UploadBundle") {
-                    agent any
                     steps {
                         container("jnlp") {
                               sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
