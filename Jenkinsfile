@@ -12,7 +12,7 @@ pipeline {
         stage("Pre") {
             when {
               not {
-                branch 'ib.branches'
+                branch 'main'
               }
             }
             agent any 
