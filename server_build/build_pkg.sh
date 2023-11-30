@@ -639,6 +639,18 @@ function rpmbuild_server {
     mkdir -p $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    if [ "${LINUXDISTRO_FULL}" == "centos7"  ] ; then
+        sed -i 's+IMA_SVR_DISTRO+quay.io/centos/centos:7+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    elif [ "${LINUXDISTRO_FULL}" == "almalinux8"  ] ; then
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:8+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    elif [ "${LINUXDISTRO_FULL}" == "almalinux9"  ] ; then
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:9+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    elif [ "${LINUXDISTRO_FULL}" == "fedora"  ] ; then
+        sed -i 's+IMA_SVR_DISTRO+quay.io/fedora/fedora:35-x86_64+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    else
+        # default to almalinux 8
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:8+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    fi
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaserver-docker.env $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership -r ${BUILD_ROOT}/operator/build/* $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imahasher $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
