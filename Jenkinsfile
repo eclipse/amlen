@@ -10,6 +10,11 @@ pipeline {
 
   stages {
         stage("Pre") {
+            when {
+              not {
+                branch 'main'
+              }
+            }
             agent any 
             steps {
                 script {
