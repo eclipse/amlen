@@ -268,7 +268,7 @@ function bld_imabridge_rpm {
     # create Bridge tar file
     mkdir -p $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imamqttbridge $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/${LINUXDISTRO_FULL}/Dockerfile.localRPM.imamqttbridge $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imabridge-docker.env $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     dos2unix $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imabridge-docker.env
