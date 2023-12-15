@@ -846,6 +846,8 @@ function bld_imaproxy_rpm {
     mkdir -p "${PROXY_BASE_DIR}/${IMA_PROXY_DATA_PATH}/diag/logs"
     mkdir -p "${PROXY_BASE_DIR}/${IMA_PROXY_DATA_PATH}/config"
 
+    python3 ${SOURCE_ROOT}/server_build/path_parser.py -mdirreplace -i ${BUILD_ROOT}/server_build/docker_build -o ${BUILD_ROOT}/server_build/docker_build
+
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imaproxy ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/bin/.
 
     cp --no-preserve=ownership ${BUILD_ROOT}/server_proxy/scripts/*.sh ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/bin/.

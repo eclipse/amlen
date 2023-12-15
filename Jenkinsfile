@@ -119,6 +119,7 @@ spec:
                                    sh '''
                                        set -e
                                        pwd 
+                                       distro='''+distro+'''
                                        free -m 
                                        cd server_build 
                                        if [[ "$BRANCH_NAME" == "main" ]] ; then
@@ -140,22 +141,22 @@ spec:
                                        tar -c server_ship -f server_ship.tar.gz
                                        pwd
                                        ls rpms
-                                       if [ ! -e rpms/EclipseAmlenBridge*.tar.gz[0] ]
+                                       if [ ! -e rpms/EclipseAmlenBridge-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
                                        then 
                                          echo "Bridge Not built"
                                          exit 1
                                        fi
-                                       if [ ! -e rpms/EclipseAmlenServer*.tar.gz[0] ]
+                                       if [ ! -e rpms/EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
                                        then 
                                          echo "Server Not built"
                                          exit 1
                                        fi
-                                       if [ ! -e rpms/EclipseAmlenWebUI*.tar.gz[0] ]
+                                       if [ ! -e rpms/EclipseAmlenWebUI-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
                                        then 
                                          echo "WebUI not built"
                                          exit 1
                                        fi
-                                       if [ $BRANCH_NAME == "main" -a ! -e rpms/EclipseAmlenProxy*.tar.gz[0] ]
+                                       if [ $BRANCH_NAME == "main" -a ! -e rpms/EclipseAmlenProxy-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
                                        then 
                                          echo "Main build but Proxy Not built"
                                          exit 1
