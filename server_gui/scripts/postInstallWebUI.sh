@@ -509,7 +509,13 @@ function update_liberty_ldap_password() {
     echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/properties.xml." >> ${INSTALL_LOG}
     
     lval=$(${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes $(cat ${LDAPDIR}/.key))
-    sed -i 's#bindPassword=.*#bindPassword="'"${lval}"'"#' "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml
+
+    echo "Before updating ldap.xml" >> ${INSTALL_LOG}
+    md5sum "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml" >> ${INSTALL_LOG}
+    sed -i 's#bindPassword=.*#bindPassword="'"${lval}"'"#' "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml 2>&1 >> ${INSTALL_LOG}
+
+    echo "After updating ldap.xml" >> ${INSTALL_LOG}
+    md5sum "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml" >> ${INSTALL_LOG}
 
     echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/ldap.xml." >> ${INSTALL_LOG}
 }
@@ -586,9 +592,10 @@ if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     fi
     update_liberty_ldap_password
 
-    if ${WEBUIBINDIR}/createAcct.sh "${LDAPDIR}/.key" >> "${LOGDIR}/createAcct.log" 2>&1 ; then
+    ${WEBUIBINDIR}/createAcct.sh "${LDAPDIR}/.key" 2>&1 >> "${LOGDIR}/createAcct.log"
+
+    if [ "$?" -eq "0" ]; then
         touch "${LDAPDIR}"/.accountsCreated
-        echo "There was an issue creating accounts for imawebui. See the ${LOGDIR}/createAcct.log" >> ${INSTALL_LOG}
 
         if [ -f "${LDAPDIR}"/.configuredOpenLDAP ]; then
             slapdpid=$(check_openldap_server)
