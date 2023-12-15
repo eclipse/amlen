@@ -124,6 +124,8 @@ spec:
                                        if [[ "$BRANCH_NAME" == "main" ]] ; then
                                            export BUILD_TYPE=fvtbuild
                                        fi
+                                       # DELETE ME!
+                                       export BUILD_TYPE=fvtbuild
                                        bash buildcontainer/build.sh
                                        cd ../operator
                                        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
@@ -136,6 +138,28 @@ spec:
                                        cd ../../
                                        tar -c client_ship -f client_ship.tar.gz
                                        tar -c server_ship -f server_ship.tar.gz
+                                       pwd
+                                       ls rpms
+                                       if [ ! -e rpms/EclipseAmlenBridge*.tar.gz[0] ]
+                                       then 
+                                         echo "Bridge Not built"
+                                         exit 1
+                                       fi
+                                       if [ ! -e rpms/EclipseAmlenServer*.tar.gz[0] ]
+                                       then 
+                                         echo "Server Not built"
+                                         exit 1
+                                       fi
+                                       if [ ! -e rpms/EclipseAmlenWebUI*.tar.gz[0] ]
+                                       then 
+                                         echo "WebUI not built"
+                                         exit 1
+                                       fi
+                                       if [ $BRANCH_NAME == "main" -a ! -e rpms/EclipseAmlenProxy*.tar.gz[0] ]
+                                       then 
+                                         echo "Main build but Proxy Not built"
+                                         exit 1
+                                       fi
                                       '''
                                }
                                catch (Exception e) {
