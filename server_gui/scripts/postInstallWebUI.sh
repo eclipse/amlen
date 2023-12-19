@@ -516,13 +516,31 @@ function update_liberty_ldap_password() {
         exit 1
     fi
 
-    lval=$(${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD})
+    genpasswd=true
+    numtries=0
 
-    if [ -z "$lval" ]; then
-        echo "Updating liberty: don't have encoded password." >> ${INSTALL_LOG}
-        echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG}
-        exit 1
-    fi
+    #We sometimes seem to fail to generate the encoded password - so we just retry
+    while $genpasswd; do
+        lval=$(${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD})
+
+        if [ ! -z "$lval" ]; then
+            #Successfully encoded the password
+            echo "Updating liberty: successfully encoded password" >> ${INSTALL_LOG}
+            genpasswd=false
+            sleep 1
+        else
+            #Encoding password weirdly failed
+            if [ "$numtries" -lt 10 ]; then
+                numtries=$((numtries + 1))
+                echo "Updating liberty: failed encoding of password - will retry" >> ${INSTALL_LOG}
+            else
+                echo "Updating liberty: don't have encoded password - after many retries" >> ${INSTALL_LOG}
+                echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG}
+                exit 1
+            fi
+        fi
+    done
+
 
     sed -i 's#bindPassword=.*#bindPassword="'"${lval}"'"#' "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml 2>&1 >> ${INSTALL_LOG}
     echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/ldap.xml." >> ${INSTALL_LOG}
