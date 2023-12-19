@@ -505,17 +505,23 @@ function generate_openldap_password() {
 }
 
 function update_liberty_ldap_password() {
+
     sed -i 's#keystore_imakey" value=.*#keystore_imakey" value="'"${PWDBASE64}"'" />#' "${WLPDIR}"/usr/servers/ISMWebUI/properties.xml
     echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/properties.xml." >> ${INSTALL_LOG}
     
     lval=$(${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes $(cat ${LDAPDIR}/.key))
 
+    if [ -z "$lval" ]; then
+        echo "Updating liberty: don't have encoded password." >> ${INSTALL_LOG}
+        exit 1
+    fi
+
     echo "Before updating ldap.xml" >> ${INSTALL_LOG}
-    md5sum "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml" >> ${INSTALL_LOG}
+    md5sum "${WLPDIR}/usr/servers/ISMWebUI/ldap.xml" >> ${INSTALL_LOG}
     sed -i 's#bindPassword=.*#bindPassword="'"${lval}"'"#' "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml 2>&1 >> ${INSTALL_LOG}
 
     echo "After updating ldap.xml" >> ${INSTALL_LOG}
-    md5sum "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml" >> ${INSTALL_LOG}
+    md5sum "${WLPDIR}/usr/servers/ISMWebUI/ldap.xml" >> ${INSTALL_LOG}
 
     echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/ldap.xml." >> ${INSTALL_LOG}
 }
