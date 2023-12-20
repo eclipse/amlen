@@ -24,8 +24,9 @@ AutoReqProv: no
 Group: Applications/Communications
 Source: %{name}.tar.gz
 BuildRoot: %{_topdir}/tmp/%{name}-%{Version}.${Release}
-#NB: If the java version is changed from 1.8.0 below, the postInstallWebUI (which in edge cases guesses a java path) needs to be updated
-Requires: net-tools, openldap, openldap-servers, openldap-clients, tar, openssl, procps, java-1.8.0-openjdk-headless, which
+Requires: net-tools, openldap, openldap-servers, openldap-clients, tar, openssl, procps, which
+#NB: If the java version is changed from 1.8.0 below, the postInstallWebUI.sh (which in edge cases guesses a java path) needs to be updated
+Requires(post): java-1.8.0-openjdk-headless
 Obsoletes: IBMIoTMessageSightWebUI
 
 %description
