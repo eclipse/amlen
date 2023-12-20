@@ -224,6 +224,21 @@ function prep_imabridge {
     chmod 755 $BRIDGE_BASE_DIR/${IMA_BRIDGE_INSTALL_PATH}/lib64/*
 }
 
+function set_docker_from {
+    DIR=$1
+    if [ "${LINUXDISTRO_FULL}" == "centos7"  ] ; then
+        sed -i 's+IMA_SVR_DISTRO+quay.io/centos/centos:7+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    elif [ "${LINUXDISTRO_FULL}" == "almalinux8"  ] ; then
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:8+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    elif [ "${LINUXDISTRO_FULL}" == "almalinux9"  ] ; then
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:9+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    elif [ "${LINUXDISTRO_FULL}" == "fedora"  ] ; then
+        sed -i 's+IMA_SVR_DISTRO+quay.io/fedora/fedora:35-x86_64+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    else
+        # default to almalinux 8
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:8+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    fi
+}
 
 function bld_imabridge_rpm {
     echo "Building MessageGateway Bridge RPM package"
@@ -269,6 +284,7 @@ function bld_imabridge_rpm {
     mkdir -p $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imamqttbridge $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    set_docker_from $BRIDGE_RPMBUILD_DIR
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imabridge-docker.env $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     dos2unix $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imabridge-docker.env
@@ -639,18 +655,7 @@ function rpmbuild_server {
     mkdir -p $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
-    if [ "${LINUXDISTRO_FULL}" == "centos7"  ] ; then
-        sed -i 's+IMA_SVR_DISTRO+quay.io/centos/centos:7+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
-    elif [ "${LINUXDISTRO_FULL}" == "almalinux8"  ] ; then
-        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:8+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
-    elif [ "${LINUXDISTRO_FULL}" == "almalinux9"  ] ; then
-        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:9+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
-    elif [ "${LINUXDISTRO_FULL}" == "fedora"  ] ; then
-        sed -i 's+IMA_SVR_DISTRO+quay.io/fedora/fedora:35-x86_64+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
-    else
-        # default to almalinux 8
-        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:8+' $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
-    fi
+    set_docker_from $IMASERVER_RPMBUILD_DIR
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaserver-docker.env $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership -r ${BUILD_ROOT}/operator/build/* $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imahasher $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
@@ -774,6 +779,7 @@ function bld_imagui_rpm {
     mkdir -p $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMAGUI_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imawebui $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    set_docker_from $IMAGUI_RPMBUILD_DIR
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imawebui-docker.env $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     dos2unix $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imawebui-docker.env
@@ -930,6 +936,7 @@ function bld_imaproxy_rpm {
     mkdir -p $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${PROXY_NAME}*.rpm $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaproxy $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    set_docker_from $PROXY_RPMBUILD_DIR
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaproxy-docker.env $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     dos2unix $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imaproxy-docker.env
