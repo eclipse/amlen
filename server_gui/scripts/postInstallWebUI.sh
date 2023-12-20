@@ -533,6 +533,14 @@ function update_liberty_ldap_password() {
             if [ "$numtries" -lt 10 ]; then
                 numtries=$((numtries + 1))
                 echo "Updating liberty: failed encoding of password - will retry" >> ${INSTALL_LOG}
+                echo "Current java status diagnostics"  >> ${INSTALL_LOG}
+                which java >> ${INSTALL_LOG}
+                ls -l /usr/bin/java >> ${INSTALL_LOG}
+                ls -l /etc/alternatives/java >> ${INSTALL_LOG}
+                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre/bin >> ${INSTALL_LOG}
+                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre >> ${INSTALL_LOG}
+                echo $PATH  >> ${INSTALL_LOG}
+                ${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD} 2>&1 >> ${INSTALL_LOG}
             else
                 echo "Updating liberty: don't have encoded password - after many retries" >> ${INSTALL_LOG}
                 echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG}
