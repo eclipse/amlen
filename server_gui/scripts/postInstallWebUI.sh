@@ -531,7 +531,7 @@ function update_liberty_ldap_password() {
             genpasswd=false
         else
             #Encoding password weirdly failed
-            if [ "$numtries" -lt 4 ]; then
+            if [ "$numtries" -lt 3 ]; then
                 numtries=$((numtries + 1))
                 echo "Updating liberty: failed encoding of password - will retry" >> ${INSTALL_LOG}
                 echo "Current java status diagnostics"  >> ${INSTALL_LOG}
@@ -547,16 +547,37 @@ function update_liberty_ldap_password() {
                 if [ ! -x "$(command -v java)" ]; then
                     if [ -z "${JAVA_HOME}" ]; then
                         #We currently prereq java 1.8 so this should exist - if the rpm spec changes, update our guess below
+                        
+                        unset -v latestjava
+                        unset -v chosenjava
                         if [ -e "/usr/lib/jvm/jre-1.8.0" ]; then
-                            export JAVA_HOME=/usr/lib/jvm/jre-1.8.0
-                            echo "java not setup. Guessing java home to be ${JAVA_HOME}" >> ${INSTALL_LOG}
-                            export PATH=${PATH}:${JAVA_HOME}/bin
+                            latestjava=/usr/lib/jvm/jre-1.8.0
+                        else
+                            for f in /usr/lib/jvm/jre-1.8.0-*
+                            do 
+                                [[ $f -nt $latestjava ]] && latestjava=$f
+                            done
+                            if [ -e "$latestjava" ]; then
+                                chosenjava=$latestjava
+                            fi
+
+                            if [ -e "$chosenjava" ]; then
+                                export JAVA_HOME=$chosenjava
+                                echo "java not setup. Guessing java home to be ${JAVA_HOME}" >> ${INSTALL_LOG}
+                                export PATH=${PATH}:${JAVA_HOME}/bin
+                            else
+                                echo "java not setup. Couldn't guess likely location" >> ${INSTALL_LOG}
+                                exit 1
+                            fi
                         fi
+                    else
+                        echo "java not setup. But java home set to be ${JAVA_HOME}" >> ${INSTALL_LOG}
                     fi
+                else
+                    echo "Found java at $(command -v java)" >> ${INSTALL_LOG}
                 fi
-                sleep 1
             else
-                echo "Updating liberty: don't have encoded password - after many retries" >> ${INSTALL_LOG}
+                echo "Updating liberty: don't have encoded password - after multiple retries" >> ${INSTALL_LOG}
                 echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG}
                 exit 1
             fi
