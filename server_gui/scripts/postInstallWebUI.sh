@@ -541,6 +541,8 @@ function update_liberty_ldap_password() {
                 ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre >> ${INSTALL_LOG}
                 echo $PATH  >> ${INSTALL_LOG}
                 ${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD} 2>&1 >> ${INSTALL_LOG}
+                #clear path cache:
+                hash -r >> ${INSTALL_LOG}
             else
                 echo "Updating liberty: don't have encoded password - after many retries" >> ${INSTALL_LOG}
                 echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG}
