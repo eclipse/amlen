@@ -519,7 +519,9 @@ function update_liberty_ldap_password() {
     genpasswd=true
     numtries=0
 
-    #We sometimes seem to fail to generate the encoded password - so we just retry
+    #We sometimes seem to fail to generate the encoded password - if java is installed in the same transaction,
+    #sometimes the /usr/bin/java & /etc/alternatives/java symlinks are not setup before post install script of webui rpm on RHEL8 era
+    #linuxes - we retry - guessing a java path
     while $genpasswd; do
         lval=$(${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD})
 
@@ -527,22 +529,32 @@ function update_liberty_ldap_password() {
             #Successfully encoded the password
             echo "Updating liberty: successfully encoded password" >> ${INSTALL_LOG}
             genpasswd=false
-            sleep 1
         else
             #Encoding password weirdly failed
-            if [ "$numtries" -lt 10 ]; then
+            if [ "$numtries" -lt 4 ]; then
                 numtries=$((numtries + 1))
                 echo "Updating liberty: failed encoding of password - will retry" >> ${INSTALL_LOG}
                 echo "Current java status diagnostics"  >> ${INSTALL_LOG}
-                which java >> ${INSTALL_LOG}
-                ls -l /usr/bin/java >> ${INSTALL_LOG}
-                ls -l /etc/alternatives/java >> ${INSTALL_LOG}
-                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre/bin >> ${INSTALL_LOG}
-                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre >> ${INSTALL_LOG}
-                echo $PATH  >> ${INSTALL_LOG}
+                which java 2>&1 >> ${INSTALL_LOG}
+                ls -l /usr/bin/java 2>&1 >> ${INSTALL_LOG}
+                ls -l /etc/alternatives/java 2>&1 >> ${INSTALL_LOG}
+                ls -l /usr/lib/jvm  2>&1 >> ${INSTALL_LOG}
+                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre/bin 2>&1 >> ${INSTALL_LOG}
+                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre 2>&1 >> ${INSTALL_LOG}
+                echo $PATH 2>&1  >> ${INSTALL_LOG}
                 ${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD} 2>&1 >> ${INSTALL_LOG}
-                #clear path cache:
-                hash -r >> ${INSTALL_LOG}
+
+                if [ ! -x "$(command -v java)" ]; then
+                    if [ -z "${JAVA_HOME}" ]; then
+                        #We currently prereq java 1.8 so this should exist - if the rpm spec changes, update our guess below
+                        if [ -e "/usr/lib/jvm/jre-1.8.0" ]; then
+                            export JAVA_HOME=/usr/lib/jvm/jre-1.8.0
+                            echo "java not setup. Guessing java home to be ${JAVA_HOME}" >> ${INSTALL_LOG}
+                            export PATH=${PATH}:${JAVA_HOME}/bin
+                        fi
+                    fi
+                fi
+                sleep 1
             else
                 echo "Updating liberty: don't have encoded password - after many retries" >> ${INSTALL_LOG}
                 echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG}
