@@ -535,18 +535,18 @@ function update_liberty_ldap_password() {
                 numtries=$((numtries + 1))
                 echo "Updating liberty: failed encoding of password - will retry" >> ${INSTALL_LOG}
                 echo "Current java status diagnostics"  >> ${INSTALL_LOG}
-                which java 2>&1 >> ${INSTALL_LOG}
-                ls -l /usr/bin/java 2>&1 >> ${INSTALL_LOG}
-                ls -l /etc/alternatives/java 2>&1 >> ${INSTALL_LOG}
-                ls -l /usr/lib/jvm  2>&1 >> ${INSTALL_LOG}
-                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre/bin 2>&1 >> ${INSTALL_LOG}
-                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre 2>&1 >> ${INSTALL_LOG}
-                echo $PATH 2>&1  >> ${INSTALL_LOG}
-                ${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD} 2>&1 >> ${INSTALL_LOG}
+                which java >> ${INSTALL_LOG} 2>&1 
+                ls -l /usr/bin/java >> ${INSTALL_LOG} 2>&1
+                ls -l /etc/alternatives/java >> ${INSTALL_LOG} 2>&1
+                ls -l /usr/lib/jvm >> ${INSTALL_LOG} 2>&1 
+                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre/bin >> ${INSTALL_LOG} 2>&1 
+                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre >> ${INSTALL_LOG} 2>&1 
+                echo $PATH >> ${INSTALL_LOG} 2>&1 
+                ${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD} >> ${INSTALL_LOG} 2>&1 
 
                 if [ ! -x "$(command -v java)" ]; then
                     if [ -z "${JAVA_HOME}" ]; then
-                        #We currently prereq java 1.8 so this should exist - if the rpm spec changes, update our guess below
+                        #We currently prereq java 1.8 so this should exist - if the rpm spec changes, update our guess (3 occurences) below
                         
                         unset -v latestjava
                         unset -v chosenjava
@@ -578,7 +578,7 @@ function update_liberty_ldap_password() {
                 fi
             else
                 echo "Updating liberty: don't have encoded password - after multiple retries" >> ${INSTALL_LOG}
-                echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG}
+                echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG} 2>&1
                 exit 1
             fi
         fi
@@ -661,7 +661,7 @@ if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     fi
     update_liberty_ldap_password
 
-    ${WEBUIBINDIR}/createAcct.sh "${LDAPDIR}/.key" 2>&1 >> "${LOGDIR}/createAcct.log"
+    ${WEBUIBINDIR}/createAcct.sh "${LDAPDIR}/.key" >> "${LOGDIR}/createAcct.log" 2>&1
 
     if [ "$?" -eq "0" ]; then
         touch "${LDAPDIR}"/.accountsCreated
