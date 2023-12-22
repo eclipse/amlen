@@ -1010,6 +1010,7 @@ case $BUILD_MODE in
     default_rpms)         bld_default_rpms;;
     serverplus_rpm)       bld_serverplus_rpm;;
     server_rpm)           bld_imaserverplain_rpm;;
+    webui_rpm)            bld_imagui_rpm;;
     prep_server)          prep_server;;
     prep_mqcbridge)       prep_mqcbridge;;
     prep_protocolplugin)  prep_protocolplugin;;

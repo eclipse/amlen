@@ -505,12 +505,87 @@ function generate_openldap_password() {
 }
 
 function update_liberty_ldap_password() {
+
     sed -i 's#keystore_imakey" value=.*#keystore_imakey" value="'"${PWDBASE64}"'" />#' "${WLPDIR}"/usr/servers/ISMWebUI/properties.xml
     echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/properties.xml." >> ${INSTALL_LOG}
-    
-    lval=$(${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes $(cat ${LDAPDIR}/.key))
-    sed -i 's#bindPassword=.*#bindPassword="'"${lval}"'"#' "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml
 
+    PASSWD=$(cat ${LDAPDIR}/.key)
+
+    if [ -z "$PASSWD" ]; then
+        echo "Updating liberty: don't have key file" >> ${INSTALL_LOG}
+        exit 1
+    fi
+
+    genpasswd=true
+    numtries=0
+
+    #We sometimes seem to fail to generate the encoded password - if java is installed in the same transaction,
+    #sometimes the /usr/bin/java & /etc/alternatives/java symlinks are not setup before post install script of webui rpm on RHEL8 era
+    #linuxes - we retry - guessing a java path
+    while $genpasswd; do
+        lval=$(${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD})
+
+        if [ ! -z "$lval" ]; then
+            #Successfully encoded the password
+            echo "Updating liberty: successfully encoded password" >> ${INSTALL_LOG}
+            genpasswd=false
+        else
+            #Encoding password weirdly failed
+            if [ "$numtries" -lt 3 ]; then
+                numtries=$((numtries + 1))
+                echo "Updating liberty: failed encoding of password - will retry" >> ${INSTALL_LOG}
+                echo "Current java status diagnostics"  >> ${INSTALL_LOG}
+                which java >> ${INSTALL_LOG} 2>&1 
+                ls -l /usr/bin/java >> ${INSTALL_LOG} 2>&1
+                ls -l /etc/alternatives/java >> ${INSTALL_LOG} 2>&1
+                ls -l /usr/lib/jvm >> ${INSTALL_LOG} 2>&1 
+                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre/bin >> ${INSTALL_LOG} 2>&1 
+                ls -l /usr/lib/jvm/java-1.8.0-openjd*/jre >> ${INSTALL_LOG} 2>&1 
+                echo $PATH >> ${INSTALL_LOG} 2>&1 
+                ${WLPINSTALLDIR}/bin/securityUtility encode --encoding=aes ${PASSWD} >> ${INSTALL_LOG} 2>&1 
+
+                if [ ! -x "$(command -v java)" ]; then
+                    if [ -z "${JAVA_HOME}" ]; then
+                        #We currently prereq java 1.8 so this should exist - if the rpm spec changes, update our guess (3 occurences) below
+                        
+                        unset -v latestjava
+                        unset -v chosenjava
+                        if [ -e "/usr/lib/jvm/jre-1.8.0" ]; then
+                            latestjava=/usr/lib/jvm/jre-1.8.0
+                        else
+                            for f in /usr/lib/jvm/jre-1.8.0-*
+                            do 
+                                [[ $f -nt $latestjava ]] && latestjava=$f
+                            done
+                            if [ -e "$latestjava" ]; then
+                                chosenjava=$latestjava
+                            fi
+
+                            if [ -e "$chosenjava" ]; then
+                                export JAVA_HOME=$chosenjava
+                                echo "java not setup. Guessing java home to be ${JAVA_HOME}" >> ${INSTALL_LOG}
+                                export PATH=${PATH}:${JAVA_HOME}/bin
+                            else
+                                echo "java not setup. Couldn't guess likely location" >> ${INSTALL_LOG}
+                                exit 1
+                            fi
+                        fi
+                    else
+                        echo "java not setup. But java home set to be ${JAVA_HOME}" >> ${INSTALL_LOG}
+                    fi
+                else
+                    echo "Found java at $(command -v java)" >> ${INSTALL_LOG}
+                fi
+            else
+                echo "Updating liberty: don't have encoded password - after multiple retries" >> ${INSTALL_LOG}
+                echo "$(ls -l ${WLPINSTALLDIR}/bin/securityUtility)" >> ${INSTALL_LOG} 2>&1
+                exit 1
+            fi
+        fi
+    done
+
+
+    sed -i 's#bindPassword=.*#bindPassword="'"${lval}"'"#' "${WLPDIR}"/usr/servers/ISMWebUI/ldap.xml 2>&1 >> ${INSTALL_LOG}
     echo "Updated LDAP password in ${WLPDIR}/usr/servers/ISMWebUI/ldap.xml." >> ${INSTALL_LOG}
 }
 
@@ -586,9 +661,10 @@ if [ ! -f "${LDAPDIR}"/.accountsCreated ]; then
     fi
     update_liberty_ldap_password
 
-    if ${WEBUIBINDIR}/createAcct.sh "${LDAPDIR}/.key" >> "${LOGDIR}/createAcct.log" 2>&1 ; then
+    ${WEBUIBINDIR}/createAcct.sh "${LDAPDIR}/.key" >> "${LOGDIR}/createAcct.log" 2>&1
+
+    if [ "$?" -eq "0" ]; then
         touch "${LDAPDIR}"/.accountsCreated
-        echo "There was an issue creating accounts for imawebui. See the ${LOGDIR}/createAcct.log" >> ${INSTALL_LOG}
 
         if [ -f "${LDAPDIR}"/.configuredOpenLDAP ]; then
             slapdpid=$(check_openldap_server)
