@@ -388,9 +388,16 @@ function prep_server {
         fi
 
         # Curl
-        if [ ! -z $CURL_HOME -a -e $CURL_HOME/lib ] ; then
+        if [ ! -z $CURL_HOME -a -e $CURL_HOME/lib -a -e $CURL_HOME/lib/libcurl.so.4 ] ; then
           cp --no-preserve=ownership $CURL_HOME/lib/libcurl.so.4 $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/lib64/.
           cp --no-preserve=ownership $CURL_HOME/lib/libcurl.so.4 $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/debug/lib/.
+        elif [ ! -z $CURL_HOME -a -e $CURL_HOME/lib -a -e $CURL_HOME/lib64/libcurl.so.4 ] ; then
+          cp --no-preserve=ownership $CURL_HOME/lib64/libcurl.so.4 $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/lib64/.
+          cp --no-preserve=ownership $CURL_HOME/lib64/libcurl.so.4 $IMASERVER_BASE_DIR/${IMA_SVR_INSTALL_PATH}/debug/lib/.
+        elif [ ! -z $CURL_HOME -a -e $CURL_HOME/lib ] ; then
+            # oh dead
+            echo "Cant find libcurl either $CURL_HOME/lib/libcurl.so.4 or $CURL_HOME/lib64/libcurl.so.4"
+            exit 12
         fi
 
         # NetSNMP
@@ -839,6 +846,8 @@ function bld_imaproxy_rpm {
     mkdir -p "${PROXY_BASE_DIR}/${IMA_PROXY_DATA_PATH}/diag/logs"
     mkdir -p "${PROXY_BASE_DIR}/${IMA_PROXY_DATA_PATH}/config"
 
+    python3 ${SOURCE_ROOT}/server_build/path_parser.py -mdirreplace -i ${BUILD_ROOT}/server_build/docker_build -o ${BUILD_ROOT}/server_build/docker_build
+
     cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imaproxy ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/bin/.
 
     cp --no-preserve=ownership ${BUILD_ROOT}/server_proxy/scripts/*.sh ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/bin/.
@@ -855,19 +864,31 @@ function bld_imaproxy_rpm {
             cp --no-preserve=ownership $SSL_HOME/lib/libcrypto.so.1.1 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
         fi
 
-        if [ ! -z $CURL_HOME -a -e $CURL_HOME/lib ] ; then
+        if [ ! -z $CURL_HOME -a -e $CURL_HOME/lib -a -e $CURL_HOME/lib/libcurl.so.4 ] ; then
             cp --no-preserve=ownership $CURL_HOME/lib/libcurl.so.4 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
+        elif [ ! -z $CURL_HOME -a -e $CURL_HOME/lib -a -e $CURL_HOME/lib64/libcurl.so.4 ] ; then
+            cp --no-preserve=ownership $CURL_HOME/lib64/libcurl.so.4 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
+        elif [ ! -z $CURL_HOME -a -e $CURL_HOME/lib ] ; then
+            # oh dead
+            echo "Cant find libcurl either $CURL_HOME/lib/libcurl.so.4 or $CURL_HOME/lib64/libcurl.so.4"
+            exit 11
         fi
     fi
 
-    if [ "$SHIP_MONGO" != "no" ] ; then
+    if [ "$SHIP_MONGO" == "yes" ] ; then
         if [ -n "$MONGOC_HOME" -a -e $MONGOC_HOME/lib64 ] ; then
           cp --no-preserve=ownership $MONGOC_HOME/lib64/libbson-1.0.so.0 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
           cp --no-preserve=ownership $MONGOC_HOME/lib64/libmongoc-1.0.so.0 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
         fi
 
-        if [ ! -z $MONGOC_HOME -a -e $MONGOC_HOME/lib ] ; then
+        if [ ! -z $MONGOC_HOME -a -e $MONGOC_HOME/lib -a -e $MONGOC_HOME/lib/libcurl.so.4 ] ; then
             cp --no-preserve=ownership $MONGOC_HOME/lib/libcurl.so.4 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
+        elif [ ! -z $MONGOC_HOME -a -e $MONGOC_HOME/lib -a -e $MONGOC_HOME/lib64/libcurl.so.4 ] ; then
+            cp --no-preserve=ownership $MONGOC_HOME/lib64/libcurl.so.4 ${PROXY_BASE_DIR}/${IMA_PROXY_INSTALL_PATH}/lib64/.
+        elif [ ! -z $MONGOC_HOME -a -e $MONGOC_HOME/lib ] ; then
+            # oh dead
+            echo "Cant find libcurl either $MONGOC_HOME/lib/libcurl.so.4 or $MONGOC_HOME/lib64/libcurl.so.4"
+            exit 11
         fi
     fi
 

@@ -56,7 +56,7 @@ test-LIBS = libimabridge$(SO) libismutil${SO}
 #server_utils code that references those paths even though they aren't used
 #here (and the bridge ones are used here)
 #(uses the path_parser.py/paths.properties mechanism)
-PATH_VAR_CFLAGS=$(IMA_SVR_AND_BRIDGE_PATH_DEFINES)
+PATH_VAR_CFLAGS=$(IMA_SVR_AND_BRIDGE_AND_PROXY_PATH_DEFINES)
 
 # ------------------------------------------------
 # Add project specific make rules

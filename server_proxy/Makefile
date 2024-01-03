@@ -33,7 +33,7 @@ IFLAGS += -I$(ROOTREL)/server_utils/src
 #server_utils code that references those paths even though they aren't used
 #here
 #(uses the path_parser.py/paths.properties mechanism)
-PATH_VAR_CFLAGS=$(IMA_SVR_PATH_DEFINES)
+PATH_VAR_CFLAGS=$(IMA_SVR_AND_BRIDGE_AND_PROXY_PATH_DEFINES)
 
 # Default the location of the mongo C driver
 ifeq ($(MONGOC_HOME),)

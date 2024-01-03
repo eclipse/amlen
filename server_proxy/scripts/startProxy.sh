@@ -62,7 +62,7 @@ do
     # Start service
     echo "Running proxy"
     cd ${PXY_DATA_DIR}
-    ${PXY_INSTALL_DIR}/bin/imaproxy -d >>${PXY_DATA_DIR}/diag/logs/console.log 2>&1 &
+    ${PXY_INSTALL_DIR}/bin/imaproxy -d ${PXY_INSTALL_DIR}/config/imaproxy.cfg >>${PXY_DATA_DIR}/diag/logs/console.log 2>&1 &
     proxy=$!
     trap _term SIGTERM
     wait "$proxy"

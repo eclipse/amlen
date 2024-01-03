@@ -119,6 +119,7 @@ spec:
                                    sh '''
                                        set -e
                                        pwd 
+                                       distro='''+distro+'''
                                        free -m 
                                        cd server_build 
                                        if [[ "$BRANCH_NAME" == "main" ]] ; then
@@ -136,6 +137,28 @@ spec:
                                        cd ../../
                                        tar -c client_ship -f client_ship.tar.gz
                                        tar -c server_ship -f server_ship.tar.gz
+                                       pwd
+                                       ls rpms
+                                       if [ ! -e rpms/EclipseAmlenBridge-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
+                                       then 
+                                         echo "Bridge Not built"
+                                         exit 1
+                                       fi
+                                       if [ ! -e rpms/EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
+                                       then 
+                                         echo "Server Not built"
+                                         exit 1
+                                       fi
+                                       if [ ! -e rpms/EclipseAmlenWebUI-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
+                                       then 
+                                         echo "WebUI not built"
+                                         exit 1
+                                       fi
+                                       if [ $BRANCH_NAME == "main" -a ! -e rpms/EclipseAmlenProxy-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
+                                       then 
+                                         echo "Main build but Proxy Not built"
+                                         exit 1
+                                       fi
                                       '''
                                }
                                catch (Exception e) {

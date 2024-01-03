@@ -33,7 +33,7 @@ endif
 
 #We need to know paths for server AND bridge
 #(uses the path_parser.py/paths.properties mechanism)
-PATH_VAR_CFLAGS=$(IMA_SVR_AND_BRIDGE_PATH_DEFINES)
+PATH_VAR_CFLAGS=$(IMA_SVR_AND_BRIDGE_AND_PROXY_PATH_DEFINES)
 
 include $(ROOTREL)/server_build/common.mk
 
