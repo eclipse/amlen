@@ -125,8 +125,6 @@ spec:
                                        if [[ "$BRANCH_NAME" == "main" ]] ; then
                                            export BUILD_TYPE=fvtbuild
                                        fi
-                                       # DELETE ME!
-                                       export BUILD_TYPE=fvtbuild
                                        bash buildcontainer/build.sh
                                        cd ../operator
                                        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
