@@ -4054,7 +4054,7 @@ const char * ism_common_newUUID(char * buf, int len, int type, ism_time_t time) 
         uuid[1] = (uint32_t)(utime>>16) & 0xffff0000;
         uuid[1] |= (((uint32_t)(utime>>48)) & 0x0fff);
         uuid[1] |= 0x00001000;    /* Set version */
-        uuid[2] = ((seq<<16)&0x3FFF0000) | (uint32_t)(node>>32);
+        uuid[2] = ((seq<<16)&0x3FFF0000) | (((uint32_t)(node>>32))&0x0000FFFF);
         uuid[2] |= 0x80000000;    /* Set variation */
         uuid[3] = (uint32_t)node;
     } else if (type == 4) {
