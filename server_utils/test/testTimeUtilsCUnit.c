@@ -253,6 +253,49 @@ void CUnit_ISM_ifmap(void) {
 
 void ism_common_initUUID();
 
+//
+// https://www.uuidtools.com/uuid-versions-explained Explains that a type 1 uuid is of the form
+//
+// LLLLLLLL-MMMM-VHHH-RSSS-NNNNNNNNNNNN
+// Where:
+// L = Low Time
+// M = Mid Time
+// /V = Version (1)
+// H = High Time
+// R = Variant (in range 8-b inclusive for variant DCE 1.1 as is starts 0b10......)
+// S = Sequence number
+// N = Node
+//
+// NB Each Letter is a nibble (hex digit) not a byte
+
+//We had a bug where we were or'ing in nibbles from the node into the nibbles for seq and variant
+//as we know what the nibble for the variant should be - we can check that nibble looks valid
+
+void CUnit_uuid_variant(void) {
+    ism_common_initUtil();
+    ism_common_initUUID();
+
+    char ubuf[40];
+    memset(ubuf, 0, sizeof(ubuf));
+    char last_ubuf[40];
+    memset(last_ubuf, 0, sizeof(last_ubuf));
+
+    CU_ASSERT(sizeof(ubuf) == sizeof(last_ubuf))
+
+    //Generate ten uuids - check the variant and check we don't generate two the same in sequence
+    for (uint32_t i=0; i<10; i++) {
+        ism_common_newUUID(ubuf, sizeof(ubuf), 17, 0);
+
+        //This generates a type 1 DCE1.1 variant so the variant nibble should be 8,9,a,b
+        CU_ASSERT(ubuf[19] >= '8' && ubuf[19] <= 'b');
+
+        //Check it's different to the last uuid (on first iterations checks non-zero)
+        CU_ASSERT(memcmp(ubuf, last_ubuf, sizeof(ubuf)) != 0 );
+
+        memcpy(last_ubuf, ubuf, sizeof(last_ubuf));
+    }
+}
+
 /*
  * TODO: clean up test and do more self checking
  * TODO: add test for error conditions
@@ -375,6 +418,7 @@ CU_TestInfo ISM_Util_CUnit_TimeUtils[] =  {
     { "timestampByLocale", timestampByLocale_test },
     { "interface map", CUnit_ISM_ifmap },
     { "uuid test", CUnit_uuid },
+    { "uuid_variant", CUnit_uuid_variant },
     { "test time zone", testTimeZone },
     CU_TEST_INFO_NULL
 };
