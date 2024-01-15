@@ -107,6 +107,7 @@ spec:
                             }
                             echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
                             echo "COMMIT: ${env.GIT_COMMIT}"
+                            set
                         }
                     }
                 }
