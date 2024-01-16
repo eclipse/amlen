@@ -46,7 +46,8 @@ pipeline {
                     ).trim()
                     if ( buildImage == buildImage2 ){
                         changedFiles = sh ( returnStdout: true, script: '''
-                            git diff-tree --no-commit-id --name-only -r $GIT_COMMIT
+                            git diff main
+#                            git diff-tree --no-commit-id --name-only -r $GIT_COMMIT
                         ''' )
                         echo "Files ${changedFiles}"
                         switch(distro) {
