@@ -41,8 +41,15 @@ pipeline {
                         fi
                     '''
                     ).trim()
+                    if ( $buildImage == $buildImage2 ){
+                        something = sh ( returnStdout: true, script: '''
+                            git diff origin/main
+                        ''' )
+                        echo $something
+                    }else {
+                        echo "updating build image: ${buildImage} -> ${buildImage2}."
+                    }
                     echo "updating linux distribution: ${distro} -> ${distro2}."
-                    echo "updating build image: ${buildImage} -> ${buildImage2}."
                     distro=distro2
                     buildImage=buildImage2
                     echo "selecting linux distribution: ${distro}."
