@@ -30,6 +30,8 @@ pipeline {
                         fi
                     '''
                     ).trim()
+                    echo "updating linux distribution: ${distro} -> ${distro2}."
+                    distro=distro2
                     buildImage2 = sh (returnStdout: true, script: ''' 
                         x=0
                         message=`git log -1 --skip=$x --pretty=%B`
@@ -42,17 +44,20 @@ pipeline {
                     '''
                     ).trim()
                     if ( buildImage == buildImage2 ){
-                        something = sh ( returnStdout: true, script: '''
+                        changedFiles = sh ( returnStdout: true, script: '''
                             git diff-tree --no-commit-id --name-only -r $GIT_COMMIT
-                            git remote
-                            git diff 
                         ''' )
-                        echo something
+                        switch(distro) {
+                          case "almalinux8": filename = "Dockerfile.alma8"
+                          case "almalinux9": filename = "Dockerfile.alma9"
+                          default: filename = "Dockerfile.${distro}"
+                        } 
+                        if changedFile.contains(filename) {
+                          echo "We are the champions!"
+                        }
                     }else {
                         echo "updating build image: ${buildImage} -> ${buildImage2}."
                     }
-                    echo "updating linux distribution: ${distro} -> ${distro2}."
-                    distro=distro2
                     buildImage=buildImage2
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
