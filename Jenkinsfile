@@ -43,6 +43,7 @@ pipeline {
                     ).trim()
                     if ( buildImage == buildImage2 ){
                         something = sh ( returnStdout: true, script: '''
+                            git diff-tree --no-commit-id --name-only -r ${env.GIT_COMMIT}
                             git remote
                             git diff origin/main
                         ''' )
