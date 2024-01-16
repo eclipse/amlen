@@ -62,7 +62,8 @@ pipeline {
                         echo "filename ${filename}"
                         if (changedFiles.contains(filename)) {
                           echo "Doing stuff"
-                          sh '''
+                          sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                            sh '''
                                distro='''+distro+'''
                                set -x
                                ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
@@ -71,7 +72,8 @@ pipeline {
 			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://github.com/eclipse/amlen/raw/ib.buildcontainers/server_build/buildcontainer/'''+filename'''+\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
                                echo "$c1"
                                set +x
-                          '''
+                            '''
+                          }
                         }
                     }else {
                         echo "updating build image: ${buildImage} -> ${buildImage2}."
