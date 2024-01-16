@@ -53,7 +53,7 @@ pipeline {
                           case "almalinux9": filename = "Dockerfile.alma9"
                           default: filename = "Dockerfile.${distro}"
                         } 
-                        if (changedFile.contains(filename)) {
+                        if (changedFiles.contains(filename)) {
                           echo "Doing stuff"
                           sh '''
                                set -x
