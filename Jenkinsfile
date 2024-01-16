@@ -48,11 +48,13 @@ pipeline {
                         changedFiles = sh ( returnStdout: true, script: '''
                             git diff-tree --no-commit-id --name-only -r $GIT_COMMIT
                         ''' )
+                        echo "Files ${changedFiles}"
                         switch(distro) {
                           case "almalinux8": filename = "Dockerfile.alma8"
                           case "almalinux9": filename = "Dockerfile.alma9"
                           default: filename = "Dockerfile.${distro}"
                         } 
+                        echo "filename ${filename}"
                         if (changedFiles.contains(filename)) {
                           echo "Doing stuff"
                           sh '''
