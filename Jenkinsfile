@@ -43,6 +43,7 @@ pipeline {
                     ).trim()
                     if ( buildImage == buildImage2 ){
                         something = sh ( returnStdout: true, script: '''
+                            git remote
                             git diff origin/main
                         ''' )
                         echo something
