@@ -51,7 +51,9 @@ pipeline {
                         echo "Files ${changedFiles}"
                         switch(distro) {
                           case "almalinux8": filename = "Dockerfile.alma8"
+                              break
                           case "almalinux9": filename = "Dockerfile.alma9"
+                              break
                           default: filename = "Dockerfile.${distro}"
                         } 
                         echo "filename ${filename}"
