@@ -64,7 +64,7 @@ pipeline {
                           sh '''
                                distro='''+distro+'''
                                set -x
-			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://github.com/eclipse/amlen/blob/ib.buildcontainers/server_build/buildcontainer/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
+			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://raw.githubusercontent.com/eclipse/amlen/ib.buildcontainers/server_build/buildcontainer/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
                                echo "$c1"
                                set +x
                           '''
