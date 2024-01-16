@@ -46,6 +46,7 @@ pipeline {
                     ).trim()
                     if ( buildImage == buildImage2 ){
                         changedFiles = sh ( returnStdout: true, script: '''
+                            git checkout -b main origin/main
                             git diff main
 #                            git diff-tree --no-commit-id --name-only -r $GIT_COMMIT
                         ''' )
