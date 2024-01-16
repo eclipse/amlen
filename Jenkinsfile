@@ -41,11 +41,11 @@ pipeline {
                         fi
                     '''
                     ).trim()
-                    if ( $buildImage == $buildImage2 ){
+                    if ( buildImage == buildImage2 ){
                         something = sh ( returnStdout: true, script: '''
                             git diff origin/main
                         ''' )
-                        echo $something
+                        echo something
                     }else {
                         echo "updating build image: ${buildImage} -> ${buildImage2}."
                     }
