@@ -19,6 +19,14 @@
 
 #include "sasl_scram.c"
 
+void sanitize_output(char * input, int len) {
+    for ( int i = 0 ; i < len ; i++ ){
+      if(input[i] < 32){
+        input[i] = 63;
+      }
+    }
+}
+
 void sasl_scram_generate_nonce_test(void){
     int rc=0;
     ism_sasl_scram_context * context = ism_sasl_scram_context_new(SASL_MECHANISM_SCRAM_SHA_512);
@@ -154,6 +162,7 @@ void sasl_scram_Hi_test(void)
     char * saltedpassword = alloca(salt_password_outbuf.used);
     memcpy(saltedpassword, salt_password_outbuf.buf, salt_password_outbuf.used);
     saltedpassword[salt_password_outbuf.used]=0;
+    sanitize_output(saltedpassword,salt_password_outbuf.used);
     printf("Salted Password=%s\n", saltedpassword);
     CU_ASSERT(salt_password_outbuf.used>10);
 
@@ -232,6 +241,7 @@ void sasl_scram_HMAC_test(void)
     memcpy(saltedpassword, saltpassword_outbuf.buf, saltpassword_outbuf.used);
     saltedpassword[saltpassword_outbuf.used]=0;
     printf("Satled Password encryption: len=%d\n", saltpassword_outbuf.used);
+    sanitize_output(saltedpassword,saltpassword_outbuf.used);
     printf("Salted Password=%s\n", saltedpassword);
     CU_ASSERT(saltpassword_outbuf.used>10);
 
@@ -245,6 +255,7 @@ void sasl_scram_HMAC_test(void)
     memcpy(clientkey, clientkey_outbuf.buf, clientkey_outbuf.used);
     clientkey[clientkey_outbuf.used]=0;
     printf("Client Key encryption: len=%d\n", clientkey_outbuf.used);
+    sanitize_output(clientkey,clientkey_outbuf.used);
     printf("CKName Encryption : %s\n", clientkey);
     CU_ASSERT(clientkey_outbuf.used>10);
 
@@ -270,6 +281,7 @@ void sasl_scram_HMAC_test(void)
     char * serverkey = alloca(serverkey_outbuf.used);
     memcpy(serverkey, serverkey_outbuf.buf, serverkey_outbuf.used);
     serverkey[serverkey_outbuf.used]=0;
+    sanitize_output(serverkey,serverkey_outbuf.used);
     printf("Server Key Encryption : %s\n", serverkey);
     CU_ASSERT(serverkey_outbuf.used>10);
 
@@ -316,6 +328,7 @@ void sasl_scram_HMAC_test(void)
     char * serverSignature = alloca(serversignature_outbuf.used);
     memcpy(serverSignature, serversignature_outbuf.buf, serversignature_outbuf.used);
     serverSignature[serversignature_outbuf.used]=0;
+    sanitize_output(serverSignature,serversignature_outbuf.used);
     printf("serverSignature : %s\n", serverSignature);
     CU_ASSERT(serversignature_outbuf.used>10);
 
@@ -344,6 +357,7 @@ void sasl_scram_HMAC_test(void)
     char * clientSignature = alloca(clientsignature_outbuf.used);
     memcpy(clientSignature, clientsignature_outbuf.buf, clientsignature_outbuf.used);
     clientSignature[clientsignature_outbuf.used]=0;
+    sanitize_output(clientSignature,clientsignature_outbuf.used);
     printf("clientSignature : %s len=%d\n", clientSignature, clientsignature_outbuf.used);
     CU_ASSERT(clientsignature_outbuf.used>10);
 
