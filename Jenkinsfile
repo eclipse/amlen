@@ -47,8 +47,7 @@ pipeline {
                     if ( buildImage == buildImage2 ){
                         changedFiles = sh ( returnStdout: true, script: '''
                             git fetch --no-tags --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                            git checkout -b main origin/main
-                            git diff origin/main
+                            git diff --name-only origin/main
 #                            git diff-tree --no-commit-id --name-only -r $GIT_COMMIT
                         ''' )
                         echo "Files ${changedFiles}"
