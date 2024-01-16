@@ -45,7 +45,7 @@ pipeline {
                         something = sh ( returnStdout: true, script: '''
                             git diff-tree --no-commit-id --name-only -r $GIT_COMMIT
                             git remote
-                            git diff origin/main
+                            git diff 
                         ''' )
                         echo something
                     }else {
