@@ -17,8 +17,9 @@ pipeline {
             }
             agent any 
             steps {
-              withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
-                script {
+              container('jnlp') {
+                withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
+                  script {
                     echo "default values ${distro} ${buildImage}"
                     distro2 = sh (returnStdout: true, script: ''' 
                         x=0
@@ -79,6 +80,7 @@ pipeline {
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
                     env
+                  }
                 }
               }
             }
