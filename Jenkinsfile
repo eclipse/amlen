@@ -3,7 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def buildImage = "latest"
+def buildImage = "1.0.0.8"
 
 pipeline {
   agent none
@@ -17,6 +17,7 @@ pipeline {
             }
             agent any 
             steps {
+              withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
                 script {
                     echo "default values ${distro} ${buildImage}"
                     distro2 = sh (returnStdout: true, script: ''' 
@@ -53,7 +54,8 @@ pipeline {
                           default: filename = "Dockerfile.${distro}"
                         } 
                         if changedFile.contains(filename) {
-                          echo "We are the champions!"
+			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://github.com/eclipse/amlen/blob/ib.buildcontainers/server_build/buildcontainer/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
+                               echo "$c1"
                         }
                     }else {
                         echo "updating build image: ${buildImage} -> ${buildImage2}."
@@ -63,6 +65,7 @@ pipeline {
                     echo "selecting build image: ${buildImage}."
                     env
                 }
+              }
             }
         }
           
