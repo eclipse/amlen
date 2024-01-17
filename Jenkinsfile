@@ -89,7 +89,7 @@ pipeline {
 
         stage("Create Build Container Image") {
             when {
-              customBuildFile != null
+              expression { customBuildFile != null }
             }
             agent any 
             steps {
