@@ -4,6 +4,7 @@
 //
 def distro = "almalinux8"
 def buildImage = "1.0.0.8"
+def customBuildFile = null
 
 pipeline {
   agent none
@@ -69,21 +70,7 @@ pipeline {
                         } 
                         echo "filename ${filename}"
                         if (changedFiles.contains(filename)) {
-                          echo "Doing stuff"
-                          sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-                            sh '''
-                               distro='''+distro+'''
-                               filename='''+filename+'''
-                               set -x
-                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                               ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                               tar -czf buildcontainer.tar.gz -C server_build/buildcontainer --transform="flags=r;s|${filename}|Dockerfile|" ${filename}
-                               scp -o BatchMode=yes -r buildcontainer.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/buildcontainer.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" )
-                               echo "$c1"
-                               set +x
-                            '''
-                          }
+                          customBuildFile = filename
                         }
                     }else {
                         echo "updating build image: ${buildImage} -> ${buildImage2}."
@@ -99,7 +86,53 @@ pipeline {
               }
             }
         }
-          
+
+        stage("Create Build Container Image") {
+            when {
+              customBuildFile != null
+            }
+            agent any 
+            steps {
+              container('jnlp') {
+                withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
+                  script {
+                          sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                            sh '''
+                               distro='''+distro+'''
+                               filename='''+customBuildFile+'''
+                               set -x
+                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+                               ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+                               tar -czf buildcontainer.tar.gz -C server_build/buildcontainer --transform="flags=r;s|${filename}|Dockerfile|" ${filename}
+                               scp -o BatchMode=yes -r buildcontainer.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
+			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/buildcontainer.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" | jq '.["id"] )
+                               phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1 | jq '.["phase"] )
+                               echo "$phase"
+
+                               while (phase == "waiting" || phase == "running") {
+                                   sleep 30 
+                                   phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1 | jq '.["phase"] )
+                                   echo "$phase"
+                               }
+
+                               echo "$c1"
+                               set +x
+                            '''
+                          }
+                        }
+                    }
+                    buildImage=buildImage2
+                    echo "selecting linux distribution: ${distro}."
+                    echo "selecting build image: ${buildImage}."
+                    env
+                  }
+                  echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
+                  echo "COMMIT: ${env.GIT_COMMIT}"
+                }
+              }
+            }
+        }
+             
         stage("Run") {
             agent {
                 kubernetes {
