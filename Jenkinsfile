@@ -119,7 +119,7 @@ pipeline {
                                set +x
                             '''
                           }
-                    buildImage = sh (returnStdout: true, script: '''${GIT_BRANCH#origin/}'''
+                    buildImage = sh (returnStdout: true, script: '''${GIT_BRANCH#origin/}''')
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
                   }
