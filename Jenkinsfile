@@ -9,6 +9,12 @@ pipeline {
   agent none
 
   stages {
+                stage("init") {
+                    steps {
+                        container("amlen-${distro}-build") {
+                        }
+                    }
+                }
         stage("Pre") {
             when {
               not {
@@ -20,6 +26,9 @@ pipeline {
               container('jnlp') {
                 withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
                   script {
+                    if (env.BUILD_TIMESTAMP == null) {
+                        env.BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim()
+                    }
                     echo "default values ${distro} ${buildImage}"
                     distro2 = sh (returnStdout: true, script: ''' 
                         x=0
@@ -45,6 +54,11 @@ pipeline {
                         fi
                     '''
                     ).trim()
+                    
+                    if (env.BUILD_LABEL == null ) {
+                        env.BUILD_LABEL = "${env.BUILD_TIMESTAMP}_eclipse${distro}"
+                    }
+
                     if ( buildImage == buildImage2 ){
                         changedFiles = sh ( returnStdout: true, script: '''
                             git fetch --no-tags --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
@@ -66,10 +80,11 @@ pipeline {
                             sh '''
                                distro='''+distro+'''
                                set -x
+                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                                ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                                tar -cf buildcontainer.tar server_build/buildcontainer/'''+filename+'''
                                scp -o BatchMode=yes -r buildcontainer.tar genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://github.com/eclipse/amlen/raw/ib.buildcontainers/server_build/buildcontainer/'''+filename'''+\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
+			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/buildcontainer.tar\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
                                echo "$c1"
                                set +x
                             '''
@@ -83,6 +98,8 @@ pipeline {
                     echo "selecting build image: ${buildImage}."
                     env
                   }
+                  echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
+                  echo "COMMIT: ${env.GIT_COMMIT}"
                 }
               }
             }
@@ -130,22 +147,6 @@ spec:
                 }
             } 
             stages{
-                stage("init") {
-                    steps {
-                        container("amlen-${distro}-build") {
-                            script {
-                                if (env.BUILD_TIMESTAMP == null) {
-                                    env.BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim()
-                                }
-                                if (env.BUILD_LABEL == null ) {
-                                    env.BUILD_LABEL = "${env.BUILD_TIMESTAMP}_eclipse${distro}"
-                                }
-                            }
-                            echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
-                            echo "COMMIT: ${env.GIT_COMMIT}"
-                        }
-                    }
-                }
                 stage('Build') {
                     steps {
                         echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
