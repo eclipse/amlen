@@ -9,12 +9,6 @@ pipeline {
   agent none
 
   stages {
-                stage("init") {
-                    steps {
-                        container("amlen-${distro}-build") {
-                        }
-                    }
-                }
         stage("Pre") {
             when {
               not {
