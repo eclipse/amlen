@@ -119,15 +119,10 @@ pipeline {
                                set +x
                             '''
                           }
-                        }
-                    }
-                    buildImage=buildImage2
+                    buildImage = sh (returnStdout: true, script: '''${GIT_BRANCH#origin/}'''
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
-                    env
                   }
-                  echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
-                  echo "COMMIT: ${env.GIT_COMMIT}"
                 }
               }
             }
