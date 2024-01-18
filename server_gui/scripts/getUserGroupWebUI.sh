@@ -12,7 +12,7 @@
 #
 
 #Set default user if not sepecified
-IMAWEBUI_USER=root
+IMAWEBUI_USER=amlen
 IMAWEBUI_GROUP=$IMAWEBUI_USER
 
 #File to read user and group from:

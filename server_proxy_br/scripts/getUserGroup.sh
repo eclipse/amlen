@@ -12,7 +12,7 @@
 #
 
 #Set default user if not sepecified
-IMABRIDGE_USER=root
+IMABRIDGE_USER=amlen
 IMABRIDGE_GROUP=$IMABRIDGE_USER
 
 #File to read user and group from:
