@@ -124,7 +124,7 @@ spec:
                                        cd server_build 
                                        bash buildcontainer/build.sh
 
-                                       cd ../../
+                                       cd ..
                                        pwd
                                        ls rpms
                                        if [ ! -e rpms/EclipseAmlenBridge-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
