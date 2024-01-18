@@ -48,6 +48,7 @@
 #include <sasl_scram.h>
 #define MAX_MQTT_SERVERS 16
 
+
 /*
  * TLS methods
  */
@@ -998,7 +999,7 @@ static mhub_topic_t * changePartitions(ism_mhub_t * mhub, mhub_topic_t * mtopic,
     if (partcount < mtopic->partcount) {
         for (i = partcount; i < mtopic->partcount; i++) {
             mhub_part_t * part = mtopic->partitions+i;
-        		pthread_mutex_lock(&part->lock);
+            pthread_mutex_lock(&part->lock);
             if (part->transport) {
                 ism_transport_t * transport = part->transport;
                 pthread_mutex_unlock(&part->lock);
@@ -2829,6 +2830,9 @@ static int mhubGetAddress(ism_server_t * server,  ism_transport_t * transport, i
         transport->server_addr = ism_transport_putString(transport, addr);
     }
     transport->serverport = port;
+    TRACE(5, "MHUB GetAddress: connect=%u name=%s server_addr=%s server_port=%u broker=%s\n",
+                transport->index, transport->name, transport->server_addr, transport->serverport,
+                (mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
 
     req = ism_common_calloc(ISM_MEM_PROBE(ism_memory_proxy_eventstreams,16),1, sizeof(*req)+sizeof(*sigevt)+sizeof(*hints)+16);
     sigevt = (struct sigevent *)(req+1);
@@ -2873,6 +2877,33 @@ static int requestShutdownTimer(ism_timer_t timer, ism_time_t timestamp, void * 
     ism_common_cancelTimer(timer);
     ism_common_shutdown(0);
     return 0;
+}
+
+/**
+ * This function will determine whether to make a metadata request or create
+ * a new TCP connection to the boostrap server and make the metadata request.
+ *
+ * @param mhub the mhub object
+ */
+static int needMetadata(ism_mhub_t * mhub)
+{
+	ism_mhub_lock(mhub);
+	if (mhub->enabled==1 && !mhub->expectingMetadata) {
+		if (mhub->metadata && mhub->metadata->pobj->state == TCP_CONNECTED) {
+			mhub->expectingMetadata = 1;
+			mhubMetadataRequest(mhub, mhub->metadata);
+		} else {
+			//Metadata is broken, need new transport.
+			mhub->prev_state = mhub->state;
+			mhub->state = MHS_Opening;
+			if (mhub->stateChanged) {
+				mhub->stateChanged(mhub);       /* Notify of state change */
+			}
+			ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(0));
+		}
+	}
+	ism_mhub_unlock(mhub);
+	return 0;
 }
 
 
@@ -3214,22 +3245,7 @@ static int mhubReceiveKafka(ism_transport_t * transport, char * inbuf, int bufle
      * Request metadata
      */
     if (needmetadata > 0) {
-         ism_mhub_lock(mhub);
-         if (mhub->enabled==1 && !mhub->expectingMetadata) {
-             if (mhub->metadata && mhub->metadata->pobj->state == TCP_CONNECTED) {
-                 mhub->expectingMetadata = 1;
-                 mhubMetadataRequest(mhub, transport);
-             } else {
-                //Metadata is broken, need new transport.
-                 mhub->prev_state = mhub->state;
-                 mhub->state = MHS_Opening;
-                 if (mhub->stateChanged) {
-                    mhub->stateChanged(mhub);       /* Notify of state change */
-                 }
-                 ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(0));
-             }
-         }
-         ism_mhub_unlock(mhub);
+         needMetadata(mhub);
     }
     return 0;
 }
@@ -3293,18 +3309,33 @@ struct mhub_dataConnectInfo {
  */
 static int processPartMetadata(ism_mhub_t * mhub, mhub_broker_list_t * brokers, int brokercnt,
         const char * topicn, int topiclen, int partid, int partrc, int leader) {
-    int i;
+    int i, needDataConn=0;
     char * topicname = alloca(topiclen + 1);
     memcpy(topicname, topicn, topiclen);
     topicname[topiclen] = 0;
     mhub_topic_t * topic = findTopic(mhub, topicname);
-    TRACE(9, "Partition metadata: mhub=%s, topic=%s partid=%u rc=%d leader=%d\n", mhub->id, topicname, partid, partrc, leader);
+    LOG(INFO, Server, 988, "%s%s%u%d%d", "Process Metadata Partition: mhub={0}, topic={1} partid={2} rc={3} leader={4}",
+    									mhub->id, topicname, partid, partrc, leader);
     if (topic) {
         mhub_part_t * part = topic->partitions+partid;
+        pthread_mutex_lock(&part->lock);
         if (partrc == 0 && leader < brokercnt) {
             part->valid = 1;
+            if(part->leader != leader){
+            	//If leader changed, need to disconnect transport.
+            	LOG(WARN, Server, 989, "%s%s%u%d%d%d", "Process Metadata Partition. Leadership changed: mhub={0}, topic={1} partid={2} rc={3} leader={4} prev_leader={5}",
+            	    									mhub->id, topicname, partid, partrc, leader, part->leader);
+            	if(part->transport){
+            		ism_transport_t * transport = part->transport;
+            		pthread_mutex_unlock(&part->lock);
+            		transport->close(transport, ISMRC_EndpointDisabled, 0, "Change in partition leader");
+            		pthread_mutex_lock(&part->lock);
+            		needDataConn=1;
+            	}
+
+            }
             part->leader = leader;
-            if (!part->transport) {
+            if (!part->transport || needDataConn) {
                 int brokerlen = 0;
                 for (i = 0; i < brokercnt; i++){
                     if (brokers[i].nodeid == leader){
@@ -3333,6 +3364,7 @@ static int processPartMetadata(ism_mhub_t * mhub, mhub_broker_list_t * brokers, 
                 part->valid = 2;   /* Topic not valid */
             }
         }
+        pthread_mutex_unlock(&part->lock);
     }
     return 0;
 }
@@ -3674,6 +3706,10 @@ static int mhubReceiveMetadata(ism_transport_t * transport, char * inbuf, int bu
         return receiveSASL(transport, inbuf, buflen, kind);
     }
 
+    LOG(INFO, Server, 982, "%u%s%s%u%s", "Mhub Metadata received: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
+    				transport->index, transport->name, transport->server_addr, transport->serverport,
+    							(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
+
     /*
      * Check for the type of response based on the correlation ID
      */
@@ -3692,8 +3728,9 @@ static int mhubReceiveMetadata(ism_transport_t * transport, char * inbuf, int bu
             int topiclen = ism_kafka_getString(buf, &topicstr);
             int part_cnt = ism_kafka_getInt4(buf);
             if (ism_kafka_more(buf)<0 || part_cnt >= 0x10000 || topiclen < 1) {
-                 TRACE(5, "MessageHub metadata incomplete: connect=%u name=%s\n", transport->index, transport->name);
-                 rc = 2;
+            	TRACE(5, "MessageHub metadata incomplete: connect=%u name=%s morebuf=%d part_cnt=%d topiclen=%d\n",
+            			transport->index, transport->name,ism_kafka_more(buf)<0, part_cnt, topiclen);
+                rc = 2;
             } else {
                 rc = processTopicMetadata(mhub, topicstr, topiclen, topicrc, part_cnt);
                 for (j=0; rc==0 && j<part_cnt; j++) {
@@ -3708,7 +3745,8 @@ static int mhubReceiveMetadata(ism_transport_t * transport, char * inbuf, int bu
                     if (ism_kafka_more(buf) >= 0) {
                         processPartMetadata(mhub, brokers, broker_cnt, topicstr, topiclen, partid, partrc, leader);
                     } else {
-                        TRACE(5, "MessageHub metadata incomplete: connect=%u name=%s\n", transport->index, transport->name);
+                        TRACE(5, "MessageHub metadata incomplete: connect=%u name=%s morebuf=%d part_rc=%d part_id=%d leader=%d replica=%d\n",
+                                    transport->index, transport->name,ism_kafka_more(buf)<0, partrc, partid, leader,  replica);
                         rc = 2;
                     }
                 }
@@ -3717,11 +3755,14 @@ static int mhubReceiveMetadata(ism_transport_t * transport, char * inbuf, int bu
         mhub->expectingMetadata = 0;
     }
     if (rc) {
+    	LOG(ERROR, Server, 983, "%u%s%s%u%s", "Mhub Metadata is incomplete: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
+								transport->index, transport->name, transport->server_addr, transport->serverport,
+											(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
         transport->close(transport, ISMRC_BadClientData, 0, "MessageHub metadata incomplete");
 
         ism_mhub_lock(mhub);
         if(!g_shuttingDown && mhub->enabled==1)
-        		ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(mhub->retry++));
+        	ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(mhub->retry++));
         ism_mhub_unlock(mhub);
 
         return 1;
@@ -3733,7 +3774,9 @@ static int mhubReceiveMetadata(ism_transport_t * transport, char * inbuf, int bu
             mhub->stateChanged(mhub);       /* Notify of state change */
         }
         pthread_spin_unlock(&mhub->lock);
-        TRACE(9, "MessageHub metadata process complete: connect=%u name=%s\n", transport->index, transport->name);
+        LOG(INFO, Server, 984, "%u%s%s%u%s",  "Mhub Metadata processing is completed: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
+        		transport->index, transport->name, transport->server_addr, transport->serverport,
+				(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
     }
     return 0;
 }
@@ -3750,7 +3793,7 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
         return 0;
 
     ism_transport_t * transport = ism_transport_newOutgoing(NULL, 1);
-    TRACE(5, "Start mhub metadata connection: org=%s mhub=%s\n", mhub->tenant->name, mhub->id);
+    TRACE(5, "Creating mhub metadata connection: org=%s mhub=%s\n", mhub->tenant->name, mhub->id);
     ism_tcp_init_transport(transport);
     transport->originated = 1;
     transport->protocol = "mhub_metadata";
@@ -3773,12 +3816,23 @@ static int createMetadataConnection(ism_mhub_t * mhub) {
     mhub->metadata = transport;
     int rc = ism_kafka_createConnection(transport, (ism_server_t *)mhub);
     if(rc){
-    		char * erbuf = alloca(2048);
-		ism_common_formatLastError(erbuf, 2048);
-		TRACE(7, "Failed create the metadata connection. name=%s rc=%d errmsg=%s\n", transport->clientID,  rc, erbuf);
-		transport->close(transport, rc, 0, erbuf);
+    	char * erbuf = alloca(2048);
+    	ism_common_formatLastError(erbuf, 2048);
+    	LOG(ERROR, Server, 980, "%u%s%s%u%s%d%s",  "Failed to create the metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4} rc={5} errmsg={6}",
+    			transport->index, transport->name, transport->server_addr, transport->serverport,
+				(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0], rc, erbuf);
+    	transport->close(transport, rc, 0, erbuf);
+
+    	//If the Metadata connection creation failed, retry again in a timer
+    	ism_mhub_lock(mhub);
+    	if(!g_shuttingDown && mhub->enabled==1)
+    		ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubRetryConnect, mhub, retryDelay(mhub->retry++));
+    	ism_mhub_unlock(mhub);
+
     }else{
-    		TRACE(6, "Start mhub metadata connection: connect=%u name=%s\n", transport->index, transport->name);
+    	LOG(INFO, Server, 981, "%u%s%s%u%s", "Created mhub metadata connection: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
+    			transport->index, transport->name, transport->server_addr, transport->serverport,
+				(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
     }
     return 0;
 }
@@ -3795,11 +3849,11 @@ static int mhubRetryConnect(ism_timer_t key, ism_time_t now, void * userdata) {
 
     //Only create connection if MSPROXY is not shutdown
     if(!g_shuttingDown){
-    		createMetadataConnection(mhub);
+    	createMetadataConnection(mhub);
     }else{
-    		TRACE(5, "Failed to connect metadata connection. Msproxy is shutting down. tenant=%s name=%s\n",
-    					(mhub->tenant!=NULL)?mhub->tenant->name:"", mhub->name);
-    	}
+    	TRACE(5, "Failed to connect metadata connection. Msproxy is shutting down. tenant=%s name=%s\n",
+    			(mhub->tenant!=NULL)?mhub->tenant->name:"", mhub->name);
+    }
     return 0;
 }
 
@@ -3813,19 +3867,21 @@ xUNUSED static int mhubDataRetryConnect(ism_timer_t key, ism_time_t now, void * 
         ism_common_cancelTimer(key);
     pthread_mutex_lock(&mhub_part->lock);
     ism_transport_t * transport= mhub_part->transport;
+    ism_kafka_con_t * pobj = (ism_kafka_con_t *)transport->pobj;
     pthread_mutex_unlock(&mhub_part->lock);
 
     if(!g_shuttingDown){
-    	 	 transport->ready = 7;  //Set ready for Connect Timeout. See ddosTimer
-		int rc = ism_kafka_createConnection(transport, transport->pobj->server);
-		if(rc){
-			char * erbuf = alloca(2048);
-			ism_common_formatLastError(erbuf, 2048);
-			TRACE(7, "Failed create the data connection. name=%s rc=%d errmsg=%s\n", transport->clientID, rc, erbuf);
-			transport->close(transport, rc, 0,  erbuf);
-		}
+    	transport->ready = 7;  //Set ready for Connect Timeout. See ddosTimer
+    	int rc = ism_kafka_createConnection(transport, pobj->server);
+    	if(rc){
+    		char * erbuf = alloca(2048);
+    		ism_common_formatLastError(erbuf, 2048);
+    		LOG(ERROR, Server, 987, "%u%s%s%u%d%d%d%s",  "Failed to create the mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5} rc={6} errmsg={7}",
+			    			transport->index, transport->name, transport->server_addr, transport->serverport, pobj->partID, pobj->nodeID, rc, erbuf);
+    		transport->close(transport, rc, 0,  erbuf);
+    	}
     } else {
-    		TRACE(5, "Failed to connect. Msproxy is shutting down. name=%s\n", transport->clientID);
+    	TRACE(5, "Failed to connect. Msproxy is shutting down. name=%s\n", transport->clientID);
     }
     return 0;
 }
@@ -3875,10 +3931,12 @@ static int createDataConnection(ism_mhub_t * mhub, mhub_topic_t * topic, int par
 		//Close the connection
 		char * erbuf = alloca(2048);
 		ism_common_formatLastError(erbuf, 2048);
-		TRACE(7, "Failed create the data connection. name=%s partition=%d nodeid=%d rc=%d errmsg=%s\n", transport->clientID, part, nodeid, rc, erbuf);
+		LOG(ERROR, Server, 985, "%u%s%s%u%d%d%d%s",  "Failed to create the mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5} rc={6} errmsg={7}",
+		    			transport->index, transport->name, transport->server_addr, transport->serverport, part, nodeid, rc, erbuf);
 		transport->close(transport, rc, 0, erbuf);
 	} else {
-		TRACE(6, "Start mhub data connection: connect=%u name=%s\n", transport->index, transport->name);
+		LOG(INFO, Server, 986, "%u%s%s%u%d%d",  "Created mhub data connection: connect={0} name={1} server_addr={2} server_port={3} partition={4} nodeid={5}",
+				    	transport->index, transport->name, transport->server_addr, transport->serverport, part, nodeid);
 	}
     return 0;
 }
@@ -3898,7 +3956,7 @@ static int mhubCreateData(ism_timer_t key, ism_time_t now, void * userdata) {
      broker.broker = info->broker;
      broker.broker_len = strlen(info->broker);
      broker.port = info->port;
-     TRACE(8, "mhubCreateData mhub=%s topic=%s broker=%s broker_len=%d port=%d\n", info->mhub->id, (topic ? topic->name : ""),
+     TRACE(5, "mhubCreateData mhub=%s topic=%s broker=%s broker_len=%d port=%d\n", info->mhub->id, (topic ? topic->name : ""),
              broker.broker, broker.broker_len, broker.port);
      if (topic) {
          createDataConnection(info->mhub, topic, info->partid, info->leader, &broker);
@@ -3921,9 +3979,6 @@ static void mhubMetadataRequest(ism_mhub_t * mhub, ism_transport_t * transport) 
     if (g_shuttingDown)
         return;
 
-    TRACE(6, "MessageHub MetadataRequest: connect=%u name=%s broker=%s:%u host=%s\n",
-            transport->index, transport->name, transport->server_addr, transport->serverport,
-            transport->client_host ? transport->client_host : "");
     ism_kafka_putInt4(buf, MetadataRequest0);
     ism_kafka_putInt4(buf, 0x20000);   /* Correlation ID */
     ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);   /* Use our hostname as the kafka clientID */
@@ -3932,11 +3987,17 @@ static void mhubMetadataRequest(ism_mhub_t * mhub, ism_transport_t * transport) 
     for (i=0; i<mhub->topiccount; i++) {
         mhub_topic_t * topic = mhub->topics[i];
         ism_kafka_putString(buf, topic->name, -1);
-        TRACE(8, "MessageHub MetadataRequest for topic: %s\n", topic->name);
+        TRACE(5, "MessageHub MetadataRequest for topic: %s\n", topic->name);
         topic_count++;
     }
     ism_kafka_putInt4At(buf, topic_count_pos, topic_count);
     ism_kafka_putString(buf, transport->pobj->topic, -1);
+
+    //LOG when to send the Metadata Request with server info
+    LOG(INFO, Server, 979, "%u%s%s%u%s", "MessageHub metadatarequest submitted: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
+    		transport->index, transport->name, transport->server_addr, transport->serverport,
+			(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
+
     transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
 }
 
@@ -5037,6 +5098,7 @@ int ism_mhub_publishEvent(ism_mhub_t * mhub, mqtt_pmsg_t * pmsg, const char * cl
 	int  rc = 1;
 	kafka_produce_msg_t * event;
 	int eventlen;
+	int needmetadata=0;
 
 	/*
      * Get topic and partition
@@ -5120,11 +5182,12 @@ int ism_mhub_publishEvent(ism_mhub_t * mhub, mqtt_pmsg_t * pmsg, const char * cl
         //The Connection Record is not in the open state. or TCP connection is not in Open State
         //Still keep the message in the Pending Q
         //Will move it once the connection established.
-    		if(transport!=NULL){
-    			TRACE(5, "publishEvent: Partition Connection is not open. which=%d transport.index=%d transport.state=%d transport.ready=%d pending_msg_count=%d\n", which, transport->index, transport->state, transport->ready, mhub_part->kafka_msg_count);
-    		}else{
-    			TRACE(5, "publishEvent: Partition Connection is not open. which=%d pending_msg_count=%d\n", which, mhub_part->kafka_msg_count);
-    		}
+    	if(transport!=NULL){
+    		TRACE(5, "publishEvent: Partition Connection is not open. which=%d transport.index=%d transport.state=%d transport.ready=%d pending_msg_count=%d\n", which, transport->index, transport->state, transport->ready, mhub_part->kafka_msg_count);
+    	}else{
+    		TRACE(5, "publishEvent: Partition Connection is not open. which=%d pending_msg_count=%d\n", which, mhub_part->kafka_msg_count);
+    	}
+    	needmetadata=1;
         rc = 1;
     }
 
@@ -5139,6 +5202,11 @@ int ism_mhub_publishEvent(ism_mhub_t * mhub, mqtt_pmsg_t * pmsg, const char * cl
     }
 
 	pthread_mutex_unlock(&mhub_part->lock);
+
+	if(needmetadata > 0){
+		needMetadata(mhub);
+	}
+
 	return rc;
 }
 

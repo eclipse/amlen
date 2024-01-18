@@ -41,3 +41,4 @@ if [[ $# -lt 3 ]]; then
 fi
 
 echo >> "${LOG}"
+exit 0

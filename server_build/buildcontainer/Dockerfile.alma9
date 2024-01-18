@@ -1,26 +1,27 @@
+==== BASE ====
 
-FROM quay.io/almalinux/almalinux:8 as builder
+FROM quay.io/almalinux/almalinux:9 as builder
 
 ENV DEPS_HOME ${HOME}/deps
 
 RUN mkdir -p ${DEPS_HOME}
 
 RUN dnf -y update && \
-    #Cunit comes from the powertools repo (need to install plugins-core for the config manager)
-    dnf -y install dnf-plugins-core && yum config-manager --set-enabled powertools && \
-    #Ant, junit etc come from the javapackages-tools module
-    dnf -y module enable javapackages-tools && \
+    #Cunit comes from the crb repo (need to install plugins-core for the config manager)
+    dnf -y install dnf-plugins-core && dnf config-manager --set-enabled crb && \
     # Install system tools and build dependencies required to build all releases of MessageGateway/MSProxy
-    dnf -y install --nobest gcc gcc-c++ make cmake3 CUnit CUnit-devel junit ant ant-apache-xalan2 ant-junit ant-contrib libxslt && \
+    dnf -y install --nobest gcc gcc-c++ make cmake3 CUnit CUnit-devel junit ant ant-apache-xalan2 ant-junit libxslt && \
     # Install library dependencies (1/2)
     dnf -y install openssl-devel curl-devel openldap-devel net-snmp-devel libicu-devel icu boost-devel && \
     # Install library dependencies (1/2)
     dnf -y install jansson jansson-devel pam-devel curl-devel && \
     # Install some tools which developers find useful during basic testing
-    dnf -y install less wget vim-enhanced dos2unix bc gdb net-tools openssh-clients bzip2 unzip zip && \
+    dnf -y install less wget vim-enhanced dos2unix bc gdb net-tools openssh-clients bzip2 unzip zip procps && \
     dnf -y install man file which lsof strace python3-devel python3-pip nodejs npm valgrind nc nmap logrotate && \
     # Needed to build rpms in container
-    dnf -y install rpm-build
+    dnf -y install rpm-build && \
+    # Needed for verifying python
+    pip3 install pylint requests
 
 #Get the dependencies we need that aren't packaged (JMS and java treated separately)
 RUN wget https://github.com/d3/d3/releases/download/v3.5.6/d3.zip -O ${DEPS_HOME}/d3-3.5.6.zip && \
