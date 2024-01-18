@@ -127,17 +127,17 @@ spec:
                                        cd ..
                                        pwd
                                        ls rpms
-                                       if [ ! -e rpms/EclipseAmlenBridge-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
+                                       if [ ! -e rpms/EclipseAmlenBridge-${distro}-*-${BUILD_LABEL}.tar.gz ]
                                        then 
                                          echo "Bridge Not built"
                                          exit 1
                                        fi
-                                       if [ ! -e rpms/EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
+                                       if [ ! -e rpms/EclipseAmlenServer-${distro}-*-${BUILD_LABEL}.tar.gz ]
                                        then 
                                          echo "Server Not built"
                                          exit 1
                                        fi
-                                       if [ ! -e rpms/EclipseAmlenWebUI-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
+                                       if [ ! -e rpms/EclipseAmlenWebUI-${distro}-*-${BUILD_LABEL}.tar.gz ]
                                        then 
                                          echo "WebUI not built"
                                          exit 1
