@@ -122,14 +122,9 @@ spec:
                                        distro='''+distro+'''
                                        free -m 
                                        cd server_build 
-                                       if [[ "$BRANCH_NAME" == "main" ]] ; then
-                                           export BUILD_TYPE=fvtbuild
-                                       fi
                                        bash buildcontainer/build.sh
 
                                        cd ../../
-                                       tar -c client_ship -f client_ship.tar.gz
-                                       tar -c server_ship -f server_ship.tar.gz
                                        pwd
                                        ls rpms
                                        if [ ! -e rpms/EclipseAmlenBridge-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
@@ -176,10 +171,6 @@ spec:
                                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                                       ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                                       scp -o BatchMode=yes -r rpms/*.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                                      scp -o BatchMode=yes -r Documentation/docs genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                                      scp -o BatchMode=yes -r client_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                                      scp -o BatchMode=yes -r server_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-          
                                   '''
                             }
                         }
