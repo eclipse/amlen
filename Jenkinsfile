@@ -126,14 +126,7 @@ spec:
                                            export BUILD_TYPE=fvtbuild
                                        fi
                                        bash buildcontainer/build.sh
-                                       cd ../operator
-                                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                                       export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                                       make bundle
-                                       make produce-deployment
-                                       pylint --fail-under=5 build/scripts/*.py
-                                       cd ../Documentation/doc_infocenter
-                                       ant
+
                                        cd ../../
                                        tar -c client_ship -f client_ship.tar.gz
                                        tar -c server_ship -f server_ship.tar.gz
@@ -152,11 +145,6 @@ spec:
                                        if [ ! -e rpms/EclipseAmlenWebUI-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
                                        then 
                                          echo "WebUI not built"
-                                         exit 1
-                                       fi
-                                       if [ $BRANCH_NAME == "main" -a ! -e rpms/EclipseAmlenProxy-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
-                                       then 
-                                         echo "Main build but Proxy Not built"
                                          exit 1
                                        fi
                                       '''
@@ -192,16 +180,6 @@ spec:
                                       scp -o BatchMode=yes -r client_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                                       scp -o BatchMode=yes -r server_ship.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
           
-                                      sed -i "s/IMG_TAG/$NOORIGIN_BRANCH/" operator/roles/amlen/defaults/main.yml
-                                      cd operator
-                                      tar -czf operator.tar.gz Dockerfile requirements.yml roles watches.yaml
-                                      scp -o BatchMode=yes -r operator.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-                                      mv bundle.Dockerfile Dockerfile
-          
-                                      tar -czf operator_bundle.tar.gz Dockerfile bundle
-                                      scp -o BatchMode=yes -r operator_bundle.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-          
-                                      scp -o BatchMode=yes -r eclipse-amlen-operator.yaml genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                                   '''
                             }
                         }
@@ -220,49 +198,6 @@ spec:
 			       pwd
 			       distro='''+distro+'''
 			       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
- 
-			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
-			       uid1=$(echo ${c1} | grep -oP '(?<=\"id\": \")[^\"]*\')
-			       sleep 60
-   
-			       c2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\") 
-			       uid2=$(echo ${c2} | grep -oP '(?<=\"id\": \")[^\"]*\')
-			       sleep 60
-   
-			       c3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
-			       uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
-                               sleep 60
-        
-			       for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
-			       do
-				 set -- $uid
-				 for i in {1..45}
-				 do
-				   phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
-				   phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
-				   if [[ 'complete' == $phase ]]
-				   then
-				     break
-				   fi
-				   sleep 10
-				 done
-			       
-				 phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
-				 phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
-				 if [[ 'complete' != $phase ]]
-				 then
-				   echo $2 phase is $phase
-				   exit 1
-				 fi
-			       done
- 
-			       if [[ "$BRANCH_NAME" == "main" ]] ; then
-				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
-			       elif [[ ! -z "$CHANGE_ID" ]] ; then
-                                 commit=$(curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/pulls/$CHANGE_ID/commits | jq '.[-1].sha')
-				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${commit//\\\"/} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
-                               fi
-   
 			   '''
                        }
                      }
@@ -318,17 +253,6 @@ spec:
                                sh '''
                                    set -e
                                    pwd 
-                                   cd operator
-                                   NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                                   IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                                   echo $NOORIGIN_BRANCH
-                                   SHA=`python3 find_sha.py $NOORIGIN_BRANCH`
-                           echo $SHA
-		           export IMG=quay.io/amlen/operator@$SHA
-		           make bundle
-		           mv bundle.Dockerfile Dockerfile
-   
- 		           tar -czf operator_bundle_digest.tar.gz Dockerfile bundle
                              '''
                           }
                       }
@@ -342,9 +266,6 @@ spec:
                                        set -e
                                        distro='''+distro+'''
                                        pwd 
-                                       cd operator
-                                       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-                                       scp -o BatchMode=yes -r operator_bundle_digest.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                                       '''
                                }
                         }
@@ -363,34 +284,7 @@ spec:
 			   sh '''
 			       set -e
 			       distro='''+distro+'''
-			       pwd 
-			       cd operator
-                               NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-			       c=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator_bundle_digest.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}-d\\\"] }\")
-                               echo $c
-                               uid=$(echo ${c} | grep -oP '(?<=\"id\": \")[^\"]*\')
-                               sleep 240
-
-                               set -- $uid
-                               for i in {1..60}
-                               do
-                                 phase=$(curl -s https://quay.io/api/v1/repository/amlen/operator-bundle/build/$uid)
-                                 phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
-                                 if [[ 'complete' == $phase ]]
-                                 then
-                                   break
-                                 fi
-                                 sleep 10
-                               done
-                              
-                               phase=$(curl -s https://quay.io/api/v1/repository/amlen/operator-bundle/build/$uid)
-                               phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
-                               if [[ 'complete' != $phase ]]
-                               then
-                                 echo phase is $phase
-                                 exit 1
-                               fi
-          
+			       pwd
 			      '''
 		      }
                     }
