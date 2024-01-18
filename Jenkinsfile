@@ -113,7 +113,7 @@ pipeline {
                                phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/${c1//\\\"/}  | jq '.["phase"]' )
                                echo "$phase"
 
-                               while [ $phase == "waiting" -o $phase == "running" ]
+                               while [ $phase == \"waiting\" -o $phase == \"running\" ]
                                do 
                                    echo "Waiting for 30 seconds"
                                    sleep 30 
@@ -124,7 +124,7 @@ pipeline {
                                set +x
                             '''
                           }
-                    buildImage = sh (returnStdout: true, script: '''${GIT_BRANCH#origin/}''')
+                    buildImage = sh (returnStdout: true, script: '''echo ${GIT_BRANCH#origin/}''')
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
                   }
