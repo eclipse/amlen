@@ -113,7 +113,7 @@ pipeline {
                                phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1  | jq -r '.["phase"]' )
                                echo "$phase"
 
-                               while [ $phase == \"waiting\" -o $phase == \"running\" ]
+                               while [ $phase == \"waiting\" -o $phase == \"build-scheduled\" -o $phase == \"running\" ]
                                do 
                                    echo "Waiting for 30 seconds"
                                    sleep 30 
