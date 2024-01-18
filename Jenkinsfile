@@ -111,6 +111,7 @@ pipeline {
                                debug=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1)
                                echo "$debug"
                                phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/${c1//\\\"/}  | jq '.["phase"]' )
+                               phase=${c1//\\\"/}
                                echo "$phase"
 
                                while [ $phase == \"waiting\" -o $phase == \"running\" ]
