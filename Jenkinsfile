@@ -6,7 +6,7 @@ def distro = "almalinux8"
 def buildImage = "1.0.0.8"
 def customBuildFile = null
 def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
-  return sh (returnStdout: true, script: '''
+  output = sh (returnStdout: true, script: '''
        distro='''+distro+'''
        filename='''+filename+'''
        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
@@ -32,6 +32,9 @@ def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
            fi
        done
   ''')
+  echo "$output"
+  lastLine = output.split("\n")[-1]
+  return lastLine
 }
 
 pipeline {
