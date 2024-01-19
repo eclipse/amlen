@@ -7,6 +7,8 @@ def buildImage = "1.0.0.8"
 def customBuildFile = null
 def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
   return sh (returnStdout: true, script: '''
+       distro='''+distro+'''
+       filename='''+filename+'''
        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
        c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" | jq -r '.["id"]' )
        curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1  | jq -r '.["phase"]' 
