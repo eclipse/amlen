@@ -5,6 +5,13 @@
 def distro = "almalinux8"
 def buildImage = "1.0.0.8"
 def customBuildFile = null
+def startBuild(distro,QUAY_IOTOKEN,GIT_BRANCH,BUILD_LABEL,filename){
+  return sh (returnStdout: true, script: '''
+       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
+       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" | jq -r '.["id"]' )
+       curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1  | jq -r '.["phase"]' 
+  ''')
+}
 
 pipeline {
   agent none
@@ -120,6 +127,7 @@ pipeline {
                                set +x
                             '''
                           }
+                    echo startBuild(distro,QUAY_IOTOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
                     buildImage = sh (returnStdout: true, script: '''echo ${GIT_BRANCH#origin/}''')
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
