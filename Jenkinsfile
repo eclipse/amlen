@@ -20,7 +20,7 @@ def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
              echo $ref
              break
            fi
-           message=$(echo $result | jq -r '.["message"]'
+           message=$(echo $result | jq -r '.["message"]')
            if [ message == "Maximum queued build rate exceeded." ]
            then
              echo "sleeping"
