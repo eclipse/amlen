@@ -29,6 +29,7 @@ def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
              echo "failure : $message"
              break
            fi
+       done
   ''')
 }
 
