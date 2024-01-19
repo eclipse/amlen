@@ -37,6 +37,24 @@ def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
   return lastLine
 }
 
+def waitBuild(build,distro,QUAYIO_TOKEN){
+    output = sh (returnStdout:true, script: '''
+    distro='''+distro+''' 
+    build='''+build+'''
+    phase="waiting"
+    while [ $phase == \"waiting\" -o $phase == \"build-scheduled\" -o $phase == \"running\" -o $phase == \"pulling\" ]
+    do 
+        echo "Waiting for 30 seconds"
+        sleep 30 
+        phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$build | jq -r '.["phase"]' )
+        echo "$phase"
+    done
+    ''')
+    echo output
+    lastLine=output.split("\n")[-1]
+    return lastLine
+}
+
 pipeline {
   agent none
 
@@ -151,11 +169,16 @@ pipeline {
                                set +x
                             '''
                           }
-                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    a=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    b=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    c=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    d=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    e=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    echo waitBuild(a,distro,QUAYIO_TOKEN)
+                    echo waitBuild(b,distro,QUAYIO_TOKEN)
+                    echo waitBuild(c,distro,QUAYIO_TOKEN)
+                    echo waitBuild(d,distro,QUAYIO_TOKEN)
+                    echo waitBuild(e,distro,QUAYIO_TOKEN)
                     buildImage = sh (returnStdout: true, script: '''echo ${GIT_BRANCH#origin/}''')
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
