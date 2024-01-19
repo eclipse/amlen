@@ -13,7 +13,7 @@ def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
        while [ true ]
        do
            c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" )
-           if [ c1 =~ "id" ]
+           if [[ $c1 == *"id"* ]]
            then
              c1=$(echo $c1 | jq -r '.["id"]' )
              echo $c1
