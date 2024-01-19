@@ -10,8 +10,25 @@ def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
        distro='''+distro+'''
        filename='''+filename+'''
        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
-       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" | jq -r '.["id"]' )
-       curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1  | jq -r '.["phase"]' 
+       while [ true ]
+       do
+           c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" | jq -r '.["id"]' )
+           result=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1)  | jq -r '.["phase"]' 
+           ref=$(echo $result | jq -r '.["phase"]'
+           if [ ref != "null" ] 
+           then
+             echo $ref
+             break
+           fi
+           message=$(echo $result | jq -r '.["message"]'
+           if [ message == "Maximum queued build rate exceeded." ]
+           then
+             echo "sleeping"
+             sleep(120)
+           else
+             echo "failure : $message"
+             break
+           fi
   ''')
 }
 
@@ -129,6 +146,10 @@ pipeline {
                                set +x
                             '''
                           }
+                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
+                    echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
                     echo startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
                     buildImage = sh (returnStdout: true, script: '''echo ${GIT_BRANCH#origin/}''')
                     echo "selecting linux distribution: ${distro}."
