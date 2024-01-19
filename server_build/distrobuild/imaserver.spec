@@ -16,7 +16,7 @@
 
 Summary: Amlen Messaging Server for Linux x86_64
 Name: EclipseAmlenServer
-Version: 1.0.0.1
+Version: 1.0.0.2
 Release: 1%{?dist}
 License: EPL-2.0
 Packager: IMA Build
