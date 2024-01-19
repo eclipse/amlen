@@ -12,23 +12,22 @@ def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
        while [ true ]
        do
-           c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" | jq -r '.["id"]' )
-           result=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1 | jq -r '.["phase"]' )
-           echo $result
-           ref=$(echo $result | jq -r '.["phase"]')
-           if [ ref != "null" ] 
+           c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" )
+           if [ c1 =~ "id" ]
            then
-             echo $ref
+             c1=$(echo $c1 | jq -r '.["id"]' )
+             echo $c1
              break
-           fi
-           message=$(echo $result | jq -r '.["message"]')
-           if [ message == "Maximum queued build rate exceeded." ]
-           then
-             echo "sleeping"
-             sleep 120
            else
-             echo "failure : $message"
-             break
+             message=$(echo $result | jq -r '.["message"]')
+             if [ message == "Maximum queued build rate exceeded." ]
+             then
+               echo "sleeping"
+               sleep 120
+             else
+               echo "failure : $message"
+               break
+             fi
            fi
        done
   ''')
