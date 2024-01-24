@@ -155,9 +155,9 @@ pipeline {
                                scp -o BatchMode=yes -r buildcontainer.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                             '''
                           }
-                    build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-build-${distro}",distro,"buildcontainer.tar.gz")
+                    build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-builder-${distro}",distro,"buildcontainer.tar.gz")
                     echo build_uuid
-                    buildImage=waitForQuayBuild(build_uuid,"amlen-build-${distro}",QUAYIO_TOKEN)
+                    buildImage=waitForQuayBuild(build_uuid,"amlen-builder-${distro}",QUAYIO_TOKEN)
                     echo buildImage
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
