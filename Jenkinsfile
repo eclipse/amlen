@@ -314,13 +314,13 @@ spec:
 		 container('jnlp') {
 		     echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
 		     withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
+                       server_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-server",distro,"EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz")
+                       operator_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator",distro,"operator.tar.gz")
+                       operator_bundle_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator-bundle",distro,"operator_bundle.tar.gz")
+                       waitForQuayBuild(server_build_uuid,"amlen-server",QUAYIO_TOKEN)
+                       waitForQuayBuild(operator_build_uuid,"operator",QUAYIO_TOKEN)
+                       waitForQuayBuild(operator_build_uuid,"operator_bundle",QUAYIO_TOKEN)
 		       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
-                           server_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-server",distro,"EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz")
-                           operator_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator",distro,"operator.tar.gz")
-                           operator_bundle_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator-bundle",distro,"operator_bundle.tar.gz")
-                           waitForQuayBuild(server_build_uuid,"amlen-server",QUAYIO_TOKEN)
-                           waitForQuayBuild(operator_build_uuid,"operator",QUAYIO_TOKEN)
-                           waitForQuayBuild(operator_build_uuid,"operator_bundle",QUAYIO_TOKEN)
 			   sh '''
 			       pwd
 			       distro='''+distro+'''
