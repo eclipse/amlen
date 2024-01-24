@@ -156,7 +156,9 @@ pipeline {
                             '''
                           }
                     build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-build-${distro}","buildcontainer.tar.gz")
+                    echo build_uuid
                     buildImage=waitForQuayBuild(build_uuid,"amlen-build-${distro}",QUAYIO_TOKEN)
+                    echo buildImage
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
                   }
