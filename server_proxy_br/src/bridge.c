@@ -1095,7 +1095,7 @@ static int doSubscribe(ism_transport_t * transport, ism_forwarder_t * forwarder)
     int qos = forwarder->subQoS;
     if (forwarder->evst_dest && qos > 1)
         qos = 1;                       /* QoS=2 not supported for Event Streams destination */
-    if (transport->pobj->maxqos > qos)
+    if (transport->pobj->maxqos < qos)
         qos = transport->pobj->maxqos; /* QoS cannot be greater than allowd by the source server */
 
     forwarder->subcount = 0;
