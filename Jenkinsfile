@@ -155,7 +155,7 @@ pipeline {
                                scp -o BatchMode=yes -r buildcontainer.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                             '''
                           }
-                    build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-build-${distro}","buildcontainer.tar.gz")
+                    build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-build-${distro}",distro,"buildcontainer.tar.gz")
                     echo build_uuid
                     buildImage=waitForQuayBuild(build_uuid,"amlen-build-${distro}",QUAYIO_TOKEN)
                     echo buildImage
@@ -315,17 +315,16 @@ spec:
 		     echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
 		     withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
 		       sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
+                           server_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-server",distro,"EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz")
+                           operator_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator",distro,"operator.tar.gz")
+                           operator_bundle_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator-bundle",distro,"operator_bundle.tar.gz")
+                           waitForQuayBuild(server_build_uuid,"amlen-server",QUAYIO_TOKEN)
+                           waitForQuayBuild(operator_build_uuid,"operator",QUAYIO_TOKEN)
+                           waitForQuayBuild(operator_build_uuid,"operator_bundle",QUAYIO_TOKEN)
 			   sh '''
 			       pwd
 			       distro='''+distro+'''
 			       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
- 
-                               server_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-server","EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz")
-                               operator_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator","operator.tar.gz")
-                               operator_bundle_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator-bundle","operator_bundle.tar.gz")
-                               waitForQuayBuild(server_build_uuid,"amlen-server",QUAYIO_TOKEN)
-                               waitForQuayBuild(operator_build_uuid,"operator",QUAYIO_TOKEN)
-                               waitForQuayBuild(operator_build_uuid,"operator_bundle",QUAYIO_TOKEN)
  
 			       if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
 				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
