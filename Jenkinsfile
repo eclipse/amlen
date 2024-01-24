@@ -5,14 +5,15 @@
 def distro = "almalinux8"
 def buildImage = "1.0.0.8"
 def customBuildFile = null
-def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
+def startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,repo,distro,filename){
   output = sh (returnStdout: true, script: '''
+       repo='''+repo+'''
        distro='''+distro+'''
        filename='''+filename+'''
        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
        while [ true ]
        do
-           c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" )
+           c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/${repo}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" )
            if [[ $c1 == *"phase"* ]]
            then
              c1=$(echo $c1 | jq -r '.["id"]' )
@@ -37,16 +38,16 @@ def startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,filename){
   return lastLine
 }
 
-def waitBuild(build,distro,QUAYIO_TOKEN){
+def waitForQuayBuild(build,repo,QUAYIO_TOKEN){
     output = sh (returnStdout:true, script: '''
-    distro='''+distro+''' 
+    repo='''+repo+''' 
     build='''+build+'''
     phase="waiting"
     while [ $phase == \"waiting\" -o $phase == \"build-scheduled\" -o $phase == \"running\" -o $phase == \"pulling\" ]
     do 
         echo "Waiting for 30 seconds"
         sleep 30 
-        phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$build | jq -r '.["phase"]' )
+        phase=$(curl -s https://quay.io/api/v1/repository/amlen/${repo}/build/$build | jq -r '.["phase"]' )
         echo "$phase"
     done
     ''')
@@ -107,7 +108,6 @@ pipeline {
                         changedFiles = sh ( returnStdout: true, script: '''
                             git fetch --no-tags --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
                             git diff --name-only origin/main
-#                            git diff-tree --no-commit-id --name-only -r $GIT_COMMIT
                         ''' )
                         echo "Files ${changedFiles}"
                         switch(distro) {
@@ -149,37 +149,14 @@ pipeline {
                             sh '''
                                distro='''+distro+'''
                                filename='''+customBuildFile+'''
-                               set -x
                                NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                                ssh -o BatchMode=yes genie.amlen@projects-storage.eclipse.org mkdir -p /home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                                tar -czf buildcontainer.tar.gz -C server_build/buildcontainer --transform="flags=r;s|${filename}|Dockerfile|" ${filename}
                                scp -o BatchMode=yes -r buildcontainer.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
-			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/buildcontainer.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" | jq -r '.["id"]' )
-                               phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1  | jq -r '.["phase"]' )
-                               echo "$phase"
-
-                               while [ $phase == \"waiting\" -o $phase == \"build-scheduled\" -o $phase == \"running\" -o $phase == \"pulling\" ]
-                               do 
-                                   echo "Waiting for 30 seconds"
-                                   sleep 30 
-                                   phase=$(curl -s https://quay.io/api/v1/repository/amlen/amlen-builder-${distro}/build/$c1 | jq -r '.["phase"]' )
-                                   echo "$phase"
-                               done
-
-                               set +x
                             '''
                           }
-                    a=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    b=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    c=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    d=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    e=startBuild(distro,QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"buildcontainer.tar.gz")
-                    echo waitBuild(a,distro,QUAYIO_TOKEN)
-                    echo waitBuild(b,distro,QUAYIO_TOKEN)
-                    echo waitBuild(c,distro,QUAYIO_TOKEN)
-                    echo waitBuild(d,distro,QUAYIO_TOKEN)
-                    echo waitBuild(e,distro,QUAYIO_TOKEN)
-                    buildImage = sh (returnStdout: true, script: '''echo ${GIT_BRANCH#origin/}''')
+                    build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-build-${distro}","buildcontainer.tar.gz")
+                    buildImage=waitForQuayBuild(build_uuid,"amlen-build-${distro}",QUAYIO_TOKEN)
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
                   }
@@ -341,40 +318,12 @@ spec:
 			       distro='''+distro+'''
 			       NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
  
-			       c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/amlen-server/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\" )
-			       uid1=$(echo ${c1} | grep -oP '(?<=\"id\": \")[^\"]*\')
-			       sleep 60
-   
-			       c2=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\") 
-			       uid2=$(echo ${c2} | grep -oP '(?<=\"id\": \")[^\"]*\')
-			       sleep 60
-   
-			       c3=$(curl -X POST https://quay.io/api/v1/repository/amlen/operator-bundle/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/operator_bundle.tar.gz\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"] }\")
-			       uid3=$(echo ${c3} | grep -oP '(?<=\"id\": \")[^\"]*\')
-                               sleep 60
-        
-			       for uid in "$uid1 amlen-server" "$uid2 operator" "$uid3 operator-bundle" 
-			       do
-				 set -- $uid
-				 for i in {1..45}
-				 do
-				   phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
-				   phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
-				   if [[ 'complete' == $phase ]]
-				   then
-				     break
-				   fi
-				   sleep 10
-				 done
-			       
-				 phase=$(curl -s https://quay.io/api/v1/repository/amlen/$2/build/$1)
-				 phase=$(echo $phase | grep -oP '(?<=\"phase\": \")[^\"]*')
-				 if [[ 'complete' != $phase ]]
-				 then
-				   echo $2 phase is $phase
-				   exit 1
-				 fi
-			       done
+                               server_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-server","EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz")
+                               operator_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator","operator.tar.gz")
+                               operator_bundle_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator-bundle","operator_bundle.tar.gz")
+                               waitForQuayBuild(server_build_uuid,"amlen-server",QUAYIO_TOKEN)
+                               waitForQuayBuild(operator_build_uuid,"operator",QUAYIO_TOKEN)
+                               waitForQuayBuild(operator_build_uuid,"operator_bundle",QUAYIO_TOKEN)
  
 			       if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
 				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
