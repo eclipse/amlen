@@ -181,7 +181,7 @@ pipeline {
                                 sha=$(curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags" | jq -r '.["object"]["sha"]')
                                 echo "{\\\"ref\\\":\\\"refs/tags/ib.testTag\\\",\\\"sha\\\":\\\"$sha\\\"}" > tagref.json
                                 cat tagref.json
-                                curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/ref" 
+                                curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/refs" 
                             ''' )
                             echo something
                         }
