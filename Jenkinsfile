@@ -157,7 +157,7 @@ pipeline {
             agent any 
             steps {
               container('jnlp') {
-                withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN')]) {
+		withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
                   script {
                           sshagent ( ['projects-storage.eclipse.org-bot-ssh']) {
                             sh '''
@@ -176,6 +176,9 @@ pipeline {
                         if (GIT_BRANCH == "ib.buildcontainers") {
                             something = sh ( returnStdout: true, script: '''
                                 git tag ib.containers.builder-update
+                                echo ' { "tag": "v0.0.1", "object": "'''+${env.GIT_COMMIT}+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
+                                curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags"
+
                                 git push origin ib.containers.builder-update
                             ''' )
                             echo something
