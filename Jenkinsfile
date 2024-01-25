@@ -43,7 +43,7 @@ def waitForQuayBuild(build,repo,QUAYIO_TOKEN){
     repo='''+repo+''' 
     build='''+build+'''
     phase="waiting"
-    while [ $phase == \"waiting\" -o $phase == \"build-scheduled\" -o $phase == \"running\" -o $phase == \"pulling\" ]
+    while [ $phase == \"waiting\" -o $phase == \"build-scheduled\" -o $phase == \"running\" -o $phase == \"pulling\" -o $phase == \"building\" ]
     do 
         echo "Waiting for 30 seconds"
         sleep 30 
