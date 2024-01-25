@@ -176,9 +176,11 @@ pipeline {
                         if (GIT_BRANCH == "ib.buildcontainers") {
                             something = sh ( returnStdout: true, script: '''
                                 git tag ib.containers.builder-update
-                                echo ' { "tag": "v0.0.1", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
+                                echo ' { "tag": "ib.testTag", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
                                 cat tag.json
-                                curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags"
+                                sha=$(curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags" | jq -r '.["object"]["sha"]')
+                                echo '{"ref":"refs/tags/ib.testTag"}' > tagref.json
+                                curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/ref" 
                             ''' )
                             echo something
                         }
