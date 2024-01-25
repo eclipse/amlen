@@ -177,9 +177,8 @@ pipeline {
                             something = sh ( returnStdout: true, script: '''
                                 git tag ib.containers.builder-update
                                 echo ' { "tag": "v0.0.1", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
+                                cat tag.json
                                 curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags"
-
-                                git push origin ib.containers.builder-update
                             ''' )
                             echo something
                         }
