@@ -105,8 +105,16 @@ pipeline {
                     }
 
                     if ( buildImage == buildImage2 ){
+                        if (GIT_BRANCH == "ib.contianers") {
+                           echo "HORRAY!"
+                        }
+                        else {
+                           echo GIT_BRANCH
+                        }
+                        error "STOP!"
+
                         changedFiles = sh ( returnStdout: true, script: '''
-                            git fetch --no-tags --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
+                            git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
                             git diff --name-only origin/main
                         ''' )
                         echo "Files ${changedFiles}"
