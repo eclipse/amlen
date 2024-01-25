@@ -106,17 +106,20 @@ pipeline {
 
                     if ( buildImage == buildImage2 ){
                         if (GIT_BRANCH == "ib.containers") {
-                           echo "HORRAY!"
+                            changedFiles = sh ( returnStdout: true, script: '''
+                                git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
+                                git diff --name-only ib.containers.builder-update
+                            ''' )
+                            echo changedFiles
                         }
                         else {
-                           echo GIT_BRANCH
+                            changedFiles = sh ( returnStdout: true, script: '''
+                                git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
+                                git diff --name-only origin/main
+                            ''' )
                         }
                         error "STOP!"
 
-                        changedFiles = sh ( returnStdout: true, script: '''
-                            git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                            git diff --name-only origin/main
-                        ''' )
                         echo "Files ${changedFiles}"
                         switch(distro) {
                           case "almalinux8": filename = "Dockerfile.alma8"
