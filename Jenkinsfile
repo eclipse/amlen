@@ -105,7 +105,7 @@ pipeline {
                     }
 
                     if ( buildImage == buildImage2 ){
-                        if (GIT_BRANCH == "ib.containers") {
+                        if (GIT_BRANCH == "ib.buildcontainers") {
                             changedFiles = sh ( returnStdout: true, script: '''
                                 git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
                                 git diff --name-only ib.containers.builder-update
