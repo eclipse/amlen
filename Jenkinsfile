@@ -244,6 +244,7 @@ spec:
                     steps {
                         echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
                         container("amlen-${distro}-build") {
+		           withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
                            script {
                               something = sh ( returnStdout: true, script: '''
                                       curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/commits/${GIT_COMMIT}/comments" -d "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-${distro}:${buildImage}\\\"}"
@@ -309,6 +310,7 @@ spec:
                                    }
                                    currentBuild.result = 'FAILURE'
                                }
+                           }
                            }
                         }
                     }
