@@ -108,7 +108,11 @@ pipeline {
                         if (GIT_BRANCH == "ib.buildcontainers") {
                             changedFiles = sh ( returnStdout: true, script: '''
                                 git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                                git diff --name-only ib.containers.builder-update
+                                if [ $(git tag -l ib.containers.builder-update ] ; then
+                                    git diff --name-only ib.containers.builder-update
+                                else
+                                    git diff --name-only origin/main
+                                fi
                             ''' )
                             echo changedFiles
                         }
@@ -118,7 +122,6 @@ pipeline {
                                 git diff --name-only origin/main
                             ''' )
                         }
-                        error "STOP!"
 
                         echo "Files ${changedFiles}"
                         switch(distro) {
@@ -170,6 +173,13 @@ pipeline {
                     echo build_uuid
                     if ( waitForQuayBuild(build_uuid,"amlen-builder-${distro}",QUAYIO_TOKEN) == "complete" ) {
                         buildImage= sh (returnStdout: true, script: '''echo ${GIT_BRANCH#origin/}''')
+                        if (GIT_BRANCH == "ib.buildcontainers") {
+                            something = sh ( returnStdout: true, script: '''
+                                git tag ib.containers.builder-update
+                                git push origin ib.containers.builder-update
+                            ''' )
+                            echo something
+                        }
                     }
                     else {
                         error "QuayIO build didn't complete"
@@ -227,6 +237,7 @@ spec:
             stages{
                 stage('Build') {
                     steps {
+                        error "STOP!"
                         echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
                         container("amlen-${distro}-build") {
                            script {
