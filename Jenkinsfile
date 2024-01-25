@@ -179,7 +179,8 @@ pipeline {
                                 echo ' { "tag": "ib.testTag", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
                                 cat tag.json
                                 sha=$(curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags" | jq -r '.["object"]["sha"]')
-                                echo '{"ref":"refs/tags/ib.testTag"}' > tagref.json
+                                echo '{"ref":"refs/tags/ib.testTag","sha":"$sha"}' > tagref.json
+                                cat tagref.json
                                 curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/ref" 
                             ''' )
                             echo something
