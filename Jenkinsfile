@@ -176,10 +176,10 @@ pipeline {
                         if (GIT_BRANCH == "ib.buildcontainers") {
                             something = sh ( returnStdout: true, script: '''
                                 git tag ib.containers.builder-update
-                                echo ' { "tag": "ib.testTag", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
+                                echo ' { "tag": "ib.containers.builder-update", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
                                 cat tag.json
                                 sha=$(curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags" | jq -r '.["object"]["sha"]')
-                                echo "{\\\"ref\\\":\\\"refs/tags/ib.testTag\\\",\\\"sha\\\":\\\"$sha\\\"}" > tagref.json
+                                echo "{\\\"ref\\\":\\\"refs/tags/ib.containers.builder-update\\\",\\\"sha\\\":\\\"$sha\\\"}" > tagref.json
                                 cat tagref.json
                                 curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/refs" 
                             ''' )
@@ -242,15 +242,15 @@ spec:
             stages{
                 stage('Build') {
                     steps {
-                        something = sh ( returnStdout: true, script: '''
-                                curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/commits/${GIT_COMMIT}/comments" -d "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-${distro}:${buildImage}\\\"}"
-
-                        ''' )
-                        echo something
-                        error "STOP!"
                         echo "In Build, BUILD_LABEL is ${env.BUILD_LABEL}"
                         container("amlen-${distro}-build") {
                            script {
+                              something = sh ( returnStdout: true, script: '''
+                                      curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/commits/${GIT_COMMIT}/comments" -d "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-${distro}:${buildImage}\\\"}"
+
+                              ''' )
+                              echo something
+                              error "STOP!"
                                try {
                                    sh '''
                                        set -e
