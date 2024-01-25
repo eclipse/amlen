@@ -157,7 +157,12 @@ pipeline {
                           }
                     build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-builder-${distro}",distro,"buildcontainer.tar.gz")
                     echo build_uuid
-                    buildImage=waitForQuayBuild(build_uuid,"amlen-builder-${distro}",QUAYIO_TOKEN)
+                    if ( waitForQuayBuild(build_uuid,"amlen-builder-${distro}",QUAYIO_TOKEN) == "complete" ) {
+                        buildImage= sh (returnStdout: true, script: '''NOORIGIN_BRANCH=${GIT_BRANCH#origin/}''')
+                    }
+                    else {
+                        error "QuayIO build didn't complete"
+                    }
                     echo buildImage
                     echo "selecting linux distribution: ${distro}."
                     echo "selecting build image: ${buildImage}."
