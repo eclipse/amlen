@@ -108,7 +108,7 @@ pipeline {
                         if (GIT_BRANCH == "ib.buildcontainers") {
                             changedFiles = sh ( returnStdout: true, script: '''
                                 git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                                if [ $(git tag -l ib.containers.builder-update ] ; then
+                                if [ $(git tag -l ib.containers.builder-update) ] ; then
                                     git diff --name-only ib.containers.builder-update
                                 else
                                     git diff --name-only origin/main
