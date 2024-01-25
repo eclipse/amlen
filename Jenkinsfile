@@ -105,7 +105,7 @@ pipeline {
                     }
 
                     if ( buildImage == buildImage2 ){
-                        if (GIT_BRANCH == "ib.contianers") {
+                        if (GIT_BRANCH == "ib.containers") {
                            echo "HORRAY!"
                         }
                         else {
