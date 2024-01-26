@@ -141,6 +141,7 @@ pipeline {
                             latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("main-"))) | sort_by(.name?)|reverse[0].name // "main-1.0.0.0"' ''').trim()
                         } else {
                             latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+''''-1.0.0.0"' ''').trim()
+                        }
                         echo "selecting build image: ${latestBuilder}."
                     }
                   }
