@@ -105,49 +105,40 @@ pipeline {
                         env.BUILD_LABEL = "${env.BUILD_TIMESTAMP}_eclipse${distro}"
                     }
 
-                    if ( buildImage == buildImage2 ){
-                        if (GIT_BRANCH == "ib.buildcontainers") {
-                            changedFiles = sh ( returnStdout: true, script: '''
-                                git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                                if [ $(git tag -l '''+GIT_BRANCH+'''-builder) ] ; then
-                                    git diff --name-only '''+GIT_BRANCH+'''-builder
-                                else
-                                    git diff --name-only origin/main
-                                fi
-                            ''' )
-                            echo changedFiles
-                        }
-                        else {
-                            changedFiles = sh ( returnStdout: true, script: '''
-                                git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                                git diff --name-only origin/main
-                            ''' )
-                        }
-                        latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+'''-1.0.0.0"' ''').trim()
+                    changedFiles = sh ( returnStdout: true, script: '''
+                        git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
+                        if [ $(git tag -l '''+GIT_BRANCH+'''-builder) ] ; then
+                            git diff --name-only '''+GIT_BRANCH+'''-builder
+                            latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+'''-1.0.0.0"' ''').trim()
+                        else
+                            git diff --name-only origin/main
+                        fi
+                    ''' )
 
-                        echo "Files ${changedFiles}"
-                        echo "Latest: ${latestBuilder}"
-                        switch(distro) {
-                          case "almalinux8": filename = "Dockerfile.alma8"
-                              break
-                          case "almalinux9": filename = "Dockerfile.alma9"
-                              break
-                          default: filename = "Dockerfile.${distro}"
-                        } 
-                        echo "filename ${filename}"
-                        if (changedFiles.contains(filename)) {
-                          customBuildFile = filename
-                        }
-                    }else {
-                        echo "updating build image: ${buildImage} -> ${buildImage2}."
-                    }
-                    buildImage=buildImage2
+                    echo "Files ${changedFiles}"
+                    echo "Latest: ${latestBuilder}"
+                    switch(distro) {
+                        case "almalinux8": filename = "Dockerfile.alma8"
+                            break
+                        case "almalinux9": filename = "Dockerfile.alma9"
+                            break
+                        default: filename = "Dockerfile.${distro}"
+                    } 
                     echo "selecting linux distribution: ${distro}."
-                    echo "selecting build image: ${buildImage}."
-                    env
+                    if (changedFiles.contains(filename)) {
+                        echo "New build image required"
+                        customBuildFile = filename
+                        if (latestBuilder == null) {
+                            latestBuilder="${GIT_BRANCH}-1.0.0.0"
+                        }
+                    }
+                    else {
+                        if (latestBuilder == null) {
+                            latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("main-"))) | sort_by(.name?)|reverse[0].name // "main-1.0.0.0"' ''').trim()
+                        {
+                        echo "selecting build image: ${latestBuilder}."
+                    }
                   }
-                  echo "In Init, BUILD_LABEL is ${env.BUILD_LABEL}"    
-                  echo "COMMIT: ${env.GIT_COMMIT}"
                 }
               }
             }
@@ -172,37 +163,26 @@ pipeline {
                                scp -o BatchMode=yes -r buildcontainer.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                             '''
                           }
-                    echo latestBuilder
                     pattern = ~"(.*\\-\\d+\\.\\d+\\.\\d+\\.)(\\d+)"
-                    echo "PATTERN:"
-                    echo pattern.toString()
                     regex = latestBuilder =~ pattern
-                    echo "REGEX:"
-                    echo regex.toString()
                     regex.matches()
                     newBuilder = regex.group(1)+((regex.group(2) as int) + 1)
                     build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-builder-${distro}",distro,"buildcontainer.tar.gz",newBuilder)
                     echo build_uuid
                     if ( waitForQuayBuild(build_uuid,"amlen-builder-${distro}",QUAYIO_TOKEN) == "complete" ) {
-                        buildImage= sh (returnStdout: true, script: '''echo ${GIT_BRANCH#origin/}''')
-                        if (GIT_BRANCH == "ib.buildcontainers") {
-                            something = sh ( returnStdout: true, script: '''
-                                echo ' { "tag": "ib.containers.builder-update", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
-                                cat tag.json
-                                sha=$(curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags" | jq -r '.["object"]["sha"]')
-                                echo "{\\\"ref\\\":\\\"refs/tags/ib.containers.builder-update\\\",\\\"sha\\\":\\\"$sha\\\"}" > tagref.json
-                                cat tagref.json
-                                curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/refs" 
-                            ''' )
-                            echo something
-                        }
+                        sh ( returnStdout: true, script: '''
+                            echo ' { "tag": "ib.containers.builder-update", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
+                            sha=$(curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags" | jq -r '.["object"]["sha"]')
+                            echo "{\\\"ref\\\":\\\"refs/tags/ib.containers.builder-update\\\",\\\"sha\\\":\\\"$sha\\\"}" > tagref.json
+                            curl -v -X POST -d @tagref.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/refs" 
+                        ''' )
                     }
                     else {
                         error "QuayIO build didn't complete"
                     }
-                    echo buildImage
-                    echo "selecting linux distribution: ${distro}."
-                    echo "selecting build image: ${buildImage}."
+                    echo "linux distribution: ${distro}."
+                    echo "new build image: ${newBuilder}."
+                    buildImage = newBuilder
                   }
                 }
               }
