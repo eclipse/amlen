@@ -131,7 +131,7 @@ pipeline {
                     if (changedFiles.contains(filename)) {
                         echo "New build image required"
                         customBuildFile = filename
-                        latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+''''-1.0.0.0"' ''').trim()
+                        latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+'''-1.0.0.0"' ''').trim()
                         if (latestBuilder == null) {
                             latestBuilder="${GIT_BRANCH}-1.0.0.0"
                         }
