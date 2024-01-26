@@ -109,11 +109,12 @@ pipeline {
                         git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
                         if [ $(git tag -l '''+GIT_BRANCH+'''-builder) ] ; then
                             git diff --name-only '''+GIT_BRANCH+'''-builder
-                            latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+'''-1.0.0.0"' ''').trim()
                         else
                             git diff --name-only origin/main
                         fi
                     ''' )
+
+                    latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+'''-1.0.0.0"' ''').trim()
 
                     echo "Files ${changedFiles}"
                     echo "Latest: ${latestBuilder}"
@@ -125,17 +126,21 @@ pipeline {
                         default: filename = "Dockerfile.${distro}"
                     } 
                     echo "selecting linux distribution: ${distro}."
+                    tag = sh ( returnStdout: true, script: '''git tag -l '''+GIT_BRANCH+'''-builder''' ).trim()
+                    echo tag
                     if (changedFiles.contains(filename)) {
                         echo "New build image required"
                         customBuildFile = filename
+                        latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+''''-1.0.0.0"' ''').trim()
                         if (latestBuilder == null) {
                             latestBuilder="${GIT_BRANCH}-1.0.0.0"
                         }
                     }
                     else {
-                        if (latestBuilder == null) {
+                        if ( tag == "" ) {
                             latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("main-"))) | sort_by(.name?)|reverse[0].name // "main-1.0.0.0"' ''').trim()
-                        {
+                        } else {
+                            latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+''''-1.0.0.0"' ''').trim()
                         echo "selecting build image: ${latestBuilder}."
                     }
                   }
