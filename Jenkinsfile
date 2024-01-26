@@ -172,6 +172,7 @@ pipeline {
                                scp -o BatchMode=yes -r buildcontainer.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                             '''
                           }
+                    echo latestBuilder
                     regex = latestBuilder =~ "(.*\\-\\d+\\.\\d+\\.\\d+\\.)(\\d+)"
                     regex.matches()
                     newBuilder = regex.group(1)+((regex.group(2) as int) + 1)
