@@ -5,15 +5,16 @@
 def distro = "almalinux8"
 def buildImage = "1.0.0.8"
 def customBuildFile = null
-def startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,repo,distro,filename){
+def startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,repo,distro,filename,tag){
   output = sh (returnStdout: true, script: '''
        repo='''+repo+'''
        distro='''+distro+'''
        filename='''+filename+'''
+       tag='''+tag+'''
        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
        while [ true ]
        do
-           c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/${repo}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"${NOORIGIN_BRANCH}\\\"]}\" )
+           c1=$(curl -X POST https://quay.io/api/v1/repository/amlen/${repo}/build/ -H \"Authorization: Bearer ${QUAYIO_TOKEN}\" -H \"Content-Type: application/json\" -d \"{ \\\"archive_url\\\":\\\"https://download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/${filename}\\\", \\\"docker_tags\\\":[\\\"$tag\\\"]}\" )
            if [[ $c1 == *"phase"* ]]
            then
              c1=$(echo $c1 | jq -r '.["id"]' )
@@ -108,8 +109,8 @@ pipeline {
                         if (GIT_BRANCH == "ib.buildcontainers") {
                             changedFiles = sh ( returnStdout: true, script: '''
                                 git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                                if [ $(git tag -l ib.containers.builder-update) ] ; then
-                                    git diff --name-only ib.containers.builder-update
+                                if [ $(git tag -l '''+GIT_BRANCH+'''-builder) ] ; then
+                                    git diff --name-only '''+GIT_BRANCH+'''-builder
                                 else
                                     git diff --name-only origin/main
                                 fi
@@ -122,8 +123,10 @@ pipeline {
                                 git diff --name-only origin/main
                             ''' )
                         }
+                        latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | ./jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // '''+GIT_BRANCH+'''-1.0.0.0' ''')
 
                         echo "Files ${changedFiles}"
+                        echo "Latest: ${latestBuilder}"
                         switch(distro) {
                           case "almalinux8": filename = "Dockerfile.alma8"
                               break
@@ -169,13 +172,15 @@ pipeline {
                                scp -o BatchMode=yes -r buildcontainer.tar.gz genie.amlen@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/amlen/snapshots/${NOORIGIN_BRANCH}/${BUILD_LABEL}/${distro}/
                             '''
                           }
-                    build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-builder-${distro}",distro,"buildcontainer.tar.gz")
+                    regex = latestBuilder =~ "(.*\\-\\d+\\.\\d+\\.\\d+\\.)(\\d+)"
+                    regex.matches()
+                    newBuilder = regex.group(1)+((regex.group(2) as int) + 1)
+                    build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-builder-${distro}",distro,"buildcontainer.tar.gz",newBuilder)
                     echo build_uuid
                     if ( waitForQuayBuild(build_uuid,"amlen-builder-${distro}",QUAYIO_TOKEN) == "complete" ) {
                         buildImage= sh (returnStdout: true, script: '''echo ${GIT_BRANCH#origin/}''')
                         if (GIT_BRANCH == "ib.buildcontainers") {
                             something = sh ( returnStdout: true, script: '''
-                                git tag ib.containers.builder-update
                                 echo ' { "tag": "ib.containers.builder-update", "object": "'''+env.GIT_COMMIT+'''", "message": "creating a tag", "tagger": { "name": "Jenkins", "email": "noone@nowhere.com" }, "type": "commit" } ' > tag.json
                                 cat tag.json
                                 sha=$(curl -v -X POST -d @tag.json --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/git/tags" | jq -r '.["object"]["sha"]')
@@ -248,7 +253,7 @@ spec:
                            script {
                               something = sh ( returnStdout: true, script: '''
                                       echo "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-${distro}:${buildImage}\\\"}"
-                                      curl -v -X POST --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/commits/${GIT_COMMIT}/comments" -d "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-'''+distro+''':'''+buildImage+'''}\\\"}"
+                                      curl -v -X POST --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/commits/${GIT_COMMIT}/comments" -d "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-'''+distro+''':'''+buildImage+'''\\\"}"
 
                               ''' )
                               echo something
@@ -355,9 +360,9 @@ spec:
 		     echo "In Deploy, BUILD_LABEL is ${env.BUILD_LABEL}"
 		     withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
                        script {
-                           server_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-server",distro,"EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz")
-                           operator_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator",distro,"operator.tar.gz")
-                           operator_bundle_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator-bundle",distro,"operator_bundle.tar.gz")
+                           server_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-server",distro,"EclipseAmlenServer-${distro}-1.1dev-${BUILD_LABEL}.tar.gz",GIT_BRANCH)
+                           operator_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator",distro,"operator.tar.gz",GIT_BRANCH)
+                           operator_bundle_build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"operator-bundle",distro,"operator_bundle.tar.gz",GIT_BRANCH)
                            waitForQuayBuild(server_build_uuid,"amlen-server",QUAYIO_TOKEN)
                            waitForQuayBuild(operator_build_uuid,"operator",QUAYIO_TOKEN)
                            waitForQuayBuild(operator_build_uuid,"operator_bundle",QUAYIO_TOKEN)
