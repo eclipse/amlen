@@ -175,10 +175,10 @@ pipeline {
                     echo latestBuilder
                     pattern = ~"(.*\\\\-\\\\d+\\\\.\\\\d+\\\\.\\\\d+\\\\.)(\\\\d+)"
                     echo "PATTERN:"
-                    echo pattern
+                    echo pattern.toString()
                     regex = latestBuilder =~ pattern
                     echo "REGEX:"
-                    echo regex
+                    echo regex.toString()
                     regex.matches()
                     newBuilder = regex.group(1)+((regex.group(2) as int) + 1)
                     build_uuid=startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,"amlen-builder-${distro}",distro,"buildcontainer.tar.gz",newBuilder)
