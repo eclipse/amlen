@@ -173,7 +173,7 @@ pipeline {
                             '''
                           }
                     echo latestBuilder
-                    pattern = ~"(.*\\\\-\\\\d+\\\\.\\\\d+\\\\.\\\\d+\\\\.)(\\\\d+)"
+                    pattern = ~"(.*\\-\\d+\\.\\d+\\.\\d+\\.)(\\d+)"
                     echo "PATTERN:"
                     echo pattern.toString()
                     regex = latestBuilder =~ pattern
