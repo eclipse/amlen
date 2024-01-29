@@ -3,7 +3,6 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def buildImage = "1.0.0.8"
 def customBuildFile = null
 def startQuayBuild(QUAYIO_TOKEN,GIT_BRANCH,BUILD_LABEL,repo,distro,filename,tag){
   output = sh (returnStdout: true, script: '''
@@ -75,7 +74,7 @@ pipeline {
                     if (env.BUILD_TIMESTAMP == null) {
                         env.BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M", returnStdout: true).toString().trim()
                     }
-                    echo "default values ${distro} ${buildImage}"
+                    echo "default value ${distro}"
                     distro2 = sh (returnStdout: true, script: ''' 
                         x=0
                         message=`git log -1 --skip=$x --pretty=%B`
@@ -89,17 +88,6 @@ pipeline {
                     ).trim()
                     echo "updating linux distribution: ${distro} -> ${distro2}."
                     distro=distro2
-                    buildImage2 = sh (returnStdout: true, script: ''' 
-                        x=0
-                        message=`git log -1 --skip=$x --pretty=%B`
-                        if [[ "$message" =~ [[]buildImage=([A-Za-z0-9.-]+)[]] ]] 
-                        then 
-                            echo ${BASH_REMATCH[1]} 
-                        else 
-                            echo "'''+buildImage+'''"
-                        fi
-                    '''
-                    ).trim()
                     
                     if (env.BUILD_LABEL == null ) {
                         env.BUILD_LABEL = "${env.BUILD_TIMESTAMP}_eclipse${distro}"
@@ -143,6 +131,7 @@ pipeline {
                             latestBuilder = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer 3ZfjzxygqPZUa0JXB6KGxvA7qeDxlztWW9e8l3Rq" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+''''-1.0.0.0"' ''').trim()
                         }
                         echo "selecting build image: ${latestBuilder}."
+                        buildImage = latestBuilder
                     }
                   }
                 }
@@ -243,13 +232,6 @@ spec:
                         container("amlen-${distro}-build") {
 		           withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
                            script {
-                              something = sh ( returnStdout: true, script: '''
-                                      echo "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-${distro}:${buildImage}\\\"}"
-                                      curl -v -X POST --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/commits/${GIT_COMMIT}/comments" -d "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-'''+distro+''':'''+buildImage+'''\\\"}"
-
-                              ''' )
-                              echo something
-                              error "STOP!"
                                try {
                                    sh '''
                                        set -e
@@ -308,6 +290,10 @@ spec:
                                    }
                                    currentBuild.result = 'FAILURE'
                                }
+                               sh ( returnStdout: true, script: '''
+                                      echo "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-${distro}:${buildImage}\\\"}"
+                                      curl -X POST --header "Content-Type:application/json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/eclipse/amlen/commits/${GIT_COMMIT}/comments" -d "{\\\"body\\\":\\\"Built with quay.io/amlen/amlen-builder-'''+distro+''':'''+buildImage+'''\\\"}"
+                               ''' )
                            }
                            }
                         }
