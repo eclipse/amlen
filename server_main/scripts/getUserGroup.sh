@@ -12,7 +12,7 @@
 #
 
 #Set default user if not sepecified
-IMASERVER_USER=root
+IMASERVER_USER=amlen
 IMASERVER_GROUP=$IMASERVER_USER
 
 #File to read user and group from:

@@ -229,14 +229,14 @@ function set_docker_from {
     if [ "${LINUXDISTRO_FULL}" == "centos7"  ] ; then
         sed -i 's+IMA_SVR_DISTRO+quay.io/centos/centos:7+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     elif [ "${LINUXDISTRO_FULL}" == "almalinux8"  ] ; then
-        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:8+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinuxorg/almalinux:8+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     elif [ "${LINUXDISTRO_FULL}" == "almalinux9"  ] ; then
-        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:9+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinuxorg/almalinux:9+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     elif [ "${LINUXDISTRO_FULL}" == "fedora"  ] ; then
         sed -i 's+IMA_SVR_DISTRO+quay.io/fedora/fedora:35-x86_64+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     else
         # default to almalinux 8
-        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinux/almalinux:8+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+        sed -i 's+IMA_SVR_DISTRO+quay.io/almalinuxorg/almalinux:8+' $DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     fi
 }
 

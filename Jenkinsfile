@@ -350,10 +350,13 @@ spec:
 			           distro='''+distro+'''
 			           NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
  
-			           if [[ "$BRANCH_NAME" == "main" || ! -z "$CHANGE_ID" ]] ; then
-				       curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
-			           fi
-   
+
+			       if [[ "$BRANCH_NAME" == "main" ]] ; then
+				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
+			       elif [[ ! -z "$CHANGE_ID" ]] ; then
+                                 commit=$(curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/pulls/$CHANGE_ID/commits | jq '.[-1].sha')
+				 curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${commit//\\\"/} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
+                               fi   
 			       '''
                            }
                        }
