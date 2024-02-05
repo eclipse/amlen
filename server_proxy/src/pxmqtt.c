@@ -1739,13 +1739,15 @@ static int handleConnectRequest(ism_transport_t * transport, mqttMsg_t * mmsg, u
      * On a CONNECT we wait until after the parse to make sure we do not trace
      * a password.
      */
-    if (UNLIKELY(SHOULD_TRACE(9))) {
+    if (UNLIKELY(SHOULD_TRACE(5))) {
         char obuf[64];
         int maxlen = ism_common_getTraceMsgData();
-        if (mmsg->rc == 0) {
-            if (mmsg->password)
-                maxlen = mmsg->password - inbuf;
-        }
+        
+        //TEMPORARILY TRACE OUT PASSWORDS - for debugging - do NOT merge to mainlin 
+        //if (mmsg->rc == 0) {
+        //    if (mmsg->password)
+        //        maxlen = mmsg->password - inbuf;
+        //}
         if (verpos) {
             *verpos = inver;
         }
