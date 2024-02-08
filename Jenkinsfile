@@ -129,7 +129,8 @@ spec:
                                        cd ../operator
                                        NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
                                        export IMG=quay.io/amlen/operator:$NOORIGIN_BRANCH
-                                       make bundle
+                                       export SUFFIX=$(echo "-${GIT_BRANCH}" | tr '[:upper:]' '[:lower:]')
+                                       make bundle SUFFIX=$SUFFIX
                                        make produce-deployment
                                        pylint --fail-under=5 build/scripts/*.py
                                        cd ../Documentation/doc_infocenter
