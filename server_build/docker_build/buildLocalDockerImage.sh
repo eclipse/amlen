@@ -57,9 +57,9 @@ fi
 # Check container Docker file and rename container Dockerfile to Dockerfile
 echo "buildDockerImage: Check container Docker file and rename container Dockerfile to Dockerfile" >> $LOGFILE
 echo "buildDockerImage: Check container Docker file and rename container Dockerfile to Dockerfile"
-if [ -f Dockerfile.localRPM.${CONTNAME} ]
+if [ -f Dockerfile.${CONTNAME} ]
 then
-    cp -f Dockerfile.localRPM.${CONTNAME} Dockerfile
+    cp -f Dockerfile.${CONTNAME} Dockerfile
     # Update RPM name in docker file
     if [ "${CONTNAME}" == "IBMWIoTPMessageGatewayServer" ]
     then

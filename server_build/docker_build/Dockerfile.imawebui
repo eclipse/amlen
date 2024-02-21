@@ -11,16 +11,13 @@
 #
 
 #Choose a base image that matches the type of build we are using...
-#By default we use: centos7
-FROM quay.io/centos/centos:7
-# For a RHEL8/CentOS8 distro, we use AlmaLinux:
-# ***NB: For RHEL8 - we also need to enable extra repos - see later ***
-#FROM quay.io/almalinuxorg/almalinux:8
+# To use a different disto change the from EG:
+# FROM quay.io/centos/centos:7
+# FROM quay.io/almalinuxorg/almalinux:8
+# FROM quay.io/almalinuxorg/almalinux:9
 # For Fedora, the verion changes very often due to their short life
-#FROM quay.io/fedora/fedora:35-x86_64
-
-#File author / Maintainer
-MAINTAINER ISM Build
+# FROM quay.io/fedora/fedora:35-x86_64
+FROM IMA_SVR_DISTRO
 
 WORKDIR ${IMA_WEBUI_INSTALL_PATH}/bin
 
@@ -29,13 +26,19 @@ WORKDIR ${IMA_WEBUI_INSTALL_PATH}/bin
 #  1) CodeReady Builder stream for RHEL
 #  2) PowerTools for CentOS/AlmaLinux
 #  3) Symas repo
-# Needs to be enabled e.g. to enable symas:
-# RUN curl -o /etc/yum.repos.d/sofl.repo https://repo.symas.com/configs/SOFL/rhel8/sofl.repo
+# Needs to be enabled e.g. we enable symas:
+#RUN curl -o /etc/yum.repos.d/sofl.repo https://repo.symas.com/configs/SOFL/rhel8/sofl.repo
+# We make this step optional as not all distros will suport the commands
+RUN dnf config-manager --set-enabled powertools || true
 
-# We see a bug where if the WebUI is installed in the same transaction as the java
-# it depends on, java is not in the path when the postinstall scripts are run.
-# We work around this by finding the required version of java and installing it first:
-RUN yum deplist /tmp/imawebui.rpm |  awk '/provider:/ {print $2}' | grep java | sort -u |  xargs yum -y install
+# Add RPM in a temporary directory inside the container
+# Make sure that imawebui.rpm is available in the directory where "docker build" command
+# is being executed
+ADD ./imawebui.rpm /tmp/
+
+# Update all packages
+RUN yum -y upgrade 
+
 
 #To run as a non-root user
 # 1) Create the user and group outside the container with a selected uid/gid
@@ -50,10 +53,16 @@ RUN yum deplist /tmp/imawebui.rpm |  awk '/provider:/ {print $2}' | grep java | 
 #        RUN useradd -r  -s /sbin/nologin -g ima -u 463 ima
 # 5) Uncomment the USER line above the Entrypoint before the entrypoint
 
-# Install packages 
-RUN yum -y upgrade && \
-    yum -y install bc gdb net-tools openldap openldap-servers openldap-clients tar openssl && \
-    rpm -iv http://10.90.125.123:9988/RPMS/IBMWIoTPMessageGatewayWebUI.rpm
+# We see a bug where if the WebUI is installed in the same transaction as the java
+# it depends on, java is not in the path when the postinstall scripts are run.
+# We work around this by finding the required version of java and installing it first:
+RUN yum deplist /tmp/imawebui.rpm |  awk '/provider:/ {print $2}' | grep java | sort -u |  xargs yum -y install
+
+#Install the WebUI intself
+RUN yum -y install /tmp/imawebui.rpm
+
+# Delete imawebui.rpm from temporary directory
+RUN rm -f /tmp/imawebui.rpm
 
 #Uncomment below USER line to run as a non-root user (but do the above steps 1-4 as well!)
 #USER ima:ima
@@ -62,5 +71,3 @@ RUN yum -y upgrade && \
 RUN chmod -R +x ${IMA_WEBUI_APPSRV_INSTALL_PATH}
 
 ENTRYPOINT [ "${IMA_WEBUI_INSTALL_PATH}/bin/startWebUI.sh" ]
-
-
