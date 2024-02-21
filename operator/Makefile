@@ -112,7 +112,7 @@ ARCH := $(shell uname -m | sed 's/x86_64/amd64/')
 
 .PHONY: kustomize
 KUSTOMIZE = $(shell pwd)/bin/kustomize
-kustomize: ## Download kustomize locally if necessary.
+kustomize: build/scripts/server.py ## Download kustomize locally if necessary.
 ifeq (,$(wildcard $(KUSTOMIZE)))
 ifeq (,$(shell which kustomize 2>/dev/null))
 	@{ \
@@ -196,3 +196,9 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+#We need a python utils file from the server as part of the operator - copy it in
+SERVER_PYUTILS = ../server_main/scripts/server.py
+build/scripts/server.py: $(SERVER_PYUTILS)
+	mkdir -p build/scripts
+	cp $(SERVER_PYUTILS) $@

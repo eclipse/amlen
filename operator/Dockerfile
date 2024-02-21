@@ -7,9 +7,6 @@ RUN ansible-galaxy collection install -r ${HOME}/requirements.yml \
 COPY watches.yaml ${HOME}/watches.yaml
 COPY roles/ ${HOME}/roles/
 
-#There's a utility script that we use for communication with the amlen server
-COPY ../server_main/scripts/server.py ${HOME}
-
 USER root
 RUN chmod -R g=u ${HOME}
 USER ${USER_UID}
