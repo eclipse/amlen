@@ -283,7 +283,7 @@ function bld_imabridge_rpm {
     # create Bridge tar file
     mkdir -p $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imamqttbridge $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.imamqttbridge $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     set_docker_from $BRIDGE_RPMBUILD_DIR
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imabridge-docker.env $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $BRIDGE_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
@@ -315,7 +315,7 @@ function bld_imabridge_rpm {
         QA_RPATHS=$(( 0x0002|0x0004|0x0008)) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_BRIDGE_SLES/BUILDROOT imamqttbridge-sles.spec
         mkdir -p $BRIDGE_RPMBUILD_DIR/sles/temp
         cp --no-preserve=ownership $BRIDGE_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${BRIDGE_NAME}*.rpm $BRIDGE_RPMBUILD_DIR/sles/temp/${BRIDGE_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.sle.x86_64.rpm
-        cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imamqttbridge $BRIDGE_RPMBUILD_DIR/sles/temp/Dockerfile
+        cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.imamqttbridge $BRIDGE_RPMBUILD_DIR/sles/temp/Dockerfile
         cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imabridge-docker.env $BRIDGE_RPMBUILD_DIR/sles/temp
         dos2unix $BRIDGE_RPMBUILD_DIR/sles/temp/Dockerfile
         dos2unix $BRIDGE_RPMBUILD_DIR/sles/temp/imabridge-docker.env
@@ -661,11 +661,9 @@ function rpmbuild_server {
     # create imaserver tar file
     mkdir -p $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.imaserver $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     set_docker_from $IMASERVER_RPMBUILD_DIR
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaserver-docker.env $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
-    cp --no-preserve=ownership -r ${BUILD_ROOT}/operator/build/* $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_ship/bin/imahasher $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     dos2unix $IMASERVER_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/imaserver-docker.env
 
@@ -698,7 +696,7 @@ function rpmbuild_server {
         QA_RPATHS=$(( 0x0002|0x0004|0x0008)) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_SLES/BUILDROOT imaserver-sles.spec
         mkdir -p $IMASERVER_RPMBUILD_DIR/sles/temp
         cp --no-preserve=ownership $IMASERVER_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${IMASERVER_NAME}*.rpm $IMASERVER_RPMBUILD_DIR/sles/temp/${IMASERVER_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.sle.x86_64.rpm
-        cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaserver $IMASERVER_RPMBUILD_DIR/sles/temp/Dockerfile
+        cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.imaserver $IMASERVER_RPMBUILD_DIR/sles/temp/Dockerfile
         cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaserver-docker.env $IMASERVER_RPMBUILD_DIR/sles/temp
         dos2unix $IMASERVER_RPMBUILD_DIR/sles/temp/Dockerfile
         dos2unix $IMASERVER_RPMBUILD_DIR/sles/temp/imaserver-docker.env
@@ -785,7 +783,7 @@ function bld_imagui_rpm {
     # create imawebui tar file
     mkdir -p $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${IMAGUI_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imawebui $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.imawebui $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     set_docker_from $IMAGUI_RPMBUILD_DIR
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imawebui-docker.env $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $IMAGUI_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
@@ -816,7 +814,7 @@ function bld_imagui_rpm {
         QA_RPATHS=$(( 0x0002|0x0004|0x0008)) rpmbuild --quiet -bb --buildroot $RPMBUILD_ROOT_WEBUI_SLES/BUILDROOT imawebui-sles.spec
         mkdir -p $IMAGUI_RPMBUILD_DIR/sles/temp
         cp --no-preserve=ownership $IMAGUI_RPMBUILD_DIR/sles/rpmbuild/RPMS/x86_64/${IMAGUI_NAME}*.rpm $IMAGUI_RPMBUILD_DIR/sles/temp/${IMAGUI_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.sle.x86_64.rpm
-        cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imawebui $IMAGUI_RPMBUILD_DIR/sles/temp/Dockerfile
+        cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.imawebui $IMAGUI_RPMBUILD_DIR/sles/temp/Dockerfile
         cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imawebui-docker.env $IMAGUI_RPMBUILD_DIR/sles/temp
         dos2unix $IMAGUI_RPMBUILD_DIR/sles/temp/Dockerfile
         dos2unix $IMAGUI_RPMBUILD_DIR/sles/temp/imawebui-docker.env
@@ -956,7 +954,7 @@ function bld_imaproxy_rpm {
     # create Proxy tar file
     mkdir -p $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     cp --no-preserve=ownership $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/rpmbuild/RPMS/x86_64/${PROXY_NAME}*.rpm $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/${PROXY_NAME}-${ISM_VERSION_ID}-${RPM_BUILD_LABEL}.${LINUXDISTRO_FULL}.x86_64.rpm
-    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.localRPM.imaproxy $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
+    cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/Dockerfile.imaproxy $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
     set_docker_from $PROXY_RPMBUILD_DIR
     cp --no-preserve=ownership ${BUILD_ROOT}/server_build/docker_build/imaproxy-docker.env $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp
     dos2unix $PROXY_RPMBUILD_DIR/${LINUXDISTRO_FULL}/temp/Dockerfile
