@@ -231,7 +231,7 @@ pipeline {
                             echo tag
                             if (changedFiles.contains(filename)) {
                                 echo "New build image required"
-                                buildImage = startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,distro,filename,null,buildImage )
+                                buildImage = startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,,BUILD_LABEL,distro,filename,null,buildImage )
                             }
                             else {
                                 buildImage = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-'''+distro+'''/tag/?onlyActiveTags=true -H "Authorization: Bearer $QUAYIO_TOKEN" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+''''-1.0.0.0"' ''').trim()
