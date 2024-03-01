@@ -3,8 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def customBuildFile = null
-def masterBranch = "PR-164"
+def masterBranch = "main"
 
 // startBuilderBuild
 // This will upload the files required to build one of the build containers
@@ -232,7 +231,6 @@ pipeline {
                             echo tag
                             if (changedFiles.contains(filename)) {
                                 echo "New build image required"
-                                customBuildFile = filename
                                 buildImage = startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,distro,filename,null,buildImage )
                             }
                             else {
