@@ -172,10 +172,11 @@ pipeline {
                 container('jnlp') {
                     withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
                         script {
+                            // FIXME change branch for diff back to ${mainBranch} once finished testing!
                             changedFiles = sh ( returnStdout: true, script: '''
                                 mainBranch='''+mainBranch+'''
                                 git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                                git diff --name-only ${mainBranch}-builder-update''' )
+                                git diff --name-only main-builder-update''' )
                             buildImage = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer $QUAYIO_TOKEN" -H "Content-Type: application/json"  | jq -r ".[\"tags\"]|map(select(.name? | match(\"${mainBranch}-\"))) | sort_by(.name?)|reverse[0].name // \"${mainBranch}-1.0.0.0\"' ''').trim()
                             if (changedFiles.contains("Dockerfile.")) {
                                 buildImage = startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,BUILD_LABEL,"almalinux8","Dockerfile.alma8",null,buildImage )
