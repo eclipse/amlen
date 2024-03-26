@@ -3,7 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def mainBranch = "ibjen"
+def mainBranch = "main"
 
 // startBuilderBuild
 // This will upload the files required to build one of the build containers
