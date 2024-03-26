@@ -3,7 +3,7 @@
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
 def distro = "almalinux8"
-def masterBranch = "main"
+def mainBranch = "main"
 
 // startBuilderBuild
 // This will upload the files required to build one of the build containers
@@ -134,7 +134,7 @@ pipeline {
         stage("Get Distro") {
             when {
               not {
-                branch masterBranch
+                branch mainBranch
               }
             }
             agent any 
@@ -165,7 +165,7 @@ pipeline {
         // We rebuild all even if only one has changed so that the version numbers are kept locked
         stage("Rebuild Containers") {
             when {
-              branch masterBranch
+              branch mainBranch
             }
             agent any 
             steps {
@@ -173,10 +173,10 @@ pipeline {
                     withCredentials([string(credentialsId: 'quay.io-token', variable: 'QUAYIO_TOKEN'),string(credentialsId:'github-bot-token',variable:'GITHUB_TOKEN')]) {
                         script {
                             changedFiles = sh ( returnStdout: true, script: '''
-                                masterBranch='''+masterBranch+'''
+                                mainBranch='''+mainBranch+'''
                                 git fetch --force --progress -- https://github.com/eclipse/amlen.git +refs/heads/main:refs/remotes/origin/main
-                                git diff --name-only ${masterBranch}-builder-update''' )
-                            buildImage = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer $QUAYIO_TOKEN" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("${masterBranch}-"))) | sort_by(.name?)|reverse[0].name // "${masterBranch}-1.0.0.0"' ''').trim()
+                                git diff --name-only ${mainBranch}-builder-update''' )
+                            buildImage = sh ( returnStdout: true, script: '''curl https://quay.io/api/v1/repository/amlen/amlen-builder-almalinux8/tag/?onlyActiveTags=true -H "Authorization: Bearer $QUAYIO_TOKEN" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("${mainBranch}-"))) | sort_by(.name?)|reverse[0].name // "${mainBranch}-1.0.0.0"' ''').trim()
                             if (changedFiles.contains("Dockerfile.")) {
                                 buildImage = startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,BUILD_LABEL,"almalinux8","Dockerfile.alma8",null,buildImage )
                                 startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,BUILD_LABEL,"almalinux9","Dockerfile.alma9",buildImage,buildImage )
@@ -198,7 +198,7 @@ pipeline {
         stage("Builder Container Image") {
             when {
                 not {
-                    branch masterBranch
+                    branch mainBranch
                 }
             }
             agent any 
@@ -212,7 +212,7 @@ pipeline {
                                 if [ $(git tag -l '''+GIT_BRANCH+'''-builder-update) ] ; then
                                     git diff --name-only '''+GIT_BRANCH+'''-builder-update
                                 else
-                                    git diff --name-only '''+masterBranch+'''-builder-update
+                                    git diff --name-only '''+mainBranch+'''-builder-update
                                 fi
                             ''' )
         
@@ -239,7 +239,7 @@ pipeline {
                                     if [ $(git tag -l '''+GIT_BRANCH+'''-builder-update) ] ; then
                                         curl https://quay.io/api/v1/repository/amlen/amlen-builder-'''+distro+'''/tag/?onlyActiveTags=true -H "Authorization: Bearer $QUAYIO_TOKEN" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+GIT_BRANCH+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+GIT_BRANCH+'''-1.0.0.0"' 
                                     else
-                                        curl https://quay.io/api/v1/repository/amlen/amlen-builder-'''+distro+'''/tag/?onlyActiveTags=true -H "Authorization: Bearer $QUAYIO_TOKEN" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+masterBranch+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+masterBranch+'''-1.0.0.0"'
+                                        curl https://quay.io/api/v1/repository/amlen/amlen-builder-'''+distro+'''/tag/?onlyActiveTags=true -H "Authorization: Bearer $QUAYIO_TOKEN" -H "Content-Type: application/json"  | jq -r '.["tags"]|map(select(.name? | match("'''+mainBranch+'''-"))) | sort_by(.name?)|reverse[0].name // "'''+mainBranch+'''-1.0.0.0"'
                                     fi
                                 ''').trim()
                                 echo "selecting build image: ${buildImage}."
@@ -309,10 +309,10 @@ spec:
                                             set -e
                                             pwd 
                                             distro='''+distro+'''
-                                            masterBranch='''+masterBranch+'''
+                                            mainBranch='''+mainBranch+'''
                                             free -m 
                                             cd server_build 
-                                            if [[ "$BRANCH_NAME" == "$masterBranch" ]] ; then
+                                            if [[ "$BRANCH_NAME" == "$mainBranch" ]] ; then
                                                 export BUILD_TYPE=fvtbuild
                                             fi
                                             bash buildcontainer/build.sh
@@ -344,7 +344,7 @@ spec:
                                                 echo "WebUI not built"
                                                 exit 1
                                             fi
-                                            if [ $BRANCH_NAME == "$masterBranch" -a ! -e rpms/EclipseAmlenProxy-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
+                                            if [ $BRANCH_NAME == "$mainBranch" -a ! -e rpms/EclipseAmlenProxy-${distro}-1.1dev-${BUILD_LABEL}.tar.gz ]
                                             then 
                                                 echo "Main build but Proxy Not built"
                                                 exit 1
@@ -423,10 +423,10 @@ spec:
                                  sh '''
                                      pwd
                                      distro='''+distro+'''
-                                     masterBranch='''+masterBranch+'''
+                                     mainBranch='''+mainBranch+'''
                                      NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
 
-                                     if [[ "$BRANCH_NAME" == "$masterBranch" ]] ; then
+                                     if [[ "$BRANCH_NAME" == "$mainBranch" ]] ; then
                                          curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
                                      elif [[ ! -z "$CHANGE_ID" ]] ; then
                                          commit=$(curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/pulls/$CHANGE_ID/commits | jq '.[-1].sha')
@@ -463,7 +463,7 @@ spec:
         cpu: "2"
       requests:
         memory: "4Gi"
-        cpu: "2"
+        cpu: "1"
     volumeMounts:
     - mountPath: /dev/shm
       name: dshm
