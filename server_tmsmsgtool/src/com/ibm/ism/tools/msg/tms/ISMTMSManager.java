@@ -452,7 +452,8 @@ public class ISMTMSManager {
 				.newInstance();
 		try {
 			transformer = transformerFactory.newTransformer();
-			transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+                        //this causes problems in java 11
+			//transformer.setOutputProperty(OutputKeys.INDENT, "yes");
 			transformer.setOutputProperty(OutputKeys.METHOD, "xml");
 			transformer.setOutputProperty(OutputKeys.ENCODING, "utf-8");
 
