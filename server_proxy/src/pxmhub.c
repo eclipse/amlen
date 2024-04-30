@@ -3871,6 +3871,8 @@ xUNUSED static int mhubDataRetryConnect(ism_timer_t key, ism_time_t now, void * 
     pthread_mutex_unlock(&mhub_part->lock);
 
     if(!g_shuttingDown){
+        TRACE(5, "Recreating the mhub data connection: connect=%u name=%s server_addr=%s server_port=%u partition=%d nodeid=%d",
+			    			transport->index, transport->name, transport->server_addr, transport->serverport, pobj->partID, pobj->nodeID);
     	transport->ready = 7;  //Set ready for Connect Timeout. See ddosTimer
     	int rc = ism_kafka_createConnection(transport, pobj->server);
     	if(rc){
@@ -4499,16 +4501,29 @@ static int mhubStateCheck(ism_timer_t key, ism_time_t now, void * userdata) {
 										 open++;
 									 } else {
 										 /* retry as required */
+											if (part->transport!=NULL) {
+												if (part->transport->pobj) {
+													TRACE(5, "StateCheck: Data transport is not ready to produce: mhub=%s topic=%s partition=%u  (ready transport: type=%d, state=%d)\n",
+													        mhub->id, topic->name, j, part->transport->pobj->kafka_type, part->transport->pobj->state);
+												} else { 
+													TRACE(5, "StateCheck: Data transport is not ready to produce: mhub=%s topic=%s partition=%u ready=%u\n",
+													         mhub->id, topic->name, j, part->transport->ready);
+												}
+											} else {
+												TRACE(5, "StateCheck: Data transport is not ready to produce (null transport): mhub=%s topic=%s partition=%u\n",
+												             mhub->id, topic->name, j);
+											}
 											/*Partition is not open try to open the connection.*/
 											if(part->transport!=NULL && part->transport->pobj && part->transport->pobj->state !=TCP_CON_IN_PROCESS
 													&& part->transport->pobj->state  != TCP_CONNECTED){
+												TRACE(5, "StateCheck: Scheduling Data transport reconnect: mhub=%s topic=%s partition=%u\n",
+												            mhub->id, topic->name, j);
 												ism_common_setTimerOnce(ISM_TIMER_LOW, (ism_attime_t)mhubDataRetryConnect, part,  retryDelay(0));
 											}else if(part->transport == NULL){
 												//Need to get metadata
 												needmetadata++;
 											}
 											notopen++;
-
 									 }
 								 } else {
 									 needmetadata++;
@@ -4762,9 +4777,16 @@ int mhubPartitionProduceTimer(ism_timer_t timer, ism_time_t timestamp, void * us
                             ism_transport_submitAsyncJobRequest(transport, mhubProduceJob, (void *)mhub, (((uint64_t)tcount)<<32) + pcount);
                         }
                     } else{
-                    		TRACE(5, "Data transport is not ready to produce: mhub=%s topic=%s partition=%u\n",
-                    	                                    mhub->id, mhub_topic->name, pcount);
-
+                        if (transport && transport->ready == 1) {
+                            TRACE(5, "Data transport is not ready to produce: mhub=%s topic=%s partition=%u  (ready transport: type=%d, state=%d)\n",
+                                                            mhub->id, mhub_topic->name, pcount, transport->pobj->kafka_type, transport->pobj->state);
+                        } else if (transport!=NULL) {
+                            TRACE(5, "Data transport is not ready to produce: mhub=%s topic=%s partition=%u ready=%u\n",
+                                                            mhub->id, mhub_topic->name, pcount, transport->ready);
+                        } else {
+                            TRACE(5, "Data transport is not ready to produce (null transport): mhub=%s topic=%s partition=%u\n",
+                                                            mhub->id, mhub_topic->name, pcount);
+                        }
                     }
                 }
                 pthread_mutex_unlock(&mhub_part->lock);
