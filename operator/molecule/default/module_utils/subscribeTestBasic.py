@@ -58,7 +58,6 @@ def run(host,topic,clientid,port,insecure,usetls,cacerts,certfile,keyfile,userna
     chFormatter = logging.Formatter('%(asctime)-25s %(levelname)-8s %(message)s')
     ch.setFormatter(chFormatter)
     logger.addHandler(ch)
-    logger.info("molecule/default/module_utils/subscribeTestBasic.py")
 
     if cacerts:
         usetls = True
