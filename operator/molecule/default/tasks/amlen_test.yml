@@ -28,23 +28,28 @@
   vars:
     cr_file: '_v1_amlen.yaml'
 
-- name: Expose the insecure hello-world service externally
+- name: Expose the mqtt service
   community.okd.openshift_route:
-    service: amlen-1-mqtt
+    service: amlen-sample-1-mqtt
     namespace: '{{ namespace }}'
+    termination: "passthrough"
+    annotations:
+      haproxy.router.openshift.io/balance: "roundrobin"
+      haproxy.router.openshift.io/disable_cookies: 'true'
+      haproxy.router.openshift.io/retry_on: "all-retryable-errors"
   register: route
 
 - name: get service
   k8s_info:
     kind: Service
     namespace: '{{ namespace }}'
-    name: "amlen-1-mqtt"
+    name: "amlen-sample-1-mqtt"
   register: service
 
 - name: get certs
   k8s_info:
     kind: Secret
-    name: "amlen-1-cert-internal"
+    name: "amlen-sample-1-cert-devices"
     namespace: "{{ namespace }}"
   register: certs
 
@@ -53,15 +58,16 @@
     content: "{{certs.resources[0].data['ca.crt']|b64decode}}"
     dest: "./ca.crt"
 
-- name: store tlscert
-  copy:
-    content: "{{certs.resources[0].data['tls.crt']|b64decode}}"
-    dest: "./tls.crt"
-
 - name: store tlskey
   copy:
     content: "{{certs.resources[0].data['tls.key']|b64decode}}"
     dest: "./tls.key"
+
+- name: create csr
+  ansible.builtin.command: openssl req -new -key tls.key -out tls.csr -batch
+
+- name: create crt
+  ansible.builtin.command: openssl x509 -req -in tls.csr -CA ca.crt -CAkey tls.key -CAcreateserial -out tls.crt -days 825 -sha256
 
 - name: run test
   subscribeTest:
@@ -70,7 +76,7 @@
     insecure: True
     use-tls: True
     topic: "testtopic"
-    port: "{{service.resources[0].spec.ports[0].nodePort}}"
+    port: "{{service.resources[0].spec.ports[0].port}}"
     ca.crt: "./ca.crt"
     tls.crt: "./tls.crt"
     tls.key: "./tls.key"
@@ -82,4 +88,25 @@
   loop:
   - "./ca.crt"
   - "./tls.crt"
+  - "./tls.csr"
   - "./tls.key"
+  - "./ca.srl"
+
+- name: UnExpose the mqtt service
+  community.okd.openshift_route:
+    service: amlen-sample-1-mqtt
+    namespace: '{{ namespace }}'
+    state: absent
+
+- name: Delete the eclipse.org/v1.Amlen
+  k8s:
+    state: absent
+    namespace: '{{ namespace }}'
+    definition: "{{ lookup('template', '/'.join([samples_dir, cr_file])) | from_yaml }}"
+    wait: yes
+    wait_timeout: 600
+    wait_condition:
+      type: Successful
+      status: "True"
+  vars:
+    cr_file: '_v1_amlen.yaml'

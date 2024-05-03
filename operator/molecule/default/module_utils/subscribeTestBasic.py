@@ -24,6 +24,7 @@ from datetime import datetime
 from enum import Enum
 
 def on_connect(mqttc, obj, flags, rc):
+    logger.info("Connected")
     mqttc.subscribe(top, 0)
 
 def on_message(mqttc, obj, msg):
@@ -40,6 +41,9 @@ def on_subscribe(mqttc, obj, mid, granted_qos):
 def on_log(mqttc, obj, level, string):
     logger.info(string)
 
+def on_disconnect(mqttc,flags,rc):
+    logger.info(f"Disconnected {flags} {rc}")
+
 def run(host,topic,clientid,port,insecure,usetls,cacerts,certfile,keyfile,username,password):
     # Set up the logger
     global logger
@@ -54,6 +58,10 @@ def run(host,topic,clientid,port,insecure,usetls,cacerts,certfile,keyfile,userna
     chFormatter = logging.Formatter('%(asctime)-25s %(levelname)-8s %(message)s')
     ch.setFormatter(chFormatter)
     logger.addHandler(ch)
+    logger.info("molecule/default/module_utils/subscribeTestBasic.py")
+
+    if cacerts:
+        usetls = True
 
     logger.info("--------------------------------")
     logger.info(f"host ............ {host}")
@@ -63,16 +71,16 @@ def run(host,topic,clientid,port,insecure,usetls,cacerts,certfile,keyfile,userna
     logger.info(f"insecure ........ {insecure}")
     logger.info(f"use-tls ......... {usetls}")
 
-    if cacerts:
-        usetls = True
-
     if port is None:
         if usetls:
             port = 8883
         else:
             port = 1883
 
-    mqttc = mqtt.Client(clientid,clean_session = False)
+    try:
+      mqttc = mqtt.Client(clientid,clean_session = False)
+    except:
+      mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, clientid,clean_session = False)
 
     tlsVersion = None
 
@@ -93,6 +101,7 @@ def run(host,topic,clientid,port,insecure,usetls,cacerts,certfile,keyfile,userna
     mqttc.on_connect = on_connect
     mqttc.on_publish = on_publish
     mqttc.on_subscribe = on_subscribe
+    mqttc.on_disconnect = on_disconnect
 
     keepalive=60
     mqttc.connect(host, port, keepalive)
@@ -123,6 +132,6 @@ if __name__ == "__main__":
         args.certfile,args.keyfile,args.username,
         args.password);
 
-    print("Test completed successfully")
+    logger.info("Test completed successfully")
 
 

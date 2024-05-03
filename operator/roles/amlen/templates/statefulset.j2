@@ -12,18 +12,6 @@ spec:
       app: "{{ app_name }}"
   strategy:
     type: RollingUpdate
-  ports:
-{% for key, value in amlen_messaging_ports.items() %}
-  - port: {{value}}
-{% endfor %}
-{% for key, value in amlen_ha_ports.items() %}
-  - port: {{ value }}
-{% endfor %}
-{% for key, value in amlen_service_ports.items() %}
-  - port: {{value}}
-{% endfor %}
-
-
   serviceName: "{{ _amlen_service_name | default(pair_name) }}"
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Delete
@@ -46,6 +34,16 @@ spec:
       - name: amlen
         image: "{{ _amlen_image_fqn | default ( _amlen_image + ':' + _amlen_image_tag ) }}"
         imagePullPolicy: "{{ _amlen_pull_policy | default('Always') }}"
+        ports:
+{% for key, value in amlen_messaging_ports.items() %}
+        - containerPort: {{ value.internal if value.__class__.__name__ == "dict" else value }}
+{% endfor %}
+{% for key, value in amlen_ha_ports.items() %}
+        - containerPort: {{ value }}
+{% endfor %}
+{% for key, value in amlen_service_ports.items() %}
+        - containerPort: {{ value }}
+{% endfor %}
         readinessProbe:
           exec:
             command:
