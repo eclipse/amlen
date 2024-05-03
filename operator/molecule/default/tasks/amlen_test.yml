@@ -1,19 +1,25 @@
 ---
-- name: Create the configmap
-  k8s:
-    state: present
-    namespace: '{{ namespace }}'
-    definition: "{{ lookup('template', '/'.join([samples_dir, cr_file])) | from_yaml }}"
-  vars:
-    cr_file: 'selfsigned.yaml'
+- name: Title
+  debug:
+    msg: "Starting amlen test to create 2 ha pairs expose the second and send an mqtt message"
 
 - name: Create the configmap
   k8s:
     state: present
     namespace: '{{ namespace }}'
-    definition: "{{ lookup('template', '/'.join([samples_dir, cr_file])) | from_yaml }}"
+    definition: "{{ lookup('template', '/'.join([samples_dir, item])) | from_yaml }}"
+  loop:
+    - 'selfsigned.yaml'
+    - 'config.yaml'
+
+- name: add old service
+  k8s:
+    state: present
+    namespace: '{{ namespace }}'
+    definition: "{{ lookup('template', '/'.join([testing_dir, cr_file])) | from_yaml }}"
   vars:
-    cr_file: 'config.yaml'
+    cr_file: 'loadbalancer.j2'
+    instancenum: 1
 
 - name: Create the eclipse.org/v1.Amlen
   k8s:
@@ -86,11 +92,11 @@
     path: "{{ item }}"
     state: absent
   loop:
-  - "./ca.crt"
-  - "./tls.crt"
-  - "./tls.csr"
-  - "./tls.key"
-  - "./ca.srl"
+    - "./ca.crt"
+    - "./tls.crt"
+    - "./tls.csr"
+    - "./tls.key"
+    - "./ca.srl"
 
 - name: UnExpose the mqtt service
   community.okd.openshift_route:

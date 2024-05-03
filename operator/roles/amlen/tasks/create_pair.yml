@@ -107,7 +107,7 @@
     definition: "{{ lookup('template', item ) | from_yaml }}"
   loop:
   - ./templates/mqttservice.j2
-  when: external_access is defined
+  when: external_access is defined and external_access == true
 
 - name: Remove the mqttservice
   k8s:
@@ -118,7 +118,7 @@
     definition: "{{ lookup('template', item ) | from_yaml }}"
   loop:
   - ./templates/mqttservice.j2
-  when: external_access is not defined
+  when: external_access is not defined or external_access != true
 
 - name: Set the networkpolicy to {{ _amlen_state }}
   k8s:
@@ -177,87 +177,87 @@
 
 - name: Wait until pods are available
   block:
-    - k8s_info:
-        kind: Pod
-        name: "{{ pair_name }}-{{id}}"
-        namespace: "{{ _amlen_namespace }}"
-      register: r_pods
-      until:
-      - r_pods.resources[0].status.containerStatuses[0].started is defined
-      - r_pods.resources[0].status.containerStatuses[0].started == True
-      - r_pods.resources[0].status.containerStatuses[0].state is defined
-      - r_pods.resources[0].status.containerStatuses[0].state.running is defined
-      retries: 10
-      delay: 10
-      ignore_errors: no
-      loop: "{{ range(0,nodes|int)|list}}"
-      loop_control:
-        loop_var: id
+  - k8s_info:
+      kind: Pod
+      name: "{{ pair_name }}-{{id}}"
+      namespace: "{{ _amlen_namespace }}"
+    register: r_pods
+    until:
+    - r_pods.resources[0].status.containerStatuses[0].started is defined
+    - r_pods.resources[0].status.containerStatuses[0].started == True
+    - r_pods.resources[0].status.containerStatuses[0].state is defined
+    - r_pods.resources[0].status.containerStatuses[0].state.running is defined
+    retries: 10
+    delay: 10
+    ignore_errors: no
+    loop: "{{ range(0,nodes|int)|list}}"
+    loop_control:
+      loop_var: id
   rescue:
-    - fail:
-        msg: "automatic recovery not possible for non HA systems"
-      when:
-        nodes == 1
+  - fail:
+      msg: "automatic recovery not possible for non HA systems"
+    when:
+      nodes == 1
 
-    - k8s_info:
-        kind: StatefulSet
-        name: "{{ pair_name }}"
-        namespace: "{{ _amlen_namespace }}"
-      register: statefulset
-      until:
-      - statefulset.resources[0].status.replicas is defined
-      retries: 10
-      delay: 10
+  - k8s_info:
+      kind: StatefulSet
+      name: "{{ pair_name }}"
+      namespace: "{{ _amlen_namespace }}"
+    register: statefulset
+    until:
+    - statefulset.resources[0].status.replicas is defined
+    retries: 10
+    delay: 10
 
-    - fail:
-        msg: "statefulset contains 2 pods manual recovery needed"
-      when:
-        statefulset.resources[0].status.replicas == 2
+  - fail:
+      msg: "statefulset contains 2 pods manual recovery needed"
+    when:
+      statefulset.resources[0].status.replicas == 2
 
-    - fail:
-        msg: "statefulset recovery only possible if pod is not ready"
-      when:
-      - statefulset.resources[0].status.readyReplicas is defined
-      - statefulset.resources[0].status.readyReplicas == 1
+  - fail:
+      msg: "statefulset recovery only possible if pod is not ready"
+    when:
+    - statefulset.resources[0].status.readyReplicas is defined
+    - statefulset.resources[0].status.readyReplicas == 1
 
-    - name: "Patch statefulset (temporarily disable readiness)"
-      kubernetes.core.k8s_json_patch:
-        api_version: apps/v1
-        kind: StatefulSet
-        namespace: "{{ _amlen_namespace }}"
-        name: "{{ pair_name }}"
-        patch:
-          - op: replace
-            path: "/spec/template/spec/containers/0/readinessProbe/exec/command/0"
-            value: "touch"
-          - op: replace
-            path: "/spec/template/spec/containers/0/readinessProbe/exec/command/1"
-            value: "/tmp/readiness_disabled"
+  - name: "Patch statefulset (temporarily disable readiness)"
+    kubernetes.core.k8s_json_patch:
+      api_version: apps/v1
+      kind: StatefulSet
+      namespace: "{{ _amlen_namespace }}"
+      name: "{{ pair_name }}"
+      patch:
+      - op: replace
+        path: "/spec/template/spec/containers/0/readinessProbe/exec/command/0"
+        value: "touch"
+      - op: replace
+        path: "/spec/template/spec/containers/0/readinessProbe/exec/command/1"
+        value: "/tmp/readiness_disabled"
 
-    - name: "Delete the first pod so it comes back without the readiness probe"
-      kubernetes.core.k8s:
-        state: absent
-        kind: Pod
-        name: "{{ pair_name }}-0"
-        namespace: "{{ _amlen_namespace }}"
+  - name: "Delete the first pod so it comes back without the readiness probe"
+    kubernetes.core.k8s:
+      state: absent
+      kind: Pod
+      name: "{{ pair_name }}-0"
+      namespace: "{{ _amlen_namespace }}"
 
-    - name: Verify it worked
-      k8s_info:
-        kind: Pod
-        name: "{{ pair_name }}-{{id}}"
-        namespace: "{{ _amlen_namespace }}"
-      register: r_pods
-      until:
-      - r_pods.resources[0].status.containerStatuses[0].started is defined
-      - r_pods.resources[0].status.containerStatuses[0].started == True
-      - r_pods.resources[0].status.containerStatuses[0].state is defined
-      - r_pods.resources[0].status.containerStatuses[0].state.running is defined
-      retries: 10
-      delay: 10
-      ignore_errors: no
-      loop: "{{ range(0,nodes|int)|list}}"
-      loop_control:
-        loop_var: id
+  - name: Verify it worked
+    k8s_info:
+      kind: Pod
+      name: "{{ pair_name }}-{{id}}"
+      namespace: "{{ _amlen_namespace }}"
+    register: r_pods
+    until:
+    - r_pods.resources[0].status.containerStatuses[0].started is defined
+    - r_pods.resources[0].status.containerStatuses[0].started == True
+    - r_pods.resources[0].status.containerStatuses[0].state is defined
+    - r_pods.resources[0].status.containerStatuses[0].state.running is defined
+    retries: 10
+    delay: 10
+    ignore_errors: no
+    loop: "{{ range(0,nodes|int)|list}}"
+    loop_control:
+      loop_var: id
 
 - name: run post install jobs
   include_tasks: install.yml
