@@ -25,14 +25,35 @@
   k8s:
     state: present
     namespace: '{{ namespace }}'
-    definition: "{{ lookup('template', '/'.join([samples_dir, cr_file])) | from_yaml }}"
+    definition: "{{ lookup('template', '/'.join([testing_dir, cr_file])) | from_yaml }}"
     wait: yes
     wait_timeout: 600
     wait_condition:
       type: Successful
       status: "True"
   vars:
-    cr_file: '_v1_amlen.yaml'
+    cr_file: 'amlen/_v1_amlen.yaml'
+
+- name: "Change the client service to ClusterIP"
+  kubernetes.core.k8s_json_patch:
+    api_version: eclipse.org/v1
+    kind: Amlen
+    namespace: "{{ _amlen_namespace }}"
+    name: "{{ pair_name }}"
+    patch:
+    - op: replace
+      path: "/spec/client_service_type"
+      value: "ClusterIP"
+
+- name: get service
+  k8s_info:
+    kind: Service
+    namespace: '{{ namespace }}'
+    name: "amlen-sample-1-mqtt"
+  register: service
+  until: service.spec.type == "ClusterIP"
+  retries: 10
+  delay: 60
 
 - name: Expose the mqtt service
   community.okd.openshift_route:
@@ -112,11 +133,11 @@
   k8s:
     state: absent
     namespace: '{{ namespace }}'
-    definition: "{{ lookup('template', '/'.join([samples_dir, cr_file])) | from_yaml }}"
+    definition: "{{ lookup('template', '/'.join([testing_dir, cr_file])) | from_yaml }}"
     wait: yes
     wait_timeout: 600
     wait_condition:
       type: Successful
       status: "True"
   vars:
-    cr_file: '_v1_amlen.yaml'
+    cr_file: 'amlen/_v1_amlen.yaml'
