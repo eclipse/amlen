@@ -182,6 +182,7 @@ pipeline {
                                 startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,BUILD_LABEL,"almalinux9","Dockerfile.alma9",buildImage,buildImage )
                                 startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,BUILD_LABEL,"centos7","Dockerfile.centos7",buildImage,buildImage )
                             }
+                            env.buildImage=buildImage
                             echo "BuildImage: ${buildImage}"
                         }
                     }
@@ -244,6 +245,7 @@ pipeline {
                                 ''').trim()
                                 echo "selecting build image: ${buildImage}."
                             }
+                            env.buildImage=buildImage
                         }
                     }
                 }
