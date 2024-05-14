@@ -12,18 +12,6 @@ spec:
       app: "{{ app_name }}"
   strategy:
     type: RollingUpdate
-  ports:
-{% for key, value in amlen_messaging_ports.items() %}
-  - port: {{value}}
-{% endfor %}
-{% for key, value in amlen_ha_ports.items() %}
-  - port: {{ value }}
-{% endfor %}
-{% for key, value in amlen_service_ports.items() %}
-  - port: {{value}}
-{% endfor %}
-
-
   serviceName: "{{ _amlen_service_name | default(pair_name) }}"
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Delete
@@ -46,11 +34,21 @@ spec:
       - name: amlen
         image: "{{ _amlen_image_fqn | default ( _amlen_image + ':' + _amlen_image_tag ) }}"
         imagePullPolicy: "{{ _amlen_pull_policy | default('Always') }}"
+        ports:
+{% for key, value in amlen_messaging_ports.items() %}
+        - containerPort: {{ value.internal if value.__class__.__name__ == "dict" else value }}
+{% endfor %}
+{% for key, value in amlen_ha_ports.items() %}
+        - containerPort: {{ value }}
+{% endfor %}
+{% for key, value in amlen_service_ports.items() %}
+        - containerPort: {{ value }}
+{% endfor %}
         readinessProbe:
           exec:
             command:
             - python3
-            - "{{_amlen_bin_directory | default('/usr/share/amlen-server/bin/')}}readiness.py"
+            - "{{_amlen_bin_directory }}readiness.py"
           initialDelaySeconds: 30
           timeoutSeconds: 60
           periodSeconds: 20
@@ -60,7 +58,7 @@ spec:
           exec:
             command:
             - python3
-            - "{{_amlen_bin_directory | default('/usr/share/amlen-server/bin/')}}liveness.py"
+            - "{{_amlen_bin_directory }}liveness.py"
           initialDelaySeconds: 30
           timeoutSeconds: 5 
           periodSeconds: 30
@@ -75,7 +73,7 @@ spec:
             memory: "{{ _amlen_memory_limit }}"
         volumeMounts:
         - name: data
-          mountPath: "{{_amlen_directory | default('/var/lib/amlen-server/')}}"
+          mountPath: "{{_amlen_directory }}"
         - name: adminpassword
           mountPath: /secrets/admin
         - name: device-certs

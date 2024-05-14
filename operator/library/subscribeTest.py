@@ -19,12 +19,11 @@ import time
 import paho.mqtt.client as mqtt
 import os
 import ssl
-import subscribeTestBasic
+import ansible.module_utils.subscribeTestBasic as subscriber
 
 from datetime import datetime
 from enum import Enum
 
-# Set up the logger
 fields = {
     "host": {"required": False, "type": "str", "default":"m2m.eclipse.org" },
     "topic": {"required": False, "type": "str", "default":"$SYS/#" },
@@ -53,6 +52,6 @@ keyfile = module.params['tls.key']
 username = module.params['username']
 password = module.params['password']
 
-subscribeTestBasic.run(host,topic,clientid,port,insecure,usetls,cacerts,certfile,keyfile,username,password)
+subscriber.run(host,topic,clientid,port,insecure,usetls,cacerts,certfile,keyfile,username,password)
 
 module.exit_json(changed=False)

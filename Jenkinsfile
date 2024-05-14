@@ -182,6 +182,7 @@ pipeline {
                                 startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,BUILD_LABEL,"almalinux9","Dockerfile.alma9",buildImage,buildImage )
                                 startBuilderBuild(GITHUB_TOKEN,QUAYIO_TOKEN,BUILD_LABEL,"centos7","Dockerfile.centos7",buildImage,buildImage )
                             }
+                            env.buildImage=buildImage
                             echo "BuildImage: ${buildImage}"
                         }
                     }
@@ -244,6 +245,7 @@ pipeline {
                                 ''').trim()
                                 echo "selecting build image: ${buildImage}."
                             }
+                            env.buildImage=buildImage
                         }
                     }
                 }
@@ -428,9 +430,11 @@ spec:
 
                                      if [[ "$BRANCH_NAME" == "$mainBranch" ]] ; then
                                          curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
+                                         curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${GIT_COMMIT} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH}\\\",\\\"context\\\":\\\"molecule\\\"}"
                                      elif [[ ! -z "$CHANGE_ID" ]] ; then
                                          commit=$(curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/pulls/$CHANGE_ID/commits | jq '.[-1].sha')
                                          curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${commit//\\\"/} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH} DISTRO=${distro} BUILD=${BUILD_LABEL}\\\",\\\"context\\\":\\\"bvt\\\"}"
+                                         curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/eclipse/amlen/statuses/${commit//\\\"/} -d "{\\\"state\\\":\\\"pending\\\",\\\"target_url\\\":\\\"https://example.com/build/status\\\",\\\"description\\\":\\\"PR=${NOORIGIN_BRANCH}\\\",\\\"context\\\":\\\"molecule\\\"}"
                                      fi   
                                  '''
                              }

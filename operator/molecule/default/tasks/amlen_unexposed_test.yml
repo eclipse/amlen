@@ -1,0 +1,57 @@
+---
+- name: Title
+  debug:
+    msg: "Starting amlen unexposed test create 1 ha pair and check the old loadbalancer service is deleted"
+
+- name: Create the configmap
+  k8s:
+    state: present
+    namespace: '{{ namespace }}'
+    definition: "{{ lookup('template', '/'.join([samples_dir, item])) | from_yaml }}"
+  loop:
+    - 'selfsigned.yaml'
+    - 'config.yaml'
+
+- name: add old service
+  k8s:
+    state: present
+    namespace: '{{ namespace }}'
+    definition: "{{ lookup('template', '/'.join([testing_dir, cr_file])) | from_yaml }}"
+  vars:
+    cr_file: 'loadbalancer.j2'
+    instancenum: 0
+
+- name: Create the eclipse.org/v1.Amlen
+  k8s:
+    state: present
+    namespace: '{{ namespace }}'
+    definition: "{{ lookup('template', '/'.join([testing_dir, cr_file])) | from_yaml }}"
+    wait: yes
+    wait_timeout: 600
+    wait_condition:
+      type: Successful
+      status: "True"
+  vars:
+    cr_file: 'amlen/_v1_amlen_unexposed.yaml'
+
+- name: get service
+  k8s_info:
+    kind: Service
+    namespace: '{{ namespace }}'
+    name: "amlen-sample-0-mqtt"
+  ignore_errors: true
+  register: service
+  failed_when: service.result is defined
+
+- name: Delete the eclipse.org/v1.Amlen
+  k8s:
+    state: absent
+    namespace: '{{ namespace }}'
+    definition: "{{ lookup('template', '/'.join([testing_dir, cr_file])) | from_yaml }}"
+    wait: yes
+    wait_timeout: 600
+    wait_condition:
+      type: Successful
+      status: "True"
+  vars:
+    cr_file: 'amlen/_v1_amlen_unexposed.yaml'
