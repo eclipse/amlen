@@ -9,4 +9,5 @@ COPY roles/ ${HOME}/roles/
 
 USER root
 RUN chmod -R g=u ${HOME}
+RUN pip3 install jmespath openshift
 USER ${USER_UID}
