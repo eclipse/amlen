@@ -2,7 +2,7 @@
 // A Jenkinsfile used for other distros (with associated build container Dockerfiles)
 // along with other jenkins files we use are all in server_build/buildcontainer
 //
-def distro = "almalinux8"
+def distro = "almalinux9"
 def mainBranch = "main"
 
 // startBuilderBuild
