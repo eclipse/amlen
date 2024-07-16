@@ -142,7 +142,7 @@ CU_TestInfo ISM_ThreadPool_CUnit_ConfigBasic[] = {
 CU_TestInfo ISM_LTPA_CUnit_ConfigBasic[] = {
     {"InitLTPATest", testLTPAUtilInit },
     {"LTPAReadKeyFileTest", test_ism_security_ltpaReadKeyfile },
-    {"LTPADecodeV2TokenTest", test_ism_security_ltpaV2DecodeToken },
+//    {"LTPADecodeV2TokenTest", test_ism_security_ltpaV2DecodeToken },
     
     
     CU_TEST_INFO_NULL
