@@ -13,7 +13,7 @@
 #
 -->
 
-<project name="client_ra" default="build_client_ra">
+<project name="client_ra" default="build_client_ra" xmlns:if="and:if" xlmns:unless="ant:unless">
 	<property environment="env"/>
 	<property name="client.ra.src.dir" location="${client.ra.dir}/src" />
 	<property name="client.ra.test.src.dir" location="${client.ra.dir}/test" />
@@ -204,29 +204,22 @@
 			<equals arg1="${os.name}" arg2="SunOS"/>
 		</condition>
 
-		<if>
-			<isset property="generate_coverage" />
-			<then>
-				<coverage destfile="${client.ra.bin.dir}/jacoco.exec">
-					<junit printsummary="no" haltonfailure="false" haltonerror="false" jvm="java" showoutput="yes" fork="true" forkmode="once">
-						<jvmarg value="${jvmargadd_1}" />
-						<classpath refid="test.classpath" />
-						<formatter type="xml" />
-						<formatter type="plain" usefile="no" />
-						<test name="com.ibm.ima.ra.AllTests" fork="yes" todir="${test.data.dir}"/>
-					</junit>
-				</coverage>
-			</then>
-			<else>
-				<junit printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
-					<jvmarg value="${jvmargadd_1}" />
-					<classpath refid="test.classpath" />
-					<formatter type="xml" />
-					<formatter type="plain" usefile="no" />
-					<test name="com.ibm.ima.ra.AllTests" fork="yes" todir="${test.data.dir}"/>
-				</junit>
-			</else>
-		</if>
+		<coverage if:set="generate_coverage" destfile="${client.ra.bin.dir}/jacoco.exec">
+			<junit printsummary="no" haltonfailure="false" haltonerror="false" jvm="java" showoutput="yes" fork="true" forkmode="once">
+				<jvmarg value="${jvmargadd_1}" />
+				<classpath refid="test.classpath" />
+				<formatter type="xml" />
+				<formatter type="plain" usefile="no" />
+				<test name="com.ibm.ima.ra.AllTests" fork="yes" todir="${test.data.dir}"/>
+			</junit>
+		</coverage>
+		<junit unless:set="generate_coverage" printsummary="no" haltonfailure="true" haltonerror="true" jvm="java" showoutput="yes">
+			<jvmarg value="${jvmargadd_1}" />
+			<classpath refid="test.classpath" />
+			<formatter type="xml" />
+			<formatter type="plain" usefile="no" />
+			<test name="com.ibm.ima.ra.AllTests" fork="yes" todir="${test.data.dir}"/>
+		</junit>
 
 		<!-- HTML report for the unit tests -->
 		<junitreport todir="${test.data.dir}" >
@@ -291,12 +284,10 @@
 	<!-- Executing RPX tool for pseudo translation-->
 
 	<target name="NWays_mock" if="rpx.path.exists"  unless="translations.present" description="Runs RPX class to do pseudo translation">
-	<if>
-	    <equals arg1="${msgcat.path.exists}" arg2="false"/>
-    <then>
-        <mkdir dir="${client.common.dir}/msgcat" />
-    </then>
-	</if>
+		<condition property="make_dir" value="true" else="false">
+			<equals arg1="${msgcat.path.exists}" args2="false"/>
+		</condition>
+        	<mkdir if:set="make_dir" dir="${client.common.dir}/msgcat" />
 		<!-- Classpath for RPX -->
 		<path id="rpx.specific.classpath">
 		    <pathelement location="rpx.jar"/>
