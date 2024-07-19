@@ -3720,6 +3720,8 @@ static int mhubReceiveMetadata(ism_transport_t * transport, char * inbuf, int bu
             brokers[i].nodeid  = ism_kafka_getInt4(buf);
             brokers[i].broker_len = ism_kafka_getString(buf, (char * *)&brokers[i].broker);
             brokers[i].port = (uint16_t) ism_kafka_getInt4(buf);
+            TRACE(5, "MessageHub broker metadata: arrayindex=%d nodeid=%d broker=%s port=%d\n",
+            			i, brokers[i].nodeid, brokers[i].broker, brokers[i].port);
         }
         int topic_count = ism_kafka_getInt4(buf);
         for (i=0; rc==0 && i<topic_count; i++) {
