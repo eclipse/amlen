@@ -35,13 +35,23 @@ IFLAGS += -I$(ROOTREL)/server_utils/src
 #(uses the path_parser.py/paths.properties mechanism)
 PATH_VAR_CFLAGS=$(IMA_SVR_AND_BRIDGE_AND_PROXY_PATH_DEFINES)
 
-# Default the location of the mongo C driver
+# Default the location of the mongo C driver - only needed if we include the activity code
+ifeq ($(IMA_PROXY_ACTIVITY),TRUE)
+MONGOC_LIBS=-lbson-1.0 -lmongoc-1.0
+
 ifeq ($(MONGOC_HOME),)
 MONGOC_INCLUDE=-I/opt/mongo-c-driver-1.9.5/include/libbson-1.0 -I/opt/mongo-c-driver-1.9.5/include/libmongoc-1.0
-MONGOC_LIB=-L/opt/mongo-c-driver-1.9.5/lib
+MONGOC_LIBPATH=-L/opt/mongo-c-driver-1.9.5/lib
 else
 MONGOC_INCLUDE=-I$(MONGOC_HOME)/include/libbson-1.0 -I$(MONGOC_HOME)/include/libmongoc-1.0
-MONGOC_LIB=-L$(MONGOC_HOME)/lib64
+MONGOC_LIBPATH=-L$(MONGOC_HOME)/lib64
+endif
+
+else
+#Don't need mongo
+MONGOC_LIBS=
+MONGOC_INCLUDE=
+MONGOC_LIBPATH=
 endif
 
 
@@ -51,8 +61,8 @@ IDFLAGS +=
 IFLAGS += -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux -I$(ROOTREL)/build_tools/applications/oracle -I$(ROOTREL)/server_transport/src $(MONGOC_INCLUDE)
 CFLAGS += -DIMAPROXY -DGAI_SIG
 CPPFLAGS += -std=c++11
-LDFLAGS += $(MONGOC_LIB) -Wl,-rpath,/opt/ibm/imaproxy/lib64
-LDLIBS += $(IMA_ICU_LIBS) -licuuc -licui18n -licudata -lanl $(SSL_LIB) -lssl  -lcrypto -lcurl -ldl -lstatsdclient -lbson-1.0 -lmongoc-1.0
+LDFLAGS += $(MONGOC_LIBPATH) -Wl,-rpath,/opt/ibm/imaproxy/lib64
+LDLIBS += $(IMA_ICU_LIBS) -licuuc -licui18n -licudata -lanl $(SSL_LIB) -lssl  -lcrypto -lcurl -ldl -lstatsdclient $(MONGOC_LIBS)
 XFLAGS +=
 SHARED_FLAGS +=
 
@@ -60,8 +70,11 @@ SHARED_FLAGS +=
 # Add project specific make rules
 # ------------------------------------------------
 
+ifeq ($(IMA_PROXY_ACTIVITY),TRUE)
 # Include the activity headers, C and  C++ files
 IFLAGS += -I$(SRCDIR)/activity
+CFLAGS += -DPX_CLIENTACTIVITY
+
 $(eval $(call add-search-directory,.c,$(SRCDIR)/activity))
 $(eval $(call add-search-directory,.cpp,$(SRCDIR)/activity))
 $(eval $(call add-search-directory,.cpp,$(PRJDIR)/test_activity/src))
@@ -70,6 +83,12 @@ libimaproxy-activity-FILES = ActivityBank.cpp ActivityDB.cpp ActivityDBClient.cp
 libimaproxy-activity-test-FILES = UnitTestMain.cpp CyclicFileLogger.cpp ServerProxyUnitTestInit.cpp \
                                   PXActivityUnitTestTraceInit.cpp ProxyMembershipTest.cpp ActivityUtilsTest.cpp \
                                   ActivityTrackerCAPITest.cpp ActivityTrackerTest.cpp ActivityDBTest.cpp ActivityBankTest.cpp
+else
+libimaproxy-activity-FILES =
+libimaproxy-activity-test-FILES =
+#Don't include calls to activity code
+CFLAGS += -DNO_PXACT
+endif
 
 imaproxy-FILES = proxy.c
 
@@ -143,15 +162,22 @@ $(CUNITTESTDIR)/proxy_activity_test$(EXE): $(call objects, $(libimaproxy-activit
 		$(call build-cunit-test)
 
 CUNIT_BASIC += proxy_test
-CUNIT_ACTIVITY += proxy_activity_test
 CUNIT_FULL += proxy_test
+
 proxy_test: $(CUNITTESTDIR)/proxy_test$(EXE)
 		$(call run-cunit-test,$<)
 .PHONY:: transport_test
 
+ifeq ($(IMA_PROXY_ACTIVITY),TRUE)
+CUNIT_ACTIVITY += proxy_activity_test
+
 proxy_activity_test: $(CUNITTESTDIR)/proxy_activity_test$(EXE)
 		$(call run-cunit-test,$<)
 .PHONY:: proxy_activity_test
+
+activitytest: production ${CUNIT_ACTIVITY}
+.PHONY:: activitytest
+endif
 
 DEBUG_CUNIT_BASIC += debug_proxy_test
 DEBUG_CUNIT_FULL += debug_proxy_test
@@ -175,11 +201,10 @@ debug: $(COMMON-DIR-TARGETS) $(DEBUG-DIR-TARGETS) $(DEBUG-LIB-TARGETS)  $(DEBUG-
 all: production debug
 
 test: production $(CUNIT_BASIC)
-activitytest: production ${CUNIT_ACTIVITY}
 fulltest: production $(CUNIT_BASIC) $(CUNIT_FULL)
 debugtest: debug $(DEBUG_CUNIT_BASIC)
 debugfulltest: debug $(DEBUG_CUNIT_BASIC) $(DEBUG_CUNIT_FULL)
 coveragetest: coverage $(COVERAGE_CUNIT_BASIC)
 coveragefulltest: coverage $(COVERAGE_CUNIT_BASIC) $(COVERAGE_CUNIT_FULL)
 
-.PHONY:: production debug coverage all test activitytest fulltest coveragetest coveragefulltest debugtest debugfulltest
+.PHONY:: production debug coverage all test fulltest coveragetest coveragefulltest debugtest debugfulltest
