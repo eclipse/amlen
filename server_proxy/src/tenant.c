@@ -1325,7 +1325,7 @@ int ism_tenant_makeTenant(ism_json_parse_t * parseobj, int where, const char * n
             tenant->rlacAppResourceGroupEnabled = 2;
             tenant->rlacAppDefaultGroup = 2;
             tenant->sgEnabled = 2;
-#ifndef NO_PXACT            
+#ifdef PX_CLIENTACTIVITY            
             tenant->pxactEnabled = 2;
 #endif
             tenant->disableCRL = 2;
@@ -1378,7 +1378,7 @@ int ism_tenant_makeTenant(ism_json_parse_t * parseobj, int where, const char * n
                 ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", "SGEnabled", getJsonValue(ent));
                 rc = ISMRC_BadPropertyValue;
             }
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
         } else if (!strcmpi(ent->name, "ClientActivityEnabled")) {
             if (ent->objtype != JSON_True && ent->objtype != JSON_False && ent->objtype != JSON_Null) {
                 ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", "ClientActivityEnabled", getJsonValue(ent));
@@ -1577,7 +1577,7 @@ int ism_tenant_makeTenant(ism_json_parse_t * parseobj, int where, const char * n
                 tenant->require_secure = tristate(ent);
             } else if (!strcmpi(ent->name, "SGEnabled")) {
                 tenant->sgEnabled = tristate(ent);
-#ifndef NO_PXACT                
+#ifdef PX_CLIENTACTIVITY                
             } else if (!strcmpi(ent->name, "ClientActivityEnabled")) {
                 tenant->pxactEnabled = tristate(ent);
 #endif                
@@ -2578,7 +2578,7 @@ int ism_tenant_getTenantJson(ism_tenant_t * tenant, ism_json_t * jobj, const cha
         ism_json_putBooleanItem(jobj, "DisableCRL", tenant->disableCRL);
     if (tenant->checkSessionUser != 2)
         ism_json_putBooleanItem(jobj, "CheckSessionUser", tenant->checkSessionUser);
-#ifndef NO_PXACT        
+#ifdef PX_CLIENTACTIVITY        
     if (tenant->pxactEnabled != 2)
     	ism_json_putBooleanItem(jobj, "ClientActivityEnabled", tenant->pxactEnabled);
 #endif

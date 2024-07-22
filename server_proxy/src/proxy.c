@@ -19,7 +19,7 @@
  */
 #include <ismutil.h>
 #include <ismjson.h>
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 #include <pxactivity.h>
 #endif
 #include <pxtransport.h>
@@ -97,7 +97,7 @@ static int inpause = 0;
 static volatile int doterm = 0;
 static volatile int doUser2 = 0;
 static ism_threadh_t cmdthread;
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 static int pxact=0;
 void ism_proxy_setClientActivityMonitoring(int enable);
 #endif
@@ -196,7 +196,7 @@ int main (int argc, char * * argv) {
         ism_common_setProperty(ism_common_getConfigProperties(), "TraceFile", &f);
     }
     
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
     pxact = ism_common_getIntConfig(PXACT_CFG_ENABLE_ACTIVITY_TRACKING, 0);
 	f.type = VT_Integer;
     f.val.i = pxact;
@@ -215,7 +215,7 @@ int main (int argc, char * * argv) {
     TRACE(2, "platform  = %s %s\n", ism_common_getPlatformInfo(), ism_common_getKernelInfo());
     TRACE(2, "processor = %s\n", ism_common_getProcessorInfo());
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
     TRACE(2, "ActivityMonitoringEnable = %d\n", pxact);
     ism_proxy_setClientActivityMonitoring(pxact);
     if (pxact) {
@@ -403,7 +403,7 @@ int main (int argc, char * * argv) {
         if (cRC == CURLE_OK) {
             curl_global_cleanup();
         }
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
         ism_pxactivity_term();
 #endif
     }
@@ -579,7 +579,7 @@ static int process_args(int argc, char * * argv, int pass) {
             //PXACT
             /* -a = enable pxActivity */
             else if (argp[1] == 'a') {
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
                 pxact = 1;
 #endif
             }
