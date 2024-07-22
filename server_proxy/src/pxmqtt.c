@@ -27,7 +27,7 @@
 #include <protoex.h>
 #include <auth.h>
 #include <pxrouting.h>
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 #include <pxactivity.h>
 #endif
 #include <byteswap.h>
@@ -1784,7 +1784,7 @@ static int handleConnectRequest(ism_transport_t * transport, mqttMsg_t * mmsg, u
     return mmsg->rc;
 }
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 // PXACT
 static int ism_pxact_track_client(ism_transport_t * transport, PXACT_ACTIVITY_TYPE_t type) {
 	if (!transport) {
@@ -2257,7 +2257,7 @@ int ism_mqtt_receive(ism_transport_t * transport, char * inbuf, int buflen, int 
                 rc = doPublishS2P(transport, &mmsg, bp, buflen, &buf);
             else {
                 rc = doPublishC2P(transport, &mmsg, bp, buflen, &buf);
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 	            // PXACT
                 if (!rc && ism_pxact_track_client(transport, PXACT_ACTIVITY_TYPE_MQTT_PUBLISH))
 	            {
@@ -2473,7 +2473,7 @@ int ism_mqtt_receive(ism_transport_t * transport, char * inbuf, int buflen, int 
                 }
             }
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
             /*
              * PXACT - Do activity monitoring
              */
@@ -2505,7 +2505,7 @@ int ism_mqtt_receive(ism_transport_t * transport, char * inbuf, int buflen, int 
             rc = doUnsubscribe(transport, bp, buflen, &buf, &subcnt);
             if (subcnt == 0 && rc == 0)
                 sendit = 0;
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
             // PXACT
             if (LIKELY(sendit != 0) && ism_pxact_track_client(transport, PXACT_ACTIVITY_TYPE_MQTT_UNSUB))
             {
@@ -2767,7 +2767,7 @@ int ism_mqtt_receive(ism_transport_t * transport, char * inbuf, int buflen, int 
                     break;
                 }
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
                 // PXACT
                 if (ism_pxact_track_client(ctransport, PXACT_ACTIVITY_TYPE_MQTT_CONN))
                 {
@@ -2946,7 +2946,7 @@ int ism_mqtt_receive(ism_transport_t * transport, char * inbuf, int buflen, int 
                     __sync_bool_compare_and_swap(&pobj->disconnect_pending, 0, 1);
                 }
             }
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
             // PXACT
             {
 				ctransport = transport->pobj->client_transport ? transport->pobj->client_transport : transport ;

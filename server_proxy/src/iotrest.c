@@ -24,7 +24,7 @@
 
 #include <iotrest.h>
 #include <selector.h>
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 #include <pxactivity.h>
 #endif
 #include <pxtransport.h>
@@ -271,7 +271,7 @@ static int getBooleanQueryProperty(const char * str, const char * name, int defa
 
 static void updateHttpClientActivity(ism_http_t *http, int line)
 {
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
     if (!ism_pxactivity_is_started())
         return;
 

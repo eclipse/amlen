@@ -1019,7 +1019,7 @@ static int closeConnectionNotify(ism_transport_t * transport, int rc, int clean,
 #ifndef NO_PROXY
                 char timest [32];   /* Only get the timestamp once */
                 timest[0] = 0;
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
                 ism_pxact_disconnect(transport, rc);
 #endif
                 /* If we are monitoring, disconnectMsg will set the timestamp but at millisecond resolution */

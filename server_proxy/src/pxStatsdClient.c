@@ -25,7 +25,7 @@
 #include <tenant.h>
 #define NO_KAFKA_POBJ
 #include <pxkafka.h>
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 #include <pxactivity.h>
 #endif
 
@@ -49,7 +49,7 @@ extern int g_useKafkaIMMessaging;
 static px_kafka_messaging_stat_t   kafkaIMMessagingStats[2];
 static px_kafka_messaging_stat_t   mhubMessagingStats[2];
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 static uint8_t  lastPXActStatIndex = 0;  //PXACT
 static double  lastPXActUpdateTime = 0.0;
 #endif
@@ -677,7 +677,7 @@ static void updateMHUBMessagingStats(double sampleRate) {
 
 //PXACT
 static void updatePXActStats(void) {
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
     char prepBuff[2048];
     char sendBuffer[MAX_BUF_SIZE];
     double currTime = ism_common_readTSC();
@@ -1077,7 +1077,7 @@ static void updateStats(void) {
 static int updateStatsTimer(ism_timer_t key, ism_time_t timestamp, void * userdata) {
     if(lastUpdateTime == 0.0) {
         lastUpdateTime = ism_common_readTSC();
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
         lastPXActUpdateTime = lastUpdateTime; //PXACT
 #endif
         return 1;

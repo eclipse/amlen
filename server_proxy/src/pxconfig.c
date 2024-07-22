@@ -23,7 +23,7 @@
 #include <throttle.h>
 #include <pxrouting.h>
 #include <sys/stat.h>
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 #include <pxactivity.h>
 #endif
 
@@ -32,7 +32,7 @@ static int notify_fd = 0;
 static pthread_mutex_t notify_lock;
 static pthread_mutex_t rulelock = PTHREAD_MUTEX_INITIALIZER;
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 static int g_shutdown = 0;
 static pthread_mutex_t pxactivity_lock = PTHREAD_MUTEX_INITIALIZER;
 #endif
@@ -109,7 +109,7 @@ int ism_transport_getEndpointList(const char * match, ism_json_t * jobj, int jso
 int ism_proxy_getAuthMask(const char * name);
 const char * ism_json_getJsonValue(ism_json_entry_t * ent);
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 static void  replaceString(const char * * oldval, const char * val);
 #endif
 
@@ -188,7 +188,7 @@ int g_licensedUsage = LICENSE_None;
 #include "topicrule.c"
 #endif
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 
 int pxactEnabled = 0;
 
@@ -604,7 +604,7 @@ void ism_proxy_notify_init(void) {
     ism_common_setDisableCRLCallback(checkDisableCRL);
 }
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 int ism_proxy_activity_start_thread(ism_timer_t key, ism_time_t timestamp, void * userdata) {
 	int rc = 0;
 
@@ -720,7 +720,7 @@ static int startMessagingTimer(ism_timer_t timer, ism_time_t timestamp, void * u
 }
 
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 
 static int init_called=0;
 static ismPXActivity_ConfigActivityDB_t actDB[1];
@@ -1069,7 +1069,7 @@ int ism_proxy_complexConfig(ism_json_parse_t * parseobj, int complex, int checko
     int entloc = 1;
     int needlog = 1;
 #ifndef HAS_BRIDGE
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
     xUNUSED int pxact = 0;
 #endif
 #endif
@@ -1185,7 +1185,7 @@ int ism_proxy_complexConfig(ism_json_parse_t * parseobj, int complex, int checko
             break;
         case JSON_Integer: /* Number with no decimal point             */
             if (complex == 0) {
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
                 if (!strcmpi(ent->name, PXACT_CFG_ENABLE_ACTIVITY_TRACKING)) {
                     var.type = VT_Integer;
                     var.val.i = ent->count;
@@ -1317,7 +1317,7 @@ int ism_proxy_complexConfig(ism_json_parse_t * parseobj, int complex, int checko
                     ism_common_setProperty(ism_common_getConfigProperties(), "KafkaIMServerShutdownOnErrorTime", &var);
                     ism_kafka_setKafkaIMServerShutdownOnErrorTime(ent->count);
 #endif
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
                 } else if (!strcmpi(ent->name, PXACT_CFG_ENABLE_ACTIVITY_TRACKING)) {
             			pxact = 1;
                     var.type = VT_Integer;
@@ -1542,7 +1542,7 @@ int ism_proxy_complexConfig(ism_json_parse_t * parseobj, int complex, int checko
                         }
                     }
 #endif
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
                 } else if (!strcmp(ent->name, "ActivityMonitoring") ||
                         !strcmp(ent->name, "ActivityDB")) {   /* TEMP: Allow legacy name */
                     xrc = ism_proxy_activity_json(parseobj, entloc);
@@ -1622,7 +1622,7 @@ int ism_proxy_complexConfig(ism_json_parse_t * parseobj, int complex, int checko
         }
     }
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
     if (pxact && (rc == 0 || keepgoing)) {
 		int pxactState = ism_pxactivity_get_state();
 		int enabled = ism_common_getIntConfig(PXACT_CFG_ENABLE_ACTIVITY_TRACKING, 0);
@@ -1665,7 +1665,7 @@ int ism_proxy_complexConfig(ism_json_parse_t * parseobj, int complex, int checko
     return rc;
 }
 
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
 /*
  * Do a strcmp allowing for NULLs
  */

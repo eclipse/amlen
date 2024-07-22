@@ -816,7 +816,7 @@ int ism_transport_startMessaging(void) {
 
     TRACE(4, "Start messaging\n");
     g_messaging_started = 1;
-#ifndef NO_PXACT
+#ifdef PX_CLIENTACTIVITY
     if (pxactEnabled)
         ism_pxactivity_startMessaging();
 #endif
