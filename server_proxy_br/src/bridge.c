@@ -2792,7 +2792,7 @@ void ism_bridge_getForwarderJson(ism_json_t * jobj, ism_forwarder_t * forwarder,
  */
 void putJSONLong(ism_json_t * jobj, const char * name, uint64_t val) {
     char xbuf[64];
-    printf(xbuf, "%ld", val);
+    sprintf(xbuf, "%ld", val);
     ism_json_putNumberItem(jobj, name, xbuf);
 }
 
