@@ -123,6 +123,16 @@ pipeline {
                         if (env.BUILD_LABEL == null ) {
                             env.BUILD_LABEL = "${env.BUILD_TIMESTAMP}_eclipse${distro}"
                         }
+			buildtype = sh (returnStdout: true, script: '''
+                            message=`git log -1 --skip=$x --pretty=%B`
+                            if [[ "$message" =~ [[]buildtype=([A-Za-z0-9]+)[]] ]]
+                            then
+                                echo ${BASH_REMATCH[1]}
+                            fi
+			''').trim()
+			if (buildtype != null && buildtype != "") {
+			    env.BUILD_TYPE=buildtype
+			}
                         echo "Welcome"
                     }
                 }
@@ -317,6 +327,7 @@ spec:
                                             if [[ "$BRANCH_NAME" == "$mainBranch" ]] ; then
                                                 export BUILD_TYPE=fvtbuild
                                             fi
+
                                             bash buildcontainer/build.sh
                                             cd ../operator
                                             NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
