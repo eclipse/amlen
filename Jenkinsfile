@@ -316,7 +316,14 @@ spec:
                                             cd server_build 
                                             if [[ "$BRANCH_NAME" == "$mainBranch" ]] ; then
                                                 export BUILD_TYPE=fvtbuild
+					    else
+                                                message=`git log -1 --skip=$x --pretty=%B`
+                                                if [[ "$message" =~ [[]buildtype=([A-Za-z0-9]+)[]] ]]
+                                                then
+                                                    export BUILD_TYPE=${BASH_REMATCH[1]}
+                                                fi
                                             fi
+
                                             bash buildcontainer/build.sh
                                             cd ../operator
                                             NOORIGIN_BRANCH=${GIT_BRANCH#origin/} # turns origin/master into master
