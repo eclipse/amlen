@@ -31,7 +31,8 @@
 struct ismLTPA_t {
     void          *des_key;
     size_t        des_key_len;
-    RSA           *rsa;
+    EVP_PKEY      *pkey;
+    //RSA           *rsa;
     unsigned char *rsaMod;
     size_t        rsaModLen;
     char          *realm;
@@ -190,7 +191,8 @@ static int ism_security_ltpaConvertRSAKeys(
     size_t        pubKeyLen,
     char          *privKey,
     size_t        privKeyLen,
-    RSA           **rsa,
+    //RSA           **rsa,
+    EVP_PKEY      *pkey,
     unsigned char **rsaMod,
     size_t        *rsaModLen)
 {
@@ -220,20 +222,20 @@ static int ism_security_ltpaConvertRSAKeys(
         size_t padByte = dLen - LTPA_DLEN;
 
         // Allocate a new RSA structure to hold our key
-        *rsa = RSA_new();
+       /*  *rsa = RSA_new();
         if (*rsa == NULL) {
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
             return rc;
-        }
+        } */
 
         // Load the modulus
         BIGNUM * n = BN_bin2bn((const unsigned char *) (pubKey + 1), LTPA_NLEN, NULL);
         if (n == NULL) {
             TRACE(7, "BN_bin2bn failed for rsa->n\n");
-            (void) RSA_free(*rsa);
-            *rsa = NULL;
+            //(void) RSA_free(*rsa);
+            //*rsa = NULL;
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
@@ -244,8 +246,8 @@ static int ism_security_ltpaConvertRSAKeys(
         BIGNUM * d = BN_bin2bn((const unsigned char *) (privKey + LTPA_LENLEN + padByte), LTPA_DLEN, NULL);
         if (d == NULL) {
             TRACE(7, "BN_bin2bn failed for rsa->d\n");
-            (void) RSA_free(*rsa);
-            *rsa = NULL;
+            //(void) RSA_free(*rsa);
+            //*rsa = NULL;
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
@@ -260,8 +262,8 @@ static int ism_security_ltpaConvertRSAKeys(
         BIGNUM * e = BN_bin2bn((unsigned char *) (pubKey + 1 + LTPA_NLEN), (int)pubExpLen, NULL);
         if (e == NULL) {
             TRACE(7, "BN_bin2bn failed for rsa->e\n");
-            (void) RSA_free(*rsa);
-            *rsa = NULL;
+            //(void) RSA_free(*rsa);
+            //*rsa = NULL;
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
@@ -273,8 +275,8 @@ static int ism_security_ltpaConvertRSAKeys(
             LTPA_DLEN + pubExpLen + 1), LTPA_PLEN, NULL);
         if (p == NULL) {
             TRACE(7, "BN_bin2bn failed for rsa->p\n");
-            (void) RSA_free(*rsa);
-            *rsa = NULL;
+            //(void) RSA_free(*rsa);
+            //*rsa = NULL;
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
@@ -282,8 +284,8 @@ static int ism_security_ltpaConvertRSAKeys(
         }
 
         if ((LTPA_LENLEN + padByte + LTPA_DLEN + pubExpLen + 1 + LTPA_PLEN + 1 + LTPA_QLEN) != privKeyLen) {
-            (void) RSA_free(*rsa);
-            *rsa = NULL;
+            //(void) RSA_free(*rsa);
+            //*rsa = NULL;
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
@@ -295,15 +297,40 @@ static int ism_security_ltpaConvertRSAKeys(
              LTPA_DLEN + pubExpLen + 1 + LTPA_PLEN + 1), LTPA_QLEN, NULL);
         if (q == NULL) {
             TRACE(7, "BN_bin2bn failed for rsa->q\n");
-            (void) RSA_free(*rsa);
-            *rsa = NULL;
+            //(void) RSA_free(*rsa);
+            //*rsa = NULL;
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
             return rc;
         }
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+    OSSL_PARAM *params = NULL;
+    if (bld == NULL
+        || !OSSL_PARAM_BLD_push_BN(bld, "n", n)
+        || !OSSL_PARAM_BLD_push_uint(bld, "e", e)
+        || !OSSL_PARAM_BLD_push_BN(bld, "d", d)
+        || !OSSL_PARAM_BLD_push_BN(bld, "rsa-factor1", p)
+        || !OSSL_PARAM_BLD_push_BN(bld, "rsa-factor2", q)
+        || (params = OSSL_PARAM_BLD_to_param(bld)) == NULL)
+        {
+            OSSL_PARAM_BLD_free(bld);
+        }
+
+    EVP_PKEY_CTX *ctx = NULL;
+    ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+
+    if (ctx == NULL
+        || EVP_PKEY_fromdata_init(ctx) <= 0
+        || EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_KEY_PARAMETERS, params) <= 0)
+        {
+            EVP_PKEY_CTX_free(ctx);
+            OSSL_PARAM_BLD_free(bld);
+            OSSL_PARAM_free(params);
+        }
+
+/* #if OPENSSL_VERSION_NUMBER < 0x10100000L
         (*rsa)->n = n;
         (*rsa)->d = d;
         (*rsa)->e = e;
@@ -312,7 +339,7 @@ static int ism_security_ltpaConvertRSAKeys(
 #else
         RSA_set0_key((*rsa), n, e, d);
         RSA_set0_factors((*rsa), p, q);
-#endif
+#endif */
 
         rc = ISMRC_OK;
     }
@@ -574,8 +601,9 @@ static int ism_security_ltpaV1GenUserInfoSignature(
     encBuf = (unsigned char *) alloca(sizeof(unsigned char) * 
                     scratchBufLen);
 
+    //TODO: Vikrant: Need to identify how to replace rsa here
     // Perform the RSA encrypt without any automatic padding
-    rc = RSA_private_encrypt((int)scratchBufLen, scratchBuf, encBuf, keys->rsa, RSA_NO_PADDING);
+    //rc = RSA_private_encrypt((int)scratchBufLen, scratchBuf, encBuf, keys->rsa, RSA_NO_PADDING);
     if ( rc != scratchBufLen ) {
         TRACE(7, "RSA_private_encrypt error: %d\n", rc);
         //ism_common_free(ism_memory_admin_misc,scratchBuf);
@@ -757,12 +785,13 @@ static int ism_security_ltpaV2GenUserInfoSignature(
         goto CLEANUP;
     }
     // Load our private key into the pkey structure
-    sslrc = EVP_PKEY_set1_RSA(pkey, keys->rsa);
+    keys->pkey = pkey;
+    /* sslrc = EVP_PKEY_set1_RSA(pkey, keys->rsa);
     if (1 != sslrc) {
         TRACE(7, "EVP_PKEY_set1_RSA error: %d\n", sslrc);
         EVP_MD_CTX_free(pCtx);
         goto CLEANUP;
-    }
+    } */
 
     EVP_MD_CTX_free(pCtx);
 
@@ -1382,7 +1411,8 @@ XAPI int ism_security_ltpaReadKeyfile(
     
     char          *version      = NULL;
     char          *escRealm     = NULL;
-    RSA           *tmpRSA       = NULL;
+    //RSA           *tmpRSA       = NULL;
+    EVP_PKEY      *pkey          = NULL;
     unsigned char *tmpRSAMod    = NULL;
     size_t        tmpRSAModLen  = 0;
     char          *keybuf       = NULL;
@@ -1512,7 +1542,7 @@ XAPI int ism_security_ltpaReadKeyfile(
     }
 
     /* Set RSA */
-    rc = ism_security_ltpaConvertRSAKeys(publicKey, publicKeyLen, privateKey, privateKeyLen, &tmpRSA, &tmpRSAMod, &tmpRSAModLen);
+    rc = ism_security_ltpaConvertRSAKeys(publicKey, publicKeyLen, privateKey, privateKeyLen, pkey, &tmpRSAMod, &tmpRSAModLen);
     if ( rc != ISMRC_OK ) {
         rc = ISMRC_LTPAInvalidKeyFile;
         ism_common_setError(rc);
@@ -1557,7 +1587,8 @@ XAPI int ism_security_ltpaReadKeyfile(
     (*ltpaKey)->des_key =(void *) des_keyPtr;
     
     (*ltpaKey)->des_key_len = desKeyLen;
-    (*ltpaKey)->rsa = tmpRSA;
+    //(*ltpaKey)->rsa = tmpRSA;
+    (*ltpaKey)->pkey = pkey;
     (*ltpaKey)->rsaMod = tmpRSAMod;
     (*ltpaKey)->rsaModLen = tmpRSAModLen;
     (*ltpaKey)->version = version;
@@ -1585,8 +1616,8 @@ XAPI int ism_security_ltpaDeleteKey(
     if (key->realm)
         ism_common_free(ism_memory_admin_misc,key->realm);
 
-    if (key->rsa)
-        RSA_free(key->rsa);
+    /* if (key->rsa)
+        RSA_free(key->rsa); */
 
     if (key->rsaModLen > 0 && key->rsaMod)
         ism_common_free(ism_memory_admin_misc,key->rsaMod);
