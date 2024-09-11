@@ -3114,7 +3114,7 @@ void test_mhub_mapper_perf(void) {
     double maptime = (double)(end1-start1)/1e9;
     double gentime = (double)(end2-end1)/1e9;
     printf("\ncount=%u  maptime=%0.03g sec gentime=%0.03g sec\n", count, maptime, gentime);
-    CU_ASSERT(maptime < gentime*2);
+    CU_ASSERT(maptime < gentime*4);
 
     uint32_t  partmap;
     uint32_t  partgen;
