@@ -1595,7 +1595,7 @@ XAPI int ism_security_ltpaDeleteKey(
         ism_common_free(ism_memory_admin_misc,key->realm);
 
     if (key->pkey)
-        EVP_PKEY_free(pkey)(key->pkey);
+        EVP_PKEY_free(key->pkey);
 
     if (key->rsaModLen > 0 && key->rsaMod)
         ism_common_free(ism_memory_admin_misc,key->rsaMod);
