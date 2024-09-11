@@ -234,8 +234,6 @@ static int ism_security_ltpaConvertRSAKeys(
         BIGNUM * d = BN_bin2bn((const unsigned char *) (privKey + LTPA_LENLEN + padByte), LTPA_DLEN, NULL);
         if (d == NULL) {
             TRACE(7, "BN_bin2bn failed for rsa->d\n");
-            //(void) RSA_free(*rsa);
-            //*rsa = NULL;
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
