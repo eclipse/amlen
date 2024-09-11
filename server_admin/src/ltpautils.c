@@ -26,6 +26,7 @@
 #include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/rsa.h>
+#include <openssl/param_build.h>
 
 /* LTPA Key structure with parsed contents from LTPA key file */
 struct ismLTPA_t {
@@ -305,41 +306,43 @@ static int ism_security_ltpaConvertRSAKeys(
             return rc;
         }
 
-    OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
-    OSSL_PARAM *params = NULL;
-    if (bld == NULL
-        || !OSSL_PARAM_BLD_push_BN(bld, "n", n)
-        || !OSSL_PARAM_BLD_push_uint(bld, "e", e)
-        || !OSSL_PARAM_BLD_push_BN(bld, "d", d)
-        || !OSSL_PARAM_BLD_push_BN(bld, "rsa-factor1", p)
-        || !OSSL_PARAM_BLD_push_BN(bld, "rsa-factor2", q)
-        || (params = OSSL_PARAM_BLD_to_param(bld)) == NULL)
-        {
-            OSSL_PARAM_BLD_free(bld);
-        }
-
-    EVP_PKEY_CTX *ctx = NULL;
-    ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
-
-    if (ctx == NULL
-        || EVP_PKEY_fromdata_init(ctx) <= 0
-        || EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_KEY_PARAMETERS, params) <= 0)
-        {
-            EVP_PKEY_CTX_free(ctx);
-            OSSL_PARAM_BLD_free(bld);
-            OSSL_PARAM_free(params);
-        }
-
-/* #if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         (*rsa)->n = n;
         (*rsa)->d = d;
         (*rsa)->e = e;
         (*rsa)->p = p;
         (*rsa)->q = q;
+#elif OPENSSL_VERSION_NUMBER > 0x30000000L
+        OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        OSSL_PARAM *params = NULL;
+        if (bld == NULL
+            || !OSSL_PARAM_BLD_push_BN(bld, "n", n)
+            || !OSSL_PARAM_BLD_push_BN(bld, "e", e)
+            || !OSSL_PARAM_BLD_push_BN(bld, "d", d)
+            || !OSSL_PARAM_BLD_push_BN(bld, "rsa-factor1", p)
+            || !OSSL_PARAM_BLD_push_BN(bld, "rsa-factor2", q)
+            || (params = OSSL_PARAM_BLD_to_param(bld)) == NULL)
+            {
+                TRACE(7, "OSSL_PARAM_BLD or OSSL_PARAM_BLD_push_BN failed\n");
+                OSSL_PARAM_BLD_free(bld);
+            }
+
+        EVP_PKEY_CTX *ctx = NULL;
+        ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+
+        if (ctx == NULL
+            || EVP_PKEY_fromdata_init(ctx) <= 0
+            || EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_KEY_PARAMETERS, params) <= 0)
+            {
+                EVP_PKEY_CTX_free(ctx);
+                OSSL_PARAM_BLD_free(bld);
+                OSSL_PARAM_free(params);
+                return rc;
+            }
 #else
         RSA_set0_key((*rsa), n, e, d);
         RSA_set0_factors((*rsa), p, q);
-#endif */
+#endif
 
         rc = ISMRC_OK;
     }
@@ -596,54 +599,58 @@ static int ism_security_ltpaV1GenUserInfoSignature(
     // Encrypt the buffer
     if (retVal == ISMRC_OK)
     {
-    unsigned char *encBuf;
+        unsigned char *encBuf;
+        size_t encBuflen;
 
-    encBuf = (unsigned char *) alloca(sizeof(unsigned char) * 
-                    scratchBufLen);
+        EVP_PKEY_CTX *ctx;
+        ctx = EVP_PKEY_CTX_new(keys->pkey, NULL);
+        if (!ctx
+            || EVP_PKEY_sign_init(ctx) <= 0
+            || EVP_PKEY_encrypt(ctx, NULL, &encBuflen, scratchBuf, scratchBufLen) <= 0)
+        {
+            EVP_PKEY_CTX_free(ctx);
+        }
 
-    //TODO: Vikrant: Need to identify how to replace rsa here
-    // Perform the RSA encrypt without any automatic padding
-    //rc = RSA_private_encrypt((int)scratchBufLen, scratchBuf, encBuf, keys->rsa, RSA_NO_PADDING);
-    if ( rc != scratchBufLen ) {
-        TRACE(7, "RSA_private_encrypt error: %d\n", rc);
+        encBuf = OPENSSL_malloc(encBuflen);
+        if (!encBuf
+            || EVP_PKEY_encrypt(ctx, encBuf, &encBuflen, scratchBuf, scratchBufLen) <= 0)
+        {
+            EVP_PKEY_CTX_free(ctx);
+        }        
+
         //ism_common_free(ism_memory_admin_misc,scratchBuf);
-        //ism_common_free(ism_memory_admin_misc,encBuf);
-        return ISMRC_Error;
-    }
+        scratchBuf = encBuf;
 
-    //ism_common_free(ism_memory_admin_misc,scratchBuf);
-    scratchBuf = encBuf;
+        int remainder = 0;
+        int tmp = 0;
+        int i = 0;
+        unsigned char *mod = keys->rsaMod;
 
-    int remainder = 0;
-    int tmp = 0;
-    int i = 0;
-    unsigned char *mod = keys->rsaMod;
+        for (i = 0; i <= (LTPA_NLEN - 1); i++)
+        {
+            tmp = (remainder * 256) + mod[i];
+            remainder = tmp%2;
+            tmp = tmp/2;
+            if (scratchBuf[i] != tmp)
+                break;
+        }
+        if (i < scratchBufLen && scratchBuf[i] > tmp)
+            ism_security_complementSmodN(scratchBuf, mod);
 
-    for (i = 0; i <= (LTPA_NLEN - 1); i++)
-    {
-        tmp = (remainder * 256) + mod[i];
-        remainder = tmp%2;
-        tmp = tmp/2;
-        if (scratchBuf[i] != tmp)
-            break;
-    }
-    if (i < scratchBufLen && scratchBuf[i] > tmp)
-        ism_security_complementSmodN(scratchBuf, mod);
+        // Base64 encode the result
+        char b64SigBuf[1024];
+        char * b64Sig = (char *)&b64SigBuf;
+        int encodeSize = ism_common_toBase64((char *) scratchBuf,b64Sig, scratchBufLen);
 
-    // Base64 encode the result
-    char b64SigBuf[1024];
-    char * b64Sig = (char *)&b64SigBuf;
-    int encodeSize = ism_common_toBase64((char *) scratchBuf,b64Sig, scratchBufLen);
-
-    if (encodeSize>0)
-    {
-        *sigBuf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),b64Sig);
-        *sigBufLen = encodeSize;
-    }
-    else
-    {
-        retVal = ISMRC_Error;
-    }
+        if (encodeSize>0)
+        {
+            *sigBuf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),b64Sig);
+            *sigBufLen = encodeSize;
+        }
+        else
+        {
+            retVal = ISMRC_Error;
+        }
     }
 
     // Free the intermediate buffer
