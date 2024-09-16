@@ -29,7 +29,7 @@
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #include <openssl/param_build.h>
-#else
+#endif
 
 /* LTPA Key structure with parsed contents from LTPA key file */
 struct ismLTPA_t {
@@ -199,7 +199,7 @@ static int ism_security_ltpaConvertRSAKeys(
     size_t        pubKeyLen,
     char          *privKey,
     size_t        privKeyLen,
-    RSA           **rsa;
+    RSA           **rsa,
     unsigned char **rsaMod,
     size_t        *rsaModLen)
 {
@@ -310,16 +310,16 @@ static int ism_security_ltpaConvertRSAKeys(
             return rc;
         }
 
-//#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         (*rsa)->n = n;
         (*rsa)->d = d;
         (*rsa)->e = e;
         (*rsa)->p = p;
         (*rsa)->q = q;
-/* #else
+#else
         RSA_set0_key((*rsa), n, e, d);
         RSA_set0_factors((*rsa), p, q);
-#endif */
+#endif
 
         rc = ISMRC_OK;
     }
