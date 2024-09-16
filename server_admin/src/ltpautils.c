@@ -26,7 +26,10 @@
 #include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/rsa.h>
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #include <openssl/param_build.h>
+#else
 
 /* LTPA Key structure with parsed contents from LTPA key file */
 struct ismLTPA_t {
