@@ -27,11 +27,19 @@
 #include <openssl/bio.h>
 #include <openssl/rsa.h>
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#include <openssl/param_build.h>
+#endif
+
 /* LTPA Key structure with parsed contents from LTPA key file */
 struct ismLTPA_t {
     void          *des_key;
     size_t        des_key_len;
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     RSA           *rsa;
+#else
+    EVP_PKEY      *pkey;
+#endif
     unsigned char *rsaMod;
     size_t        rsaModLen;
     char          *realm;
@@ -185,6 +193,7 @@ static void ism_security_ltpaQuoteString(
 }
 
 /* Create RSA keys form public and private keys in LTPA key file */
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 static int ism_security_ltpaConvertRSAKeys(
     char          *pubKey,
     size_t        pubKeyLen,
@@ -323,6 +332,145 @@ static int ism_security_ltpaConvertRSAKeys(
 
     return rc;
 }
+
+#else
+
+static int ism_security_ltpaConvertRSAKeys(
+    char          *pubKey,
+    size_t        pubKeyLen,
+    char          *privKey,
+    size_t        privKeyLen,
+    EVP_PKEY      *pkey,
+    unsigned char **rsaMod,
+    size_t        *rsaModLen)
+{
+    int rc = ISMRC_Error;
+    unsigned char dLenBuf[LTPA_LENLEN];
+    size_t dLen = 0;
+
+    TRACE(7, "Create RSA keys from LTPA Key file data\n");
+
+    // copy out the private exponent length
+    memcpy(dLenBuf, privKey, LTPA_LENLEN);
+
+    // get the length they claim
+    int i;
+    for (i = 0; i < LTPA_LENLEN; i++) {
+        dLen = (dLen<<8) + dLenBuf[i];
+    }
+
+    // if it's not 129 or 128, then we most likely have a bad decrypt
+    if ((dLen == LTPA_DLEN) || (dLen == LTPA_DLEN + 1))
+    {
+        *rsaMod = (unsigned char *) ism_common_malloc(ISM_MEM_PROBE(ism_memory_admin_misc,138),sizeof(unsigned char)*LTPA_NLEN);
+        memcpy(*rsaMod, pubKey + 1, LTPA_NLEN); // Copy n
+        *rsaModLen = LTPA_NLEN;                 // Load n's length
+
+        // get the number of pad bytes in the private key (0 or 1)
+        size_t padByte = dLen - LTPA_DLEN;
+
+        // Load the modulus
+        BIGNUM * n = BN_bin2bn((const unsigned char *) (pubKey + 1), LTPA_NLEN, NULL);
+        if (n == NULL) {
+            TRACE(7, "BN_bin2bn failed for rsa->n\n");
+            ism_common_free(ism_memory_admin_misc,*rsaMod);
+            *rsaMod = NULL;
+            *rsaModLen = 0;
+            return rc;
+        }
+
+        // Load the private exponent
+        BIGNUM * d = BN_bin2bn((const unsigned char *) (privKey + LTPA_LENLEN + padByte), LTPA_DLEN, NULL);
+        if (d == NULL) {
+            TRACE(7, "BN_bin2bn failed for rsa->d\n");
+            ism_common_free(ism_memory_admin_misc,*rsaMod);
+            *rsaMod = NULL;
+            *rsaModLen = 0;
+            return rc;
+        }
+
+        // The length of the public exponent (e) is however many bytes are
+        // remaining in the public key buffer.
+        size_t pubExpLen = pubKeyLen - (1 + LTPA_NLEN);
+
+        // Load the public exponent
+        BIGNUM * e = BN_bin2bn((unsigned char *) (pubKey + 1 + LTPA_NLEN), (int)pubExpLen, NULL);
+        if (e == NULL) {
+            TRACE(7, "BN_bin2bn failed for rsa->e\n");
+            ism_common_free(ism_memory_admin_misc,*rsaMod);
+            *rsaMod = NULL;
+            *rsaModLen = 0;
+            return rc;
+        }
+
+        // Load the prime p
+        BIGNUM * p = BN_bin2bn((const unsigned char *) (privKey + LTPA_LENLEN + padByte +
+            LTPA_DLEN + pubExpLen + 1), LTPA_PLEN, NULL);
+        if (p == NULL) {
+            TRACE(7, "BN_bin2bn failed for rsa->p\n");
+            ism_common_free(ism_memory_admin_misc,*rsaMod);
+            *rsaMod = NULL;
+            *rsaModLen = 0;
+            return rc;
+        }
+
+        if ((LTPA_LENLEN + padByte + LTPA_DLEN + pubExpLen + 1 + LTPA_PLEN + 1 + LTPA_QLEN) != privKeyLen) {
+            ism_common_free(ism_memory_admin_misc,*rsaMod);
+            *rsaMod = NULL;
+            *rsaModLen = 0;
+            return rc;
+        }
+
+        // Load the prime q
+        BIGNUM * q = BN_bin2bn((const unsigned char *)(privKey + LTPA_LENLEN + padByte +
+             LTPA_DLEN + pubExpLen + 1 + LTPA_PLEN + 1), LTPA_QLEN, NULL);
+        if (q == NULL) {
+            TRACE(7, "BN_bin2bn failed for rsa->q\n");
+            ism_common_free(ism_memory_admin_misc,*rsaMod);
+            *rsaMod = NULL;
+            *rsaModLen = 0;
+            return rc;
+        }
+
+        OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        OSSL_PARAM *params = NULL;
+        if (bld == NULL
+            || !OSSL_PARAM_BLD_push_BN(bld, "n", n)
+            || !OSSL_PARAM_BLD_push_BN(bld, "e", e)
+            || !OSSL_PARAM_BLD_push_BN(bld, "d", d)
+            || !OSSL_PARAM_BLD_push_BN(bld, "rsa-factor1", p)
+            || !OSSL_PARAM_BLD_push_BN(bld, "rsa-factor2", q)
+            || (params = OSSL_PARAM_BLD_to_param(bld)) == NULL)
+            {
+                TRACE(7, "OSSL_PARAM_BLD or OSSL_PARAM_BLD_push_BN failed\n");
+                OSSL_PARAM_BLD_free(bld);
+            }
+
+        EVP_PKEY_CTX *ctx = NULL;
+        ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+
+        if (ctx == NULL
+            || EVP_PKEY_fromdata_init(ctx) <= 0
+            || EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_KEY_PARAMETERS, params) <= 0)
+            {
+                EVP_PKEY_CTX_free(ctx);
+                OSSL_PARAM_BLD_free(bld);
+                OSSL_PARAM_free(params);
+                return rc;
+            }
+
+        rc = ISMRC_OK;
+    }
+    else
+    {
+        rc = ISMRC_Error;
+    }
+
+    return rc;
+}
+
+#endif
+
 
 /* Version of strchr for LTPA quoted meta characters */
 static char *ism_security_ltpaQuotedStrchr(
@@ -569,8 +717,9 @@ static int ism_security_ltpaV1GenUserInfoSignature(
     // Encrypt the buffer
     if (retVal == ISMRC_OK)
     {
-    unsigned char *encBuf;
+        unsigned char *encBuf;
 
+    #if OPENSSL_VERSION_NUMBER < 0x30000000L
     encBuf = (unsigned char *) alloca(sizeof(unsigned char) * 
                     scratchBufLen);
 
@@ -582,40 +731,59 @@ static int ism_security_ltpaV1GenUserInfoSignature(
         //ism_common_free(ism_memory_admin_misc,encBuf);
         return ISMRC_Error;
     }
+#else
+    size_t encBuflen;
 
-    //ism_common_free(ism_memory_admin_misc,scratchBuf);
-    scratchBuf = encBuf;
-
-    int remainder = 0;
-    int tmp = 0;
-    int i = 0;
-    unsigned char *mod = keys->rsaMod;
-
-    for (i = 0; i <= (LTPA_NLEN - 1); i++)
+    EVP_PKEY_CTX *ctx;
+    ctx = EVP_PKEY_CTX_new(keys->pkey, NULL);
+    if (!ctx
+        || EVP_PKEY_sign_init(ctx) <= 0
+        || EVP_PKEY_encrypt(ctx, NULL, &encBuflen, scratchBuf, scratchBufLen) <= 0)
     {
-        tmp = (remainder * 256) + mod[i];
-        remainder = tmp%2;
-        tmp = tmp/2;
-        if (scratchBuf[i] != tmp)
-            break;
+        EVP_PKEY_CTX_free(ctx);
     }
-    if (i < scratchBufLen && scratchBuf[i] > tmp)
-        ism_security_complementSmodN(scratchBuf, mod);
 
-    // Base64 encode the result
-    char b64SigBuf[1024];
-    char * b64Sig = (char *)&b64SigBuf;
-    int encodeSize = ism_common_toBase64((char *) scratchBuf,b64Sig, scratchBufLen);
+    encBuf = OPENSSL_malloc(encBuflen);
+    if (!encBuf
+        || EVP_PKEY_encrypt(ctx, encBuf, &encBuflen, scratchBuf, scratchBufLen) <= 0)
+    {
+        EVP_PKEY_CTX_free(ctx);
+    }
+#endif     
 
-    if (encodeSize>0)
-    {
-        *sigBuf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),b64Sig);
-        *sigBufLen = encodeSize;
-    }
-    else
-    {
-        retVal = ISMRC_Error;
-    }
+        //ism_common_free(ism_memory_admin_misc,scratchBuf);
+        scratchBuf = encBuf;
+
+        int remainder = 0;
+        int tmp = 0;
+        int i = 0;
+        unsigned char *mod = keys->rsaMod;
+
+        for (i = 0; i <= (LTPA_NLEN - 1); i++)
+        {
+            tmp = (remainder * 256) + mod[i];
+            remainder = tmp%2;
+            tmp = tmp/2;
+            if (scratchBuf[i] != tmp)
+                break;
+        }
+        if (i < scratchBufLen && scratchBuf[i] > tmp)
+            ism_security_complementSmodN(scratchBuf, mod);
+
+        // Base64 encode the result
+        char b64SigBuf[1024];
+        char * b64Sig = (char *)&b64SigBuf;
+        int encodeSize = ism_common_toBase64((char *) scratchBuf,b64Sig, scratchBufLen);
+
+        if (encodeSize>0)
+        {
+            *sigBuf = ism_common_strdup(ISM_MEM_PROBE(ism_memory_admin_misc,1000),b64Sig);
+            *sigBufLen = encodeSize;
+        }
+        else
+        {
+            retVal = ISMRC_Error;
+        }
     }
 
     // Free the intermediate buffer
@@ -757,13 +925,16 @@ static int ism_security_ltpaV2GenUserInfoSignature(
         goto CLEANUP;
     }
     // Load our private key into the pkey structure
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     sslrc = EVP_PKEY_set1_RSA(pkey, keys->rsa);
     if (1 != sslrc) {
         TRACE(7, "EVP_PKEY_set1_RSA error: %d\n", sslrc);
         EVP_MD_CTX_free(pCtx);
         goto CLEANUP;
     }
-
+#else
+    keys->pkey = pkey;
+#endif
     EVP_MD_CTX_free(pCtx);
 
     // Create the signature context
@@ -1382,7 +1553,11 @@ XAPI int ism_security_ltpaReadKeyfile(
     
     char          *version      = NULL;
     char          *escRealm     = NULL;
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     RSA           *tmpRSA       = NULL;
+#else
+    EVP_PKEY      *pkey          = NULL;
+#endif
     unsigned char *tmpRSAMod    = NULL;
     size_t        tmpRSAModLen  = 0;
     char          *keybuf       = NULL;
@@ -1512,7 +1687,11 @@ XAPI int ism_security_ltpaReadKeyfile(
     }
 
     /* Set RSA */
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     rc = ism_security_ltpaConvertRSAKeys(publicKey, publicKeyLen, privateKey, privateKeyLen, &tmpRSA, &tmpRSAMod, &tmpRSAModLen);
+#else
+    rc = ism_security_ltpaConvertRSAKeys(publicKey, publicKeyLen, privateKey, privateKeyLen, pkey, &tmpRSAMod, &tmpRSAModLen);
+#endif
     if ( rc != ISMRC_OK ) {
         rc = ISMRC_LTPAInvalidKeyFile;
         ism_common_setError(rc);
@@ -1557,7 +1736,11 @@ XAPI int ism_security_ltpaReadKeyfile(
     (*ltpaKey)->des_key =(void *) des_keyPtr;
     
     (*ltpaKey)->des_key_len = desKeyLen;
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     (*ltpaKey)->rsa = tmpRSA;
+#else
+    (*ltpaKey)->pkey = pkey;
+#endif
     (*ltpaKey)->rsaMod = tmpRSAMod;
     (*ltpaKey)->rsaModLen = tmpRSAModLen;
     (*ltpaKey)->version = version;
@@ -1585,8 +1768,13 @@ XAPI int ism_security_ltpaDeleteKey(
     if (key->realm)
         ism_common_free(ism_memory_admin_misc,key->realm);
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     if (key->rsa)
         RSA_free(key->rsa);
+#else
+    if (key->pkey)
+        EVP_PKEY_free(key->pkey);
+#endif
 
     if (key->rsaModLen > 0 && key->rsaMod)
         ism_common_free(ism_memory_admin_misc,key->rsaMod);
