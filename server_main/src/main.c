@@ -134,7 +134,7 @@ int main (int argc, char * * argv) {
     signal(SIGUSR2, siguser2_handler);
 
     /* Ignore SIGPIPE signals for broken TCP connections. */
-    signal(SIGPIPE, sig_handler);
+    signal(SIGPIPE, SIG_IGN);
 
     /*
      * Process the config file
