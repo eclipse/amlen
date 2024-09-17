@@ -291,6 +291,8 @@ static int ism_security_ltpaConvertRSAKeys(
         }
 
         if ((LTPA_LENLEN + padByte + LTPA_DLEN + pubExpLen + 1 + LTPA_PLEN + 1 + LTPA_QLEN) != privKeyLen) {
+            (void) RSA_free(*rsa);
+            *rsa = NULL;
             ism_common_free(ism_memory_admin_misc,*rsaMod);
             *rsaMod = NULL;
             *rsaModLen = 0;
