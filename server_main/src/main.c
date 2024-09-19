@@ -876,7 +876,7 @@ XAPI int ism_process_mqc_monitoring_action(const char * locale, const char *inpb
  */
 static void setMainAffinity(void) {
     const char * affStr;
-    char         affMap[64];
+    char         affMap[CPU_SETSIZE];
     int          affLen = 0;
 
     affStr = ism_common_getStringConfig("Affinity.imaserver");

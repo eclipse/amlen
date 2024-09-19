@@ -37,6 +37,7 @@
 #include <alloca.h>
 #include <throttle.h>
 #include <malloc.h>
+#include <sched.h>
 #define STR(s) XSTR(s)
 #define XSTR(s) #s
 #define htonll(x) __builtin_bswap64(x)
@@ -2844,7 +2845,7 @@ HOT static void * ism_tcp_ioProcessorThreadProc(void * parm, void * context, int
                 if (value) {
                     if (iopDelay > 0) {
                         for (i = 0; i < iopDelay; i++) {
-                            pthread_yield();
+                            sched_yield();
                         }
                     } else {
                         ism_common_sleep(-iopDelay);

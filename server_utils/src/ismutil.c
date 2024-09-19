@@ -684,19 +684,30 @@ int ism_common_parseThreadAffinity(const char *affStr, char affMap[CPU_SETSIZE])
     if (len == 0)
         return 0;
     ptr = affStr + (len - 1);
+
+    memset(affMap, 0, CPU_SETSIZE);
+
     do {
         int v = hexValue(*ptr);
+    if(result < CPU_SETSIZE) {
         if(v & 1)
             affMap[result] = 1;
+    }
+    if(result + 1 < CPU_SETSIZE) {
         if(v & 2)
             affMap[result+1] = 1;
+    }
+    if(result + 2 < CPU_SETSIZE) {
         if(v & 4)
             affMap[result+2] = 1;
+    }
+    if(result + 3 < CPU_SETSIZE) {
         if(v & 8)
             affMap[result+3] = 1;
+    }
         ptr--;
         result += 4;
-    } while(ptr >= affStr);
+    } while(ptr >= affStr && result < CPU_SETSIZE);
     return result;
 }
 
