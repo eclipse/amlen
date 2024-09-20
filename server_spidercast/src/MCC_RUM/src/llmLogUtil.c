@@ -1064,9 +1064,10 @@ static size_t formatMessage(char * msgBuff, size_t msgBuffSize, const char * msg
                     break;
                 default:                 /* Just put the comma into the extension */
                     part++;
-                    if (xleft > 0)
+                    if (xleft > 0){
                         *xp++ = ch;
                         xleft--;
+                    }
                 }
                 break;
 
