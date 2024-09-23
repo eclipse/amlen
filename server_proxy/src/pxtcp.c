@@ -3952,7 +3952,7 @@ int ism_transport_startTCPEndpoint(ism_endpoint_t * endpoint) {
 int ism_transport_startTCP(void) {
     xUNUSED int    rc;
     int    i;
-    char   threadname[16];
+    char   threadname[18];
 
     /*
      * Start the connection thread
