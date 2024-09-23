@@ -3968,7 +3968,7 @@ int ism_transport_startTCP(void) {
      * Start the IO processor threads
      */
     for (i = 0; i < numOfIOProcs; i++) {
-        sprintf(threadname, sizeof(threadname), "tcpiop.%u", i);
+        snprintf(threadname, "tcpiop.%u", i);
         ioProcessors[i] = createIOPThread(threadname, ioListener);
         ioProcessors[i]->which = i;
     }
