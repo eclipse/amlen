@@ -993,7 +993,7 @@ char *upper(char *str)
   for ( ip=str ; !isEOL(*ip) ; ip++ ){
     if ( *ip >= 'a' && *ip <= 'z' ) *ip = 'A' + (*ip-'a') ;
   }
-    return str ;
+  return str ;
 }
 
 /***********************************************************************/
