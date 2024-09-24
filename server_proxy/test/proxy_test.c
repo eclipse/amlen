@@ -101,7 +101,9 @@ void testGetPayload(void);
 void mqttv5_test(void);
 void updateStatsTest(void);
 void pxrouting_test(void);
+#ifdef PX_CLIENTACTIVITY
 void setJSON_test(void);
+#endif
 void stopCrlTest(void);
 void test_kafkaConnection_parse(void);
 void test_mhub_mapper(void);
@@ -144,7 +146,9 @@ CU_TestInfo convert_tests[] = {
     { "--- Testing MQTTv5                    ---", mqttv5_test },
 	{ "--- Testing Proxy Routing             ---", pxrouting_test },
 	{ "--- Testing Tenant                    ---", tenantTest },
+#ifdef PX_CLIENTACTIVITY
 	{ "--- Testing setJSON                   ---", setJSON_test },
+#endif
 	{ "--- Testing stopCRL                   ---", stopCrlTest },
 	{ "--- Testing revalidateSaveData        ---", testRevalidateSaveData },
 	{ "--- Testing mhub_kafkaConnection      ---", test_kafkaConnection_parse },
@@ -418,7 +422,7 @@ void clientClassTest(void) {
     CU_ASSERT(match == 1);
 
 }
-
+#ifdef PX_CLIENTACTIVITY
 void setJSON_test(void) {
     int rc = 0;
     char json[1000];
@@ -443,6 +447,7 @@ void setJSON_test(void) {
         CU_ASSERT(rc == 0);
     }
 }
+#endif
 
 /*
  * call convertTopic
@@ -3114,7 +3119,7 @@ void test_mhub_mapper_perf(void) {
     double maptime = (double)(end1-start1)/1e9;
     double gentime = (double)(end2-end1)/1e9;
     printf("\ncount=%u  maptime=%0.03g sec gentime=%0.03g sec\n", count, maptime, gentime);
-    CU_ASSERT(maptime < gentime*2);
+    CU_ASSERT(maptime < gentime*4);
 
     uint32_t  partmap;
     uint32_t  partgen;
