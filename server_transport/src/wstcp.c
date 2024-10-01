@@ -3337,7 +3337,9 @@ const unsigned char ivec [] = {
     0x61, 0xd2, 0xdf, 0x3d, 0xcc, 0x96, 0xee, 0x50,
 };
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 static const char b64digit [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+#endif
 
 /*
  *  Encrypt a string using AES128-CBC with variable key and salt
@@ -3379,7 +3381,10 @@ xUNUSED static const char * zz_encrypt(const char * data, char * buf, int data_l
 
     /* Create and initialise the context */
     if(!(ctx = EVP_CIPHER_CTX_new()))
-        TRACE(7, "EVP_CIPHER_CTX_new failed\n");
+    {
+        TRACE(5, "EVP_CIPHER_CTX_new failed\n");
+        return NULL;
+    }
 
     /*
      * Initialise the encryption operation. IMPORTANT - ensure you use a key
@@ -3389,14 +3394,20 @@ xUNUSED static const char * zz_encrypt(const char * data, char * buf, int data_l
      * is 128 bits
      */
     if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, keybase, ivec))
-        TRACE(7, "EVP_aes_256_cbc failed\n");
+    {
+        TRACE(5, "EVP_aes_256_cbc failed\n");
+        return NULL;
+    }
 
     /*
      * Provide the message to be encrypted, and obtain the encrypted output.
      * EVP_EncryptUpdate can be called multiple times if necessary
      */
     if(1 != EVP_EncryptUpdate(ctx, (unsigned char *) buf, &len, (const unsigned char *) data, data_len))
-        TRACE(7, "EVP_EncryptUpdate failed\n");
+    {
+        TRACE(5, "EVP_EncryptUpdate failed\n");
+        return NULL;
+    }
     ciphertext_len = len;
 
     /*
@@ -3404,7 +3415,10 @@ xUNUSED static const char * zz_encrypt(const char * data, char * buf, int data_l
      * this stage.
      */
     if(1 != EVP_EncryptFinal_ex(ctx, (unsigned char *)buf + len, &len))
-        TRACE(7, "EVP_EncryptFinal_ex failed\n");
+    {
+        TRACE(5, "EVP_EncryptFinal_ex failed\n");
+        return NULL;
+    }
     ciphertext_len += len;
 
     /* Clean up */
@@ -3462,7 +3476,10 @@ xUNUSED static const char * zz_decrypt(const char * data, char * buf, int data_l
 
     /* Create and initialise the context */
     if(!(ctx = EVP_CIPHER_CTX_new()))
-        TRACE(7, "EVP_CIPHER_CTX_new failed\n");
+    {
+        TRACE(5, "EVP_CIPHER_CTX_new failed\n");
+        return NULL;
+    }
 
     /*
      * Initialise the decryption operation. IMPORTANT - ensure you use a key
@@ -3472,14 +3489,20 @@ xUNUSED static const char * zz_decrypt(const char * data, char * buf, int data_l
      * is 128 bits
      */
     if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, keybase, ivec))
-        TRACE(7, "EVP_DecryptInit_ex failed\n");
+    {
+        TRACE(5, "EVP_DecryptInit_ex failed\n");
+        return NULL;
+    }
 
     /*
      * Provide the message to be decrypted, and obtain the plaintext output.
      * EVP_DecryptUpdate can be called multiple times if necessary.
      */
     if(1 != EVP_DecryptUpdate(ctx, (unsigned char *) buf, &len, (const unsigned char *)data, data_len))
-        TRACE(7, "EVP_DecryptUpdate failed\n");
+    {
+        TRACE(5, "EVP_DecryptUpdate failed\n");
+        return NULL;
+    }
     plaintext_len = len;
 
     /*
@@ -3487,7 +3510,10 @@ xUNUSED static const char * zz_decrypt(const char * data, char * buf, int data_l
      * this stage.
      */
     if(1 != EVP_DecryptFinal_ex(ctx, (unsigned char *)buf + len, &len))
-        TRACE(7, "EVP_DecryptFinal_ex failed\n");
+    {
+        TRACE(5, "EVP_DecryptFinal_ex failed\n");
+        return NULL;
+    }
     plaintext_len += len;
 
     /* Clean up */
