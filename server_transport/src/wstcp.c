@@ -3346,7 +3346,7 @@ static const char b64digit [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstu
  */
 xUNUSED static const char * zz_encrypt(const char * data, char * buf, int data_len) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-    uint8_t iv [16];
+    unsigned char iv [16];
     int  datalen = (int)strlen(data);
     int  blklen  = (datalen+21) & ~0x0f;
     unsigned char * blkdata = alloca(blklen);
@@ -3444,7 +3444,7 @@ const char * ism_transport_makepw(const char * data, char * buf, int len, int di
  */
 xUNUSED static const char * zz_decrypt(const char * data, char * buf, int data_len) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-    uint8_t iv[16];
+    unsigned char iv[16];
     int  datalen = (int)strlen(data);
     uint8_t * bindata = alloca(datalen);
     uint8_t * decdata = alloca(datalen);
