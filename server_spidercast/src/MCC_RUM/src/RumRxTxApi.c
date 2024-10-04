@@ -127,7 +127,7 @@ static void rumImutex_unlock(void)
 static int rumInstanceCounter = 1;
 static char* createRUMInstanceName(void){
   char  result[64];
-  snprintf(result,64,"RUM.%d",rumInstanceCounter);
+  snprintf(result, sizeof(result), "RUM.%d", rumInstanceCounter);
   rumInstanceCounter++;
   return rmm_strdup(result);
 }
