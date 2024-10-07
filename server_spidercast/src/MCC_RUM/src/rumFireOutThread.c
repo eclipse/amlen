@@ -327,7 +327,7 @@ int send_single_packet(ConnInfoRec *cInfo, StreamInfoRec_T *pSinf, int rate_limi
   {
     if ( isOdata && !pSinf->keepHistory)
       MM_put_buff(rmmTRec[inst]->DataBuffPool, packet) ;
-      llmSimpleTraceInvoke(tcHandle,LLM_LOGLEV_ERROR,MSG_KEY(3272),"%llx%llx",
+    llmSimpleTraceInvoke(tcHandle,LLM_LOGLEV_ERROR,MSG_KEY(3272),"%llx%llx",
           "The packet is not valid. Additional information: wrInfo.bptr={0}, wrInfo.buffer={1}",
           LLU_VALUE(cInfo->wrInfo.bptr), LLU_VALUE(cInfo->wrInfo.buffer));
     return RUM_FO_SEND_ERROR;
