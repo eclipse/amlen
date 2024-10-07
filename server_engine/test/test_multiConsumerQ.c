@@ -2904,7 +2904,7 @@ void test_DeepSelection(void)
         rc = pthread_mutex_unlock(&controlMutex);
         TEST_ASSERT_EQUAL(rc, OK);
 
-        (void)pthread_yield();
+        (void)sched_yield();
 
         rc = pthread_mutex_lock(&controlMutex);
         TEST_ASSERT_EQUAL(rc, OK);
@@ -3219,7 +3219,7 @@ void test_UnackdSelection(void)
         rc = pthread_mutex_unlock(&controlMutex);
         TEST_ASSERT_EQUAL(rc, OK);
 
-        (void)pthread_yield();
+        (void)sched_yield();
 
         rc = pthread_mutex_lock(&controlMutex);
         TEST_ASSERT_EQUAL(rc, OK);

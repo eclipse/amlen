@@ -1205,6 +1205,7 @@ static const char * SSL_ERRORS[9] = {
 static void sslTraceErr(ism_transport_t * transport, uint32_t  rc, const char * file, int line) {
     int          flags;
     const char * data;
+    const char * func;
     char         mbuf[1024];
     char *       pos;
     int          err = errno;
@@ -1221,7 +1222,7 @@ static void sslTraceErr(ism_transport_t * transport, uint32_t  rc, const char * 
         }
     }
     for (;;) {
-        rc = (uint32_t)ERR_get_error_line_data(&file, &line, &data, &flags);
+        rc = (uint32_t)ERR_get_error_all(&file, &line, &func, &data, &flags);
         if (rc == 0)
             break;
         ERR_error_string_n(rc, mbuf, sizeof mbuf);
@@ -2844,7 +2845,7 @@ HOT static void * ism_tcp_ioProcessorThreadProc(void * parm, void * context, int
                 if (value) {
                     if (iopDelay > 0) {
                         for (i = 0; i < iopDelay; i++) {
-                            pthread_yield();
+                            sched_yield();
                         }
                     } else {
                         ism_common_sleep(-iopDelay);
