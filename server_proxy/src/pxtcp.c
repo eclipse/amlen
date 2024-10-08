@@ -1205,7 +1205,6 @@ static const char * SSL_ERRORS[9] = {
 static void sslTraceErr(ism_transport_t * transport, uint32_t  rc, const char * file, int line) {
     int          flags;
     const char * data;
-    const char * func;
     char         mbuf[1024];
     char *       pos;
     int          err = errno;
@@ -1222,7 +1221,12 @@ static void sslTraceErr(ism_transport_t * transport, uint32_t  rc, const char * 
         }
     }
     for (;;) {
-        rc = (uint32_t)ERR_get_error_all(&file, &line, &func, &data, &flags);
+        #if OPENSSL_VERSION_NUMBER < 0x30000000L
+            rc = (uint32_t)ERR_get_error_line_data(&file, &line, &data, &flags);
+        #else
+            const char * func;
+            rc = (uint32_t)ERR_get_error_all(&file, &line, &func, &data, &flags);
+        #endif
         if (rc == 0)
             break;
         ERR_error_string_n(rc, mbuf, sizeof mbuf);
