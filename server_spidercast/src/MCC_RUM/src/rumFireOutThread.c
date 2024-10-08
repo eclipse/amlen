@@ -1603,7 +1603,6 @@ THREAD_RETURN_TYPE FireOutThread(void *param)
         if ( rmmTRec[inst]->FO_Thrds[i] == THREAD_RUNNING ||
           rmmTRec[inst]->FO_Thrds[i] == THREAD_KILL )
           done = 0;
-          
         Sleep(SHORT_SLEEP);
     }
   }
