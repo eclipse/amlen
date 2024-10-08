@@ -178,7 +178,12 @@ static void sslTraceErr(ConnInfoRec *cInfo, uint32_t  rc, const char * file, int
             i=0;
         }
         for (;;) {
-            rc = (uint32_t)ERR_get_error_all(&file, &line, &fn, &data, &flags);
+            #if OPENSSL_VERSION_NUMBER < 0x30000000L
+                rc = (uint32_t)ERR_get_error_line_data(&file, &line, &data, &flags);
+            #else
+                const char * func;
+                rc = (uint32_t)ERR_get_error_all(&file, &line, &fn, &data, &flags);
+            #endif
             if (rc == 0)
                 break;
             ERR_error_string_n(rc, mbuf, sizeof mbuf);
