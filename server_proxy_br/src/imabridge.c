@@ -186,8 +186,8 @@ int main (int argc, char * * argv) {
     signal(SIGUSR2, siguser2_handler);
 
     /*Ignore SIGPIPE signals for broken TCP connections.*/
-    sigignore(SIGPIPE);
-    sigignore(SIGHUP);
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGHUP, SIG_IGN);
 
     /* Cause a parent death to send up a SIGTERM */
     prctl(PR_SET_PDEATHSIG, SIGTERM);

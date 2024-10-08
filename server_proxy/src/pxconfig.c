@@ -1556,8 +1556,10 @@ int ism_proxy_complexConfig(ism_json_parse_t * parseobj, int complex, int checko
                 }
             } else {
                 if (complex == 2)
+                {
                     rc = ISMRC_BadPropertyName;
                     ism_common_setErrorData(rc, "%s", ent->name);
+                }
             }
             entloc += ent->count + 1;
             break;

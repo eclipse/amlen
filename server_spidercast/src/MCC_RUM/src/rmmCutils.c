@@ -990,10 +990,10 @@ int rmm_get_thread_stacksize(pthread_t thread_id, int *size)
 char *upper(char *str)
 {
   char *ip ;
-  for ( ip=str ; !isEOL(*ip) ; ip++ )
+  for ( ip=str ; !isEOL(*ip) ; ip++ ){
     if ( *ip >= 'a' && *ip <= 'z' ) *ip = 'A' + (*ip-'a') ;
-
-    return str ;
+  }
+  return str ;
 }
 
 /***********************************************************************/
