@@ -126,10 +126,13 @@ static void rumImutex_unlock(void)
 
 static int rumInstanceCounter = 1;
 static char* createRUMInstanceName(void){
-  char  result[64];
-  snprintf(result,64,"RUM.%d",rumInstanceCounter);
+  char* result = malloc(64 * sizeof(char)); //to dynamically allocate 64 bytes 
+  if (result == NULL){
+    return NULL;
+  }
+  snprintf(result, 64, "RUM.%d", rumInstanceCounter);
   rumInstanceCounter++;
-  return rmm_strdup(result);
+  return result;
 }
 
 static void registerRUMTraceComponents(const char* instanceName, TCHandle tcHandles[3]){
