@@ -3321,7 +3321,7 @@ static char * http_escapepath(char * out, const char * in) {
     return ret;
 }
 
-const uint8_t keybase [] = {
+const unsigned char keybase [] = {
     0x0b, 0xbd, 0xd7, 0x89, 0x41, 0xa0, 0xd1, 0xc0,
     0x74, 0x1b, 0x6d, 0x12, 0x56, 0xa7, 0x50, 0xb9,
     0x11, 0x4b, 0x64, 0xd9, 0x46, 0x01, 0x49, 0x0b,
@@ -3332,18 +3332,21 @@ const uint8_t keybase [] = {
     0x92, 0x8a, 0xa4, 0xd7, 0x1d, 0x70, 0x24, 0xbd,
 };
 
-const uint8_t  ivec [] = {
+const unsigned char ivec [] = {
     0x7b, 0xea, 0x60, 0x06, 0x66, 0x9f, 0x15, 0x66,
     0x61, 0xd2, 0xdf, 0x3d, 0xcc, 0x96, 0xee, 0x50,
 };
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 static const char b64digit [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+#endif
 
 /*
  *  Encrypt a string using AES128-CBC with variable key and salt
  */
-xUNUSED static const char * zz_encrypt(const char * data, char * buf, int len) {
-    uint8_t iv [16];
+xUNUSED static const char * zz_encrypt(const char * data, char * buf, int data_len) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    unsigned char iv [16];
     int  datalen = (int)strlen(data);
     int  blklen  = (datalen+21) & ~0x0f;
     unsigned char * blkdata = alloca(blklen);
@@ -3369,6 +3372,61 @@ xUNUSED static const char * zz_encrypt(const char * data, char * buf, int len) {
     ism_common_toBase64((char *)encdata, (char *)b64data, blklen+1);
     ism_common_strlcpy(buf, (const char *)b64data, len);
     return buf;
+
+#else
+
+    EVP_CIPHER_CTX *ctx;
+    int len;
+    int ciphertext_len;
+
+    /* Create and initialise the context */
+    if(!(ctx = EVP_CIPHER_CTX_new()))
+    {
+        TRACE(5, "EVP_CIPHER_CTX_new failed\n");
+        return NULL;
+    }
+
+    /*
+     * Initialise the encryption operation. IMPORTANT - ensure you use a key
+     * and IV size appropriate for your cipher
+     * In this example we are using 256 bit AES (i.e. a 256 bit key). The
+     * IV size for *most* modes is the same as the block size. For AES this
+     * is 128 bits
+     */
+    if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, keybase, ivec))
+    {
+        TRACE(5, "EVP_aes_256_cbc failed\n");
+        return NULL;
+    }
+
+    /*
+     * Provide the message to be encrypted, and obtain the encrypted output.
+     * EVP_EncryptUpdate can be called multiple times if necessary
+     */
+    if(1 != EVP_EncryptUpdate(ctx, (unsigned char *) buf, &len, (const unsigned char *) data, data_len))
+    {
+        TRACE(5, "EVP_EncryptUpdate failed\n");
+        return NULL;
+    }
+    ciphertext_len = len;
+
+    /*
+     * Finalise the encryption. Further ciphertext bytes may be written at
+     * this stage.
+     */
+    if(1 != EVP_EncryptFinal_ex(ctx, (unsigned char *)buf + len, &len))
+    {
+        TRACE(5, "EVP_EncryptFinal_ex failed\n");
+        return NULL;
+    }
+    ciphertext_len += len;
+
+    /* Clean up */
+    EVP_CIPHER_CTX_free(ctx);
+
+    return buf;
+#endif
+
 }
 
 const char * ism_transport_makepw(const char * data, char * buf, int len, int dir) {
@@ -3384,8 +3442,9 @@ const char * ism_transport_makepw(const char * data, char * buf, int len, int di
 /*
  *  Decrypt a string using AES128-CBC with variable key and salt
  */
-static const char * zz_decrypt(const char * data, char * buf, int len) {
-    uint8_t iv[16];
+xUNUSED static const char * zz_decrypt(const char * data, char * buf, int data_len) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    unsigned char iv[16];
     int  datalen = (int)strlen(data);
     uint8_t * bindata = alloca(datalen);
     uint8_t * decdata = alloca(datalen);
@@ -3410,6 +3469,58 @@ static const char * zz_decrypt(const char * data, char * buf, int len) {
         return buf;
     }
     return NULL;
+#else
+    EVP_CIPHER_CTX *ctx;
+    int len;
+    int plaintext_len;
+
+    /* Create and initialise the context */
+    if(!(ctx = EVP_CIPHER_CTX_new()))
+    {
+        TRACE(5, "EVP_CIPHER_CTX_new failed\n");
+        return NULL;
+    }
+
+    /*
+     * Initialise the decryption operation. IMPORTANT - ensure you use a key
+     * and IV size appropriate for your cipher
+     * In this example we are using 256 bit AES (i.e. a 256 bit key). The
+     * IV size for *most* modes is the same as the block size. For AES this
+     * is 128 bits
+     */
+    if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, keybase, ivec))
+    {
+        TRACE(5, "EVP_DecryptInit_ex failed\n");
+        return NULL;
+    }
+
+    /*
+     * Provide the message to be decrypted, and obtain the plaintext output.
+     * EVP_DecryptUpdate can be called multiple times if necessary.
+     */
+    if(1 != EVP_DecryptUpdate(ctx, (unsigned char *) buf, &len, (const unsigned char *)data, data_len))
+    {
+        TRACE(5, "EVP_DecryptUpdate failed\n");
+        return NULL;
+    }
+    plaintext_len = len;
+
+    /*
+     * Finalise the decryption. Further plaintext bytes may be written at
+     * this stage.
+     */
+    if(1 != EVP_DecryptFinal_ex(ctx, (unsigned char *)buf + len, &len))
+    {
+        TRACE(5, "EVP_DecryptFinal_ex failed\n");
+        return NULL;
+    }
+    plaintext_len += len;
+
+    /* Clean up */
+    EVP_CIPHER_CTX_free(ctx);
+
+    return buf;
+#endif
 }
 
 /*

@@ -1140,7 +1140,7 @@ static int ism_store_memHASendAck(ismStore_memHAChannel_t *pHAChannel, ismStore_
    ismStore_memHAMsgType_t msgType = StoreHAMsg_Ack;
    char *pBuffer=NULL, *pPos=NULL;
    int rc;
-   uint32_t opcount, bufferLength;
+   uint32_t opcount=0, bufferLength;
 
    if ((rc = ism_store_memHAEnsureBufferAllocation(pHAChannel,
                                                    &pBuffer,
