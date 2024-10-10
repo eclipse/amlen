@@ -1428,7 +1428,7 @@ static void Queue2_EnableDisable( ismQueueType_t type
             TEST_ASSERT_EQUAL(rc, OK);
         }
 
-        pthread_yield();
+        sched_yield();
     }
 
     // Having reached here ask the putters to stop

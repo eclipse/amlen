@@ -158,6 +158,7 @@ static void sslTraceErr(ConnInfoRec *cInfo, uint32_t  rc, const char * file, int
 {
     int          flags, i=1;
     const char * data;
+    const char * fn;
     char         mbuf[1024];
     char *       pos;
     int          err = errno;
@@ -177,7 +178,12 @@ static void sslTraceErr(ConnInfoRec *cInfo, uint32_t  rc, const char * file, int
             i=0;
         }
         for (;;) {
-            rc = (uint32_t)ERR_get_error_line_data(&file, &line, &data, &flags);
+            #if OPENSSL_VERSION_NUMBER < 0x30000000L
+                rc = (uint32_t)ERR_get_error_line_data(&file, &line, &data, &flags);
+            #else
+                const char * func;
+                rc = (uint32_t)ERR_get_error_all(&file, &line, &fn, &data, &flags);
+            #endif
             if (rc == 0)
                 break;
             ERR_error_string_n(rc, mbuf, sizeof mbuf);
@@ -5059,6 +5065,10 @@ int cip_prepare_req_msg(haGlobalInfo *gInfo)
   int numActiveConns;
   char *p ; 
   ismCluster_Statistics_t cs[1];
+  cs->connectedServers=cs->disconnectedServers=0;
+  cs->pClusterName=cs->pServerName=cs->pServerUID=NULL;
+  cs->healthStatus=ISM_CLUSTER_HEALTH_UNKNOWN;
+  cs->haStatus=ISM_CLUSTER_HA_UNKNOWN;
   haConReqMsg *msg = &gInfo->dInfo->req_msg[0] ; 
   memset(msg, 0, sizeof(haConReqMsg)) ; 
 //msg->msg_len  = sizeof(haConReqMsg) - INT_SIZE ; 

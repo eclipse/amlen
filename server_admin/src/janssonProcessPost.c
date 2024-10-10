@@ -1725,7 +1725,7 @@ XAPI void ism_config_setServerName(int getLock, int setDefault) {
     struct utsname buf;
 
     /* get current admin port */
-	int port = ism_config_json_getAdminPort(getLock);
+	unsigned short port = ism_config_json_getAdminPort(getLock);
 
     /* Get current ServerName */
     if ( getLock == 1 ) pthread_rwlock_wrlock(&srvConfiglock);
