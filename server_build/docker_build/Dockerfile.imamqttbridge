@@ -11,17 +11,32 @@
 #
 
 #Choose a base image that matches the type of build we are using...
-#By default we use: centos7
-FROM quay.io/centos/centos:7
-# For a RHEL8/CentOS8 distro, we use AlmaLinux:
-#FROM quay.io/almalinuxorg/almalinux:8
+# To use a different disto change the from EG:
+# FROM quay.io/centos/centos:7
+# FROM quay.io/almalinuxorg/almalinux:8
+# FROM quay.io/almalinuxorg/almalinux:9
 # For Fedora, the verion changes very often due to their short life
-#FROM quay.io/fedora/fedora:35-x86_64
-
-#File author / Maintainer
-MAINTAINER ISM Build
+# FROM quay.io/fedora/fedora:35-x86_64
+FROM IMA_SVR_DISTRO
 
 WORKDIR ${IMA_BRIDGE_INSTALL_PATH}/bin
+
+# Add RPM in a temporary directory inside the container
+# Make sure that imabridge.rpm is available in the directory where "docker build" command
+# is being executed
+ADD ./imabridge.rpm /tmp/
+
+# Update/install prereq packages 
+RUN yum -y upgrade 
+
+# For almalinux 8 and 9 libedit-devel comes from epel so we need to try to enable those
+# The steps are essentially optional as not all distros will suport the commands
+RUN yum -y install epel-release || true
+RUN yum -y install dnf-plugins-core || true
+RUN dnf config-manager --set-enabled powertools || true
+
+# Hopefully we can now install all the required prereqs, this is not optional
+RUN yum -y install gdb net-tools openssh-clients openssl tar perl zip logrotate bzip2 unzip cronie less libedit-devel
 
 #To run as a non-root user
 # 1) Create the user and group outside the container with a selected uid/gid
@@ -36,10 +51,11 @@ WORKDIR ${IMA_BRIDGE_INSTALL_PATH}/bin
 #        RUN useradd -r  -s /sbin/nologin -g imabridge -u 465 imabridge
 # 5) Uncomment the USER line before the entrypoint
 
-# Install packages 
-RUN yum -y upgrade && \
-    yum -y install gdb net-tools openssh-clients openssl tar perl zip logrotate bzip2 unzip cronie less libedit-devel && \
-    rpm -iv http://10.90.125.123:9988/RPMS/${IMA_PKG_BRIDGE}.rpm
+# Install the Bridge itself
+RUN yum -y install /tmp/imabridge.rpm
+
+# Delete imabridge.rpm from temporary directory
+RUN rm -f /tmp/imabridge.rpm
 
 ENV LD_LIBRARY_PATH ${IMA_BRIDGE_INSTALL_PATH}/lib64:${LD_LIBRARY_PATH}
 ENV PATH ${IMA_BRIDGE_INSTALL_PATH}/bin:${PATH}
@@ -49,5 +65,6 @@ ENV PATH ${IMA_BRIDGE_INSTALL_PATH}/bin:${PATH}
 
 #ENTRYPOINT "/bin/bash"
 ENTRYPOINT [ "${IMA_BRIDGE_INSTALL_PATH}/bin/startBridge.sh" ]
+
 
 

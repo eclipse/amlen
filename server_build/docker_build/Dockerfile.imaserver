@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2021 Contributors to the Eclipse Foundation
+# Copyright (c) 2015-2022 Contributors to the Eclipse Foundation
 # 
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -11,42 +11,50 @@
 #
 
 #Choose a base image that matches the type of build we are using...
-#By default we use: almalinux8
-#FROM quay.io/centos/centos:7
-# For a RHEL8/CentOS8 distro, we use AlmaLinux:
-FROM quay.io/almalinuxorg/almalinux:8
+# To use a different disto change the from EG:
+# FROM quay.io/centos/centos:7
+# FROM quay.io/almalinuxorg/almalinux:8
+# FROM quay.io/almalinuxorg/almalinux:9
 # For Fedora, the verion changes very often due to their short life
-#FROM quay.io/fedora/fedora:35-x86_64
-
-#File author / Maintainer
-MAINTAINER ISM Build
+# FROM quay.io/fedora/fedora:35-x86_64
+FROM IMA_SVR_DISTRO
 
 WORKDIR ${IMA_SVR_INSTALL_PATH}/bin
 
-#To run as a non-root user
+# Add RPM in a temporary directory inside the container
+# Make sure that imaserver.rpm is available in the directory where "docker build" command
+# is being executed
+ADD ./EclipseAmlenServer-*.rpm /tmp/imaserver.rpm
+
+# Update packages
+RUN yum -y upgrade 
+
+#By default run as ima:ima this requires:
 # 1) Create the user and group outside the container with a selected uid/gid
 #        groupadd -r -g 463 ima
 #        useradd -r  -s /sbin/nologin -g ima -u 463 ima
 # 2) Give that user read/write access to any volumes that will be used
-# 3) Create a config file so the RPM knows the user
-#        RUN echo 'user=ima' >/etc/messagesight-user.cfg
-# 4) Uncomment the RUN group/useradd setup lines:
 #      (Ensure the numeric uid/gid below match step 1 above)
-#        RUN groupadd -r -g 463 ima
-#        RUN useradd -r  -s /sbin/nologin -g ima -u 463 ima
-# 5) Uncomment the USER line before the Entrypoint
 
+RUN echo "user=ima" > /etc/messagesight-user.cfg
+RUN echo "group=ima" >> /etc/messagesight-user.cfg
+RUN groupadd -r -g 463 ima
+RUN useradd -r  -s /sbin/nologin -g ima -u 463 ima
 
-# Install packages
-RUN yum -y upgrade && \
-    yum -y install gdb net-tools openssh-clients openssl tar perl jansson zip logrotate bzip2 unzip && \
-    rpm -iv http://10.90.125.123:9988/RPMS/${IMA_PKG_SERVER}.rpm
+#Install the Server
+RUN yum -y install /tmp/imaserver.rpm
 
-#Uncomment below USER line to run as a non-root user (but do the above steps 1-4 as well!)
-#USER ima:ima
+# Delete imaserver.rpm from temporary directory
+RUN rm -f /tmp/imaserver.rpm
+
+# add settings to allow HA to work in a virtual environment more robustly
+RUN sed -i "/HA.AllowSingleNIC/d" /usr/share/amlen-server/config/server.cfg && \
+    sed -i "/HA.SplitBrainPolicy/d" /usr/share/amlen-server/config/server.cfg && \
+    echo "HA.AllowSingleNIC = 1" >> /usr/share/amlen-server/config/server.cfg && \
+    echo "HA.SplitBrainPolicy = 1" >> /usr/share/amlen-server/config/server.cfg
+
+#Comment out the line below to run as root user
+#(but also change the user and group settings in messagesight-user.cfg above)
+USER ima:ima
 
 ENTRYPOINT [ "${IMA_SVR_INSTALL_PATH}/bin/run.sh" ]
-
-
-
-
