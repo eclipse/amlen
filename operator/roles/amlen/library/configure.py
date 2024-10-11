@@ -271,6 +271,7 @@ def configureHA(server1, server2, groupName):
             logger.warn(content)
         
         server2.clean_store()
+        server2.switch_to_production_mode()
 
         if not server2.check_ha_status():
             logger.error("Error configuring HA for Amlen server %s" % (server2.server_name)) 
@@ -348,10 +349,12 @@ def configureHA(server1, server2, groupName):
     if ok == False:
         # Restart both servers and try again
         logger.warn("Initial HA synchronization failed, restarting server1")
-        server1.restart()
+        server1.restart(maintenance="stop")
+
         if server2 != None:
             logger.warn("Initial HA synchronization failed, restarting server2")
-            server2.restart()
+            server2.restart(maintenance="stop")
+
         ok = server1.check_ha_status()
         
         if ok == False:
