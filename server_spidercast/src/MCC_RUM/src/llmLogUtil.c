@@ -535,7 +535,7 @@ static void updateTC(TraceComponent_t* pTC,const llmInstanceLogCfgListEntry_t* c
     pTC->instanceCfg = cfg;
 }
 
-LLM_API int llmRegisterTraceComponent(const char* instanceName, int componentId, const COMPONENT_NAME componentName,
+LLM_API int llmRegisterTraceComponent(const char* instanceName, int componentId, const char *componentName,
                                       TCHandle* pHandle, int *ec){
     llmInstanceLogCfgListEntry_t* listEntry = NULL;
     int rc = 1;

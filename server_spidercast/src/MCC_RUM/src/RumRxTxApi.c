@@ -134,10 +134,9 @@ static char* createRUMInstanceName(void){
 
 static void registerRUMTraceComponents(const char* instanceName, TCHandle tcHandles[3]){
   memset(tcHandles,0,3*sizeof(TCHandle));  
-  size_t instanceNameLen = strlen(instanceName);  //Calculate the length of the instance name up to null terminator 
-    llmRegisterTraceComponent(instanceName,300,"RUM_API",&(tcHandles[0]),instanceNameLen);
-    llmRegisterTraceComponent(instanceName,310,"RUM_RX",&(tcHandles[1]),instanceNameLen);
-    llmRegisterTraceComponent(instanceName,320,"RUM_TX",&(tcHandles[2]),instanceNameLen);
+    llmRegisterTraceComponent(instanceName,300,"RUM_API",&(tcHandles[0]),NULL);
+    llmRegisterTraceComponent(instanceName,310,"RUM_RX",&(tcHandles[1]),NULL);
+    llmRegisterTraceComponent(instanceName,320,"RUM_TX",&(tcHandles[2]),NULL);
 }
 static void unregisterRUMTraceComponents(TCHandle tcHandles[3]){
   int i;
