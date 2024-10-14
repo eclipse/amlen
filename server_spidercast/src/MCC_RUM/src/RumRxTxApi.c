@@ -126,20 +126,18 @@ static void rumImutex_unlock(void)
 
 static int rumInstanceCounter = 1;
 static char* createRUMInstanceName(void){
-  char* result = malloc(64 * sizeof(char)); //to dynamically allocate 64 bytes 
-  if (result == NULL){
-    return NULL;
-  }
-  snprintf(result, 64, "RUM.%d", rumInstanceCounter);
+  static char  result[64];
+  snprintf(result,sizeof(result),"RUM.%d",rumInstanceCounter);
   rumInstanceCounter++;
   return result;
 }
 
 static void registerRUMTraceComponents(const char* instanceName, TCHandle tcHandles[3]){
   memset(tcHandles,0,3*sizeof(TCHandle));  
-    llmRegisterTraceComponent(instanceName,300,"RUM_API",&(tcHandles[0]),NULL);
-    llmRegisterTraceComponent(instanceName,310,"RUM_RX",&(tcHandles[1]),NULL);
-    llmRegisterTraceComponent(instanceName,320,"RUM_TX",&(tcHandles[2]),NULL);
+  size_t instanceNameLen = strlen(instanceName);  //Calculate the length of the instance name up to null terminator 
+    llmRegisterTraceComponent(instanceName,300,"RUM_API",&(tcHandles[0]),instanceNameLen);
+    llmRegisterTraceComponent(instanceName,310,"RUM_RX",&(tcHandles[1]),instanceNameLen);
+    llmRegisterTraceComponent(instanceName,320,"RUM_TX",&(tcHandles[2]),instanceNameLen);
 }
 static void unregisterRUMTraceComponents(TCHandle tcHandles[3]){
   int i;
