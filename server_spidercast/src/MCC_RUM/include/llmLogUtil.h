@@ -120,7 +120,7 @@ LLM_API int llmRemoveInstanceLogConfig(const char* instanceName, int filterID, i
 *  errorCode - pointer to the error code
 *  return 0 on success 
 */
-LLM_API int	llmRegisterTraceComponent(const char* instanceName, int componentId, const COMPONENT_NAME componentName,
+LLM_API int	llmRegisterTraceComponent(const char* instanceName, int componentId, const char *componentName,
 									  TCHandle* pHandle, int *errorCode);
 
 /* Unregister trace component 
