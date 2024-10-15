@@ -50,10 +50,13 @@ size_t rmm_strllen(const char *src, size_t size)
   return rc;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+
 size_t rmm_strlcpy(char *dst, const char *src, size_t size)
 {
   size_t rc=0;
- //char *p, *q;
+  char *p, *q;
   const char *s;
 
   if ( src )
@@ -61,13 +64,10 @@ size_t rmm_strlcpy(char *dst, const char *src, size_t size)
     s = src ;
     if ( dst && size > 0 )
     {
-      size_t len =0; // new variable to track the index in dst
-      while ( len <  (size -1) && *s)  //updated while loop to use len for indexing
-      {
-        dst [len] = *s++;
-        len++;
-      }
-      dst[len] = '\0';
+      p = dst ;
+      q = p + (size - 1) ;
+      while ( p<q && *s ) *p++ = *s++ ;
+      *p=0;
     }
     while ( *s ) s++ ;
     rc = (s-src);
@@ -78,6 +78,8 @@ size_t rmm_strlcpy(char *dst, const char *src, size_t size)
 
   return rc;
 }
+
+#pragma GCC diagnostic pop
 
 char *rmm_strdup(const char *s)
 {
