@@ -50,6 +50,13 @@ size_t rmm_strllen(const char *src, size_t size)
   return rc;
 }
 
+// Disabling a specific array bounds warning in GCC due to a known false positive issue.
+// This section of code generates a warning for accessing outside array bounds, but after a review
+// in October 2024, we concluded it to be a false positive based on reports of such false positives
+// for this warning in GCC. The GCC meta-bug tracking this issue can be found here:
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=56456
+// GCC version where the false positive was observed: 11.4.1 
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
 
