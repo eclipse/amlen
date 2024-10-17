@@ -1599,10 +1599,11 @@ THREAD_RETURN_TYPE FireOutThread(void *param)
     while ( !done && nloops-- > 0 )
     {
       done = 1;
-      for (i=1; i < FIREOUT_ARRAY_SIZE ; i++)
+      for (i=1; i < FIREOUT_ARRAY_SIZE ; i++) {
         if ( rmmTRec[inst]->FO_Thrds[i] == THREAD_RUNNING ||
           rmmTRec[inst]->FO_Thrds[i] == THREAD_KILL )
           done = 0;
+      }
         Sleep(SHORT_SLEEP);
     }
   }
