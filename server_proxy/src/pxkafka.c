@@ -575,19 +575,40 @@ int ism_kafka_produceMetering(ism_transport_t * transport, kafka_meter_t * msgs)
     concat_alloc_t * buf = &cbuf;
     ism_ts_t * ts = ism_common_openTimestamp(ISM_TZF_UTC);
 
-    //ism_kafka_putInt4(buf, ProduceRequest0);
-    ism_kafka_putInt2(buf, ProduceRequest);        /*api key*/
-    ism_kafka_putInt2(buf, kafka_produce_version);      /*api version*/
-    ism_kafka_putInt4(buf, 1);        /* CorrID   */
-    ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+    /*
+     * flexible encoding for kafka_produce_version >= 9 (KafkaAPIVersion=3)
+     * Kafka 4.x removed support for ProduceRequest v0-v8.
+     */
+    int flex_produce = (kafka_produce_version >= 9);
 
-    ism_kafka_putInt2(buf, kafka_metering_ack);        /* ack*/
-    ism_kafka_putInt4(buf, 5000);     /* timeout*/
+    ism_kafka_putInt2(buf, ProduceRequest);              /* api key */
+    ism_kafka_putInt2(buf, kafka_produce_version);       /* api version */
+    ism_kafka_putInt4(buf, 1);                           /* CorrID   */
+    if (flex_produce) {
+        ism_kafka_putVarInt(buf, (int32_t)strlen(ism_common_getHostnameInfo()) + 1);
+        ism_common_allocBufferCopyLen(buf, ism_common_getHostnameInfo(), (int)strlen(ism_common_getHostnameInfo()));
+        ism_kafka_putInt1(buf, 0);     /* request header tagged-fields */
+        ism_kafka_putVarInt(buf, 0);   /* transactional_id: null compact string */
+    } else {
+        ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+        if (kafka_produce_version >= 3)
+            ism_kafka_putInt2(buf, -1); /* transactional_id: null legacy string */
+    }
 
-    ism_kafka_putInt4(buf, 1);        /* topic count*/
-    ism_kafka_putString(buf, kafka_metering_topic, -1);
-    ism_kafka_putInt4(buf, 1);        /* partition count */
-    ism_kafka_putInt4(buf, kafka_leader_part);   /* partition*/
+    ism_kafka_putInt2(buf, kafka_metering_ack);          /* ack */
+    ism_kafka_putInt4(buf, 5000);                        /* timeout */
+
+    if (flex_produce) {
+        ism_kafka_putVarInt(buf, 2);   /* compact-array: 1 topic (count+1) */
+        ism_kafka_putVarInt(buf, (int32_t)strlen(kafka_metering_topic) + 1);
+        ism_common_allocBufferCopyLen(buf, kafka_metering_topic, (int)strlen(kafka_metering_topic));
+        ism_kafka_putVarInt(buf, 2);   /* compact-array: 1 partition */
+    } else {
+        ism_kafka_putInt4(buf, 1);                       /* topic count */
+        ism_kafka_putString(buf, kafka_metering_topic, -1);
+        ism_kafka_putInt4(buf, 1);                       /* partition count */
+    }
+    ism_kafka_putInt4(buf, kafka_leader_part);           /* partition */
     int setsize = ism_protocol_reserveBuffer(buf, 4);
     if (kafka_message_version >= 2) {
         ism_kafka_addMeteringRecordBatch(transport, buf, msgs, ts);
@@ -604,6 +625,12 @@ int ism_kafka_produceMetering(ism_transport_t * transport, kafka_meter_t * msgs)
     ism_common_closeTimestamp(ts);
 
     TRACE(8, "Produce kafka metering: count=%u\n", msgcnt);
+
+    if (flex_produce) {
+        ism_kafka_putInt1(buf, 0);   /* per-partition tagged-fields */
+        ism_kafka_putInt1(buf, 0);   /* per-topic tagged-fields     */
+        ism_kafka_putInt1(buf, 0);   /* request body tagged-fields  */
+    }
 
     ism_kafka_putInt4At(buf, setsize, buf->used-setsize-4);
     rc = transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
@@ -785,11 +812,22 @@ static int kafkaMetadataConnected(ism_transport_t * transport, int rc) {
                 transport->client_host ? transport->client_host : "");
         transport->ready = 10;
         transport->state = ISM_TRANST_Open;
-        ism_kafka_putInt4(buf,MetadataRequest0);
-        ism_kafka_putInt4(buf, 0x10000);   /* Correlation ID */
-        ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);   /* Use our hostname as the kafka clientID */
-        ism_kafka_putInt4(buf, 1);         /* Count of topics */
-        ism_kafka_putString(buf, kafka_metering_topic, -1);  /* Metering topic */
+        /* Use MetadataRequest v4 for Kafka 4.x (kafka_api_version=3); v0 otherwise */
+        if (kafka_api_version >= 3) {
+            ism_kafka_putInt2(buf, MetadataRequest);     /* API key 3 */
+            ism_kafka_putInt2(buf, 4);                   /* version 4 */
+            ism_kafka_putInt4(buf, 0x10000);             /* Correlation ID */
+            ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+            ism_kafka_putInt4(buf, 1);
+            ism_kafka_putString(buf, kafka_metering_topic, -1);
+            ism_kafka_putInt1(buf, 0);                   /* allow_auto_topic_creation=false */
+        } else {
+            ism_kafka_putInt4(buf, MetadataRequest0);
+            ism_kafka_putInt4(buf, 0x10000);             /* Correlation ID */
+            ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+            ism_kafka_putInt4(buf, 1);
+            ism_kafka_putString(buf, kafka_metering_topic, -1);
+        }
         transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
     } else {
         /* The invoker will call close right after this, so nothing to do here */
@@ -809,11 +847,21 @@ static int kafkaIMMessagingMetadataRequest(ism_transport_t * transport) {
 	TRACE(5, "kafkaIMMessagingMetadataRequest: connect=%u broker=%s:%u host=%s\n",
 			transport->index, transport->server_addr, transport->serverport,
 			transport->client_host ? transport->client_host : "");
-	ism_kafka_putInt4(buf,MetadataRequest0);
-	ism_kafka_putInt4(buf, 0x20000);   /* Correlation ID */
-	ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);   /* Use our hostname as the kafka clientID */
-	ism_kafka_putInt4(buf, 1);         /* Count of topics */
-	ism_kafka_putString(buf, transport->pobj->topic, -1);  /* IM Messaging topic */
+	if (kafka_api_version >= 3) {
+	    ism_kafka_putInt2(buf, MetadataRequest);
+	    ism_kafka_putInt2(buf, 4);
+	    ism_kafka_putInt4(buf, 0x20000);
+	    ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+	    ism_kafka_putInt4(buf, 1);
+	    ism_kafka_putString(buf, transport->pobj->topic, -1);
+	    ism_kafka_putInt1(buf, 0);   /* allow_auto_topic_creation=false */
+	} else {
+	    ism_kafka_putInt4(buf, MetadataRequest0);
+	    ism_kafka_putInt4(buf, 0x20000);
+	    ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+	    ism_kafka_putInt4(buf, 1);
+	    ism_kafka_putString(buf, transport->pobj->topic, -1);
+	}
 	transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
     return 0;
 }
@@ -839,11 +887,21 @@ static int kafkaIMMessagingMetadataConnected(ism_transport_t * transport, int rc
         topicRecord->connectionErrorCount=0;
         topicRecord->connectionErrorFirstTimeInNanos=0;
         pthread_spin_unlock(&topicRecord->lock);
-        ism_kafka_putInt4(buf,MetadataRequest0);
-        ism_kafka_putInt4(buf, 0x20000);   /* Correlation ID */
-        ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);   /* Use our hostname as the kafka clientID */
-        ism_kafka_putInt4(buf, 1);         /* Count of topics */
-        ism_kafka_putString(buf, transport->pobj->topic, -1);  /* IM Messaging topic */
+        if (kafka_api_version >= 3) {
+            ism_kafka_putInt2(buf, MetadataRequest);
+            ism_kafka_putInt2(buf, 4);
+            ism_kafka_putInt4(buf, 0x20000);
+            ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+            ism_kafka_putInt4(buf, 1);
+            ism_kafka_putString(buf, transport->pobj->topic, -1);
+            ism_kafka_putInt1(buf, 0);   /* allow_auto_topic_creation=false */
+        } else {
+            ism_kafka_putInt4(buf, MetadataRequest0);
+            ism_kafka_putInt4(buf, 0x20000);
+            ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+            ism_kafka_putInt4(buf, 1);
+            ism_kafka_putString(buf, transport->pobj->topic, -1);
+        }
         transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
     } else {
         /* The invoker will call close right after this, so nothing to do here */
@@ -1381,14 +1439,16 @@ static const char * getJsonValue(ism_json_entry_t * ent) {
  * It is common in kafka to update these independently.  However, we will only update
  * as required.
  *
- * The following Kafka API versions are suported
- * 0 = Original message format without timestamp, produce without thorttle time in response
- * 1 = Message format with timestamp, produce response with throttle time
- * 2 = Record batch message format, and produce response with throttle time
+ * The following Kafka API versions are supported (proxy internal tiers):
+ * 0 = Original message format without timestamp, produce without throttle time in response
+ * 1 = Message format with timestamp, produce response with throttle time (Kafka 0.10)
+ * 2 = Record batch message format (magic=2), produce response with throttle time (Kafka 0.11-2.x)
+ * 3 = Record batch + flexible (compact) encoding, ProduceRequest v9 (Kafka 3.0+ / 4.x)
+ *     Required for Strimzi 1.x / Kafka 4.x which dropped ProduceRequest v0-v8.
  */
 int ism_kafka_setKafkaAPIVersion(int api_version) {
 	int rc;
-	if (api_version == 0 || api_version == 1 || api_version == 2) {
+	if (api_version >= 0 && api_version <= 3) {
 		TRACE(3, "setKafkaAPIVersion: old api_version=%d. new api_version=%d\n", kafka_api_version, api_version );
 		kafka_api_version = (uint32_t)api_version;
 		kafka_metadata_version = 0;
@@ -1399,12 +1459,16 @@ int ism_kafka_setKafkaAPIVersion(int api_version) {
 		    break;
 		case 1:   /* 0.10 */
 		    kafka_message_version = 1;
-            kafka_produce_version = 1;    /* Add throttle to produce response */
-            break;
-		case 2:   /* 0.11 */
+		    kafka_produce_version = 1;    /* Add throttle to produce response */
+		    break;
+		case 2:   /* 0.11 – 2.x */
 		    kafka_message_version = 2;    /* Use record batch  */
-            kafka_produce_version = 1;
-            break;
+		    kafka_produce_version = 1;
+		    break;
+		case 3:   /* 3.0+ / 4.x: RecordBatch + flexible encoding */
+		    kafka_message_version = 2;    /* RecordBatch (magic=2) unchanged */
+		    kafka_produce_version = 9;    /* Flexible encoding threshold */
+		    break;
 		}
 		rc = 0;
 	} else {
@@ -3178,25 +3242,47 @@ int ism_kafka_message_produce(ism_transport_t * transport, kafkaConnectionRecord
     concat_alloc_t cbuf = {xbuf, sizeof xbuf, 4};
     concat_alloc_t * buf = &cbuf;
 
-    ism_kafka_putInt2(buf, ProduceRequest);         /*api key */
-    ism_kafka_putInt2(buf, kafka_produce_version);  /* produce version */
-    ism_kafka_putInt4(buf, 1);                      /* CorrID   */
-    ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+    /*
+     * ProduceRequest flexible encoding for kafka_produce_version >= 9
+     * (KafkaAPIVersion=3 / Kafka 4.x).
+     */
+    int flex_produce = (kafka_produce_version >= 9);
 
-    /* 
+    ism_kafka_putInt2(buf, ProduceRequest);            /* api key */
+    ism_kafka_putInt2(buf, kafka_produce_version);     /* version */
+    ism_kafka_putInt4(buf, 1);                         /* CorrID  */
+    if (flex_produce) {
+        ism_kafka_putVarInt(buf, (int32_t)strlen(ism_common_getHostnameInfo()) + 1);
+        ism_common_allocBufferCopyLen(buf, ism_common_getHostnameInfo(), (int)strlen(ism_common_getHostnameInfo()));
+        ism_kafka_putInt1(buf, 0);     /* request header tagged-fields */
+        ism_kafka_putVarInt(buf, 0);   /* transactional_id: null compact string */
+    } else {
+        ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+        if (kafka_produce_version >= 3)
+            ism_kafka_putInt2(buf, -1); /* transactional_id: null legacy string */
+    }
+
+    /*
      * Set Produce Ack.
      * 0 = no ack
      * 1 = ack when the data is written to the leader log
      * -1 = ack when the data is written to all in sync replicas
      */
     ism_kafka_putInt2(buf, connRecord->topicRecord->kafka_produce_ack);
+    ism_kafka_putInt4(buf, 5000);     /* timeout */
 
-    ism_kafka_putInt4(buf, 5000);     /* timeout*/
-
-    ism_kafka_putInt4(buf, 1);        /* topic count*/
-    ism_kafka_putString(buf, connRecord->topic, -1);
-    ism_kafka_putInt4(buf, 1);        /* partition count */
-    ism_kafka_putInt4(buf, transport->pobj->partID);   /* partition*/
+    /* topic_data array */
+    if (flex_produce) {
+        ism_kafka_putVarInt(buf, 2);   /* compact-array: 1 topic (count+1) */
+        ism_kafka_putVarInt(buf, (int32_t)strlen(connRecord->topic) + 1);
+        ism_common_allocBufferCopyLen(buf, connRecord->topic, (int)strlen(connRecord->topic));
+        ism_kafka_putVarInt(buf, 2);   /* compact-array: 1 partition */
+    } else {
+        ism_kafka_putInt4(buf, 1);        /* topic count */
+        ism_kafka_putString(buf, connRecord->topic, -1);
+        ism_kafka_putInt4(buf, 1);        /* partition count */
+    }
+    ism_kafka_putInt4(buf, transport->pobj->partID);   /* partition */
     int setsize = ism_protocol_reserveBuffer(buf, 4);
 
     /*
@@ -3233,6 +3319,12 @@ int ism_kafka_message_produce(ism_transport_t * transport, kafkaConnectionRecord
 
 			}
         }
+    }
+
+    if (flex_produce) {
+        ism_kafka_putInt1(buf, 0);   /* per-partition tagged-fields */
+        ism_kafka_putInt1(buf, 0);   /* per-topic tagged-fields     */
+        ism_kafka_putInt1(buf, 0);   /* request body tagged-fields  */
     }
 
     ism_kafka_putInt4At(buf, setsize, buf->used-setsize-4);
