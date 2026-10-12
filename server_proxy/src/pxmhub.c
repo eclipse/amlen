@@ -96,6 +96,99 @@ static const char * mhubStateString(int state) {
 
 #define MetadataRequest0  0x00030000   /* with version 0 */
 
+/*
+ * Kafka 4.x "flexible" encoding thresholds (KIP-482).
+ * ProduceRequest v9+ and MetadataRequest v9+ use compact strings/arrays
+ * with trailing empty tagged-fields bytes in every request/response header.
+ * Kafka 4.0 removed support for ProduceRequest v0-v8 entirely.
+ */
+#define KAFKA_PRODUCE_FLEXIBLE_VERSION   9
+#define KAFKA_METADATA_FLEXIBLE_VERSION  9
+
+/*
+ * Write a compact (unsigned-varint prefixed) string as used in flexible
+ * Kafka headers (KIP-482).  Length is stored as (len+1); NULL uses 0.
+ */
+static void putKafkaCompactString(concat_alloc_t * buf, const char * value, int len) {
+    if (!value) {
+        ism_kafka_putVarInt(buf, 0);
+        return;
+    }
+    if (len < 0)
+        len = (int)strlen(value);
+    ism_kafka_putVarInt(buf, len + 1);
+    ism_common_allocBufferCopyLen(buf, value, len);
+}
+
+/*
+ * Read a compact string from a flexible Kafka response.
+ * Returns the string length; sets *str into buf (not null-terminated).
+ * Returns -1 for a null string.
+ */
+static int getKafkaCompactString(concat_alloc_t * buf, char ** str) {
+    int encoded = 0;
+    int shift = 0;
+    while (ism_kafka_more(buf) >= 0 && shift < 28) {
+        uint8_t b = (uint8_t)buf->buf[buf->pos++];
+        encoded |= ((int)(b & 0x7f)) << shift;
+        if (!(b & 0x80))
+            break;
+        shift += 7;
+    }
+    if (encoded == 0) {
+        *str = NULL;
+        return -1;
+    }
+    int slen = encoded - 1;
+    if (buf->pos + slen > buf->used) {
+        *str = NULL;
+        return -1;
+    }
+    *str = buf->buf + buf->pos;
+    buf->pos += slen;
+    return slen;
+}
+
+/*
+ * Read a compact array length (unsigned varint, value = count+1; 0 = null).
+ * Returns the element count, or -1 for null array.
+ */
+static int getKafkaCompactArrayLen(concat_alloc_t * buf) {
+    int encoded = 0;
+    int shift = 0;
+    while (ism_kafka_more(buf) >= 0 && shift < 28) {
+        uint8_t b = (uint8_t)buf->buf[buf->pos++];
+        encoded |= ((int)(b & 0x7f)) << shift;
+        if (!(b & 0x80))
+            break;
+        shift += 7;
+    }
+    return (encoded == 0) ? -1 : (encoded - 1);
+}
+
+/*
+ * Write a compact array length (unsigned varint, value = count+1).
+ */
+static void putKafkaCompactArrayLen(concat_alloc_t * buf, int count) {
+    ism_kafka_putVarInt(buf, count + 1);
+}
+
+/*
+ * Append an empty tagged-fields section (single 0x00 byte).
+ * Required after every flexible-encoded header and body field (KIP-482).
+ */
+static void putKafkaTagBuf(concat_alloc_t * buf) {
+    ism_kafka_putInt1(buf, 0);
+}
+
+/*
+ * Skip the empty tagged-fields byte in a flexible Kafka response.
+ */
+static void skipKafkaTagBuf(concat_alloc_t * buf) {
+    if (ism_kafka_more(buf) >= 0)
+        buf->pos++;
+}
+
 
 #define BILLION        	1000000000L
 #define MILLION			1000000L
@@ -2699,7 +2792,14 @@ char * ism_mhub_toString(ism_mhub_t * mhub) {
 }
 
 /*
- * Map from a single API version to the other versions to use
+ * Map from a single API version to the other versions to use.
+ *
+ * Tier 0  – Kafka 0.9   (no timestamps, produce v0)
+ * Tier 1  – Kafka 0.10  (timestamps, produce v1)
+ * Tier 2  – Kafka 0.11-2.x (RecordBatch/magic=2, produce v1)
+ * Tier 3  – Kafka 3.0+ / 4.x: RecordBatch + flexible encoding.
+ *           ProduceRequest v9+ (compact strings/arrays, tagged-fields).
+ *           Kafka 4.0 made v9 the minimum; Kafka 4.2 reports verProduce=12.
  */
 void ism_mhub_mapKafkaVersion(ism_mhub_t * mhub, int version) {
      if (version >= 0x20)
@@ -2713,13 +2813,23 @@ void ism_mhub_mapKafkaVersion(ism_mhub_t * mhub, int version) {
          mhub->produceVersion = 0;
          break;
      case 1:   /* 0.10 */
-     default:
          mhub->messageVersion = 1;
          mhub->produceVersion = 1;
          break;
-     case 2:   /* 0.11 */
+     case 2:   /* 0.11 – 2.x */
+     default:
          mhub->messageVersion = 2;
          mhub->produceVersion = 1;
+         break;
+     case 3:   /* 3.0+ / 4.x: flexible encoding, produce version from broker */
+         mhub->messageVersion = 2;   /* RecordBatch (magic=2) unchanged */
+         /* Use broker-reported produce version, clamped to flexible threshold */
+         if (mhub->verProduce >= KAFKA_PRODUCE_FLEXIBLE_VERSION)
+             mhub->produceVersion = KAFKA_PRODUCE_FLEXIBLE_VERSION;
+         else if (mhub->verProduce >= 1)
+             mhub->produceVersion = (uint8_t)mhub->verProduce;
+         else
+             mhub->produceVersion = 1;
          break;
      }
 }
@@ -3214,13 +3324,30 @@ static int mhubReceiveKafka(ism_transport_t * transport, char * inbuf, int bufle
    // }
 
     /*
-     * Parse an ProduceResponse (ACK)
+     * Parse a ProduceResponse (ACK).
+     * v0-v8  – legacy: INT32 array length, INT16 strings.
+     * v9+    – flexible: compact-array length (varint), compact strings,
+     *          per-partition/topic/response tagged-fields bytes.
      */
+    int flex_rsp = (mhub->produceVersion >= KAFKA_PRODUCE_FLEXIBLE_VERSION);
     now = ism_common_currentTimeNanos();
-    response_count = ism_kafka_getInt4(buf);
+    if (flex_rsp) {
+        response_count = getKafkaCompactArrayLen(buf);
+        if (response_count < 0) response_count = 0;
+    } else {
+        response_count = ism_kafka_getInt4(buf);
+    }
     for (i=0; i< response_count; i++) {
-        topiclen = ism_kafka_getString(buf, &topicname);
-        part_count = ism_kafka_getInt4(buf);       /* partition count */
+        if (flex_rsp)
+            topiclen = getKafkaCompactString(buf, &topicname);
+        else
+            topiclen = ism_kafka_getString(buf, &topicname);
+        if (flex_rsp) {
+            part_count = getKafkaCompactArrayLen(buf);
+            if (part_count < 0) part_count = 0;
+        } else {
+            part_count = ism_kafka_getInt4(buf);       /* partition count */
+        }
         for (p=0; p<part_count; p++) {
             partid = ism_kafka_getInt4(buf);
             partrc = ism_kafka_getInt2(buf);
@@ -3228,8 +3355,14 @@ static int mhubReceiveKafka(ism_transport_t * transport, char * inbuf, int bufle
             if (mhub->produceVersion >= 2) {
                 timestamp = ism_kafka_getInt8(buf);
             }
+            if (flex_rsp) {
+                ism_kafka_getInt4(buf);   /* log_start_offset (v5+) */
+                skipKafkaTagBuf(buf);     /* per-partition tagged-fields */
+            }
             needmetadata += produceResponse(mhub, topicname, topiclen, partid, partrc, offset, timestamp);
         }
+        if (flex_rsp)
+            skipKafkaTagBuf(buf);         /* per-topic tagged-fields */
     }
     if (mhub->produceVersion >= 1) {
         throttle_time = ism_kafka_getInt4(buf);    /* We do not use this */
@@ -3240,6 +3373,8 @@ static int mhubReceiveKafka(ism_transport_t * transport, char * inbuf, int bufle
             TRACE(7, "MHUB KafkaProduceResponse: throttle=%u totalThrottleTime=%llu\n", (uint32_t)throttle_time, (ULL) total_throttle_time);
         }
     }
+    if (flex_rsp)
+        skipKafkaTagBuf(buf);             /* response body tagged-fields */
 
     /*
      * Request metadata
@@ -3387,9 +3522,36 @@ static int receiveApiVersions(ism_transport_t * transport, concat_alloc_t * buf)
     ism_mhub_t * mhub = (ism_mhub_t *)(transport->server);
     int  i;
     int  verElect = -1;
+
+    /*
+     * Kafka 4.x returns ApiVersionsResponse v3 using flexible (compact)
+     * encoding: error_code(INT16), api_keys(compact-array), throttle_time(INT32),
+     * tagged-fields(0x00).
+     * Kafka <4.x returns v0/v1/v2 with a plain INT32 array count and no
+     * tagged-fields byte.
+     *
+     * Detection: after reading the INT16 error code, peek at the next byte.
+     * In the flexible format the compact-array length is a varint where
+     * (count+1) >= 2 for any non-empty response, so the byte is >= 2.
+     * In the legacy format the first byte of the INT32 count is 0x00 for
+     * any realistic count (<16M entries).
+     */
     int krc = ism_kafka_getInt2(buf);
     if (!krc) {
-         int count = ism_kafka_getInt4(buf);
+         int flexible = 0;
+         if (ism_kafka_more(buf) >= 0) {
+             uint8_t peek = (uint8_t)buf->buf[buf->pos];
+             flexible = (peek >= 2) ? 1 : 0;
+         }
+
+         int count;
+         if (flexible) {
+             count = getKafkaCompactArrayLen(buf);
+             if (count < 0) count = 0;
+         } else {
+             count = ism_kafka_getInt4(buf);
+         }
+
          ism_mhub_lock(mhub);
          if (!mhub->versionKnown) {
              mhub->verSaslAuthenticate = 0xff;
@@ -3401,6 +3563,8 @@ static int receiveApiVersions(ism_transport_t * transport, concat_alloc_t * buf)
                  int api = ism_kafka_getInt2(buf);
                  int minver = ism_kafka_getInt2(buf);
                  int maxver = ism_kafka_getInt2(buf);
+                 if (flexible)
+                     skipKafkaTagBuf(buf);    /* per-entry tagged-fields (KIP-482) */
                  if (minver != 0) {
                      TRACE(9, "Kafka ApiVersions API=%u min=%u max=%u\n", api, minver, maxver);
                  }
@@ -3421,43 +3585,66 @@ static int receiveApiVersions(ism_transport_t * transport, concat_alloc_t * buf)
                  else if (api == ElectPreferredLeader)
                      verElect = maxver;
              }
+             if (flexible) {
+                 ism_kafka_getInt4(buf);   /* throttle_time_ms (v1+) */
+                 skipKafkaTagBuf(buf);     /* top-level tagged-fields */
+             }
          }
 
          /*
-          * Find kafka version from ApiVersions output.
-          * This is just used for log and trace information
+          * Map verProduce to a human-readable Kafka version string.
+          * verProduce values:  9=3.0, 10=3.3, 11=4.0, 12=4.2
           */
          const char * kver = "before 0.10";
          switch (mhub->verProduce) {
-         case 2: kver = "0.10";   break;
-         case 3: kver = "0.11";   break;
-         case 4: kver = "1.0";    break;
-         case 5: kver = "1.1";    break;
-         case 6: kver = "2.0";    break;
+         case 2:  kver = "0.10";  break;
+         case 3:  kver = "0.11";  break;
+         case 4:  kver = "1.0";   break;
+         case 5:  kver = "1.1";   break;
+         case 6:  kver = "2.0";   break;
+         case 7:  kver = "2.1";   break;
+         case 8:  kver = "2.4";   break;
+         case 9:  kver = "3.0";   break;
+         case 10: kver = "3.3";   break;
+         case 11: kver = "4.0";   break;
+         case 12: kver = "4.2";   break;
          default:
-             kver = "after 2.3";
-             if (mhub->verFetch == 10) {
-                 if (verElect == -1)
-                     kver = "2.1";
-                 else
-                     kver = "2.2";
-             }
-             if (mhub->verFetch == 11) {
-                  kver = "2.3";
+             if (mhub->verProduce > 12)
+                 kver = "after 4.2";
+             else {
+                 kver = "after 2.3";
+                 if (mhub->verFetch == 10) {
+                     if (verElect == -1)
+                         kver = "2.1";
+                     else
+                         kver = "2.2";
+                 }
+                 if (mhub->verFetch == 11) {
+                     kver = "2.3";
+                 }
              }
              break;
          }
          mhub->kafka_version = kver;   /* Value is always a constant */
-         /* IF we are version 1.0 or above, map to msgfmt=2 unless it is explicitly overridden */
+
+         /*
+          * Auto-select encoding tier when MessageHubAPIVersion is not pinned.
+          * Tier 3 is required for Kafka 4.x (verProduce >= 9, flexible encoding).
+          * Tier 2 is used for Kafka 0.11-3.x (RecordBatch, legacy encoding).
+          */
          if (mhub->verProduce >= 4 && mhub->apiVersion < 2) {
-             int mhubver = ism_common_getIntConfig("MessageHubAPIVersion", 2);
-             if (mhubver < 0 && mhubver > 2)
+             int mhubver = ism_common_getIntConfig("MessageHubAPIVersion", -1);
+             if (mhubver < 0) {
+                 mhubver = (mhub->verProduce >= KAFKA_PRODUCE_FLEXIBLE_VERSION) ? 3 : 2;
+             }
+             if (mhubver < 0 || mhubver > 3)
                  mhubver = 2;
              ism_mhub_mapKafkaVersion(mhub, mhubver);
          }
          ism_mhub_unlock(mhub);
-         TRACE(4, "Kafka version %s: mhub=%s produce=%u fetch=%u metadata=%u saslHandshake=%u saslAuthenticate=%u\n",
-                 kver, mhub->id, mhub->verProduce, mhub->verFetch, mhub->verMetadata, mhub->verSaslHandshake, mhub->verSaslAuthenticate);
+         TRACE(4, "Kafka version %s: mhub=%s produce=%u fetch=%u metadata=%u saslHandshake=%u saslAuthenticate=%u flexible=%d\n",
+                 kver, mhub->id, mhub->verProduce, mhub->verFetch, mhub->verMetadata,
+                 mhub->verSaslHandshake, mhub->verSaslAuthenticate, flexible);
     }
     return 0;
 }
@@ -3986,30 +4173,66 @@ static void mhubMetadataRequest(ism_mhub_t * mhub, ism_transport_t * transport) 
     concat_alloc_t cbuf = {xbuf, sizeof xbuf, 4};
     concat_alloc_t * buf = &cbuf;
     int topic_count = 0;
-    int topic_count_pos;
     int i;
 
     if (g_shuttingDown)
         return;
 
-    ism_kafka_putInt4(buf, MetadataRequest0);
-    ism_kafka_putInt4(buf, 0x20000);   /* Correlation ID */
-    ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);   /* Use our hostname as the kafka clientID */
-    topic_count_pos = buf->used;
-    buf->used += 4;
+    /*
+     * Choose MetadataRequest version based on what the broker reported.
+     * v0   – original legacy format; Kafka 4.x dropped support for v0-v3.
+     * v4   – adds allow_auto_topic_creation field (Kafka 2.4+).
+     * v9+  – flexible encoding: compact strings/arrays + tagged-fields.
+     */
+    uint8_t meta_ver = 0;
+    if (mhub->verMetadata >= KAFKA_METADATA_FLEXIBLE_VERSION)
+        meta_ver = KAFKA_METADATA_FLEXIBLE_VERSION;
+    else if (mhub->verMetadata >= 4)
+        meta_ver = 4;
+
+    int flexible_meta = (meta_ver >= KAFKA_METADATA_FLEXIBLE_VERSION);
+
+    ism_kafka_putInt2(buf, MetadataRequest);    /* API key = 3 */
+    ism_kafka_putInt2(buf, meta_ver);           /* version   */
+    ism_kafka_putInt4(buf, 0x20000);            /* Correlation ID */
+    if (flexible_meta) {
+        putKafkaCompactString(buf, ism_common_getHostnameInfo(), -1);
+        putKafkaTagBuf(buf);                    /* request header tagged-fields */
+    } else {
+        ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+    }
+
+    /* topic array */
+    if (flexible_meta) {
+        putKafkaCompactArrayLen(buf, mhub->topiccount);
+    } else {
+        ism_kafka_putInt4(buf, mhub->topiccount);
+    }
     for (i=0; i<mhub->topiccount; i++) {
         mhub_topic_t * topic = mhub->topics[i];
-        ism_kafka_putString(buf, topic->name, -1);
+        if (flexible_meta) {
+            putKafkaCompactString(buf, topic->name, -1);
+            putKafkaTagBuf(buf);                /* per-topic tagged-fields */
+        } else {
+            ism_kafka_putString(buf, topic->name, -1);
+        }
         TRACE(5, "MessageHub MetadataRequest for topic: %s\n", topic->name);
         topic_count++;
     }
-    ism_kafka_putInt4At(buf, topic_count_pos, topic_count);
-    ism_kafka_putString(buf, transport->pobj->topic, -1);
 
-    //LOG when to send the Metadata Request with server info
+    if (meta_ver >= 4) {
+        ism_kafka_putInt1(buf, 0);              /* allow_auto_topic_creation = false */
+    }
+    if (flexible_meta) {
+        putKafkaTagBuf(buf);                    /* request body tagged-fields */
+    } else {
+        /* v0 legacy: extra trailing topic string used as a filter */
+        ism_kafka_putString(buf, transport->pobj->topic, -1);
+    }
+
     LOG(INFO, Server, 979, "%u%s%s%u%s", "MessageHub metadatarequest submitted: connect={0} name={1} server_addr={2} server_port={3} broker={4}",
     		transport->index, transport->name, transport->server_addr, transport->serverport,
-			(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
+		(mhub->trybroker>0)?mhub->brokers[mhub->trybroker-1]:mhub->brokers[0]);
 
     transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
 }
@@ -4106,6 +4329,17 @@ static void sendSASL(ism_transport_t * transport, concat_alloc_t * buf, int kind
     int userlen;
     int passwordlen;
     buf->used = 4;
+
+    /*
+     * Use the broker-reported SaslAuthenticate API version.
+     * v0 – legacy length-prefixed payload (all Kafka versions).
+     * v2 – flexible encoding (compact bytes + tagged-fields, Kafka 2.0+).
+     * We support up to v2; clamp if broker reported higher.
+     */
+    uint8_t sasl_auth_ver = 0;
+    if (mhub->verSaslAuthenticate != 0xff && mhub->verSaslAuthenticate >= 2)
+        sasl_auth_ver = 2;
+
     if (kind == 2) {
         userlen = mhub->username ? strlen(mhub->username) : 0;
 
@@ -4113,10 +4347,12 @@ static void sendSASL(ism_transport_t * transport, concat_alloc_t * buf, int kind
             //Sasl PLAIN
             passwordlen = mhub->password ? strlen(mhub->password) : 0;
             if (!transport->pobj->auth_require) {
-                ism_kafka_putInt2(buf, 36);  /* SaslAuthenticate */
-                ism_kafka_putInt2(buf, 0);
-                ism_kafka_putInt4(buf, 0x30002);  /* SaslAuthenticte response */
+                ism_kafka_putInt2(buf, SaslAuthenticateRequest);  /* API key 36 */
+                ism_kafka_putInt2(buf, sasl_auth_ver);
+                ism_kafka_putInt4(buf, 0x30002);  /* SaslAuthenticate correlation ID */
                 ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1);
+                if (sasl_auth_ver >= 2)
+                    putKafkaTagBuf(buf);          /* request header tagged-fields */
                 ism_kafka_putInt4(buf, 2 + userlen + passwordlen);
             }
             ism_kafka_putInt1(buf, 0);
@@ -4125,8 +4361,10 @@ static void sendSASL(ism_transport_t * transport, concat_alloc_t * buf, int kind
             ism_kafka_putInt1(buf, 0);
             if (passwordlen)
                 ism_json_putBytes(buf, mhub->password);
+            if (sasl_auth_ver >= 2)
+                putKafkaTagBuf(buf);              /* request body tagged-fields */
             transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
-            TRACE(7, "Send SaslAuthenticate: connect=%u name=%s\n", transport->index, transport->name);
+            TRACE(7, "Send SaslAuthenticate: connect=%u name=%s ver=%u\n", transport->index, transport->name, sasl_auth_ver);
 
         }else if(mhub->sasl_mechanism == SASL_MECHANISM_SCRAM_SHA_512  || mhub->sasl_mechanism == SASL_MECHANISM_SCRAM_SHA_256) {
             //Sasl SCRAM
@@ -4143,10 +4381,12 @@ static void sendSASL(ism_transport_t * transport, concat_alloc_t * buf, int kind
                 ism_sasl_scram_build_client_first_message(transport->pobj->sals_scram_context, mhub->username, &first_msg_buf);
 
                 if (!transport->pobj->auth_require) {
-                    ism_kafka_putInt2(buf, 36);  /* API Key SaslAuthenticate */
-                    ism_kafka_putInt2(buf, 0);   /* API version*/
-                    ism_kafka_putInt4(buf, 0x30002);  /*CorrelationID: SaslAuthenticte response */
+                    ism_kafka_putInt2(buf, SaslAuthenticateRequest);  /* API key 36 */
+                    ism_kafka_putInt2(buf, sasl_auth_ver);
+                    ism_kafka_putInt4(buf, 0x30002);  /* SaslAuthenticate correlation ID */
                     ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1); /*Client ID*/
+                    if (sasl_auth_ver >= 2)
+                        putKafkaTagBuf(buf);      /* request header tagged-fields */
                     ism_kafka_putInt4(buf, first_msg_buf.used); //body length
                 }
                 char * first_message = alloca(first_msg_buf.used+1);
@@ -4156,12 +4396,14 @@ static void sendSASL(ism_transport_t * transport, concat_alloc_t * buf, int kind
                 TRACE(9, "SaslAuthenticate for SASL SCRAM: connect=%u name=%s clientFirstMsg=%s firstMsgLen=%d\n", transport->index, transport->name, context->client_first_msg_bare, context->client_first_msg_bare_size);
 
                 ism_common_allocBufferCopyLen(buf, first_msg_buf.buf, first_msg_buf.used );
+                if (sasl_auth_ver >= 2)
+                    putKafkaTagBuf(buf);          /* request body tagged-fields */
 
                 //Free temp buffer
                 ism_common_freeAllocBuffer(&first_msg_buf);
 
                 transport->pobj->sals_scram_context->state = SASL_SCRAM_STATE_CLIENT_FIRST_MESSAGE;
-                TRACE(7, "Send SaslAuthenticate for SASL SCRAM: connect=%u name=%s sasl_state=%d\n", transport->index, transport->name, context->state);
+                TRACE(7, "Send SaslAuthenticate for SASL SCRAM: connect=%u name=%s sasl_state=%d ver=%u\n", transport->index, transport->name, context->state, sasl_auth_ver);
 
                 transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
 
@@ -4180,21 +4422,25 @@ static void sendSASL(ism_transport_t * transport, concat_alloc_t * buf, int kind
                 ism_sasl_scram_build_client_final_message_buffer(context,mhub->password, context->server_response_props, &client_final_message_outbuf);
 
                 if (!transport->pobj->auth_require) {
-                   ism_kafka_putInt2(buf, 36);  /* API Key SaslAuthenticate */
-                   ism_kafka_putInt2(buf, 0);   /* API version*/
-                   ism_kafka_putInt4(buf, 0x30002);  /*CorrelationID: SaslAuthenticte response */
+                   ism_kafka_putInt2(buf, SaslAuthenticateRequest);  /* API key 36 */
+                   ism_kafka_putInt2(buf, sasl_auth_ver);
+                   ism_kafka_putInt4(buf, 0x30002);  /* SaslAuthenticate correlation ID */
                    ism_kafka_putString(buf, ism_common_getHostnameInfo(), -1); /*Client ID*/
+                   if (sasl_auth_ver >= 2)
+                       putKafkaTagBuf(buf);       /* request header tagged-fields */
                    ism_kafka_putInt4(buf, client_final_message_outbuf.used); //body length
                }
 
                 ism_common_allocBufferCopyLen(buf, client_final_message_outbuf.buf, client_final_message_outbuf.used );
+                if (sasl_auth_ver >= 2)
+                    putKafkaTagBuf(buf);          /* request body tagged-fields */
 
                 //Free temp buffer
                 ism_common_freeAllocBuffer(&client_final_message_outbuf);
 
                 context->state = SASL_SCRAM_STATE_CLIENT_FINAL_MESSAGE;
-                TRACE(7, "Send SaslAuthenticate for SASL SCRAM: connect=%u name=%s sasl_state=%d \n", transport->index, transport->name,
-                                                                          context->state);
+                TRACE(7, "Send SaslAuthenticate for SASL SCRAM: connect=%u name=%s sasl_state=%d ver=%u\n", transport->index, transport->name,
+                                                                          context->state, sasl_auth_ver);
                 transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
             }
         }
@@ -4214,7 +4460,7 @@ static void sendSASL(ism_transport_t * transport, concat_alloc_t * buf, int kind
             transport->send(transport, buf->buf+4, buf->used-4, 0, SFLAG_FRAMESPACE);
             TRACE(7, "Send SASL connect=%u name=%s\n", transport->index, transport->name);
         } else {
-            ism_kafka_putInt2(buf, 17);    /* SaslHandshakeRequest */
+            ism_kafka_putInt2(buf, SaslHandshakeRequest);
             if (mhub->verSaslHandshake == 0) {
                 ism_kafka_putInt2(buf, 0);
                 transport->pobj->auth_require = 1;
@@ -4223,7 +4469,7 @@ static void sendSASL(ism_transport_t * transport, concat_alloc_t * buf, int kind
                 ism_kafka_putInt2(buf, 1);
                 transport->pobj->auth_require = 0;
             }
-            ism_kafka_putInt4(buf, 0x30000);  /* SaslHandshakeRequest */
+            ism_kafka_putInt4(buf, 0x30000);  /* SaslHandshakeRequest correlation ID */
             ism_kafka_putString(buf, transport->name, -1);
             if(mhub->sasl_mechanism == SASL_MECHANISM_PLAIN){
                 ism_kafka_putString(buf, "PLAIN", -1);
@@ -4274,10 +4520,21 @@ static int ism_mhub_connected(ism_transport_t * transport, int rc) {
     transport->pobj->auth_require = 0;
 
     if (mhub->versionKnown == 0) {
-        ism_kafka_putInt2(&buf, 18);    /* ApiVersionReqeuset */
-        ism_kafka_putInt2(&buf, 0);     /* No headers */
-        ism_kafka_putInt4(&buf, 0x30003);
-        ism_kafka_putString(&buf, transport->name, -1);
+        /*
+         * Send ApiVersionsRequest v3 (flexible encoding, KIP-482).
+         * v3 is accepted by Kafka 2.4+. Older brokers respond with an error
+         * but still include their supported version range, which is enough
+         * for negotiation.  Format:
+         *   apiKey(2) apiVersion(2) correlationId(4)
+         *   clientId(compact-string) header-tagged-fields(0x00)
+         *   body-tagged-fields(0x00)
+         */
+        ism_kafka_putInt2(&buf, ApiVersionsRequest);         /* API key 18 */
+        ism_kafka_putInt2(&buf, 3);                          /* version 3 (flexible) */
+        ism_kafka_putInt4(&buf, 0x30003);                    /* Correlation ID */
+        putKafkaCompactString(&buf, transport->name, -1);    /* clientId */
+        putKafkaTagBuf(&buf);                                /* request header tagged-fields */
+        putKafkaTagBuf(&buf);                                /* request body tagged-fields */
         transport->send(transport, buf.buf+4, buf.used-4, 0, SFLAG_FRAMESPACE);
         return 0;
     } else {
@@ -4953,10 +5210,28 @@ int ism_mhub_message_produce(ism_transport_t * transport, ism_mhub_t * mhub, mhu
     concat_alloc_t cbuf = {xbuf, sizeof xbuf, 4};
     concat_alloc_t * buf = &cbuf;
 
-    ism_kafka_putInt2(buf, ProduceRequest);         /* Api key */
-    ism_kafka_putInt2(buf, mhub->produceVersion);  /* produce version */
-    ism_kafka_putInt4(buf, 1);                      /* CorrID   */
-    ism_kafka_putString(buf, transport->name, -1);
+    /*
+     * ProduceRequest.
+     * v0-v8  – legacy encoding (INT16 strings, INT32 arrays).
+     * v9+    – flexible encoding: compact strings/arrays + tagged-fields.
+     *          Kafka 4.0 removed support for v0-v8; v9 is the minimum.
+     */
+    int flex_produce = (mhub->produceVersion >= KAFKA_PRODUCE_FLEXIBLE_VERSION);
+
+    ism_kafka_putInt2(buf, ProduceRequest);            /* API key  */
+    ism_kafka_putInt2(buf, mhub->produceVersion);      /* version  */
+    ism_kafka_putInt4(buf, 1);                         /* CorrID   */
+    if (flex_produce) {
+        putKafkaCompactString(buf, transport->name, -1);
+        putKafkaTagBuf(buf);                           /* request header tagged-fields */
+        /* transactional_id: null compact string (non-transactional producer) */
+        ism_kafka_putVarInt(buf, 0);
+    } else {
+        ism_kafka_putString(buf, transport->name, -1);
+        /* transactional_id (v3-v8): null legacy string */
+        if (mhub->produceVersion >= 3)
+            ism_kafka_putInt2(buf, -1);
+    }
 
     /*
      * Set Produce Ack.
@@ -4965,13 +5240,19 @@ int ism_mhub_message_produce(ism_transport_t * transport, ism_mhub_t * mhub, mhu
      * -1 = ack when the data is written to all in sync replicas
      */
     ism_kafka_putInt2(buf, mhub->mhubACK);
+    ism_kafka_putInt4(buf, 5000);     /* timeout */
 
-    ism_kafka_putInt4(buf, 5000);     /* timeout*/
-
-    ism_kafka_putInt4(buf, 1);        /* topic count*/
-    ism_kafka_putString(buf, mhub_part->topic->name, -1);
-    ism_kafka_putInt4(buf, 1);        /* partition count */
-    ism_kafka_putInt4(buf, transport->pobj->partID);   /* partition*/
+    /* topic_data array */
+    if (flex_produce) {
+        putKafkaCompactArrayLen(buf, 1);               /* 1 topic */
+        putKafkaCompactString(buf, mhub_part->topic->name, -1);
+        putKafkaCompactArrayLen(buf, 1);               /* 1 partition */
+    } else {
+        ism_kafka_putInt4(buf, 1);                     /* topic count */
+        ism_kafka_putString(buf, mhub_part->topic->name, -1);
+        ism_kafka_putInt4(buf, 1);                     /* partition count */
+    }
+    ism_kafka_putInt4(buf, transport->pobj->partID);   /* partition */
     int setsize = ism_protocol_reserveBuffer(buf, 4);
 
     //Get the time of the first message for stat
@@ -5013,6 +5294,12 @@ int ism_mhub_message_produce(ism_transport_t * transport, ism_mhub_t * mhub, mhu
 
 			}
         }
+    }
+
+    if (flex_produce) {
+        putKafkaTagBuf(buf);    /* per-partition tagged-fields */
+        putKafkaTagBuf(buf);    /* per-topic tagged-fields     */
+        putKafkaTagBuf(buf);    /* request body tagged-fields  */
     }
 
     //Record the BatchWait of the batch
