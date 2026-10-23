@@ -1724,7 +1724,7 @@ static int makeKafkaCon(ism_json_parse_t * parseobj, int where, ism_tenant_t * t
                 rc = ISMRC_BadPropertyValue;
             }
         } else if (!strcmp(ent->name, "KafkaAPIVersion")) {
-            if ((ent->objtype != JSON_Integer || ent->count < 0 || ent->count > 2) && ent->objtype != JSON_Null) {
+            if ((ent->objtype != JSON_Integer || ent->count < 0 || ent->count > 3) && ent->objtype != JSON_Null) {
                 ism_common_setErrorData(ISMRC_BadPropertyValue, "%s%s", ent->name, ism_json_getJsonValue(ent));
                 rc = ISMRC_BadPropertyValue;
             }
